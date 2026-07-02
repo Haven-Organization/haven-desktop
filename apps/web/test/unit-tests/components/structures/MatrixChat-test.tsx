@@ -645,8 +645,6 @@ describe("<MatrixChat />", () => {
 
         describe("when login succeeds", () => {
             beforeEach(() => {
-                //localStorage.setItem("mx_access_token", accessToken);
-
                 jest.spyOn(StorageAccess, "idbLoad").mockImplementation(
                     async (_table: string, key: string | string[]) => (key === "mx_access_token" ? accessToken : null),
                 );
