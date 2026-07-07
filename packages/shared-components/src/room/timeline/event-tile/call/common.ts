@@ -20,20 +20,9 @@ export const enum CallType {
 }
 
 /**
- * The snapshot that both the call started and call declined tiles expect.
+ * Whether the call is incoming or outgoing.
  */
-export type CallTileViewSnapshot = {
-    /**
-     * What type of call this tile needs to render for.
-     */
-    type: CallType;
-    /**
-     * Time when this call was started.
-     */
-    timestamp: string;
-    /**
-     * Whether this call was declined by our user.
-     * Undefined if not rendering a declined call tile.
-     */
-    isCallDeclinedByUs?: boolean;
-};
+export const enum CallDirection {
+    Incoming = "Incoming",
+    Outgoing = "Outgoing",
+}
