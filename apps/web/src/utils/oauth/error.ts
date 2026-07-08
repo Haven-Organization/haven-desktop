@@ -7,7 +7,7 @@ Please see LICENSE files in the repository root for full details.
 */
 
 import { type ReactNode } from "react";
-import { OidcError } from "matrix-js-sdk/src/oidc/error";
+import { OAuth2Error } from "matrix-js-sdk/src/matrix";
 
 import { _t } from "../../languageHandler";
 
@@ -15,8 +15,7 @@ import { _t } from "../../languageHandler";
  * Errors thrown by EW during OIDC native flow authentication.
  * Intended to be logged, not read by users.
  */
-export enum OidcClientError {
-    InvalidQueryParameters = "Invalid query parameters for OIDC native login. `code` and `state` are required.",
+export enum OAuthClientError {
     InvalidFragmentParameters = "Invalid fragment parameters for OIDC native login. `code` and `state` are required.",
 }
 
@@ -26,15 +25,13 @@ export enum OidcClientError {
  * @param error
  * @returns a friendly translated error message for user consumption
  */
-export const getOidcErrorMessage = (error: Error): string | ReactNode => {
+export const getOAuthErrorMessage = (error: Error): string | ReactNode => {
     switch (error.message) {
-        case OidcError.MissingOrInvalidStoredState:
+        case OAuth2Error.MissingOrInvalidStoredState:
             return _t("auth|oidc|missing_or_invalid_stored_state");
-        case OidcClientError.InvalidQueryParameters:
-        case OidcClientError.InvalidFragmentParameters:
-        case OidcError.CodeExchangeFailed:
-        case OidcError.InvalidBearerTokenResponse:
-        case OidcError.InvalidIdToken:
+        case OAuthClientError.InvalidFragmentParameters:
+        case OAuth2Error.CodeExchangeFailed:
+        case OAuth2Error.InvalidBearerTokenResponse:
         default:
             return _t("auth|oidc|generic_auth_error");
     }
