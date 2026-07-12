@@ -43,6 +43,7 @@ import SdkConfig from "../../../../../SdkConfig";
 import { shouldForceDisableEncryption } from "../../../../../utils/crypto/shouldForceDisableEncryption";
 import { Caption } from "../../../typography/Caption";
 import { MEGOLM_ENCRYPTION_ALGORITHM } from "../../../../../utils/crypto";
+import { socialRoomKind } from "../../../../../../../../../src/apps/social/utils/room-classifier";
 
 interface IProps {
     room: Room;
@@ -116,39 +117,72 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
     };
 
     private onEncryptionChange = async (): Promise<void> => {
+        // haven apps-framework patch: "room"/"rooms" -> "profile(s)"/"group(s)" wording swap for a
+        // Social room - unchanged for a regular room.
+        const kind = socialRoomKind(this.props.room);
+        const noun = kind === "profile" ? "profile" : kind === "group" ? "group" : "room";
+        const nounPlural = kind ? `${noun}s` : "rooms";
         if (this.props.room.getJoinRule() === JoinRule.Public) {
             const dialog = Modal.createDialog(QuestionDialog, {
-                title: _t("room_settings|security|enable_encryption_public_room_confirm_title"),
+                title: kind
+                    ? `Are you sure you want to add encryption to this public ${noun}?`
+                    : _t("room_settings|security|enable_encryption_public_room_confirm_title"),
                 description: (
                     <div>
                         <p>
                             {" "}
-                            {_t(
-                                "room_settings|security|enable_encryption_public_room_confirm_description_1",
-                                undefined,
-                                { b: (sub) => <strong>{sub}</strong> },
+                            {kind ? (
+                                <>
+                                    It's not recommended to add encryption to public {nounPlural}. Anyone can find and
+                                    join public {nounPlural}, so anyone can read messages in them. You'll get none of
+                                    the benefits of encryption, and you won't be able to turn it off later. Encrypting
+                                    messages in a public {noun} will make receiving and sending messages slower.
+                                </>
+                            ) : (
+                                _t(
+                                    "room_settings|security|enable_encryption_public_room_confirm_description_1",
+                                    undefined,
+                                    { b: (sub) => <strong>{sub}</strong> },
+                                )
                             )}{" "}
                         </p>
                         <p>
                             {" "}
-                            {_t(
-                                "room_settings|security|enable_encryption_public_room_confirm_description_2",
-                                undefined,
-                                {
-                                    a: (sub) => (
-                                        <AccessibleButton
-                                            element="a"
-                                            kind="link_inline"
-                                            onClick={() => {
-                                                dialog.close();
-                                                this.createNewRoom(false, true);
-                                            }}
-                                        >
-                                            {" "}
-                                            {sub}{" "}
-                                        </AccessibleButton>
-                                    ),
-                                },
+                            {kind ? (
+                                <>
+                                    To avoid these issues, create a{" "}
+                                    <AccessibleButton
+                                        element="a"
+                                        kind="link_inline"
+                                        onClick={() => {
+                                            dialog.close();
+                                            this.createNewRoom(false, true);
+                                        }}
+                                    >
+                                        new encrypted {noun}
+                                    </AccessibleButton>{" "}
+                                    for the conversation you plan to have.
+                                </>
+                            ) : (
+                                _t(
+                                    "room_settings|security|enable_encryption_public_room_confirm_description_2",
+                                    undefined,
+                                    {
+                                        a: (sub) => (
+                                            <AccessibleButton
+                                                element="a"
+                                                kind="link_inline"
+                                                onClick={() => {
+                                                    dialog.close();
+                                                    this.createNewRoom(false, true);
+                                                }}
+                                            >
+                                                {" "}
+                                                {sub}{" "}
+                                            </AccessibleButton>
+                                        ),
+                                    },
+                                )
                             )}{" "}
                         </p>
                     </div>
@@ -162,12 +196,23 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
 
         const { finished } = Modal.createDialog(QuestionDialog, {
             title: _t("room_settings|security|enable_encryption_confirm_title"),
-            description: _t(
-                "room_settings|security|enable_encryption_confirm_description",
-                {},
-                {
-                    a: (sub) => <ExternalLink href={SdkConfig.get("help_encryption_url")}>{sub}</ExternalLink>,
-                },
+            description: kind ? (
+                <>
+                    Once enabled, encryption for a {noun} cannot be disabled. Messages sent in an encrypted {noun}{" "}
+                    cannot be seen by the server, only by the participants of the {noun}. Enabling encryption may
+                    prevent many bots and bridges from working correctly.{" "}
+                    <ExternalLink href={SdkConfig.get("help_encryption_url")}>
+                        Learn more about encryption.
+                    </ExternalLink>
+                </>
+            ) : (
+                _t(
+                    "room_settings|security|enable_encryption_confirm_description",
+                    {},
+                    {
+                        a: (sub) => <ExternalLink href={SdkConfig.get("help_encryption_url")}>{sub}</ExternalLink>,
+                    },
+                )
             ),
         });
         finished.then(([confirm]) => {
@@ -258,6 +303,10 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
     private renderJoinRule(): JSX.Element {
         const room = this.props.room;
         const isPublic = room.getJoinRule() === JoinRule.Public;
+        // haven apps-framework patch: "room" -> "profile"/"group" wording swap for a Social room -
+        // unchanged for a regular room.
+        const kind = socialRoomKind(room);
+        const noun = kind === "profile" ? "profile" : kind === "group" ? "group" : "room";
         const description = (
             <>
                 <p>
@@ -268,13 +317,21 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
                 {isPublic && this.state.history === HistoryVisibility.WorldReadable && (
                     <div className="mx_SecurityRoomSettingsTab_warning">
                         <WarningIcon width={15} height={15} />
-                        <span>{_t("room_settings|security|join_rule_world_readable_description")}</span>
+                        <span>
+                            {kind
+                                ? `Changing who can join the ${noun} will change the visibility of future messages too.`
+                                : _t("room_settings|security|join_rule_world_readable_description")}
+                        </span>
                     </div>
                 )}
                 {isPublic && !this.state.hasAliases && (
                     <div className="mx_SecurityRoomSettingsTab_warning">
                         <WarningIcon width={15} height={15} />
-                        <span>{_t("room_settings|security|public_without_alias_warning")}</span>
+                        <span>
+                            {kind
+                                ? `To link to this ${noun}, please add an address.`
+                                : _t("room_settings|security|public_without_alias_warning")}
+                        </span>
                     </div>
                 )}
             </>
@@ -319,21 +376,37 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
     };
 
     private onBeforeJoinRuleChange = async (joinRule: JoinRule): Promise<boolean> => {
+        // haven apps-framework patch: "room"/"rooms" -> "profile(s)"/"group(s)" wording swap for a
+        // Social room - unchanged for a regular room.
+        const kind = socialRoomKind(this.props.room);
+        const noun = kind === "profile" ? "profile" : kind === "group" ? "group" : "room";
         if (this.state.encrypted && joinRule === JoinRule.Public) {
             const dialog = Modal.createDialog(QuestionDialog, {
-                title: _t("room_settings|security|encrypted_room_public_confirm_title"),
+                title: kind
+                    ? `Are you sure you want to make this encrypted ${noun} public?`
+                    : _t("room_settings|security|encrypted_room_public_confirm_title"),
                 description: (
                     <div>
                         <p>
                             {" "}
-                            {_t("room_settings|security|encrypted_room_public_confirm_description_1", undefined, {
-                                b: (sub) => <strong>{sub}</strong>,
-                            })}{" "}
+                            {kind ? (
+                                <>
+                                    It's not recommended to make encrypted {noun}s public. It will mean anyone can
+                                    find and join the {noun}, so anyone can read messages. You'll get none of the
+                                    benefits of encryption. Encrypting messages in a public {noun} will make receiving
+                                    and sending messages slower.
+                                </>
+                            ) : (
+                                _t("room_settings|security|encrypted_room_public_confirm_description_1", undefined, {
+                                    b: (sub) => <strong>{sub}</strong>,
+                                })
+                            )}{" "}
                         </p>
                         <p>
                             {" "}
-                            {_t("room_settings|security|encrypted_room_public_confirm_description_2", undefined, {
-                                a: (sub) => (
+                            {kind ? (
+                                <>
+                                    To avoid these issues, create a{" "}
                                     <AccessibleButton
                                         element="a"
                                         kind="link_inline"
@@ -342,11 +415,27 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
                                             this.createNewRoom(true, false);
                                         }}
                                     >
-                                        {" "}
-                                        {sub}{" "}
-                                    </AccessibleButton>
-                                ),
-                            })}{" "}
+                                        new public {noun}
+                                    </AccessibleButton>{" "}
+                                    for the conversation you plan to have.
+                                </>
+                            ) : (
+                                _t("room_settings|security|encrypted_room_public_confirm_description_2", undefined, {
+                                    a: (sub) => (
+                                        <AccessibleButton
+                                            element="a"
+                                            kind="link_inline"
+                                            onClick={(): void => {
+                                                dialog.close();
+                                                this.createNewRoom(true, false);
+                                            }}
+                                        >
+                                            {" "}
+                                            {sub}{" "}
+                                        </AccessibleButton>
+                                    ),
+                                })
+                            )}{" "}
                         </p>
                     </div>
                 ),
@@ -371,14 +460,18 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
             // and if this is the case, a room administator should step in.
             if (!canChangeHistory) {
                 const dialog = Modal.createDialog(ErrorDialog, {
-                    title: _t(
-                        "room_settings|security|cannot_change_to_private_due_to_missing_history_visiblity_permissions|title",
-                    ),
+                    title: kind
+                        ? `Cannot make ${noun} private`
+                        : _t(
+                              "room_settings|security|cannot_change_to_private_due_to_missing_history_visiblity_permissions|title",
+                          ),
                     description: (
                         <p>
-                            {_t(
-                                "room_settings|security|cannot_change_to_private_due_to_missing_history_visiblity_permissions|description",
-                            )}
+                            {kind
+                                ? `You do not have permissions to alter the history visibility of the ${noun}. This is dangerous as it could allow unjoined users to read messages.`
+                                : _t(
+                                      "room_settings|security|cannot_change_to_private_due_to_missing_history_visiblity_permissions|description",
+                                  )}
                         </p>
                     ),
                 });
@@ -492,6 +585,10 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
         const guestAccess = this.state.guestAccess;
         const state = this.props.room.currentState;
         const canSetGuestAccess = state?.mayClientSendStateEvent(EventType.RoomGuestAccess, client);
+        // haven apps-framework patch: "room" -> "profile"/"group" wording swap for a Social room -
+        // unchanged for a regular room.
+        const kind = socialRoomKind(this.props.room);
+        const noun = kind === "profile" ? "profile" : kind === "group" ? "group" : "room";
 
         return (
             <div className="mx_SecurityRoomSettingsTab_advancedSection">
@@ -501,7 +598,11 @@ export default class SecurityRoomSettingsTab extends React.Component<IProps, ISt
                     onChange={this.onGuestAccessChange}
                     disabled={!canSetGuestAccess}
                     label={_t("room_settings|visibility|guest_access_label")}
-                    helpMessage={_t("room_settings|security|guest_access_warning")}
+                    helpMessage={
+                        kind
+                            ? `People with supported clients will be able to join the ${noun} without having a registered account.`
+                            : _t("room_settings|security|guest_access_warning")
+                    }
                 />
             </div>
         );

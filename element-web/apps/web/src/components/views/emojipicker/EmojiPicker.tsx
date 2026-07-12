@@ -19,7 +19,6 @@ import Search from "./Search";
 import Preview from "./Preview";
 import QuickReactions from "./QuickReactions";
 import Category, { type CategoryKey, type ICategory } from "./Category";
-import { filterBoolean } from "../../../utils/arrays";
 import {
     type IAction as RovingAction,
     type IState as RovingState,
@@ -27,7 +26,7 @@ import {
     RovingStateActionType,
 } from "../../../accessibility/RovingTabIndex";
 import { Key } from "../../../Keyboard";
-import { type ButtonEvent } from "../elements/AccessibleButton";
+import AccessibleButton, { type ButtonEvent } from "../elements/AccessibleButton";
 
 export const CATEGORY_HEADER_HEIGHT = 20;
 export const EMOJI_HEIGHT = 35;
@@ -40,6 +39,13 @@ interface IProps {
     onChoose(unicode: string): boolean;
     onFinished(): void;
     isEmojiDisabled?: (unicode: string) => boolean;
+    /**
+     * When true, show a "React with '<text>'" option below the search box, sending whatever's
+     * typed as a literal freeform m.reaction key (Enter, or clicking the option, both trigger it) —
+     * only meaningful where onChoose actually sends a reaction (ReactionPicker), not plain
+     * emoji-insert-into-composer usage (EmojiButton), so this defaults to off there.
+     */
+    allowFreeformReaction?: boolean;
 }
 
 interface IState {
@@ -54,8 +60,22 @@ interface IState {
     showHighlight: boolean;
 }
 
+// A previously-sent freeform reaction (see EmojiPicker's allowFreeformReaction) isn't a real
+// emoji, so getEmojiFromUnicode can't find it — build a minimal stand-in IEmoji instead of
+// dropping it, so it can flow through the exact same Category/Emoji rendering as a real one.
+// hexcode only needs to be a stable, unique React key here, not a real codepoint.
+function makeFreeformEmoji(text: string): IEmoji {
+    return {
+        unicode: text,
+        label: text,
+        shortcodes: [text],
+        hexcode: `freeform-${text}`,
+    } as IEmoji;
+}
+
 class EmojiPicker extends React.Component<IProps, IState> {
     private readonly recentlyUsed: IEmoji[];
+    private readonly freeformRecentUnicodes: Set<string>;
     private readonly memoizedDataByCategory: Record<CategoryKey, IEmoji[]>;
     private readonly categories: ICategory[];
 
@@ -71,8 +91,21 @@ class EmojiPicker extends React.Component<IProps, IState> {
             showHighlight: false,
         };
 
-        // Convert recent emoji characters to emoji data, removing unknowns and duplicates
-        this.recentlyUsed = Array.from(new Set(filterBoolean(recent.get().map(getEmojiFromUnicode))));
+        // Convert recent emoji characters to emoji data, removing duplicates. A recent entry that
+        // isn't a real known emoji is a previously-sent freeform reaction — kept (as a stand-in
+        // IEmoji) rather than dropped like an actual unknown/removed emoji would be.
+        const freeformRecentUnicodes = new Set<string>();
+        this.recentlyUsed = Array.from(
+            new Set(
+                recent.get().map((entry) => {
+                    const emoji = getEmojiFromUnicode(entry);
+                    if (emoji) return emoji;
+                    freeformRecentUnicodes.add(entry);
+                    return makeFreeformEmoji(entry);
+                }),
+            ),
+        );
+        this.freeformRecentUnicodes = freeformRecentUnicodes;
         this.memoizedDataByCategory = {
             recent: this.recentlyUsed,
             ...DATA_BY_CATEGORY,
@@ -287,12 +320,44 @@ class EmojiPicker extends React.Component<IProps, IState> {
         );
     };
 
-    private onEnterFilter = (): void => {
-        // Only select emoji if highlight is shown
-        if (!this.state.showHighlight) return;
+    // Distinguishes a synthetic freeform "recent" entry (see makeFreeformEmoji) from a real emoji,
+    // so Emoji.tsx can style it to fit its fixed-size grid slot instead of overflowing it.
+    private isFreeformEmoji = (unicode: string): boolean => {
+        return this.freeformRecentUnicodes.has(unicode);
+    };
 
-        const btn = this.scrollElement?.querySelector<HTMLButtonElement>('.mx_EmojiPicker_item_wrapper [tabindex="0"]');
-        btn?.click();
+    private onEnterFilter = (): void => {
+        // A real emoji match wins over the freeform reaction whenever the search still has one -
+        // Enter should react with whatever's actually highlighted first, same as it always did
+        // before freeform reactions existed. Freeform is only the fallback once the query has
+        // narrowed the results down to nothing (a query that was never going to match a real emoji
+        // at all, e.g. an arbitrary phrase), not a blanket override of a real match.
+        if (this.state.showHighlight) {
+            const btn = this.scrollElement?.querySelector<HTMLButtonElement>('.mx_EmojiPicker_item_wrapper [tabindex="0"]');
+            if (btn) {
+                btn.click();
+                this.props.onFinished();
+                return;
+            }
+        }
+
+        if (this.props.allowFreeformReaction && this.state.filter.trim()) {
+            this.onClickFreeformReact();
+        }
+    };
+
+    // The freeform reaction option isn't part of the roving-tabindex emoji grid (it lives outside
+    // the scrollable results, right under the search box, matching where a typed query's own
+    // "result" should read), so it's handled as a plain click/Enter action here rather than via
+    // the grid's own click/keyboard machinery in onClickEmoji/onEnterFilter's btn-click path.
+    private onClickFreeformReact = (): void => {
+        const text = this.state.filter.trim();
+        if (!text) return;
+        if (this.props.onChoose(text) !== false) {
+            // So it shows up in Frequently Used next time the picker opens, same as a real emoji
+            // pick below in onClickEmoji.
+            recent.add(text);
+        }
         this.props.onFinished();
     };
 
@@ -351,6 +416,15 @@ class EmojiPicker extends React.Component<IProps, IState> {
                                 onEnter={this.onEnterFilter}
                                 onKeyDown={onKeyDownHandler}
                             />
+                            {this.props.allowFreeformReaction && this.state.filter.trim() && (
+                                <AccessibleButton
+                                    kind="link"
+                                    className="mx_EmojiPicker_freeformReact"
+                                    onClick={this.onClickFreeformReact}
+                                >
+                                    {_t("emoji_picker|react_with_text", { text: this.state.filter.trim() })}
+                                </AccessibleButton>
+                            )}
                             <AutoHideScrollbar
                                 id="mx_EmojiPicker_body"
                                 className={classNames("mx_AutoHideScrollbar mx_EmojiPicker_body", {
@@ -376,6 +450,7 @@ class EmojiPicker extends React.Component<IProps, IState> {
                                             onMouseEnter={this.onHoverEmoji}
                                             onMouseLeave={this.onHoverEmojiEnd}
                                             isEmojiDisabled={this.props.isEmojiDisabled}
+                                            isFreeformEmoji={this.isFreeformEmoji}
                                             selectedEmojis={this.props.selectedEmojis}
                                         />
                                     );

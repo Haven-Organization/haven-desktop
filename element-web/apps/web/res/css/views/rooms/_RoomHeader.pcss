@@ -7,17 +7,43 @@ Please see LICENSE files in the repository root for full details.
 */
 
 .mx_RoomHeader {
+    position: relative;
     height: 64px;
     box-sizing: border-box;
     padding: 0 var(--cpd-space-3x) 0 calc(var(--cpd-space-3x) + var(--cpd-space-1-5x));
     border-bottom: 1px solid $separator;
     background-color: $background;
     transition: all 0.2s ease;
+    overflow: hidden;
 
     button:has(svg.mx_RoomHeader_toggled) {
         /* For enhanced visibility under contrast control */
         outline: 1px solid transparent;
     }
+
+    // Content sits above the banner image/scrim below, which are absolutely positioned to fill
+    // the header behind everything else.
+    > *:not(.mx_RoomHeader_banner):not(.mx_RoomHeader_bannerScrim) {
+        position: relative;
+        z-index: 1;
+    }
+}
+
+.mx_RoomHeader_banner {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+}
+
+.mx_RoomHeader_bannerScrim {
+    position: absolute;
+    inset: 0;
+    background-color: $background;
+    opacity: 0.6;
+    z-index: 0;
 }
 
 .mx_RoomHeader:hover {

@@ -26,6 +26,7 @@ import { Action } from "../../../../../dispatcher/actions";
 import QuestionDialog from "../../../../../components/views/dialogs/QuestionDialog";
 import MessageEditHistoryDialog from "../../../../../components/views/dialogs/MessageEditHistoryDialog";
 import { type TimelineRenderingType } from "../../../../../contexts/RoomContext";
+import { tryRouteSocialPermalink } from "../../../../../../../../../src/apps/social/utils/permalinkRouting";
 
 const CAPTION_MESSAGE_TYPES = new Set<MsgType>([MsgType.Image, MsgType.File, MsgType.Audio, MsgType.Video]);
 
@@ -287,6 +288,11 @@ export class TextualBodyViewModel
         }
 
         if (!target) {
+            return;
+        }
+
+        if (tryRouteSocialPermalink(event, target.href)) {
+            event.preventDefault();
             return;
         }
 

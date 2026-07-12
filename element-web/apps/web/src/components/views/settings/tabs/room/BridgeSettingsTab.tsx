@@ -14,6 +14,7 @@ import BridgeTile from "../../BridgeTile";
 import SettingsTab from "../SettingsTab";
 import { SettingsSection } from "../../shared/SettingsSection";
 import MatrixClientContext from "../../../../../contexts/MatrixClientContext";
+import { socialRoomKind } from "../../../../../../../../../src/apps/social/utils/room-classifier";
 
 const BRIDGE_EVENT_TYPES = [
     "uk.half-shot.bridge",
@@ -48,24 +49,33 @@ export default class BridgeSettingsTab extends React.Component<IProps> {
         // than 0 events, so no validation is needed at this stage.
         const bridgeEvents = BridgeSettingsTab.getBridgeStateEvents(this.context, this.props.room.roomId);
         const room = this.props.room;
+        // haven apps-framework patch: "This room" -> "This profile"/"This group" wording swap for a
+        // Social room - unchanged for a regular room.
+        const kind = socialRoomKind(room);
+        const noun = kind === "profile" ? "profile" : "group";
+        const learnMoreLink = (sub: React.ReactNode): JSX.Element => (
+            <a href={BRIDGES_LINK} target="_blank" rel="noreferrer noopener">
+                {sub}
+            </a>
+        );
 
         let content: JSX.Element;
         if (bridgeEvents.length > 0) {
             content = (
                 <div>
                     <p>
-                        {_t(
-                            "room_settings|bridges|description",
-                            {},
-                            {
-                                // TODO: We don't have this link yet: this will prevent the translators
-                                // having to re-translate the string when we do.
-                                a: (sub) => (
-                                    <a href={BRIDGES_LINK} target="_blank" rel="noreferrer noopener">
-                                        {sub}
-                                    </a>
-                                ),
-                            },
+                        {kind ? (
+                            <>This {noun} is bridging messages to the following platforms. {learnMoreLink("Learn more.")}</>
+                        ) : (
+                            _t(
+                                "room_settings|bridges|description",
+                                {},
+                                {
+                                    // TODO: We don't have this link yet: this will prevent the translators
+                                    // having to re-translate the string when we do.
+                                    a: learnMoreLink,
+                                },
+                            )
                         )}
                     </p>
                     <ul className="mx_RoomSettingsDialog_BridgeList">
@@ -76,18 +86,18 @@ export default class BridgeSettingsTab extends React.Component<IProps> {
         } else {
             content = (
                 <p>
-                    {_t(
-                        "room_settings|bridges|empty",
-                        {},
-                        {
-                            // TODO: We don't have this link yet: this will prevent the translators
-                            // having to re-translate the string when we do.
-                            a: (sub) => (
-                                <a href={BRIDGES_LINK} target="_blank" rel="noreferrer noopener">
-                                    {sub}
-                                </a>
-                            ),
-                        },
+                    {kind ? (
+                        <>This {noun} isn't bridging messages to any platforms. {learnMoreLink("Learn more.")}</>
+                    ) : (
+                        _t(
+                            "room_settings|bridges|empty",
+                            {},
+                            {
+                                // TODO: We don't have this link yet: this will prevent the translators
+                                // having to re-translate the string when we do.
+                                a: learnMoreLink,
+                            },
+                        )
                     )}
                 </p>
             );

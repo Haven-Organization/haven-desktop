@@ -1,0 +1,2261 @@
+/*
+ * Social Overlay — Styles
+ *
+ * All layout uses tokens from variables.scss and compound-design-tokens.
+ * No new colour definitions — only Element Web design tokens.
+ */
+
+// ---------------------------------------------------------------------------
+// Social two-column layout: sidebar nav + content
+// Renders directly inside GroupView's flex row, filling the space normally
+// occupied by the room list + room view.
+// ---------------------------------------------------------------------------
+
+.social_Layout {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+// Wraps .social_Sidebar via re-resizable (see SocialHomeView.tsx) — width is controlled by the
+// wrapper's own size prop now, not a fixed value on .social_Sidebar itself. Hover-reveal grip pill
+// mirrors stock's own resize handles exactly (same technique as .mx_MainSplit's right panel and
+// the main room list's own resize handle — both scoped to their own wrapper the same way).
+.social_Sidebar_resizeWrapper {
+    flex-shrink: 0;
+    height: 100%;
+
+    &:hover .mx_ResizeHandle--horizontal::before {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+
+        height: 64px;
+        width: 4px;
+        border-radius: 4px;
+
+        content: "";
+
+        background-color: $primary-content;
+        opacity: 0.8;
+    }
+}
+
+.social_Sidebar {
+    width: 100%;
+    height: 100%;
+    border-right: 1px solid $quinary-content;
+    display: flex;
+    flex-direction: column;
+    padding: var(--cpd-space-4x) 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+
+    // The relocated top-left menu's own slot when the spaces bar is hidden — see
+    // UserMenuPortalContext.ts. padding-bottom (not the shared rule's own margin-right, meant for a
+    // horizontal row) separates it from Feed below.
+    > .haven_UserMenuPortalTarget {
+        margin-right: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        padding-right: var(--cpd-space-4x);
+        // NOT the same 16px (--cpd-space-4x) as the right side, unlike the stock LeftPanel's own
+        // equivalent row this used to just copy - .social_NavButton's own icon sits 28px from the
+        // sidebar edge (its 12px/--cpd-space-3x margin plus its own 16px/--cpd-space-4x padding),
+        // while a plain 16px left inset here left the relocated avatar 12px further left than that,
+        // visibly misaligned against the Feed/Groups/Profile icons below it once the sidebar isn't
+        // collapsed (confirmed live: avatar left edge at x=16, nav icon left edge at x=28). Matches
+        // that same 28px via the same two tokens NavButton's own inset is built from, rather than a
+        // bare magic number, so it keeps tracking NavButton's inset if those tokens ever change.
+        // Undone back to the plain symmetric --cpd-space-4x in the --collapsed variant below, whose
+        // own align-items: center centering depends on equal left/right padding to land on the
+        // sidebar's true midpoint - this asymmetric inset is only correct for the row layout.
+        padding-left: calc(var(--cpd-space-3x) + var(--cpd-space-4x));
+
+        &:not(:empty) {
+            padding-bottom: var(--cpd-space-3x);
+        }
+
+        // Same avatar-vs-Apps-icon size mismatch fixed for the stock LeftPanel's own relocated row
+        // (_LeftPanel.pcss) and RoomListPanel's row (apps-framework.scss's .haven_RoomListPanel_topRow):
+        // both outer boxes are genuinely 32px, but the avatar's photo fills its circle edge to edge
+        // while IconButton fixes its icon at a hardcoded 0.75x the button size, reading as visibly
+        // smaller. Unconditional here (not scoped to the row vs. --collapsed stacked variant below) -
+        // the mismatch is the icon's own internal fill ratio against the button box, not something
+        // row vs. column layout changes.
+        .haven_AppsButton_compactIcon {
+            --cpd-icon-button-size: 38px !important;
+        }
+    }
+
+    // Sidebar dragged down to (near) its own collapsed width (sidebarCollapsed in
+    // SocialHomeView.tsx, same threshold .social_NavButton--collapsed reacts to): the relocated
+    // UserMenu + Apps button (portaled in here as a row - see apps-framework.scss's base rule)
+    // no longer have room to sit side by side. At the sidebar's minimum width (72px), this box's
+    // own content width (72px - 2*16px padding = 40px) is well under the ~72px a 32px avatar + 8px
+    // gap + 32px Apps icon needs, so the Apps button would otherwise render clipped/hidden past
+    // the sidebar's right edge - "covered up" by the collapsing sidebar, per the bug report this
+    // fixes. Stacking them in a column instead (each still 32px, still centered) needs no explicit
+    // "push the buttons below down" logic - the taller stacked box is just a normal flex-column
+    // sibling of Home/Feed/Groups/etc. below it, so they're naturally pushed down by its increased
+    // height like any other block content.
+    > .haven_UserMenuPortalTarget--collapsed {
+        flex-direction: column;
+        // Centers both icons on the sidebar's own horizontal midpoint - matches
+        // .social_NavButton--collapsed's icon centering exactly (both sit inside a symmetrically
+        // padded/margined box the same total width as the sidebar itself, so centering either one
+        // via justify-content/align-items - rather than the shared row rule's left-aligned default
+        // - always lands on the same point regardless of the two boxes' differing padding). This
+        // is also what fixes the "user menu needs to move right slightly to line up" bug: the
+        // relocated UserMenu used to sit flush against this box's own left padding instead of
+        // centered, landing a few pixels left of the nav icons' true centerline below it.
+        align-items: center;
+
+        // The shared row rule's margin-right (apps-framework.scss) doesn't apply to a vertical
+        // stack - left in place there'd be a stray gap on the right that does nothing here.
+        &:not(:empty) {
+            margin-right: 0;
+        }
+    }
+}
+
+// Separates Home from Feed/Groups/Profile below it (see SocialHomeView) now that Home looks and
+// behaves like a regular nav button rather than being visually distinct on its own.
+.social_Sidebar_divider {
+    height: 1px;
+    margin: var(--cpd-space-2x) var(--cpd-space-4x);
+    background: $quinary-content;
+}
+
+.social_Content {
+    display: flex;
+    flex-direction: column;
+    // align-items: stretch (the flex default) makes whichever pane we render — .social_Pane or
+    // .social_RoomView — always stretch to fill this width, capped by their own max-width. Without
+    // this, a plain block child sizes to its own content, which is why panes used to look "skinny"
+    // depending on what was inside them instead of staying a consistent width.
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    // Anchors .social_ScrollToTopButton (SocialScrollToTopButton.tsx) to this scrollable viewport
+    // itself, so it stays fixed in the corner as you scroll rather than moving with the content.
+    position: relative;
+}
+
+// Positioned the mirror of stock's own .mx_JumpToBottomButton (bottom-right, scrolls down to the
+// live edge of a room's timeline) - Social's own feed is newest-at-top, so top-right/scrolls-up is
+// the equivalent "back to the live edge" position here. The round button itself reuses stock's own
+// .mx_JumpToBottomButton_scrollDown class directly (see SocialScrollToTopButton.tsx) for an
+// identical look with no separate button styling needed - only this outer positioning is new.
+//
+// `position: absolute` here was a real bug, not just a style choice: this element is a DOM
+// descendant of .social_Content, the very box that scrolls (its `overflow-y: auto` lives on
+// itself, not a wrapper) - an absolutely-positioned descendant of a scrolling box is positioned
+// relative to that box's content, so it scrolls away with everything else instead of staying
+// pinned in the corner, exactly like any other absolutely-positioned element inside a scrolled
+// container. Confirmed live: after scrolling .social_Content down 3000px, this element's own
+// getBoundingClientRect().top measured -2988 (12 - 3000) - it was rendering, just thousands of
+// pixels above the visible viewport, which is why it looked entirely missing. `position: sticky`
+// fixes this the standard way: sticky is resolved against the nearest scrolling ancestor
+// (.social_Content) rather than scrolling away with it. `height: 0` keeps this wrapper itself out
+// of the layout flow (it would otherwise reserve its own row above the content, pushing everything
+// down by its height); the actual button is placed inside via absolute positioning against this
+// (zero-height, but still a real positioned box) sticky wrapper, escaping the zero height without
+// needing the wrapper itself to have any.
+.social_ScrollToTopButton {
+    position: sticky;
+    top: 28px;
+    height: 0;
+    z-index: 1000;
+    // The zero-height wrapper spans the full row width but has nothing to click in most of it -
+    // let clicks pass through everywhere except the button itself.
+    pointer-events: none;
+
+    .mx_JumpToBottomButton_scrollDown {
+        position: absolute;
+        top: 0;
+        right: 24px;
+        width: 38px;
+        height: 38px;
+        text-align: center;
+        pointer-events: auto;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar nav button
+// ---------------------------------------------------------------------------
+
+.social_NavButton {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    width: calc(100% - 2 * var(--cpd-space-3x));
+    margin: var(--cpd-space-1x) var(--cpd-space-3x);
+    padding: var(--cpd-space-3x) var(--cpd-space-4x);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font: var(--cpd-font-body-lg-regular);
+    color: $primary-content;
+    text-align: left;
+    transition: background 0.1s;
+
+    svg {
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+        color: $secondary-content;
+    }
+
+    &:hover {
+        background: $system;
+    }
+
+    &--active {
+        font: var(--cpd-font-body-lg-semibold);
+        background: $system;
+
+        svg {
+            color: $accent;
+        }
+    }
+
+    // Sidebar dragged down to (near) its minimum width — just the icon, centered, no label.
+    &--collapsed {
+        justify-content: center;
+        gap: 0;
+        padding: var(--cpd-space-3x);
+    }
+
+    // haven apps-framework patch: the Post button shown below Profile — same row size/padding/font
+    // as the other nav buttons (nothing here touches layout), filled solid with $accent and white
+    // icon/text to match /#home's own "Send a Direct Message" button (.mx_HomePage_button_sendDm),
+    // just in this row-shaped layout instead of that button's own stacked/centered one.
+    &--post {
+        background: $accent;
+        color: #fff;
+
+        svg {
+            color: #fff;
+        }
+
+        &:hover,
+        &:focus-visible {
+            background: $accent-1100;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Pane (content area for feed / groups / profile)
+// ---------------------------------------------------------------------------
+
+.social_Pane {
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--cpd-space-6x);
+    max-width: 680px;
+}
+
+.social_Pane_header {
+    font: var(--cpd-font-heading-md-semibold);
+    color: $primary-content;
+    margin: 0 0 var(--cpd-space-6x);
+}
+
+.social_Pane_titleRow {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--cpd-space-3x);
+    margin-bottom: var(--cpd-space-6x);
+
+    .social_Pane_header {
+        margin: 0;
+    }
+}
+
+.social_ContentEmpty {
+    color: $secondary-content;
+    font: var(--cpd-font-body-md-regular);
+    padding: var(--cpd-space-8x) 0;
+
+    p {
+        margin: 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared buttons
+// ---------------------------------------------------------------------------
+
+.social_ActionBtn {
+    padding: var(--cpd-space-2x) var(--cpd-space-4x);
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    background: $background;
+    color: $primary-content;
+    font: var(--cpd-font-body-md-regular);
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover:not(:disabled) {
+        background: $system;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    &--primary {
+        background: $accent;
+        border-color: $accent;
+        color: #fff;
+
+        &:hover:not(:disabled) {
+            filter: brightness(0.9);
+            background: $accent;
+        }
+    }
+
+    &--icon {
+        padding: var(--cpd-space-2x);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        svg {
+            width: 20px;
+            height: 20px;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared form elements
+// ---------------------------------------------------------------------------
+
+.social_Input {
+    width: 100%;
+    padding: var(--cpd-space-2x) var(--cpd-space-3x);
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    background: $system;
+    color: $primary-content;
+    font: var(--cpd-font-body-md-regular);
+    box-sizing: border-box;
+
+    &:focus {
+        outline: none;
+        border-color: $accent;
+    }
+}
+
+.social_Error {
+    color: var(--cpd-color-text-critical-primary, #d00);
+    font: var(--cpd-font-body-sm-regular);
+    margin: 0;
+}
+
+// ---------------------------------------------------------------------------
+// Groups page — search bar (aligned with "+ New Group" in .social_Pane_titleRow) + a grid of
+// large square tiles. Whole tile is a single <button> (native keyboard/focus handling for free);
+// no separate View/Edit buttons — clicking anywhere on it opens the room.
+// ---------------------------------------------------------------------------
+
+.social_GroupsSearch {
+    flex: 1;
+    min-width: 0;
+    padding: var(--cpd-space-2x) var(--cpd-space-3x);
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    background: $system;
+    color: $primary-content;
+    font: var(--cpd-font-body-md-regular);
+    box-sizing: border-box;
+
+    &:focus {
+        outline: none;
+        border-color: $accent;
+    }
+}
+
+.social_GroupGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--cpd-space-4x);
+}
+
+.social_GroupTile {
+    appearance: none;
+    display: flex;
+    flex-direction: column;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    border: 1px solid $quinary-content;
+    border-radius: 12px;
+    background: $background;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow: hidden;
+    cursor: pointer;
+
+    &:hover {
+        border-color: $accent;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $accent;
+        outline-offset: 2px;
+    }
+}
+
+.social_GroupTile_banner {
+    flex: 0 0 40%;
+    background: $quinary-content;
+    overflow: hidden;
+
+    img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+// Overlaps the banner's bottom edge, bottom-left — same negative-margin technique as
+// .social_RoomView_avatarWrap (see there for why box-sizing: border-box on the avatar itself
+// matters: without it, the 3px border inflates the rendered box past 72px and throws off the
+// overlap amount this margin assumes).
+// The border ring lives on this wrapper, not on .mx_BaseAvatar — see .social_RoomView_avatarWrap
+// for why putting it on the avatar element itself clips its inner <img> asymmetrically instead of
+// just leaving the (already self-centering) compound Avatar alone. Also plain inline-block, not
+// inline-flex+justify-content:center — that flex-centering had nothing to do and was only adding
+// stray horizontal slop, shifting the avatar right of the text below.
+.social_GroupTile_avatarWrap {
+    display: inline-block;
+    // .social_GroupTile is a flex-direction: column container, whose flex items default to
+    // align-items: stretch on the cross axis (width) — without an explicit width, this wrapper
+    // stretches to the tile's full width, turning border-radius: 50% into a giant flat ellipse
+    // instead of a circle around just the avatar. width: fit-content overrides that stretch.
+    width: fit-content;
+    // See .social_RoomView_avatarWrap for why line-height:0 is needed here.
+    line-height: 0;
+    // Overlap calibrated for this wrapper's total rendered size: 72px avatar + 3px border each
+    // side = 78px, so half of that.
+    margin: -39px 0 var(--cpd-space-2x) var(--cpd-space-3x);
+    border: 3px solid $background;
+    border-radius: 50%;
+}
+
+.social_GroupTile_info {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 var(--cpd-space-3x) var(--cpd-space-3x);
+    overflow: hidden;
+}
+
+.social_GroupTile_name {
+    font: var(--cpd-font-body-md-semibold);
+    color: $primary-content;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.social_GroupTile_topic {
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+    margin-top: var(--cpd-space-1x);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.social_GroupTile_meta {
+    margin-top: auto;
+    padding-top: var(--cpd-space-1x);
+    font: var(--cpd-font-body-sm-regular);
+    color: $tertiary-content;
+}
+
+// ---------------------------------------------------------------------------
+// Feed
+// ---------------------------------------------------------------------------
+
+.social_Feed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-4x);
+}
+
+// Sentinel for scroll-triggered "load more" — see useLoadMoreSentinel. Height gives the
+// IntersectionObserver something to trigger on slightly before the very bottom of the scroll
+// container; also centers the Spinner shown while a network fetch is in flight.
+.social_Feed_loadMore {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: var(--cpd-space-4x) 0;
+}
+
+// ---------------------------------------------------------------------------
+// Event tile (post card)
+// ---------------------------------------------------------------------------
+
+.social_EventTile {
+    background: $background;
+    border: 1px solid $quinary-content;
+    border-radius: 12px;
+    padding: var(--cpd-space-4x);
+
+    &_header {
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-3x);
+        margin-bottom: var(--cpd-space-3x);
+    }
+
+    &_sender {
+        flex: 1;
+    }
+
+    &_timestamp {
+        font: var(--cpd-font-body-sm-regular);
+        color: $tertiary-content;
+
+        .cpd-theme-dark & {
+            color: $secondary-content;
+        }
+    }
+
+    &_editedMarker {
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-1x);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font: var(--cpd-font-body-sm-regular);
+        color: $tertiary-content;
+        padding: 0;
+
+        .cpd-theme-dark & {
+            color: $secondary-content;
+        }
+
+        svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        &:hover {
+            color: $primary-content;
+            text-decoration: underline;
+        }
+    }
+
+    &_body {
+        font: var(--cpd-font-body-md-regular);
+        color: $primary-content;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 0 0 var(--cpd-space-3x);
+
+        // The formatted-body renderer (bodyToNode) tags HTML messages with the
+        // github-markdown-css `markdown-body` class, which sets its own background.
+        // Element only neutralises this inside `.mx_EventTile_content`; do the same
+        // here so posts match the surrounding card instead of showing that background.
+        .markdown-body {
+            background-color: inherit;
+            color: inherit;
+        }
+    }
+
+    &_attachment {
+        margin-bottom: var(--cpd-space-3x);
+    }
+
+    &_attachmentLink {
+        font: var(--cpd-font-body-sm-regular);
+        color: $accent;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    &_actions {
+        display: flex;
+        // Icon-only buttons still want some breathing room between them, just not the old
+        // full-width-label spread (--cpd-space-4x/16px).
+        gap: var(--cpd-space-3x);
+        padding-top: var(--cpd-space-3x);
+        border-top: 1px solid $quinary-content;
+        margin-top: var(--cpd-space-3x);
+    }
+
+    &_actionBtn {
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-1x);
+        background: none;
+        border: none;
+        padding: var(--cpd-space-2x);
+        border-radius: 6px;
+        cursor: pointer;
+        font: var(--cpd-font-body-sm-regular);
+        color: $secondary-content;
+        transition: background 0.1s, color 0.1s;
+
+        svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        &:hover:not(:disabled) {
+            background: $system;
+            color: $primary-content;
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+    }
+
+    &_likeCount {
+        font: var(--cpd-font-body-sm-semibold);
+    }
+
+    &_replyForm {
+        margin-top: var(--cpd-space-4x);
+        display: flex;
+        flex-direction: column;
+        gap: var(--cpd-space-3x);
+    }
+
+    &_replyInput {
+        width: 100%;
+        padding: var(--cpd-space-2x) var(--cpd-space-3x);
+        border: 1px solid $quinary-content;
+        border-radius: 8px;
+        background: $system;
+        color: $primary-content;
+        font: var(--cpd-font-body-md-regular);
+        resize: none;
+        box-sizing: border-box;
+
+        &:focus {
+            outline: none;
+            border-color: $accent;
+        }
+    }
+
+    &_replyActions {
+        display: flex;
+        gap: var(--cpd-space-2x);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Create-profile prompt — shown on the Profile tab when the user has no profile room yet.
+// Creation itself happens via the stock New Room dialog (see createSocialRoom.ts).
+// ---------------------------------------------------------------------------
+
+.social_CreateProfilePrompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--cpd-space-4x);
+    padding: var(--cpd-space-10x) var(--cpd-space-6x);
+    text-align: center;
+}
+
+.social_CreateProfilePrompt_text {
+    font: var(--cpd-font-body-md-regular);
+    color: $secondary-content;
+    margin: 0;
+}
+
+.social_CreateProfilePrompt_button {
+    font: var(--cpd-font-body-lg-semibold);
+    padding: var(--cpd-space-3x) var(--cpd-space-8x);
+}
+
+// ---------------------------------------------------------------------------
+// Notifications bell — persistent, top-right of the whole Social layout regardless of which
+// pane/room is active. See NotificationsButton.tsx.
+// ---------------------------------------------------------------------------
+
+.social_NotificationsButton {
+    position: absolute;
+    top: var(--cpd-space-4x);
+    right: var(--cpd-space-4x);
+    z-index: 10;
+}
+
+// ---------------------------------------------------------------------------
+// Social Room View (profile / group page)
+// ---------------------------------------------------------------------------
+
+.social_RoomView {
+    display: flex;
+    flex-direction: column;
+    // Deliberately NOT height: 100% (removed - was a real bug, not just a leftover from the
+    // overflow-y:auto era above). A sticky-positioned descendant's "stuck" range is bounded by ITS
+    // OWN containing block's box, not however far its overflowing content visually extends past it
+    // - with height:100% capping this element's own box at exactly one viewport (.social_Content's
+    // clientHeight), the scroll-to-top button could only stay stuck for the first screen's worth of
+    // scrolling, then fell out of its sticky range and scrolled away with everything else the
+    // instant you scrolled past that point - confirmed live: forcing height:auto here (so this
+    // element's box actually grows to match its true ~18000px content height, matching .social_Pane
+    // - the Feed's equivalent, which never had a height set) fixed it immediately. width:100% below
+    // still holds it to the shared width regardless of what fills it.
+    width: 100%;
+    // Matches .social_Pane's cap so Feed/Groups/Profile are always the same width, whether or not
+    // there happens to be enough content to fill it.
+    max-width: 680px;
+    // Deliberately NOT its own overflow-y: auto (removed - was a real bug, not a style choice).
+    // .social_Content (the ancestor .main - see SocialHomeView.tsx) is already the one shared
+    // scrolling viewport for every pane (Feed/Groups/Profile all rely on it); this element having
+    // its own nested overflow: auto too meant a real scroll happened HERE instead, while
+    // SocialRoomView.tsx's own scroll-to-top button was reading/scrolling .social_Content - which
+    // never actually needed to scroll at all (this element silently absorbed 100% of the overflow
+    // internally), so the button's own scrollTo() call was a no-op and its visibility-tracking
+    // IntersectionObserver was watching the wrong root. One scrolling ancestor, shared by every
+    // pane, same as FeedPane/GroupsPane/ProfilePane already assume.
+
+    &_backBar {
+        padding: var(--cpd-space-3x) var(--cpd-space-6x);
+        border-bottom: 1px solid $quinary-content;
+    }
+
+    &_bannerWrap {
+        position: relative;
+    }
+
+    &_banner {
+        width: 100%;
+        height: 160px;
+        background: $quinary-content;
+        object-fit: cover;
+        flex-shrink: 0;
+
+        &--clickable {
+            cursor: pointer;
+        }
+    }
+
+    // Own-profile only (see isOwnProfile in SocialRoomView.tsx) - "top right" per explicit request,
+    // rather than AvatarSetting's own bottom-right convention in Room Settings, since bottom-right
+    // on the banner would sit right where the avatar overlaps it below.
+    &_bannerEditButton {
+        position: absolute;
+        top: var(--cpd-space-2x);
+        right: var(--cpd-space-2x);
+    }
+
+    // Avatar's own wrap is a circle (border-radius: 50%) - top-right of its square bounding box
+    // still reads fine since the button itself isn't clipped by that, same as AvatarSetting's own
+    // bottom-right pencil isn't clipped by a circular avatar either.
+    &_avatarEditButton {
+        position: absolute;
+        top: 0;
+        right: 0;
+    }
+
+    &_header {
+        padding: 0 var(--cpd-space-6x) var(--cpd-space-4x);
+        position: relative;
+        border-bottom: 1px solid $quinary-content;
+    }
+
+    // display: inline-flex (not inline-block) so the avatar is centered within this wrap rather
+    // than relying on default inline/baseline alignment, which left it looking slightly off
+    // within its own circular frame.
+    // Plain inline-block, not inline-flex+justify-content:center — compound's own Avatar already
+    // sizes/centers its own content correctly, so flex-centering here had nothing to do and was
+    // only adding stray horizontal slop between the box's edge and the avatar, visibly shifting it
+    // right of the name/bio text below (which has no such wrapper).
+    // The border ring lives on THIS wrapper, not on .mx_BaseAvatar/the avatar's own <img> —
+    // putting it on the avatar element itself shrinks its content box (box-sizing: border-box)
+    // below the size its inner <img> independently computes from the same --cpd-avatar-size
+    // custom property, so the (now too-big) <img> overflows and gets asymmetrically clipped by
+    // the avatar's own overflow:hidden — visible as the icon looking off-center/cropped inside
+    // the circle. Wrapping instead means the compound Avatar renders at its full, correctly
+    // self-centered size, with the ring just added around the outside.
+    &_avatarWrap {
+        position: relative;
+        // Overlap is calibrated for this wrapper's *total* rendered size: 104px avatar + 4px
+        // border on each side = 112px, so half of that, not half of the bare avatar size.
+        margin-top: -56px;
+        margin-bottom: var(--cpd-space-3x);
+        display: inline-block;
+        // inline-block boxes get invisible extra height from their own line-box metrics (the
+        // classic "mystery gap below an image" quirk) even with no visible text inside — line-height:0
+        // removes it so this wrapper's box is exactly the avatar + border, nothing more.
+        line-height: 0;
+        border: 4px solid $background;
+        border-radius: 50%;
+    }
+
+    &_meta {
+        display: flex;
+        align-items: flex-start;
+    }
+
+    &_info {
+        flex: 1;
+        // Flex items default to min-width: auto, which refuses to shrink below their content's own
+        // intrinsic width - a long unbroken string (no spaces to break on) in the bio below forced
+        // this whole column wider than the header, pushing .social_RoomView_rightCol off the page
+        // entirely along with it instead of wrapping. This is what actually let that happen; the
+        // word-break below is what makes the wrapping itself possible once it can shrink.
+        min-width: 0;
+
+        h2 {
+            font: var(--cpd-font-heading-md-semibold);
+            color: $primary-content;
+            margin: 0 0 var(--cpd-space-1x);
+        }
+    }
+
+    // Dev-mode-only wrapper around the room name (opens the stock RoomSummary RightPanel) - reset
+    // to plain block display so wrapping the <h2> in a <button> changes nothing visually.
+    &_nameBtn {
+        display: block;
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+        text-align: left;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    // The linked MXID (profile rooms) or primary alias (group rooms) - see getVerifiedProfileUserId
+    // in room-classifier.ts. Font/weight now comes from the Text size="sm" weight="semibold"
+    // wrapping it (same as the stock member RightPanel's own MXID, mx_UserInfo_profile_mxid) -
+    // only the things Text doesn't already set (colour to match, spacing) belong here. A leftover
+    // `font` override here previously fought Text's own semibold styling and won (equal
+    // specificity, declared later), which is why this looked unchanged after that fix landed.
+    &_identifier {
+        color: var(--cpd-color-text-secondary);
+        margin: 0 0 var(--cpd-space-1x);
+    }
+
+    &_topic {
+        font: var(--cpd-font-body-md-regular);
+        color: $primary-content;
+        margin: 0 0 var(--cpd-space-2x);
+        // Lets a long unbroken string (no spaces) wrap mid-word instead of forcing this element
+        // (and its flex ancestors, see .social_RoomView_info's own min-width:0 above) wider than
+        // the page rather than actually wrapping.
+        overflow-wrap: anywhere;
+        // Cuts off after a sensible length instead of letting a very long bio grow the header
+        // indefinitely - same 3-line clamp pattern already used for repost card bodies elsewhere.
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+
+        a {
+            color: $accent-alt;
+        }
+    }
+
+    // Pinned to the header's own top-right corner (position:absolute - .social_RoomView_header has
+    // position:relative) rather than flowing in normal layout alongside the name/bio/actions, so it
+    // can't be pushed off the page by a long bio the way stacking it in .social_RoomView_rightCol
+    // used to allow. Holds Edit Profile/Group (see SocialRoomView.tsx) to the left of the follower/
+    // member pile, both in one row.
+    &_topActions {
+        position: absolute;
+        top: var(--cpd-space-4x);
+        // Was 0 (flush with .social_RoomView_header's own 24px right padding) - read as smushed
+        // right up against the edge, particularly the member/follower pill's own rounded shape.
+        // Extra inset on top of that existing padding, not instead of it.
+        right: var(--cpd-space-2x);
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-3x);
+    }
+
+    &_memberPile {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: var(--cpd-space-1x);
+
+        // .mx_FacePile has no base layout of its own (see _FacePile.pcss) — every stock usage
+        // scopes its own look, e.g. .mx_RoomHeader .mx_FacePile (_RoomHeader.pcss). Without an
+        // equivalent scoped rule here, the count fell back to block/inline-block layout and wrapped
+        // onto its own line below the avatars instead of sitting inline beside them. Same rule as
+        // RoomHeader's, so this pill looks identical to the one shown for a regular room.
+        .mx_FacePile {
+            display: flex;
+            align-items: center;
+            gap: var(--cpd-space-2x);
+            color: $secondary-content;
+            background: $background;
+            border-radius: 9999px;
+            padding: var(--cpd-space-1-5x);
+            cursor: pointer;
+            user-select: none;
+            font: var(--cpd-font-body-sm-medium);
+
+            &:hover {
+                color: $primary-content;
+                background: var(--cpd-color-bg-subtle-primary);
+            }
+        }
+    }
+
+    &_memberPileLabel {
+        font: var(--cpd-font-body-sm-regular);
+        color: $tertiary-content;
+    }
+
+    &_feed {
+        padding: var(--cpd-space-4x) var(--cpd-space-6x);
+        display: flex;
+        flex-direction: column;
+        gap: var(--cpd-space-4x);
+    }
+
+    // .social_ComposeBox itself has no horizontal margin of its own (it's also used inside
+    // .social_Pane, which already has its own padding on every side — adding margin here too would
+    // double it up there). Here it sits directly between _header and _feed, both of which already
+    // have `var(--cpd-space-6x)` horizontal padding, so match that specifically in this context.
+    > .social_ComposeBox {
+        margin-top: var(--cpd-space-6x);
+        margin-left: var(--cpd-space-6x);
+        margin-right: var(--cpd-space-6x);
+    }
+}
+
+.social_BackBtn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: var(--cpd-font-body-md-regular);
+    color: $secondary-content;
+
+    &:hover {
+        color: $primary-content;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Media embeds in post tiles
+// ---------------------------------------------------------------------------
+
+.social_EventTile_mediaWrap {
+    margin-bottom: var(--cpd-space-3x);
+}
+
+.social_EventTile_image {
+    display: block;
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
+    cursor: zoom-in;
+    object-fit: contain;
+}
+
+.social_EventTile_video {
+    display: block;
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
+}
+
+.social_EventTile_audio {
+    width: 100%;
+}
+
+// ---------------------------------------------------------------------------
+// "..." context menu on each post
+// ---------------------------------------------------------------------------
+
+.social_EventTile_menuWrap {
+    position: relative;
+}
+
+// The timestamp is now a real matrix.to permalink (see SocialEventTile's own handleTimestampClick)
+// - stock's own .mx_MessageTimestamp is deliberately excluded from _common.pcss's global a:hover/
+// link/visited color rule for the exact same reason (a timestamp shouldn't suddenly look like a
+// normal blue link just because it's wrapped in an <a>), but that exclusion only ever covers color,
+// not the browser's own default underline - resetting both explicitly here rather than relying on
+// inherited behaviour, with the underline brought back on hover as the actual "this is clickable"
+// affordance.
+.social_EventTile_timestampLink {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.social_EventTile_menuBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: $tertiary-content;
+    font-size: 18px;
+    line-height: 1;
+    padding: var(--cpd-space-1x) var(--cpd-space-2x);
+    border-radius: 6px;
+
+    &:hover {
+        background: $system;
+        color: $primary-content;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Rich URL preview card (shown when no file attached but body has a link)
+// ---------------------------------------------------------------------------
+
+.social_EventTile_urlPreview {
+    display: flex;
+    gap: var(--cpd-space-3x);
+    margin-bottom: var(--cpd-space-3x);
+    padding: var(--cpd-space-3x);
+    border: 1px solid $quinary-content;
+    border-left: 3px solid $accent;
+    border-radius: 4px;
+    text-decoration: none;
+    color: inherit;
+    background: $system;
+    transition: background 0.1s;
+
+    &:hover {
+        background: $quinary-content;
+    }
+}
+
+.social_EventTile_urlPreview_image {
+    width: 96px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.social_EventTile_urlPreview_body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-1x);
+    min-width: 0;
+}
+
+.social_EventTile_urlPreview_title {
+    font: var(--cpd-font-body-sm-semibold);
+    color: $primary-content;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.social_EventTile_urlPreview_desc {
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.social_EventTile_urlPreview_hostname {
+    font: var(--cpd-font-body-xs-regular);
+    color: $tertiary-content;
+}
+
+// ---------------------------------------------------------------------------
+// Shared compose box — used at the top of Feed, in a profile/group room, in the reply dialog,
+// and (partially, its own footer layout) in the repost composer, so posting looks and behaves the
+// same everywhere. Rounded corners live on the first/last child rather than `overflow: hidden` on
+// the container itself — that container-level clipping used to cut off the RoomPickerDropdown's
+// popup (and any other absolutely-positioned popup opening from inside the footer, e.g. the emoji
+// picker or "…" menu), since those overlays render as descendants that need to escape the box's
+// own bounds instead of being confined to it.
+// ---------------------------------------------------------------------------
+
+.social_ComposeBox {
+    margin-bottom: var(--cpd-space-6x);
+    border: 1px solid $quinary-content;
+    border-radius: 12px;
+    background: $background;
+}
+
+// Anchors the slash-command autocomplete (SlashCommandAutocomplete.tsx) relative to the textarea
+// it's completing in, rather than the whole form (which would anchor it below the footer/buttons
+// instead).
+.social_ComposeBox_inputWrap {
+    position: relative;
+
+    // Stock .mx_Autocomplete is position: absolute; bottom: 0 - grows upward from the bottom of its
+    // containing block, which is the right call in the real composer (a single-line-ish input near
+    // the bottom of the screen, where the list needs to appear *above* it). Social's own composer is
+    // multi-line and slash commands can only start at the very beginning of it, so growing upward
+    // instead overlapped exactly where you're typing. Pin it below the textarea instead: top: 100%
+    // (start right where the wrapper ends) with bottom unset, so it grows downward - and flip the
+    // border/radius/shadow the same way stock has them (rounded top, flat bottom, shadow cast
+    // upward) since they're specifically shaped for growing the other direction.
+    .mx_Autocomplete {
+        top: 100%;
+        bottom: auto;
+        border-top: none;
+        border-bottom: 1px solid $quinary-content;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0px 16px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    // Stock caps this at 40cqh via a container query keyed to a "roomview" container context
+    // (@container roomview (height >= 0px)) that Social's own layout never establishes, so it never
+    // applied here — the full, unfiltered command list rendered at its natural height instead,
+    // running well past the viewport as you scrolled the page with it still open. A plain
+    // fixed max-height (stock's own overflow-y: scroll on this element already makes it scroll
+    // internally once capped) fixes it without needing that container context.
+    .mx_Autocomplete_Completion_container_pill {
+        max-height: 240px;
+    }
+}
+
+.social_ComposeBox_input {
+    display: block;
+    width: 100%;
+    padding: var(--cpd-space-3x) var(--cpd-space-4x);
+    border: none;
+    border-radius: 12px 12px 0 0;
+    background: transparent;
+    resize: none;
+    font: var(--cpd-font-body-md-regular);
+    color: $primary-content;
+    outline: none;
+    box-sizing: border-box;
+
+    &::placeholder {
+        color: $tertiary-content;
+    }
+}
+
+.social_ComposeBox_footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--cpd-space-2x);
+    // Vertical padding trimmed from 8px to 6px to offset RoomPickerButton's own padding growing
+    // from 4px to 6px — keeps this footer's total height, and so the whole compose box, constant.
+    padding: 6px var(--cpd-space-3x);
+    border-top: 1px solid $quinary-content;
+    border-radius: 0 0 12px 12px;
+    background: $system;
+}
+
+.social_ComposeBox_roomPicker {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    flex: 1;
+    min-width: 0;
+}
+
+.social_ComposeBox_label {
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+    white-space: nowrap;
+}
+
+// The stock composer button row (Emoji / Upload / "…" menu) + Send button — see
+// PostComposerButtons.tsx. Kept in its own flex row so it always sits at the trailing edge of the
+// footer, after the room picker.
+.social_PostComposerButtons {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+    flex-shrink: 0;
+}
+
+// Dedicated row for the voice-message recording UI, rendered via portal from
+// PostComposerButtons.tsx into a slot each composer places between its textbox and its footer —
+// previously this was crammed inline into .social_PostComposerButtons (the button row), which is
+// what actually caused it to be missing/misplaced (no room to render itself and no positioned
+// ancestor of its own for the recording-pulse dot, which wandered off to whatever OTHER positioned
+// ancestor it could find). `VoiceRecordComposerTile` renders `null` until a recording actually
+// starts, so this DOM node is empty (no children) at rest — `:not(:empty)` is what makes the slot
+// expand only while actually recording, and collapse back to nothing automatically once disposed
+// (including via the recorder's own Delete/cancel button — no extra state to reset for that).
+.social_ComposeBox_recorderSlot {
+    &:not(:empty) {
+        display: flex;
+        align-items: center;
+        padding-top: var(--cpd-space-2x);
+        // Lines the recorder's own left edge up closer to the textbox's own left inset above it
+        // (.social_ComposeBox_input's padding) — the recording container's own 6px margin alone
+        // left its Delete button sitting noticeably closer to the edge than the textbox's text.
+        padding-left: var(--cpd-space-2x);
+        margin-top: var(--cpd-space-2x);
+        border-top: 1px solid $quinary-content;
+    }
+
+    // Stock's own sizing/position for this (height, margin, position:relative for the pulse dot,
+    // the pulse dot itself) is scoped to `.mx_MessageComposer_row .mx_VoiceMessagePrimaryContainer`
+    // in _VoiceRecordComposerTile.pcss — we don't have that ancestor class. Mirrors that stock rule
+    // exactly, just scoped to our own slot instead.
+    .mx_VoiceMessagePrimaryContainer {
+        flex: 1;
+        height: 32px;
+        margin: 6px;
+        position: relative;
+
+        &.mx_VoiceRecordComposerTile_recording {
+            padding-left: 22px;
+
+            &::before {
+                animation: recording-pulse 2s infinite;
+                content: "";
+                background-color: $voice-record-live-circle-color;
+                width: 10px;
+                height: 10px;
+                position: absolute;
+                left: 12px;
+                top: 17px;
+                border-radius: 10px;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Clickable event tile (card body navigates to thread view)
+// ---------------------------------------------------------------------------
+
+.social_EventTile--clickable {
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+        background: color-mix(in srgb, $background 96%, $primary-content);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Thread / Post detail view (SocialPostView)
+// ---------------------------------------------------------------------------
+
+.social_PostView {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+
+    &_backBar {
+        padding: var(--cpd-space-3x) var(--cpd-space-6x);
+        border-bottom: 1px solid $quinary-content;
+        flex-shrink: 0;
+    }
+
+    // Ancestor chain + focused post, in DOM order root-first, ending at the focused post (which
+    // keeps the .social_PostView_mainPost class below for its own bottom border/spacing) — see
+    // SocialPostView.tsx's own header comment for why the focused post isn't always the root.
+    &_thread {
+        position: relative;
+        padding: 0 var(--cpd-space-6x);
+        border-bottom: 1px solid $quinary-content;
+        // Without this, being a flex item in .social_PostView's own column flex layout makes this
+        // shrinkable by default - the flex algorithm was compressing a tall ancestor chain to fit
+        // the container's height instead of letting it overflow and scroll, which is what made the
+        // thread root (and any other ancestor) unreachable by scrolling up: the container's own
+        // scrollHeight never actually exceeded its clientHeight, so there was nothing to scroll to.
+        flex-shrink: 0;
+
+        // One continuous line behind every tile in the group, from the very top to the very
+        // bottom - each tile's own opaque card background covers the part of the line that would
+        // otherwise show through it, leaving the line visible only in the gaps between tiles. That
+        // makes it read as connecting consecutive posts without needing a separate line segment
+        // per gap. Positioned to line up with the avatar's own horizontal center: this container's
+        // own left padding (--cpd-space-6x) + the card's own left padding (--cpd-space-4x, see
+        // .social_EventTile) + half the 40px avatar.
+        &--connected::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: calc(var(--cpd-space-6x) + var(--cpd-space-4x) + 20px);
+            width: 2px;
+            background: $quinary-content;
+            z-index: 0;
+        }
+    }
+
+    &_threadItem {
+        position: relative;
+        z-index: 1;
+        padding: var(--cpd-space-4x) 0;
+    }
+
+    &_mainPost {
+        padding-bottom: var(--cpd-space-4x);
+    }
+
+    &_replyCompose {
+        padding: var(--cpd-space-4x) var(--cpd-space-6x);
+        border-bottom: 1px solid $quinary-content;
+        display: flex;
+        flex-direction: column;
+        gap: var(--cpd-space-3x);
+    }
+
+    &_replyInput {
+        width: 100%;
+        padding: var(--cpd-space-2x) var(--cpd-space-3x);
+        border: 1px solid $quinary-content;
+        border-radius: 8px;
+        background: $system;
+        color: $primary-content;
+        font: var(--cpd-font-body-md-regular);
+        resize: none;
+        box-sizing: border-box;
+
+        &:focus {
+            outline: none;
+            border-color: $accent;
+        }
+    }
+
+    &_replyFooter {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    &_replies {
+        padding: var(--cpd-space-4x) var(--cpd-space-6x);
+        display: flex;
+        flex-direction: column;
+        gap: var(--cpd-space-3x);
+        // See &_thread's own flex-shrink: 0 above for why - same fix, same reason.
+        flex-shrink: 0;
+    }
+
+    &_repliesHeader {
+        font: var(--cpd-font-body-md-semibold);
+        color: $primary-content;
+        margin: 0 0 var(--cpd-space-2x);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Individual reply tile (inside SocialPostView)
+// ---------------------------------------------------------------------------
+
+.social_ReplyTile {
+    display: flex;
+    gap: var(--cpd-space-3x);
+    align-items: flex-start;
+
+    &_content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    &_header {
+        display: flex;
+        align-items: baseline;
+        gap: var(--cpd-space-2x);
+        margin-bottom: var(--cpd-space-1x);
+    }
+
+    &_sender {
+        font: var(--cpd-font-body-sm-semibold);
+        color: $primary-content;
+    }
+
+    &_time {
+        font: var(--cpd-font-body-xs-regular);
+        color: $tertiary-content;
+    }
+
+    &_body {
+        font: var(--cpd-font-body-md-regular);
+        color: $primary-content;
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// "In reply to" indicator (shown on events that have m.in_reply_to)
+// ---------------------------------------------------------------------------
+
+.social_EventTile_replyTo {
+    position: relative;
+    margin-bottom: var(--cpd-space-2x);
+}
+
+.social_EventTile_replyToBtn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: var(--cpd-font-body-sm-regular);
+    // !important: this is a real <a href="matrix.to/..."> whenever the related room is already
+    // known locally (see PostRelationHeaderLine.tsx) - without it, the browser's own UA-level
+    // a:link/a:visited default color wins over this rule (UA styles lose to author styles in
+    // theory, but evidently something in the cascade here still let it through), which is why the
+    // in-room reply line rendered blue while the repost/cross-reply lines (often no href at all,
+    // when the related room isn't joined yet) rendered the intended green.
+    color: $accent !important;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+
+    strong {
+        font: var(--cpd-font-body-sm-semibold);
+    }
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.social_EventTile_replyPreview {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 4px);
+    z-index: 50;
+    background: $background;
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    padding: var(--cpd-space-3x);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    min-width: 240px;
+    max-width: 400px;
+}
+
+.social_EventTile_replyPreview_sender {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    font: var(--cpd-font-body-sm-semibold);
+    color: $primary-content;
+    margin-bottom: var(--cpd-space-1x);
+}
+
+.social_EventTile_replyPreview_body {
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+// ---------------------------------------------------------------------------
+// Embedded repost card (m.social.repost_of — covers boosts, retweets, and quote-posts)
+// ---------------------------------------------------------------------------
+
+.social_EventTile_repostCard {
+    margin: 0 0 var(--cpd-space-3x);
+    padding: var(--cpd-space-3x);
+    border: 1px solid $quinary-content;
+    border-left: 3px solid $accent;
+    border-radius: 4px;
+    background: $system;
+
+    &--clickable {
+        cursor: pointer;
+
+        &:hover {
+            background: color-mix(in srgb, $accent 4%, $system);
+        }
+    }
+}
+
+.social_EventTile_repostCard_header {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    margin-bottom: var(--cpd-space-1x);
+}
+
+.social_EventTile_repostCard_avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.social_EventTile_repostCard_sender {
+    font: var(--cpd-font-body-sm-semibold);
+    color: $primary-content;
+}
+
+.social_EventTile_repostCard_body {
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+
+    // Same fix as .social_EventTile_body's own (see there) - a formatted_body gets tagged
+    // markdown-body by the shared renderer, which sets its own background, giving this section a
+    // visibly different color than the rest of the card instead of blending into it.
+    .markdown-body {
+        background-color: inherit;
+        color: inherit;
+    }
+}
+
+.social_EventTile_repostCard_media {
+    margin-top: var(--cpd-space-2x);
+    border-radius: 4px;
+    overflow: hidden;
+    max-height: 200px;
+}
+
+.social_EventTile_repostCard_image,
+.social_EventTile_repostCard_video {
+    display: block;
+    max-width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.social_EventTile_repostCard_image {
+    cursor: zoom-in;
+}
+
+
+// ---------------------------------------------------------------------------
+// Room name label at top of post (X/Twitter community style)
+// ---------------------------------------------------------------------------
+
+.social_EventTile_roomLabel {
+    margin-bottom: var(--cpd-space-2x);
+}
+
+.social_EventTile_roomLabelBtn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+    font-family: inherit;
+    text-align: left;
+
+    &:hover {
+        text-decoration: underline;
+        color: $primary-content;
+    }
+}
+
+.social_EventTile_roomLabelText {
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+}
+
+// Sender name as clickable button (inherits mx_Username_color{n} for color)
+.social_EventTile_avatarBtn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+    line-height: 0;
+}
+
+.social_EventTile_senderName {
+    // Override to make it a button-like element that preserves inherited color
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: var(--cpd-font-body-md-semibold);
+    font-family: inherit;
+    text-align: left;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Like button (LikeButton.tsx) — same emoji icon as the composer's EmojiButton, icon-only,
+// hover opens the stock ReactionPicker.
+// ---------------------------------------------------------------------------
+
+.social_LikeButton_icon {
+    width: 20px;
+    height: 20px;
+}
+
+.social_LikeButton--liked {
+    color: $accent;
+}
+
+.social_EventTile_actionBtn--reposted {
+    color: $accent;
+}
+
+// ---------------------------------------------------------------------------
+// Reply composer dialog — a real Modal (BaseDialog), not an inline expanding form.
+// The bordered/darkened-backdrop chrome comes for free from BaseDialog/mx_Dialog,
+// same as Room Settings; this just styles the form content inside it.
+// ---------------------------------------------------------------------------
+
+.social_ReplyDialog_form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-3x);
+}
+
+.social_ReplyDialog_input {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    padding: var(--cpd-space-3x);
+    font: var(--cpd-font-body-md-regular);
+    color: $primary-content;
+    background: $background;
+    font-family: inherit;
+}
+
+.social_ReplyDialog_actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--cpd-space-2x);
+}
+
+// ---------------------------------------------------------------------------
+// Shared quoted/replied-to post preview (RepostPreview.tsx) — sender + body, used both above
+// the reply composer and in the repost dialog. Single source of truth for both: a rounded box
+// with the accent bar on the left (matching the old expanding reply/quote composer's look) — used
+// to be split into per-dialog overrides (.social_ReplyDialog_quoted / .social_RepostDialog_quoted)
+// that each set their own border/border-radius/background, which fought with this shared rule
+// (equal specificity, so whichever loaded later in the stylesheet won outright) and meant the two
+// dialogs never actually looked consistent. Both classNames were removed; layout spacing for
+// each dialog already comes from its own form's flex `gap`, not margin on this element.
+// ---------------------------------------------------------------------------
+
+.social_RepostPreview {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--cpd-space-2x);
+    background: $system;
+    border: 1px solid $quinary-content;
+    border-left: 3px solid $accent;
+    border-radius: 8px;
+    padding: var(--cpd-space-2x) var(--cpd-space-3x);
+}
+
+.social_RepostPreview_content {
+    flex: 1;
+    min-width: 0;
+}
+
+.social_RepostPreview_sender {
+    font: var(--cpd-font-body-sm-semibold);
+    color: $primary-content;
+}
+
+.social_RepostPreview_body {
+    margin: 0;
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.social_RepostPreview_file {
+    margin-top: var(--cpd-space-1x);
+    font: var(--cpd-font-body-sm-regular);
+    color: $tertiary-content;
+}
+
+// ---------------------------------------------------------------------------
+// PostComposerDialog — shared base for the quote-post (RepostDialog) and plain post (PostDialog)
+// modals, same BaseDialog chrome as the reply dialog. Layout (top to bottom): compose textarea,
+// optional extra content (RepostPreview for a quote post, nothing for a plain post), then the room
+// picker + composer buttons.
+// ---------------------------------------------------------------------------
+
+.social_PostComposerDialog_form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-3x);
+}
+
+// Reuses .social_ComposeBox_input for the textarea itself (same look as every other composer).
+
+.social_PostComposerDialog_footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--cpd-space-2x);
+}
+
+// ---------------------------------------------------------------------------
+// Room picker button (RoomPickerButton) — the "post to"/"repost to" trigger. Looks like the old
+// dropdown's selected-room display (avatar + name) minus the caret; opens RoomPickerModal on click.
+// ---------------------------------------------------------------------------
+
+.social_RoomPickerButton {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    // Halfway between the original (4px/8px) and the first bigger pass (8px/12px) — see
+    // .social_ComposeBox_footer, which trims its own padding by the matching amount so the
+    // compose box's total height stays constant regardless of this value.
+    padding: 6px 10px;
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    background: $background;
+    color: $primary-content;
+    font: var(--cpd-font-body-sm-regular);
+    max-width: 210px;
+}
+
+.social_RoomPickerButton_label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.social_RoomPickerButton_chevron {
+    flex-shrink: 0;
+    color: $tertiary-content;
+}
+
+// ---------------------------------------------------------------------------
+// Room picker modal (RoomPickerModal) — a fork of ForwardDialog's room list (see
+// _ForwardDialog.pcss for the upstream reference this mirrors), minus the message preview and
+// per-row Send button, plus a removable "Social Rooms" pill in the search box (styled like
+// SpotlightDialog's own "Public rooms" filter chip — see .social_RoomPickerModal_searchPill below).
+// ---------------------------------------------------------------------------
+
+.social_RoomPickerModal {
+    width: 480px;
+    color: $primary-content;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 70vh;
+}
+
+.social_RoomPickerModal_list {
+    display: contents;
+}
+
+.social_RoomPickerModal_searchBox {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    margin: 0 0 var(--cpd-space-4x);
+    padding: var(--cpd-space-2x) var(--cpd-space-3x);
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.social_RoomPickerModal_searchPill {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+    flex-shrink: 0;
+    border-radius: 8px;
+    padding: var(--cpd-space-1x) var(--cpd-space-2x);
+    background-color: $quinary-content;
+    color: $primary-content;
+    // Matches SpotlightDialog's own "Public rooms" filter chip exactly (its font-size comes from
+    // .mx_SpotlightDialog_searchBox > input's 0.9375rem, inherited by the sibling pill) — body-md,
+    // not body-sm.
+    font: var(--cpd-font-body-md-regular);
+
+    svg {
+        flex-shrink: 0;
+    }
+    white-space: nowrap;
+}
+
+.social_RoomPickerModal_searchPill_icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 4px;
+}
+
+.social_RoomPickerModal_searchPill_remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    padding: 1px;
+    border-radius: 8px;
+    background: $system;
+    color: $secondary-content;
+    cursor: pointer;
+
+    &:hover {
+        color: $primary-content;
+    }
+}
+
+.social_RoomPickerModal_searchInput {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font: var(--cpd-font-body-sm-regular);
+    color: $primary-content;
+}
+
+.social_RoomPickerModal_content {
+    flex-grow: 1;
+}
+
+.social_RoomPickerModal_noResults {
+    display: block;
+    margin-top: 24px;
+}
+
+.social_RoomPickerModal_resultsList {
+    padding-right: var(--cpd-space-2x);
+}
+
+.social_RoomPickerModal_entry {
+    display: flex;
+    height: 32px;
+    padding: var(--cpd-space-1x);
+    border-radius: 8px;
+
+    &:hover,
+    &.social_RoomPickerModal_entry_active {
+        background-color: $spacePanel-bg-color;
+    }
+
+    .social_RoomPickerModal_entry_roomButton {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-width: 0;
+
+        .mx_DecoratedRoomAvatar {
+            margin-right: var(--cpd-space-3x);
+        }
+
+        .social_RoomPickerModal_entry_name,
+        .social_RoomPickerModal_entry_detail {
+            line-height: 30px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .social_RoomPickerModal_entry_name {
+            font-size: $font-15px;
+        }
+
+        .social_RoomPickerModal_entry_detail {
+            font-size: $font-12px;
+            margin-left: var(--cpd-space-2x);
+            color: $tertiary-content;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Profile banner editor (BannerSetting.tsx) — injected into the stock Room Settings dialog's
+// General tab (via RoomProfileSettings.tsx) for MSC4501 profile/group rooms, right below the
+// avatar editor. Mirrors AvatarSetting's pencil-icon-in-the-corner affordance and reuses its exact
+// context menu, so it matches the avatar editor above it rather than looking like a separate,
+// bespoke control.
+// ---------------------------------------------------------------------------
+
+.social_BannerSetting {
+    margin-top: var(--cpd-space-4x);
+}
+
+.social_BannerSetting_heading {
+    // Matches the Room Name/Room Topic field labels' floated-up state (see _Field.pcss's
+    // `.mx_Field input:not(:placeholder-shown) + label`) — same font/size, as a static heading
+    // rather than an animated floating label, since this isn't wrapped in a text input.
+    font: var(--cpd-font-body-md-regular);
+    font-size: $font-10px;
+    color: var(--cpd-color-text-secondary);
+    margin: 0 0 var(--cpd-space-1x);
+    // Field's own label sits inset from .mx_Field's left edge by its 1px border + 8px margin +
+    // 2px padding (see _Field.pcss) — match that same 11px so "Room Banner" lines up with "Room
+    // Name"/"Room Topic" above it rather than sitting flush with this section's own left edge.
+    margin-left: 11px;
+}
+
+.social_BannerSetting_display {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: $system;
+    border: 1px solid $quinary-content;
+}
+
+.social_BannerSetting_image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.social_BannerSetting_placeholder {
+    width: 100%;
+    height: 100%;
+}
+
+.social_BannerSetting_editButton {
+    position: absolute;
+    bottom: var(--cpd-space-2x);
+    right: var(--cpd-space-2x);
+    width: 28px;
+    height: 28px;
+    border-radius: 32px;
+    border: 1px solid var(--cpd-color-bg-canvas-default);
+    background-color: var(--cpd-color-bg-canvas-default);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    &:hover,
+    &--active {
+        background-color: var(--cpd-color-bg-subtle-primary);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Feed filter button (between the composer and the first post) + dialog
+// ---------------------------------------------------------------------------
+
+.social_Feed_filterRow {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: var(--cpd-space-3x);
+}
+
+.social_Feed_filterBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+}
+
+.social_FeedFilterDialog_section {
+    margin-bottom: var(--cpd-space-4x);
+}
+
+.social_FeedFilterDialog_sectionHeader {
+    font: var(--cpd-font-body-md-semibold);
+    color: $primary-content;
+    margin-bottom: var(--cpd-space-2x);
+}
+
+// Combined with the shared .social_Error class (see above) for the red text color; just adds
+// spacing appropriate to this dialog's layout.
+.social_FeedFilterDialog_error {
+    margin: 0 0 var(--cpd-space-3x);
+}
+
+.social_FeedFilterDialog_footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--cpd-space-2x);
+}
+
+// ---------------------------------------------------------------------------
+// PillMultiInput — resizable multi-value input: a fixed text field on top, with
+// added pills flowing in a grid underneath (their own scroll area, so the input stays
+// reachable even once the section is full). Pill look matches SpotlightDialog's own
+// "Public rooms"-style filter chip (.mx_SpotlightDialog_filter) — rounded rect on
+// $quinary-content, small round remove button on $system — not the generic AutocompleteInput
+// pill styling.
+// ---------------------------------------------------------------------------
+
+.social_PillMultiInput_box {
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;
+    max-height: 320px;
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    background: $background;
+    resize: vertical;
+    overflow: hidden; // box itself doesn't scroll — enables the native resize handle; the
+    // pill grid below has its own overflow-y so the input row stays fixed/visible.
+}
+
+.social_PillMultiInput_inputRow {
+    position: relative;
+    flex: 0 0 auto;
+    padding: var(--cpd-space-2x);
+    border-bottom: 1px solid $quinary-content;
+}
+
+.social_PillMultiInput_input {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font: var(--cpd-font-body-sm-regular);
+    color: $primary-content;
+}
+
+.social_PillMultiInput_pillGrid {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    align-items: flex-start;
+    gap: var(--cpd-space-1x);
+    padding: var(--cpd-space-2x);
+    overflow-y: auto;
+}
+
+.social_PillMultiInput_pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    border-radius: 8px;
+    padding: var(--cpd-space-1x) var(--cpd-space-2x);
+    background-color: $quinary-content;
+    color: $primary-content;
+    font: var(--cpd-font-body-sm-regular);
+    white-space: nowrap;
+}
+
+.social_PillMultiInput_pill_avatar {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.social_PillMultiInput_pill_avatarImg {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+}
+
+.social_PillMultiInput_pill_remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    padding: 1px;
+    border-radius: 8px;
+    background: $system;
+    color: $secondary-content;
+    cursor: pointer;
+
+    &:hover {
+        color: $primary-content;
+    }
+}
+
+.social_PillMultiInput_suggestions {
+    position: absolute;
+    z-index: 10;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: var(--cpd-space-1x);
+    max-height: 240px;
+    overflow-y: auto;
+    background: $background;
+    border: 1px solid $quinary-content;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.social_PillMultiInput_suggestion {
+    padding: var(--cpd-space-2x) var(--cpd-space-3x);
+    cursor: pointer;
+
+    &:hover {
+        background: $system;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SocialProfileButton — shown in the stock member RightPanel (see UserInfoHeaderView.tsx) between
+// the Verified section and the divider above the Message/Invite/etc buttons. Same solid-accent,
+// white-icon-and-text look as /#home's own "Send a Direct Message" button
+// (.mx_HomePage_button_sendDm), sized as a full-width row instead of that button's own stacked box
+// so it lines up with the MenuItem rows below it rather than looking like a different kind of UI.
+// ---------------------------------------------------------------------------
+
+.social_ProfileLinkButton {
+    display: flex;
+    align-items: center;
+    // Matches Compound's own MenuItem exactly (icon width 24px, margin-inline-end space-3x,
+    // padding-inline space-4x) - the "Share profile"/"View Profile Data" rows below use MenuItem
+    // directly, so this custom button needs the same values to actually line up with them, not just
+    // similar-looking ones.
+    gap: var(--cpd-space-3x);
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: var(--cpd-space-2x);
+    padding: var(--cpd-space-2x) var(--cpd-space-4x);
+    // A solid $accent fill (stock Element's usual solid-button green, matching
+    // .mx_HomePage_button_sendDm) put the Social icon's own green gradient directly on top of an
+    // identically-green background, so the icon's edges disappeared into the button. A bordered,
+    // neutral-fill treatment keeps the icon crisp against its backdrop while the accent-colored
+    // border/text still make the row read as a distinct, clickable action rather than a plain
+    // MenuItem row.
+    border: 1px solid $accent;
+    border-radius: 8px;
+    background: $quinary-content;
+    color: $accent;
+    font: var(--cpd-font-body-md-semibold);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+        background: color-mix(in srgb, $quinary-content 80%, $accent);
+    }
+}
+
+.social_ProfileLinkButton_icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 4px;
+}
+
+// ---------------------------------------------------------------------------
+// Own-profile avatar/banner edit button (ProfileImageEditButton.tsx) - same visual treatment as
+// stock Element's own .mx_AvatarSetting_uploadButton pencil in Room Settings, just without that
+// component's own bottom-right positioning baked in (see .social_RoomView_bannerEditButton/
+// _avatarEditButton in the block above for why - each caller positions this itself).
+// ---------------------------------------------------------------------------
+
+.social_ProfileImageEditButton {
+    width: 28px;
+    height: 28px;
+    border-radius: 32px;
+    border: 1px solid var(--cpd-color-bg-canvas-default);
+    background-color: var(--cpd-color-bg-canvas-default);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    &:hover,
+    &--active {
+        background-color: var(--cpd-color-bg-subtle-primary);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MSC4503 external handle (ExternalHandleBadge.tsx) - shown under the MXID in both the stock
+// member RightPanel and a profile room's own header. Deliberately plain/quiet (secondary text
+// colour, small protocol icon) so it doesn't compete with the MXID sitting right above it.
+// ---------------------------------------------------------------------------
+
+.social_ExternalHandleBadge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--cpd-color-text-secondary);
+    margin-top: 2px;
+}
+
+.social_ExternalHandleBadge_protocolIcon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.social_ExternalHandleBadge_handle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.social_ExternalHandleBadge_link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--cpd-color-icon-secondary);
+    cursor: pointer;
+
+    svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    &:hover {
+        color: var(--cpd-color-icon-primary);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ExternalHandleLinkWarningDialog.tsx - the "you're about to leave Matrix" confirmation before
+// opening an untrusted external handle's link.
+// ---------------------------------------------------------------------------
+
+.social_ExternalHandleLinkWarningDialog_warning {
+    color: var(--cpd-color-text-secondary);
+}
+
+.social_ExternalHandleLinkWarningDialog_link {
+    text-align: center;
+    font-weight: var(--cpd-font-weight-semibold);
+    word-break: break-all;
+    margin: 16px 0;
+}
+
+.social_ExternalHandleLinkWarningDialog_trustRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+    cursor: pointer;
+}

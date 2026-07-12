@@ -29,7 +29,7 @@ interface MenuProps {
     onOpenChange: (newOpen: boolean) => void;
 }
 
-const AvatarSettingContextMenu: React.FC<MenuProps> = ({
+export const AvatarSettingContextMenu: React.FC<MenuProps> = ({
     trigger,
     onUploadSelect,
     onRemoveSelect,

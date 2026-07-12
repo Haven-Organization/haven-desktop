@@ -64,10 +64,13 @@ import { manuallyVerifyDevice } from "../components/views/dialogs/ManualDeviceKe
 import upgraderoom from "./upgraderoom/upgraderoom";
 import { emoticon } from "./emoticon";
 import { statusCommand } from "./status";
+// haven apps-framework patch
+import { setProfileRoomCommand } from "../../../../../src/apps/social/slashCommands";
 
 export { CommandCategories, Command };
 
 export const Commands = [
+    setProfileRoomCommand,
     new Command({
         command: "spoiler",
         args: "<message>",

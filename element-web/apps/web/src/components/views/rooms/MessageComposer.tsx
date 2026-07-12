@@ -65,7 +65,9 @@ interface ISendButtonProps {
     title?: string; // defaults to something generic
 }
 
-function SendButton(props: ISendButtonProps): JSX.Element {
+// haven apps-framework patch: exported (was module-local) so Social's own compose/reply/quote
+// forms can reuse the exact same send button instead of a bespoke one.
+export function SendButton(props: ISendButtonProps): JSX.Element {
     return (
         <AccessibleButton
             className="mx_MessageComposer_sendMessage"

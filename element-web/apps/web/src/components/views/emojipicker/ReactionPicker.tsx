@@ -21,6 +21,10 @@ interface IProps {
     mxEvent: MatrixEvent;
     reactions?: Relations | null | undefined;
     onFinished(): void;
+    /** Haven: called after a new reaction is actually sent (not on removal/redaction) — lets a
+     *  caller treat any emoji reaction, not just its own app-specific ones, as an interaction with
+     *  the target event (e.g. Social's "mark read on any m.reaction" behavior). */
+    onReact?(): void;
 }
 
 interface IState {
@@ -107,6 +111,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
                     key: reaction,
                 },
             });
+            this.props.onReact?.();
             dis.dispatch({ action: "message_sent" });
             dis.dispatch<FocusComposerPayload>({
                 action: Action.FocusAComposer,
@@ -130,6 +135,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
                 isEmojiDisabled={this.isEmojiDisabled}
                 onFinished={this.props.onFinished}
                 selectedEmojis={this.state.selectedEmojis}
+                allowFreeformReaction
             />
         );
     }

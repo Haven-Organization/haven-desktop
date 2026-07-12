@@ -146,6 +146,7 @@ import { type QrLoginCredentials } from "../views/auth/LoginWithQR.tsx";
 import { configureFromCompletedOAuthLogin } from "../../Lifecycle";
 // haven apps-framework patch
 import { getAppByHomeAction } from "../../../../../../src/apps/framework/registry";
+import { tryRouteSocialHashScreen } from "../../../../../../src/apps/social/utils/permalinkRouting";
 
 const AUTH_SCREENS = ["register", "mobile_register", "login", "forgot_password", "start_sso", "start_cas", "welcome"];
 
@@ -1855,6 +1856,16 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
 
     public showScreen(screen: string, params?: Record<string, any>): void {
         logger.debug(`showScreen ${screen}`);
+
+        // haven apps-framework patch: routing.ts's own routeUrl() already runs every screen through
+        // this same check before ever calling showScreen - but that only happens for a hashchange
+        // (the URL bar changing while the app is already running). The very first hash the page
+        // loaded with never goes through routeUrl at all: onShowPostLoginScreen/showScreenAfterLogin
+        // below call showScreen directly with whatever getInitialScreenAfterLogin() parsed. Without
+        // this same check here too, a cold-start "#/social" or "#/social/room/!id" URL fell all the
+        // way through to the "unknown screen" branch further down and got silently redirected to
+        // home/welcome instead of ever reaching Social.
+        if (tryRouteSocialHashScreen(screen, params)) return;
 
         const cli = MatrixClientPeg.get();
         const isLoggedOutOrGuest = !cli || cli.isGuest();

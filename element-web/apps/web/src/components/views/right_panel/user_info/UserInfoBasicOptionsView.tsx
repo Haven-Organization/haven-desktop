@@ -8,7 +8,13 @@ Please see LICENSE files in the repository root for full details.
 import { type RoomMember, type User, type Room } from "matrix-js-sdk/src/matrix";
 import React, { type JSX, type ReactNode, useState } from "react";
 import { MenuItem } from "@vector-im/compound-web";
-import { ChatIcon, CheckIcon, MentionIcon, ShareIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import {
+    ChatIcon,
+    CheckIcon,
+    MentionIcon,
+    ShareIcon,
+    InlineCodeIcon,
+} from "@vector-im/compound-design-tokens/assets/web/icons";
 import InviteIcon from "@vector-im/compound-design-tokens/assets/web/icons/user-add";
 
 import { _t } from "../../../../languageHandler";
@@ -16,6 +22,9 @@ import { useUserInfoBasicOptionsViewModel } from "../../../viewmodels/right_pane
 import { Container, type Member } from "../UserInfo";
 import { shouldShowComponent } from "../../../../customisations/helpers/UIComponents";
 import { UIComponent } from "../../../../settings/UIFeature";
+import SettingsStore from "../../../../settings/SettingsStore";
+import Modal from "../../../../Modal";
+import ViewProfileSource from "../../../structures/ViewProfileSource";
 
 const MessageButton = ({
     member,
@@ -114,6 +123,18 @@ export const UserInfoBasicOptionsView: React.FC<{
             <MessageButton member={member} openDMForUser={vm.onOpenDmForUser} />
         );
 
+    const viewProfileDataButton = SettingsStore.getValue("developerMode") ? (
+        <MenuItem
+            role="button"
+            onSelect={async (ev) => {
+                ev.preventDefault();
+                Modal.createDialog(ViewProfileSource, { userId: member.userId }, "mx_Dialog_viewsource");
+            }}
+            label={_t("user_info|view_profile_data_button")}
+            Icon={InlineCodeIcon}
+        />
+    ) : null;
+
     return (
         <Container>
             {children}
@@ -122,6 +143,7 @@ export const UserInfoBasicOptionsView: React.FC<{
             {readReceiptButton}
             {shareUserButton}
             {insertPillButton}
+            {viewProfileDataButton}
         </Container>
     );
 };

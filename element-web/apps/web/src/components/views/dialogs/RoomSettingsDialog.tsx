@@ -43,6 +43,7 @@ import { PollHistoryTab } from "../settings/tabs/room/PollHistoryTab";
 import ErrorBoundary from "../elements/ErrorBoundary";
 import { PeopleRoomSettingsTab } from "../settings/tabs/room/PeopleRoomSettingsTab";
 import { SDKContext, type SdkContextClass } from "../../../contexts/SDKContext";
+import { socialRoomKind } from "../../../../../../../src/apps/social/utils/room-classifier";
 
 export const enum RoomSettingsTab {
     General = "ROOM_GENERAL_TAB",
@@ -239,13 +240,22 @@ class RoomSettingsDialog extends React.Component<IProps, IState> {
 
     public render(): React.ReactNode {
         const roomName = this.state.room.name;
+        // haven apps-framework patch: "Room Settings" -> "Profile Settings"/"Group Settings" for a
+        // Social room, leaving the stock title untouched for a regular room.
+        const kind = socialRoomKind(this.state.room);
+        const title =
+            kind === "profile"
+                ? `Profile Settings - ${roomName}`
+                : kind === "group"
+                  ? `Group Settings - ${roomName}`
+                  : _t("room_settings|title", { roomName });
         return (
             <SDKContext.Provider value={this.props.sdkContext}>
                 <BaseDialog
                     className="mx_RoomSettingsDialog"
                     hasCancel={true}
                     onFinished={this.props.onFinished}
-                    title={_t("room_settings|title", { roomName })}
+                    title={title}
                 >
                     <div className="mx_SettingsDialog_content">
                         <TabbedView

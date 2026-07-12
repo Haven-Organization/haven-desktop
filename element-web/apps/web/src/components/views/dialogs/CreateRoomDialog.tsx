@@ -41,6 +41,13 @@ interface IProps {
     parentSpace?: Room;
     defaultEncrypted?: boolean;
     defaultStateEncrypted?: boolean;
+    /**
+     * When set, this is really creating a Haven social profile/group room rather than a normal
+     * room — swaps the title, visibility/public labels, join-rule copy, "ask to join" label, and
+     * create-button label to talk about a "profile"/"group" instead of a "room". Leave unset for
+     * the stock New Room flow — every string above defaults to its normal `_t(...)` value.
+     */
+    entityNoun?: "profile" | "group";
     onFinished(proceed?: false): void;
     onFinished(proceed: true, opts: IOpts): void;
 }
@@ -263,7 +270,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
     };
 
     private onNameValidate = async (fieldState: IFieldState): Promise<IValidationResult> => {
-        const result = await CreateRoomDialog.validateRoomName(fieldState);
+        const result = await this.validateRoomName(fieldState);
         this.setState({ nameIsValid: !!result.valid });
         return result;
     };
@@ -272,12 +279,17 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         this.setState({ isPublicKnockRoom: evt.target.checked });
     };
 
-    private static validateRoomName = withValidation({
+    private validateRoomName = withValidation({
         rules: [
             {
                 key: "required",
                 test: async ({ value }) => !!value,
-                invalid: () => _t("create_room|name_validation_required"),
+                invalid: () =>
+                    this.props.entityNoun === "profile"
+                        ? _t("create_room|name_validation_required_profile")
+                        : this.props.entityNoun === "group"
+                          ? _t("create_room|name_validation_required_group")
+                          : _t("create_room|name_validation_required"),
             },
         ],
     });
@@ -295,6 +307,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                         onChange={this.onAliasChange}
                         domain={domain}
                         value={this.state.alias}
+                        label={this.props.entityNoun === "profile" ? _t("create_room|alias_heading_profile") : undefined}
                     />
                 </div>
             );
@@ -314,7 +327,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                         },
                     )}
                     &nbsp;
-                    {_t("create_room|join_rule_change_notice")}
+                    {_t(this.props.entityNoun === "profile" ? "create_room|join_rule_change_notice_profile" : "create_room|join_rule_change_notice")}
                 </p>
             );
         } else if (this.state.joinRule === JoinRule.Public && this.props.parentSpace) {
@@ -330,27 +343,41 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                         },
                     )}
                     &nbsp;
-                    {_t("create_room|join_rule_change_notice")}
+                    {_t(this.props.entityNoun === "profile" ? "create_room|join_rule_change_notice_profile" : "create_room|join_rule_change_notice")}
                 </p>
             );
         } else if (this.state.joinRule === JoinRule.Public) {
             publicPrivateLabel = (
                 <p>
-                    {_t("create_room|join_rule_public_label")}
+                    {this.props.entityNoun === "profile"
+                        ? _t("create_room|join_rule_public_label_profile")
+                        : this.props.entityNoun === "group"
+                          ? _t("create_room|join_rule_public_label_group")
+                          : _t("create_room|join_rule_public_label")}
                     &nbsp;
-                    {_t("create_room|join_rule_change_notice")}
+                    {_t(this.props.entityNoun === "profile" ? "create_room|join_rule_change_notice_profile" : "create_room|join_rule_change_notice")}
                 </p>
             );
         } else if (this.state.joinRule === JoinRule.Invite) {
             publicPrivateLabel = (
                 <p>
-                    {_t("create_room|join_rule_invite_label")}
+                    {this.props.entityNoun === "profile"
+                        ? _t("create_room|join_rule_invite_label_profile")
+                        : this.props.entityNoun === "group"
+                          ? _t("create_room|join_rule_invite_label_group")
+                          : _t("create_room|join_rule_invite_label")}
                     &nbsp;
-                    {_t("create_room|join_rule_change_notice")}
+                    {_t(this.props.entityNoun === "profile" ? "create_room|join_rule_change_notice_profile" : "create_room|join_rule_change_notice")}
                 </p>
             );
         } else if (this.state.joinRule === JoinRule.Knock) {
-            publicPrivateLabel = <p>{_t("create_room|join_rule_knock_label")}</p>;
+            publicPrivateLabel = (
+                <p>
+                    {this.props.entityNoun === "profile"
+                        ? _t("create_room|join_rule_knock_label_profile")
+                        : _t("create_room|join_rule_knock_label")}
+                </p>
+            );
         }
 
         let visibilitySection: JSX.Element | undefined;
@@ -415,15 +442,24 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
             );
         }
 
-        let federateLabel = _t("create_room|unfederated_label_default_off");
+        const isProfile = this.props.entityNoun === "profile";
+        let federateLabel = _t(
+            isProfile ? "create_room|unfederated_label_default_off_profile" : "create_room|unfederated_label_default_off",
+        );
         if (SdkConfig.get().default_federate === false) {
             // We only change the label if the default setting is different to avoid jarring text changes to the
             // user. They will have read the implications of turning this off/on, so no need to rephrase for them.
-            federateLabel = _t("create_room|unfederated_label_default_on");
+            federateLabel = _t(
+                isProfile ? "create_room|unfederated_label_default_on_profile" : "create_room|unfederated_label_default_on",
+            );
         }
 
         let title: string;
-        if (isVideoRoom) {
+        if (this.props.entityNoun === "profile") {
+            title = _t("create_room|title_profile");
+        } else if (this.props.entityNoun === "group") {
+            title = _t("create_room|title_group");
+        } else if (isVideoRoom) {
             title = _t("create_room|title_video_room");
         } else if (this.props.parentSpace || this.state.joinRule === JoinRule.Knock) {
             title = _t("action|create_a_room");
@@ -460,12 +496,36 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
 
                         <div>
                             <JoinRuleDropdown
-                                label={_t("create_room|room_visibility_label")}
-                                labelInvite={_t("create_room|join_rule_invite")}
-                                labelKnock={
-                                    this.askToJoinEnabled ? _t("room_settings|security|join_rule_knock") : undefined
+                                label={
+                                    this.props.entityNoun === "profile"
+                                        ? _t("create_room|visibility_label_profile")
+                                        : this.props.entityNoun === "group"
+                                          ? _t("create_room|visibility_label_group")
+                                          : _t("create_room|room_visibility_label")
                                 }
-                                labelPublic={this.allowCreatingPublicRooms ? _t("common|public_room") : undefined}
+                                labelInvite={
+                                    this.props.entityNoun === "profile"
+                                        ? _t("create_room|join_rule_invite_profile")
+                                        : this.props.entityNoun === "group"
+                                          ? _t("create_room|join_rule_invite_group")
+                                          : _t("create_room|join_rule_invite")
+                                }
+                                labelKnock={
+                                    this.askToJoinEnabled
+                                        ? this.props.entityNoun === "profile"
+                                            ? _t("create_room|ask_to_follow")
+                                            : _t("room_settings|security|join_rule_knock")
+                                        : undefined
+                                }
+                                labelPublic={
+                                    this.allowCreatingPublicRooms
+                                        ? this.props.entityNoun === "profile"
+                                            ? _t("create_room|public_profile")
+                                            : this.props.entityNoun === "group"
+                                              ? _t("create_room|public_group")
+                                              : _t("common|public_room")
+                                        : undefined
+                                }
                                 labelRestricted={
                                     this.supportsRestricted ? _t("create_room|join_rule_restricted") : undefined
                                 }
@@ -487,7 +547,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                                 </summary>
                                 <SettingsToggleInput
                                     name="unfederated"
-                                    label={_t("create_room|unfederated", {
+                                    label={_t(isProfile ? "create_room|unfederated_profile" : "create_room|unfederated", {
                                         serverName: MatrixClientPeg.safeGet().getDomain(),
                                     })}
                                     onChange={this.onNoFederateChange}
@@ -500,7 +560,13 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                 </div>
                 <DialogButtons
                     primaryButton={
-                        isVideoRoom ? _t("create_room|action_create_video_room") : _t("create_room|action_create_room")
+                        this.props.entityNoun === "profile"
+                            ? _t("create_room|action_create_profile")
+                            : this.props.entityNoun === "group"
+                              ? _t("create_room|action_create_group")
+                              : isVideoRoom
+                                ? _t("create_room|action_create_video_room")
+                                : _t("create_room|action_create_room")
                     }
                     onPrimaryButtonClick={this.onOk}
                     onCancel={this.onCancel}

@@ -51,7 +51,7 @@ export const stickyDurationField = (defaultValue?: number): IFieldDef => ({
     default: `${defaultValue ?? 360000}`,
 });
 
-const validateEventContent = withValidation<any, Error | undefined>({
+export const validateEventContent = withValidation<any, Error | undefined>({
     async deriveData({ value }) {
         try {
             JSON.parse(value!);

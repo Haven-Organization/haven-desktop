@@ -40,6 +40,25 @@ Please see LICENSE files in the repository root for full details.
         width: 160px;
     }
 
+    /* haven apps-framework patch: banner from this user's linked MSC4501 profile room, if any -
+       see useUserBanner.ts/UserInfoHeaderView.tsx. Mirrors RoomSummaryCardView's own
+       mx_RoomSummaryCard_banner/avatarWrap overlap pattern (see _RoomSummaryCard.pcss), scaled to
+       this panel's 120px avatar instead of that card's 80px one. */
+    .social_UserInfoBanner {
+        display: block;
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        background: $quinary-content;
+    }
+
+    .social_UserInfoBanner + .mx_UserInfo_avatar {
+        /* Same margin-left/right/bottom as the bannerless rule below, but a negative top margin
+           instead of the normal +48px - pulls the avatar up to overlap the banner's bottom 40px,
+           the same "avatar straddles the banner boundary" look used everywhere else banners show. */
+        margin: -40px var(--cpd-space-4x) 0 var(--cpd-space-4x);
+    }
+
     .mx_UserInfo_avatar {
         margin: var(--cpd-space-12x) var(--cpd-space-4x) 0 var(--cpd-space-4x);
 

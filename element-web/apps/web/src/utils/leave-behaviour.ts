@@ -8,7 +8,14 @@ Please see LICENSE files in the repository root for full details.
 
 import { sleep } from "matrix-js-sdk/src/utils";
 import React, { type ReactNode } from "react";
-import { EventStatus, MatrixEventEvent, type Room, type MatrixClient, MatrixError } from "matrix-js-sdk/src/matrix";
+import {
+    EventStatus,
+    MatrixEventEvent,
+    type Room,
+    type MatrixClient,
+    MatrixError,
+    KnownMembership,
+} from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
 import Modal, { type IHandle } from "../Modal";
@@ -25,6 +32,7 @@ import LeaveSpaceDialog from "../components/views/dialogs/LeaveSpaceDialog";
 import { type AfterLeaveRoomPayload } from "../dispatcher/payloads/AfterLeaveRoomPayload";
 import { bulkSpaceBehaviour } from "./space";
 import { SdkContextClass } from "../contexts/SDKContext";
+import { markPendingLeave } from "../../../../../src/apps/social/utils/pendingRoomLeave";
 import SettingsStore from "../settings/SettingsStore";
 import { CallStore } from "../stores/CallStore";
 import LegacyCallHandler from "../LegacyCallHandler";
@@ -110,6 +118,20 @@ export async function leaveRoomBehaviour(
     if (!leavingAllVersions) {
         try {
             await matrixClient.leave(roomId);
+            // haven apps-framework patch: client.leave() is a bare REST call with no local echo of
+            // its own (unlike joinRoom/knockRoom, whose promises effectively wait for the next sync
+            // to confirm before resolving - see SyncApi.createRoom) - it resolves the instant the
+            // server responds 200, well before the room's own local membership actually updates via
+            // the next /sync. Stock Element never notices, since leaving the room you're currently
+            // viewing navigates you away from it (see the "switch to neutral ground" logic below) -
+            // but Social deliberately stays on a room's own page after leaving it, so a membership-
+            // driven button there (see SocialRoomView's own Follow/Unfollow/Leave button) would
+            // otherwise sit showing stale text until whenever the next sync happens to land.
+            room.updateMyMembership(KnownMembership.Leave);
+            // A separate, already-in-flight sync response (started before this leave) can still
+            // land with the pre-leave membership and silently revert the line just above - see
+            // pendingRoomLeave.ts.
+            markPendingLeave(roomId);
         } catch (e) {
             if (e instanceof MatrixError) {
                 const message = e.data.error || _t("room|leave_unexpected_error");

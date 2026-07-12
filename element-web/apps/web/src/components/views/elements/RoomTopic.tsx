@@ -23,6 +23,7 @@ import MatrixClientContext from "../../../contexts/MatrixClientContext";
 import AccessibleButton from "./AccessibleButton";
 import { topicToHtml } from "../../../HtmlUtils";
 import { tryTransformPermalinkToLocalHref } from "../../../utils/permalinks/Permalinks";
+import { tryRouteSocialPermalink } from "../../../../../../../src/apps/social/utils/permalinkRouting";
 
 interface IProps extends React.HTMLProps<HTMLDivElement> {
     room: Room;
@@ -30,6 +31,12 @@ interface IProps extends React.HTMLProps<HTMLDivElement> {
 
 export function onRoomTopicLinkClick(e: React.MouseEvent): void {
     const anchor = e.target as HTMLLinkElement;
+
+    if (tryRouteSocialPermalink(e, anchor.href)) {
+        e.preventDefault();
+        return;
+    }
+
     const localHref = tryTransformPermalinkToLocalHref(anchor.href);
 
     if (localHref !== anchor.href) {

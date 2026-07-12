@@ -30,6 +30,7 @@ import { Action } from "./dispatcher/actions";
 import { type ViewUserPayload } from "./dispatcher/payloads/ViewUserPayload";
 import { type ViewRoomPayload } from "./dispatcher/payloads/ViewRoomPayload";
 import { MatrixClientPeg } from "./MatrixClientPeg";
+import { tryRouteSocialRoom, tryRouteSocialPermalink } from "../../../../src/apps/social/utils/permalinkRouting";
 
 const COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 const MEDIA_API_MXC_REGEX = /\/_matrix\/media\/r0\/(?:download|thumbnail)\/(.+?)\/(.+?)(?:[?/]|$)/;
@@ -228,12 +229,17 @@ function onUserClick(event: MouseEvent, userId: string): void {
  */
 function onAliasClick(event: MouseEvent, roomAlias: string): void {
     event.preventDefault();
-    dis.dispatch<ViewRoomPayload>({
-        action: Action.ViewRoom,
-        room_alias: roomAlias,
-        metricsTrigger: "Timeline",
-        metricsViaKeyboard: false,
-    });
+    const viewNormally = (): void => {
+        dis.dispatch<ViewRoomPayload>({
+            action: Action.ViewRoom,
+            room_alias: roomAlias,
+            metricsTrigger: "Timeline",
+            metricsViaKeyboard: false,
+        });
+    };
+    if (!tryRouteSocialRoom(event, roomAlias, null, viewNormally)) {
+        viewNormally();
+    }
 }
 
 /**
@@ -260,7 +266,9 @@ function urlEventListeners(href: string): LinkEventListener {
                 return {
                     click: function (e: MouseEvent) {
                         e.preventDefault();
-                        globalThis.location.hash = localHref;
+                        if (!tryRouteSocialPermalink(e, href)) {
+                            globalThis.location.hash = localHref;
+                        }
                     },
                 };
             }

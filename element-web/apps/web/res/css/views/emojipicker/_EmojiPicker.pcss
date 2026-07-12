@@ -96,6 +96,12 @@ Please see LICENSE files in the repository root for full details.
     }
 }
 
+.mx_EmojiPicker_freeformReact {
+    display: block;
+    margin: -4px 12px 8px;
+    font: var(--cpd-font-body-sm-regular);
+}
+
 .mx_EmojiPicker_search_icon {
     width: 18px;
     margin: 8px;
@@ -129,10 +135,27 @@ Please see LICENSE files in the repository root for full details.
     display: inline-block;
     list-style: none;
     width: 38px;
+    /* Without this, the wrapper has no definite height of its own — it just shrinks to fit
+       whatever's inside it. That's invisible for a real emoji (its glyph is tall enough at
+       font-size 20px to fill EMOJI_HEIGHT's 35px anyway), but a freeform reaction's smaller text
+       genuinely produces a shorter box, and percentage heights below (on the button, and on
+       .mx_EmojiPicker_item) have nothing definite to resolve against without this — they were
+       silently no-ops. */
+    height: 35px;
     cursor: pointer;
 
     &:focus-within {
         background-color: $focus-bg-color;
+    }
+
+    /* AccessibleButton renders a bare, unstyled <div> by default — without an explicit size it
+       only shrinks to fit its content, so anything narrower/shorter than the 38px slot (as a
+       freeform reaction's text usually is, with its smaller font) leaves dead space around the
+       text that isn't actually part of the clickable button. Force it to fill the whole slot. */
+    > div {
+        display: block;
+        width: 100%;
+        height: 100%;
     }
 }
 
@@ -153,6 +176,27 @@ Please see LICENSE files in the repository root for full details.
     &:hover {
         background-color: $focus-bg-color;
     }
+}
+
+/* A freeform reaction shown in Frequently Used (see EmojiPicker's makeFreeformEmoji) can be
+   arbitrarily long text rather than a single glyph — keep it inside the same fixed 38px slot a
+   real emoji gets, rather than overflowing into neighbouring slots. Legibility wins over fitting
+   the whole word: a bigger font showing only the first few characters (ellipsis-truncated) beats
+   a tiny font trying to cram the whole thing in. */
+.mx_EmojiPicker_item_freeform .mx_EmojiPicker_item {
+    display: flex;
+    align-items: center;
+    /* Centering horizontally here would clip equally from both ends when the text overflows,
+       cutting off the start of the word (e.g. "based" -> "ased") instead of truncating with an
+       ellipsis at the end. Left-aligned keeps the start of the word visible, which is what
+       text-overflow: ellipsis below actually assumes. */
+    justify-content: flex-start;
+    font-size: $font-15px;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
 }
 
 .mx_EmojiPicker_item_selected {

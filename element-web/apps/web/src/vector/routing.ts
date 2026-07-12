@@ -12,6 +12,7 @@ import { logger } from "matrix-js-sdk/src/logger";
 import { type QueryDict } from "matrix-js-sdk/src/utils";
 
 import { parseQsFromFragment, searchParamsToQueryDict } from "./url_utils";
+import { tryRouteSocialHashScreen } from "../../../../../src/apps/social/utils/permalinkRouting";
 
 let lastLocationHashSet: string | null = null;
 
@@ -35,6 +36,13 @@ function routeUrl(location: Location): void {
 
     logger.log("Routing URL ", location.href);
     const s = getScreenFromLocation(location);
+    // haven apps-framework patch: a "social" or "social/room/!id[/$eventId]" screen (see
+    // onNewScreen's own writes from within Social) means the browser navigated straight to, or
+    // back/forward onto, one of Social's own URLs - route it there directly instead of falling
+    // through to showScreen's stock room/user/etc handling, which has no concept of Social at all
+    // and would otherwise either error on an unrecognised screen or (worse) silently ignore it and
+    // leave whatever was on screen before untouched.
+    if (tryRouteSocialHashScreen(s.screen, s.params)) return;
     window.matrixChat.showScreen(s.screen, s.params);
 }
 

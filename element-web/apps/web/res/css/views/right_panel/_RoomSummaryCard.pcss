@@ -15,6 +15,32 @@ Please see LICENSE files in the repository root for full details.
         margin: $spacing-20 var(--cpd-space-4x) 0;
     }
 
+    .mx_RoomSummaryCard_banner {
+        display: block;
+        width: calc(100% + 2 * var(--cpd-space-4x));
+        // 144px (was 96px) - simply more vertical room for a taller banner image, closer to where
+        // the room name begins. Note the avatar below always keeps the same fixed 48px straddle
+        // below whatever this height is (avatar_bottom = height - 32px overlap + 80px avatar height
+        // = height + 48, independent of height) - that's the normal "avatar straddles the banner
+        // boundary" look most profile banners use, not something to eliminate; this change is only
+        // about giving the banner photo itself more space, not changing the avatar/banner overlap.
+        height: 144px;
+        margin: calc(-1 * $spacing-20) calc(-1 * var(--cpd-space-4x)) 0;
+        object-fit: cover;
+        background: $quinary-content;
+    }
+
+    .mx_RoomSummaryCard_avatarWrap {
+        display: inline-block;
+        line-height: 0;
+    }
+
+    .mx_RoomSummaryCard_banner + .mx_RoomSummaryCard_avatarWrap {
+        margin-top: -32px;
+        border: 3px solid $background;
+        border-radius: 50%;
+    }
+
     .mx_RoomSummaryCard_roomName,
     .mx_RoomSummaryCard_alias {
         display: -webkit-box;

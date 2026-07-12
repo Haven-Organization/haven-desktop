@@ -51,8 +51,20 @@ import {
 import { logger } from "matrix-js-sdk/src/logger";
 import { sleep } from "matrix-js-sdk/src/utils";
 
+import { ROOM_BANNER_EVENT_TYPE, MSC4501_PROFILE_USER_ID_KEY } from "../../../../src/apps/social/utils/room-classifier";
+
 // how long to long poll for
 const SLIDING_SYNC_TIMEOUT_MS = 20 * 1000;
+
+// Haven/Social's own custom state event types — not part of stock Element, so they'd otherwise
+// silently never be requested by any of the lists/subscriptions below (unlike the well-known types
+// above them, an unrecognized custom type has no default required_state override at all, and every
+// room here is unencrypted by default, so it never gets the ENCRYPTED_SUBSCRIPTION's "all state"
+// fallback either — confirmed by a room banner failing to load only while sliding sync was on).
+const HAVEN_STATE_TYPES = [
+    [ROOM_BANNER_EVENT_TYPE, ""], // MSC4221 room banner (still using its unstable prefix)
+    [MSC4501_PROFILE_USER_ID_KEY, ""], // MSC4501 profile room -> user pointer
+];
 
 // The state events we will get for every single room/space/old room/etc
 // This list is only augmented when a direct room subscription is made. (e.g you view a room)
@@ -66,6 +78,7 @@ const REQUIRED_STATE_LIST = [
     [EventType.SpaceChild, MSC3575_WILDCARD], // all space children
     [EventType.SpaceParent, MSC3575_WILDCARD], // all space parents
     [EventType.RoomMember, MSC3575_STATE_KEY_ME], // lets the client calculate that we are in fact in the room
+    ...HAVEN_STATE_TYPES,
 ];
 
 // the things to fetch when a user clicks on a room
@@ -83,6 +96,7 @@ const UNENCRYPTED_SUBSCRIPTION = {
     required_state: [
         [EventType.RoomMember, MSC3575_STATE_KEY_ME], // except for m.room.members, get our own membership
         [EventType.RoomMember, MSC3575_STATE_KEY_LAZY], // ...and lazy load the rest.
+        ...HAVEN_STATE_TYPES,
     ],
     ...DEFAULT_ROOM_SUBSCRIPTION_INFO,
 };
@@ -227,6 +241,7 @@ export class SlidingSyncManager {
                     [EventType.RoomEncryption, ""], // lets rooms be configured for E2EE correctly
                     [EventType.RoomCreate, ""], // for isSpaceRoom checks
                     [EventType.RoomMember, MSC3575_STATE_KEY_ME], // lets the client calculate that we are in fact in the room
+                    ...HAVEN_STATE_TYPES,
                 ],
                 include_old_rooms: {
                     timeline_limit: 0,

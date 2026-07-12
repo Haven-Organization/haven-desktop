@@ -38,7 +38,7 @@ import PublicIcon from "@vector-im/compound-design-tokens/assets/web/icons/publi
 import ErrorIcon from "@vector-im/compound-design-tokens/assets/web/icons/error";
 import ErrorSolidIcon from "@vector-im/compound-design-tokens/assets/web/icons/error-solid";
 import ChevronDownIcon from "@vector-im/compound-design-tokens/assets/web/icons/chevron-down";
-import { JoinRule, type Room } from "matrix-js-sdk/src/matrix";
+import { JoinRule, RoomStateEvent, type Room } from "matrix-js-sdk/src/matrix";
 import { Box, Flex, HistoryVisibilityBadge, LinkedText } from "@element-hq/web-shared-components";
 
 import BaseCard from "./BaseCard.tsx";
@@ -50,6 +50,25 @@ import { topicToHtml } from "../../../HtmlUtils.tsx";
 import { useRoomSummaryCardViewModel } from "../../viewmodels/right_panel/RoomSummaryCardViewModel.tsx";
 import { useRoomTopicViewModel } from "../../viewmodels/right_panel/RoomSummaryCardTopicViewModel.tsx";
 import { useRoomName } from "../../../hooks/useRoomName.ts";
+import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../../src/apps/social/utils/room-classifier";
+
+const RoomBanner: React.FC<Pick<IProps, "room">> = ({ room }): JSX.Element | null => {
+    const readBannerUrl = (): string | null =>
+        room.currentState.getStateEvents(ROOM_BANNER_EVENT_TYPE as any, "")?.getContent()?.url ?? null;
+    const [bannerMxc, setBannerMxc] = useState<string | null>(readBannerUrl);
+    useEffect(() => {
+        const onUpdate = (): void => setBannerMxc(readBannerUrl());
+        room.on(RoomStateEvent.Update, onUpdate);
+        return () => {
+            room.off(RoomStateEvent.Update, onUpdate);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [room]);
+
+    const bannerHttpUrl = bannerMxc ? room.client.mxcUrlToHttp(bannerMxc) : null;
+    if (!bannerHttpUrl) return null;
+    return <img src={bannerHttpUrl} className="mx_RoomSummaryCard_banner" alt="" aria-hidden />;
+};
 
 interface IProps {
     room: Room;
@@ -58,6 +77,7 @@ interface IProps {
     onSearchCancel?: () => void;
     focusRoomSearch?: boolean;
     searchTerm?: string;
+    onClose?(this: void, ev: React.MouseEvent<HTMLButtonElement>): void;
 }
 
 const RoomTopic: React.FC<Pick<IProps, "room">> = ({ room }): JSX.Element | null => {
@@ -129,6 +149,7 @@ const RoomSummaryCardView: React.FC<IProps> = ({
     onSearchCancel,
     focusRoomSearch,
     searchTerm = "",
+    onClose,
 }) => {
     const vm = useRoomSummaryCardViewModel(room, permalinkCreator, onSearchCancel);
     // XXX: this name should be part of the view model
@@ -143,7 +164,10 @@ const RoomSummaryCardView: React.FC<IProps> = ({
 
     const roomInfo = (
         <header className="mx_RoomSummaryCard_container">
-            <RoomAvatar room={room} size="80px" viewAvatarOnClick />
+            <RoomBanner room={room} />
+            <div className="mx_RoomSummaryCard_avatarWrap">
+                <RoomAvatar room={room} size="80px" viewAvatarOnClick />
+            </div>
             <Heading
                 as="h1"
                 size="md"
@@ -230,6 +254,7 @@ const RoomSummaryCardView: React.FC<IProps> = ({
             ariaLabelledBy="room-summary-panel-tab"
             role="tabpanel"
             header={header}
+            onClose={onClose}
         >
             {roomInfo}
 

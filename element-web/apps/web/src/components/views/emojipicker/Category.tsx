@@ -44,6 +44,7 @@ interface IProps {
     onMouseEnter(emoji: IEmoji): void;
     onMouseLeave(emoji: IEmoji): void;
     isEmojiDisabled?: (unicode: string) => boolean;
+    isFreeformEmoji?: (unicode: string) => boolean;
 }
 
 function hexEncode(str: string): string {
@@ -74,6 +75,7 @@ class Category extends React.PureComponent<IProps> {
                             onMouseEnter={onMouseEnter}
                             onMouseLeave={onMouseLeave}
                             disabled={this.props.isEmojiDisabled?.(emoji.unicode)}
+                            className={this.props.isFreeformEmoji?.(emoji.unicode) ? "mx_EmojiPicker_item_freeform" : undefined}
                             id={`mx_EmojiPicker_item_${this.props.id}_${hexEncode(emoji.unicode)}`}
                         />
                     </div>

@@ -28,6 +28,7 @@ import { type ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPaylo
 import { doesRoomVersionSupport, PreferredRoomVersions } from "../../../utils/PreferredRoomVersions";
 import SettingsStore from "../../../settings/SettingsStore";
 import LabelledCheckbox from "../elements/LabelledCheckbox";
+import { socialRoomKind } from "../../../../../../../src/apps/social/utils/room-classifier";
 
 export interface JoinRuleSettingsProps {
     room: Room;
@@ -338,9 +339,16 @@ const JoinRuleSettings: React.FC<JoinRuleSettingsProps> = ({
                         className="mx_JoinRuleSettings_labelledCheckbox"
                         disabled={joinRule !== JoinRule.Knock}
                         label={
-                            room.isSpaceRoom()
-                                ? _t("room_settings|security|publish_space")
-                                : _t("room_settings|security|publish_room")
+                            // haven apps-framework patch: "this room" -> "this profile"/"this
+                            // group" wording swap for a Social room ("room directory" kept as-is
+                            // per exception) - unchanged for a regular room.
+                            socialRoomKind(room) === "profile"
+                                ? "Make this profile visible in the public room directory."
+                                : socialRoomKind(room) === "group"
+                                  ? "Make this group visible in the public room directory."
+                                  : room.isSpaceRoom()
+                                    ? _t("room_settings|security|publish_space")
+                                    : _t("room_settings|security|publish_room")
                         }
                         onChange={onIsPublicKnockRoomChange}
                         value={isPublicKnockRoom}

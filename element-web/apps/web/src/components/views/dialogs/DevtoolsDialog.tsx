@@ -29,6 +29,7 @@ import RoomNotifications from "./devtools/RoomNotifications";
 import { Crypto } from "./devtools/Crypto";
 import SettingsField from "../elements/SettingsField.tsx";
 import { StickyStateExplorer } from "./devtools/StickyEventState.tsx";
+import { ProfileDataExplorer } from "./devtools/ProfileData.tsx";
 
 enum Category {
     Room,
@@ -57,11 +58,21 @@ const Tools: Record<Category, [label: TranslationKey, tool: Tool][]> = {
         [_td("devtools|settings_explorer"), SettingExplorer],
         [_td("devtools|server_info"), ServerInfo],
         [_td("devtools|crypto|title"), Crypto],
+        [_td("devtools|explore_profile_data"), ProfileDataExplorer],
     ],
 };
 
+// Tools that describe the current user rather than the room the devtools dialog was opened
+// from — the header shows a copyable User ID for these instead of the room's Room ID.
+const userIdTools = new Set<Tool>([ProfileDataExplorer]);
+
 interface IProps {
-    roomId: string;
+    // Optional: haven apps-framework patch - Social's own aggregated Feed tab has no single
+    // current room to attach devtools to (it merges posts from many rooms), unlike every stock
+    // caller of this dialog, which always has a real room. Every Category.Room tool below needs
+    // DevtoolsContext's own `room`, so those are skipped from the toolbox entirely when there isn't
+    // one, alongside the header's own Room ID display just below.
+    roomId?: string;
     threadRootId?: string | null;
     onFinished(this: void, finished?: boolean): void;
 }
@@ -87,23 +98,25 @@ const DevtoolsDialog: React.FC<IProps> = ({ roomId, threadRootId, onFinished }) 
         };
         body = (
             <BaseTool onBack={onBack}>
-                {Object.entries(Tools).map(([category, tools]) => (
-                    <div key={category}>
-                        <h2 className="mx_DevTools_toolHeading">
-                            {_t(categoryLabels[category as unknown as Category])}
-                        </h2>
-                        {tools.map(([label, tool]) => {
-                            const onClick = (): void => {
-                                setTool([label, tool]);
-                            };
-                            return (
-                                <button className="mx_DevTools_button" key={label} onClick={onClick}>
-                                    {_t(label)}
-                                </button>
-                            );
-                        })}
-                    </div>
-                ))}
+                {Object.entries(Tools)
+                    .filter(([category]) => roomId || Number(category) !== Category.Room)
+                    .map(([category, tools]) => (
+                        <div key={category}>
+                            <h2 className="mx_DevTools_toolHeading">
+                                {_t(categoryLabels[category as unknown as Category])}
+                            </h2>
+                            {tools.map(([label, tool]) => {
+                                const onClick = (): void => {
+                                    setTool([label, tool]);
+                                };
+                                return (
+                                    <button className="mx_DevTools_button" key={label} onClick={onClick}>
+                                        {_t(label)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ))}
                 <Form.Root
                     onSubmit={(evt) => {
                         evt.preventDefault();
@@ -131,15 +144,32 @@ const DevtoolsDialog: React.FC<IProps> = ({ roomId, threadRootId, onFinished }) 
     }
 
     const label = tool ? _t(tool[0]) : _t("devtools|toolbox");
+    const showUserId = !!tool && userIdTools.has(tool[1]);
     return (
         <BaseDialog className="mx_QuestionDialog" onFinished={onFinished} title={_t("devtools|developer_tools")}>
             <MatrixClientContext.Consumer>
                 {(cli) => (
                     <>
                         <div className="mx_DevTools_label_left">{label}</div>
-                        <CopyableText className="mx_DevTools_label_right" getTextToCopy={() => roomId} border={false}>
-                            {_t("devtools|room_id", { roomId })}
-                        </CopyableText>
+                        {showUserId ? (
+                            <CopyableText
+                                className="mx_DevTools_label_right"
+                                getTextToCopy={() => cli.getSafeUserId()}
+                                border={false}
+                            >
+                                {_t("devtools|user_id", { userId: cli.getSafeUserId() })}
+                            </CopyableText>
+                        ) : (
+                            roomId && (
+                                <CopyableText
+                                    className="mx_DevTools_label_right"
+                                    getTextToCopy={() => roomId}
+                                    border={false}
+                                >
+                                    {_t("devtools|room_id", { roomId })}
+                                </CopyableText>
+                            )
+                        )}
                         {!threadRootId ? null : (
                             <CopyableText
                                 className="mx_DevTools_label_right"
@@ -150,10 +180,21 @@ const DevtoolsDialog: React.FC<IProps> = ({ roomId, threadRootId, onFinished }) 
                             </CopyableText>
                         )}
                         <div className="mx_DevTools_label_bottom" />
-                        {cli.getRoom(roomId) && (
+                        {roomId && cli.getRoom(roomId) ? (
                             <DevtoolsContext.Provider value={{ room: cli.getRoom(roomId)!, threadRootId }}>
                                 {body}
                             </DevtoolsContext.Provider>
+                        ) : (
+                            // No room (or an invalid one) - only Category.Room's own tools ever
+                            // read DevtoolsContext's `room` (RoomAccountDataExplorer, RoomState,
+                            // etc.), and those are already filtered out of the toolbox listing
+                            // above when there's no roomId, so nothing here actually needs the
+                            // provider. Rendering `body` directly rather than skipping it entirely
+                            // (the original, stock behaviour before this fork's own Feed-tab
+                            // devtools support) - that would silently drop every Category.Other
+                            // tool (account data, settings, server info, crypto, profile data) too,
+                            // none of which need a room at all.
+                            body
                         )}
                     </>
                 )}

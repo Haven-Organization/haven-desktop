@@ -17,6 +17,8 @@ import AvatarSetting from "../settings/AvatarSetting";
 import { htmlSerializeFromMdIfNeeded } from "../../../editor/serialize";
 import DMRoomMap from "../../../utils/DMRoomMap";
 import { LocalRoom } from "../../../models/LocalRoom";
+import { ROOM_BANNER_EVENT_TYPE, socialRoomKind } from "../../../../../../../src/apps/social/utils/room-classifier";
+import { BannerSetting } from "../../../../../../../src/apps/social/components/BannerSetting";
 
 interface IProps {
     roomId: string;
@@ -29,12 +31,17 @@ interface IState {
     avatarFile: File | null;
     // If true, the user has indicated that they wish to remove the avatar and this should happen on save.
     avatarRemovalPending: boolean;
+    originalBannerUrl: string | null;
+    bannerFile: File | null;
+    // If true, the user has indicated that they wish to remove the banner and this should happen on save.
+    bannerRemovalPending: boolean;
     originalTopic: string;
     topic: string;
     profileFieldsTouched: Record<string, boolean>;
     canSetName: boolean;
     canSetTopic: boolean;
     canSetAvatar: boolean;
+    canSetBanner: boolean;
 }
 
 function idNameForRoom(room: Room): string {
@@ -64,6 +71,9 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
         const avatarEvent = room.currentState.getStateEvents(EventType.RoomAvatar, "");
         const avatarUrl = avatarEvent?.getContent()["url"] ?? null;
 
+        const bannerEvent = room.currentState.getStateEvents(ROOM_BANNER_EVENT_TYPE as any, "");
+        const bannerUrl = bannerEvent?.getContent()["url"] ?? null;
+
         const topicEvent = room.currentState.getStateEvents(EventType.RoomTopic, "");
         const topic = (topicEvent && ContentHelpers.parseTopicContent(topicEvent.getContent()).text) || "";
 
@@ -77,12 +87,16 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
             originalAvatarUrl: avatarUrl,
             avatarFile: null,
             avatarRemovalPending: false,
+            originalBannerUrl: bannerUrl,
+            bannerFile: null,
+            bannerRemovalPending: false,
             originalTopic: topic,
             topic: topic,
             profileFieldsTouched: {},
             canSetName: room.currentState.maySendStateEvent(EventType.RoomName, userId),
             canSetTopic: room.currentState.maySendStateEvent(EventType.RoomTopic, userId),
             canSetAvatar: room.currentState.maySendStateEvent(EventType.RoomAvatar, userId),
+            canSetBanner: room.currentState.maySendStateEvent(ROOM_BANNER_EVENT_TYPE as any, userId),
         };
     }
 
@@ -110,6 +124,28 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
         });
     };
 
+    private onBannerChanged = (file: File): void => {
+        this.setState({
+            bannerFile: file,
+            bannerRemovalPending: false,
+            profileFieldsTouched: {
+                ...this.state.profileFieldsTouched,
+                banner: true,
+            },
+        });
+    };
+
+    private removeBanner = (): void => {
+        this.setState({
+            bannerFile: null,
+            bannerRemovalPending: true,
+            profileFieldsTouched: {
+                ...this.state.profileFieldsTouched,
+                banner: true,
+            },
+        });
+    };
+
     private isSaveEnabled = (): boolean => {
         return Boolean(Object.values(this.state.profileFieldsTouched).length);
     };
@@ -125,6 +161,8 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
             topic: this.state.originalTopic,
             avatarFile: null,
             avatarRemovalPending: false,
+            bannerFile: null,
+            bannerRemovalPending: false,
         });
     };
 
@@ -155,6 +193,22 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
             await client.sendStateEvent(this.props.roomId, EventType.RoomAvatar, {}, "");
             newState.avatarRemovalPending = false;
             newState.originalAvatarUrl = null;
+        }
+
+        if (this.state.bannerFile) {
+            const { content_uri: uri } = await client.uploadContent(this.state.bannerFile);
+            await client.sendStateEvent(
+                this.props.roomId,
+                ROOM_BANNER_EVENT_TYPE as any,
+                { url: uri, info: { mimetype: this.state.bannerFile.type } },
+                "",
+            );
+            newState.originalBannerUrl = uri;
+            newState.bannerFile = null;
+        } else if (this.state.bannerRemovalPending) {
+            await client.sendStateEvent(this.props.roomId, ROOM_BANNER_EVENT_TYPE as any, {}, "");
+            newState.bannerRemovalPending = false;
+            newState.originalBannerUrl = null;
         }
 
         if (this.state.originalTopic !== this.state.topic) {
@@ -207,8 +261,28 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
     };
 
     public render(): React.ReactNode {
+        // haven apps-framework patch: "Room Name"/"Room Topic"/"Room avatar" -> "Profile
+        // Name"/"Profile Topic"/"Profile avatar" (or the group equivalents) for a Social room,
+        // matching the same word-for-word swap applied throughout this dialog - unchanged for a
+        // regular room.
+        const kind = socialRoomKind(MatrixClientPeg.safeGet().getRoom(this.props.roomId)!);
+        const nameFieldLabel =
+            kind === "profile" ? "Profile Name" : kind === "group" ? "Group Name" : _t("room_settings|general|name_field_label");
+        const topicFieldLabel =
+            kind === "profile"
+                ? "Profile Topic"
+                : kind === "group"
+                  ? "Group Topic"
+                  : _t("room_settings|general|topic_field_label");
+        const avatarFieldLabel =
+            kind === "profile"
+                ? "Profile avatar"
+                : kind === "group"
+                  ? "Group avatar"
+                  : _t("room_settings|general|avatar_field_label");
+
         let profileSettingsButtons;
-        if (this.state.canSetName || this.state.canSetTopic || this.state.canSetAvatar) {
+        if (this.state.canSetName || this.state.canSetTopic || this.state.canSetAvatar || this.state.canSetBanner) {
             profileSettingsButtons = (
                 <div className="mx_RoomProfileSettings_buttons">
                     <AccessibleButton
@@ -229,12 +303,16 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
             ? Boolean(this.state.avatarFile)
             : Boolean(this.state.originalAvatarUrl);
 
+        const canRemoveBanner = this.state.profileFieldsTouched.banner
+            ? Boolean(this.state.bannerFile)
+            : Boolean(this.state.originalBannerUrl);
+
         return (
             <form onSubmit={this.saveProfile} autoComplete="off" noValidate={true} className="mx_RoomProfileSettings">
                 <div className="mx_RoomProfileSettings_profile">
                     <div className="mx_RoomProfileSettings_profile_controls">
                         <Field
-                            label={_t("room_settings|general|name_field_label")}
+                            label={nameFieldLabel}
                             type="text"
                             value={this.state.displayName}
                             autoComplete="off"
@@ -247,7 +325,7 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
                                 "mx_RoomProfileSettings_profile_controls_topic--room",
                             )}
                             id="profileTopic" // See: NewRoomIntro.tsx
-                            label={_t("room_settings|general|topic_field_label")}
+                            label={topicFieldLabel}
                             disabled={!this.state.canSetTopic}
                             type="text"
                             value={this.state.topic}
@@ -262,7 +340,7 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
                                 ? undefined
                                 : (this.state.avatarFile ?? this.state.originalAvatarUrl ?? undefined)
                         }
-                        avatarAccessibleName={_t("room_settings|general|avatar_field_label")}
+                        avatarAccessibleName={avatarFieldLabel}
                         disabled={!this.state.canSetAvatar}
                         onChange={this.onAvatarChanged}
                         removeAvatar={canRemove ? this.removeAvatar : undefined}
@@ -270,6 +348,16 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
                         placeholderName={MatrixClientPeg.safeGet().getRoom(this.props.roomId)!.name}
                     />
                 </div>
+                <BannerSetting
+                    banner={
+                        this.state.bannerRemovalPending
+                            ? undefined
+                            : (this.state.bannerFile ?? this.state.originalBannerUrl ?? undefined)
+                    }
+                    disabled={!this.state.canSetBanner}
+                    onChange={this.onBannerChanged}
+                    removeBanner={canRemoveBanner ? this.removeBanner : undefined}
+                />
                 {profileSettingsButtons}
             </form>
         );

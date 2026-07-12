@@ -29,6 +29,7 @@ import RoomPublishSetting from "./RoomPublishSetting";
 import RoomAliasField from "../elements/RoomAliasField";
 import MatrixClientContext from "../../../contexts/MatrixClientContext";
 import SettingsFieldset from "../settings/SettingsFieldset";
+import { socialRoomKind } from "../../../../../../../src/apps/social/utils/room-classifier";
 
 interface IEditableAliasesListProps {
     roomId?: string;
@@ -179,9 +180,15 @@ export default class AliasSettings extends React.Component<IProps, IState> {
             .sendStateEvent(this.props.roomId, EventType.RoomCanonicalAlias, eventContent, "")
             .catch((err) => {
                 logger.error(err);
+                const kind = this.getSocialKind();
                 Modal.createDialog(ErrorDialog, {
                     title: _t("room_settings|general|error_updating_canonical_alias_title"),
-                    description: _t("room_settings|general|error_updating_canonical_alias_description"),
+                    description:
+                        kind === "profile"
+                            ? "There was an error updating the profile's main address. It may not be allowed by the server or a temporary failure occurred."
+                            : kind === "group"
+                              ? "There was an error updating the group's main address. It may not be allowed by the server or a temporary failure occurred."
+                              : _t("room_settings|general|error_updating_canonical_alias_description"),
                 });
                 this.setState({ canonicalAlias: oldAlias });
             })
@@ -216,9 +223,15 @@ export default class AliasSettings extends React.Component<IProps, IState> {
             .catch((err) => {
                 // TODO: Add error handling based upon server validation
                 logger.error(err);
+                const kind = this.getSocialKind();
                 Modal.createDialog(ErrorDialog, {
                     title: _t("room_settings|general|error_updating_canonical_alias_title"),
-                    description: _t("room_settings|general|error_updating_alias_description"),
+                    description:
+                        kind === "profile"
+                            ? "There was an error updating the profile's alternative addresses. It may not be allowed by the server or a temporary failure occurred."
+                            : kind === "group"
+                              ? "There was an error updating the group's alternative addresses. It may not be allowed by the server or a temporary failure occurred."
+                              : _t("room_settings|general|error_updating_alias_description"),
                 });
             })
             .finally(() => {
@@ -328,10 +341,18 @@ export default class AliasSettings extends React.Component<IProps, IState> {
         return this.state.localAliases.filter((alias) => !altAliases.includes(alias));
     }
 
+    // haven apps-framework patch: "room" -> "profile"/"group" wording swap for a Social room,
+    // alongside the existing isSpaceRoom-based room/space branching already throughout this file -
+    // unchanged (null) for a regular room.
+    private getSocialKind(): "profile" | "group" | null {
+        return socialRoomKind(this.context.getRoom(this.props.roomId)!);
+    }
+
     public render(): React.ReactNode {
         const mxClient = this.context;
         const localDomain = mxClient.getDomain()!;
         const isSpaceRoom = mxClient.getRoom(this.props.roomId)?.isSpaceRoom();
+        const kind = this.getSocialKind();
 
         let found = false;
         const canonicalValue = this.state.canonicalAlias || "";
@@ -380,9 +401,13 @@ export default class AliasSettings extends React.Component<IProps, IState> {
                     onItemAdded={this.onLocalAliasAdded}
                     onItemRemoved={this.onLocalAliasDeleted}
                     noItemsLabel={
-                        isSpaceRoom
-                            ? _t("room_settings|general|no_aliases_space")
-                            : _t("room_settings|general|no_aliases_room")
+                        kind === "profile"
+                            ? "This profile has no local addresses"
+                            : kind === "group"
+                              ? "This group has no local addresses"
+                              : isSpaceRoom
+                                ? _t("room_settings|general|no_aliases_space")
+                                : _t("room_settings|general|no_aliases_room")
                     }
                     placeholder={_t("room_settings|general|local_alias_field_label")}
                     domain={localDomain}
@@ -397,9 +422,13 @@ export default class AliasSettings extends React.Component<IProps, IState> {
                     legend={_t("room_settings|general|published_aliases_section")}
                     description={
                         <>
-                            {isSpaceRoom
-                                ? _t("room_settings|general|published_aliases_explainer_space")
-                                : _t("room_settings|general|published_aliases_explainer_room")}
+                            {kind === "profile"
+                                ? "Published addresses can be used by anyone on any server to join your profile."
+                                : kind === "group"
+                                  ? "Published addresses can be used by anyone on any server to join your group."
+                                  : isSpaceRoom
+                                    ? _t("room_settings|general|published_aliases_explainer_space")
+                                    : _t("room_settings|general|published_aliases_explainer_room")}
                             &nbsp;
                             {_t("room_settings|general|published_aliases_description")}
                         </>
@@ -437,9 +466,13 @@ export default class AliasSettings extends React.Component<IProps, IState> {
                     data-testid="local-address-fieldset"
                     legend={_t("room_settings|general|local_aliases_section")}
                     description={
-                        isSpaceRoom
-                            ? _t("room_settings|general|local_aliases_explainer_space", { localDomain })
-                            : _t("room_settings|general|local_aliases_explainer_room", { localDomain })
+                        kind === "profile"
+                            ? `Set addresses for this profile so users can find this profile through your homeserver (${localDomain})`
+                            : kind === "group"
+                              ? `Set addresses for this group so users can find this group through your homeserver (${localDomain})`
+                              : isSpaceRoom
+                                ? _t("room_settings|general|local_aliases_explainer_space", { localDomain })
+                                : _t("room_settings|general|local_aliases_explainer_room", { localDomain })
                     }
                 >
                     <details onToggle={this.onLocalAliasesToggled} open={this.state.detailsOpen}>

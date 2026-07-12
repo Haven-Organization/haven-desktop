@@ -33,7 +33,13 @@ export default class LabsUserSettingsTab extends React.Component<EmptyObject> {
     public constructor(props: EmptyObject) {
         super(props);
 
-        const features = SettingsStore.getFeatureSettingNames();
+        // haven: feature_msc4501_native_post_type is a host-only opt-in (set via config.json's
+        // "features" block, still fully honored by ConfigSettingsHandler) rather than a normal
+        // end-user Labs toggle - Social's own MSC, not something to expose for casual flipping
+        // regardless of whether Social itself is enabled in this build.
+        const features = SettingsStore.getFeatureSettingNames().filter(
+            (f) => f !== "feature_msc4501_native_post_type",
+        );
         const [labs, betas] = features.reduce(
             (arr, f) => {
                 arr[SettingsStore.getBetaInfo(f) ? 1 : 0].push(f as FeatureSettingKey);

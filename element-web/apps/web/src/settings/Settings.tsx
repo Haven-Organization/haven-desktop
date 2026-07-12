@@ -230,6 +230,7 @@ export interface Settings {
     "feature_ask_to_join": IFeature;
     "feature_notifications": IFeature;
     "feature_msc4362_encrypted_state_events": IFeature;
+    "feature_msc4501_native_post_type": IFeature;
     "feature_user_status": IFeature;
     "feature_login_with_qr": IFeature;
     // These are in the feature namespace but aren't actually features
@@ -442,6 +443,14 @@ export const SETTINGS: Settings = {
         // Requires a reload since this setting is cached in EventUtils
         controller: new ReloadOnChangeController(),
         displayName: _td("labs|msc3531_hide_messages_pending_moderation"),
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        supportedLevelsAreOrdered: true,
+        default: false,
+    },
+    "feature_msc4501_native_post_type": {
+        isFeature: true,
+        labsGroup: LabGroup.Messaging,
+        displayName: _td("labs|msc4501_native_post_type"),
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
         supportedLevelsAreOrdered: true,
         default: false,

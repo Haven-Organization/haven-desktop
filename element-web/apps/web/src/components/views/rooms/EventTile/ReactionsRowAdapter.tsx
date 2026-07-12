@@ -28,7 +28,7 @@ import { MAX_ITEMS_WHEN_LIMITED } from "../../../../viewmodels/room/timeline/eve
 /**
  * Props for the {@link ReactionsRowButtonAdapter} component.
  */
-interface ReactionsRowButtonAdapterProps {
+export interface ReactionsRowButtonAdapterProps {
     /** Matrix event whose reaction button is being rendered. */
     mxEvent: MatrixEvent;
     /** Reaction emoji or custom content key for this button. */
@@ -48,7 +48,7 @@ interface ReactionsRowButtonAdapterProps {
 /**
  * Renders a single reaction button within the event tile reaction row.
  */
-function ReactionsRowButtonAdapter(props: Readonly<ReactionsRowButtonAdapterProps>): JSX.Element {
+export function ReactionsRowButtonAdapter(props: Readonly<ReactionsRowButtonAdapterProps>): JSX.Element {
     const client = useMatrixClientContext();
 
     const vm = useCreateAutoDisposedViewModel(
@@ -84,12 +84,12 @@ function ReactionsRowButtonAdapter(props: Readonly<ReactionsRowButtonAdapterProp
     return <ReactionsRowButtonView vm={vm} />;
 }
 
-interface ReactionGroup {
+export interface ReactionGroup {
     content: string;
     events: MatrixEvent[];
 }
 
-const getReactionGroups = (reactions?: Relations | null): ReactionGroup[] =>
+export const getReactionGroups = (reactions?: Relations | null): ReactionGroup[] =>
     reactions
         ?.getSortedAnnotationsByKey()
         ?.map(([content, events]) => ({
@@ -98,7 +98,7 @@ const getReactionGroups = (reactions?: Relations | null): ReactionGroup[] =>
         }))
         .filter(({ events }) => events.length > 0) ?? [];
 
-const getMyReactions = (reactions: Relations | null | undefined, userId?: string): MatrixEvent[] | null => {
+export const getMyReactions = (reactions: Relations | null | undefined, userId?: string): MatrixEvent[] | null => {
     if (!reactions || !userId) {
         return null;
     }

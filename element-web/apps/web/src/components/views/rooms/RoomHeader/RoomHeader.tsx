@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { type JSX, useCallback, useState } from "react";
+import React, { type JSX, useCallback, useEffect, useState } from "react";
 import { Text, Button, IconButton, Menu, MenuItem, Tooltip } from "@vector-im/compound-web";
 import VideoCallIcon from "@vector-im/compound-design-tokens/assets/web/icons/video-call-solid";
 import VoiceCallIcon from "@vector-im/compound-design-tokens/assets/web/icons/voice-call-solid";
@@ -18,7 +18,7 @@ import NotificationsIcon from "@vector-im/compound-design-tokens/assets/web/icon
 import VerifiedIcon from "@vector-im/compound-design-tokens/assets/web/icons/verified";
 import ErrorIcon from "@vector-im/compound-design-tokens/assets/web/icons/error-solid";
 import PublicIcon from "@vector-im/compound-design-tokens/assets/web/icons/public";
-import { HistoryVisibility, JoinRule, type Room } from "matrix-js-sdk/src/matrix";
+import { HistoryVisibility, JoinRule, RoomStateEvent, type Room } from "matrix-js-sdk/src/matrix";
 import { type ViewRoomOpts } from "@matrix-org/react-sdk-module-api/lib/lifecycles/RoomViewLifecycle";
 import { Flex, Box } from "@element-hq/web-shared-components";
 import { CallType } from "matrix-js-sdk/src/webrtc/call";
@@ -57,6 +57,27 @@ import { ToggleableIcon } from "./toggle/ToggleableIcon.tsx";
 import { CurrentRightPanelPhaseContextProvider } from "../../../../contexts/CurrentRightPanelPhaseContext.tsx";
 import { LocalRoom } from "../../../../models/LocalRoom.ts";
 import { useIsEncrypted } from "../../../../hooks/useIsEncrypted.ts";
+import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../../../src/apps/social/utils/room-classifier";
+
+function useRoomBannerHttpUrl(room: Room | LocalRoom): string | null {
+    const client = useMatrixClientContext();
+    const readBannerMxc = (): string | null =>
+        room instanceof LocalRoom
+            ? null
+            : (room.currentState.getStateEvents(ROOM_BANNER_EVENT_TYPE as any, "")?.getContent()?.url ?? null);
+    const [bannerMxc, setBannerMxc] = useState<string | null>(readBannerMxc);
+    useEffect(() => {
+        if (room instanceof LocalRoom) return;
+        const onUpdate = (): void => setBannerMxc(readBannerMxc());
+        room.on(RoomStateEvent.Update, onUpdate);
+        return () => {
+            room.off(RoomStateEvent.Update, onUpdate);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [room]);
+
+    return bannerMxc ? client.mxcUrlToHttp(bannerMxc) : null;
+}
 
 function RoomHeaderButtons({
     room,
@@ -443,6 +464,7 @@ export default function RoomHeader({
     oobData?: IOOBData;
 }): JSX.Element {
     const client = useMatrixClientContext();
+    const bannerHttpUrl = useRoomBannerHttpUrl(room);
     const roomName = useRoomName(room);
     const joinRule = useRoomState(room, (state) => state.getJoinRule());
     const historyVisibility = useRoomState(room, (state) => state.getHistoryVisibility());
@@ -461,6 +483,12 @@ export default function RoomHeader({
     return (
         <CurrentRightPanelPhaseContextProvider roomId={room.roomId}>
             <Flex as="header" align="center" gap="var(--cpd-space-3x)" className="mx_RoomHeader light-panel">
+                {bannerHttpUrl && (
+                    <>
+                        <img src={bannerHttpUrl} className="mx_RoomHeader_banner" alt="" aria-hidden />
+                        <div className="mx_RoomHeader_bannerScrim" aria-hidden />
+                    </>
+                )}
                 <WithPresenceIndicator room={room}>
                     {/* We hide this from the tabIndex list as it is a pointer shortcut and superfluous for a11y */}
                     {/* Disable on-click actions until the room is created */}
