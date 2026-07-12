@@ -27,11 +27,12 @@ export enum WidgetMessagingStoreEvent {
  * easiest to split this into a single place.
  */
 export class WidgetMessagingStore extends AsyncStoreWithClient<EmptyObject> {
-    private static readonly internalInstance = (() => {
-        const instance = new WidgetMessagingStore();
-        instance.start();
-        return instance;
-    })();
+    // Deliberately NOT an eagerly-invoked static field initializer (`= (() => {...})()`) — see
+    // WidgetStore.ts's own instance getter for the full explanation. In short: that ran .start()
+    // (which reads MatrixClientPeg) the instant this module was evaluated rather than on first real
+    // use, which could fire while MatrixClientPeg.ts was still mid-evaluation in this pre-existing
+    // circular import chain, throwing "Cannot access 'MatrixClientPeg' before initialization".
+    private static internalInstance: WidgetMessagingStore;
 
     private widgetMap = new EnhancedMap<string, WidgetMessaging>(); // <widget UID, messaging>
 
@@ -40,6 +41,10 @@ export class WidgetMessagingStore extends AsyncStoreWithClient<EmptyObject> {
     }
 
     public static get instance(): WidgetMessagingStore {
+        if (!WidgetMessagingStore.internalInstance) {
+            WidgetMessagingStore.internalInstance = new WidgetMessagingStore();
+            WidgetMessagingStore.internalInstance.start();
+        }
         return WidgetMessagingStore.internalInstance;
     }
 

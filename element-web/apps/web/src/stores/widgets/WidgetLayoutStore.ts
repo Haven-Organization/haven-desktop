@@ -515,4 +515,14 @@ export class WidgetLayoutStore extends ReadyWatchingStore {
     }
 }
 
-window.mxWidgetLayoutStore = WidgetLayoutStore.instance;
+// Lazy getter instead of `window.mxWidgetLayoutStore = WidgetLayoutStore.instance` — that eagerly
+// evaluated the `.instance` getter (which constructs and .start()s the singleton, reading
+// MatrixClientPeg) the instant this module loaded, rather than only when something actually reads
+// `window.mxWidgetLayoutStore` (e.g. from devtools). Since this file sits in a pre-existing
+// circular import chain that leads back to MatrixClientPeg.ts itself, the eager version could fire
+// while MatrixClientPeg.ts was still mid-evaluation, throwing "Cannot access 'MatrixClientPeg'
+// before initialization". This preserves the same devtools convenience without the eager access.
+Object.defineProperty(window, "mxWidgetLayoutStore", {
+    get: () => WidgetLayoutStore.instance,
+    configurable: true,
+});

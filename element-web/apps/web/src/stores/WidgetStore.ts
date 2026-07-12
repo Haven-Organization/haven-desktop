@@ -35,11 +35,15 @@ interface IRoomWidgets {
 // TODO consolidate WidgetEchoStore into this
 // TODO consolidate ActiveWidgetStore into this
 export default class WidgetStore extends AsyncStoreWithClient<EmptyObject> {
-    private static readonly internalInstance = (() => {
-        const instance = new WidgetStore();
-        instance.start();
-        return instance;
-    })();
+    // Deliberately NOT an eagerly-invoked static field initializer (`= (() => {...})()`) — that ran
+    // .start() (which reads MatrixClientPeg) the instant this module was evaluated, i.e. as soon as
+    // anything imported this file, regardless of whether anyone actually needed the instance yet.
+    // Since this file sits in a long pre-existing circular import chain that leads back to
+    // MatrixClientPeg.ts itself, that could fire while MatrixClientPeg.ts was still mid-evaluation,
+    // throwing "Cannot access 'MatrixClientPeg' before initialization". Constructing (and starting)
+    // lazily on first real access of `.instance` defers this until well after module loading has
+    // settled, same as WidgetLayoutStore's own instance getter already does.
+    private static internalInstance: WidgetStore;
 
     private widgetMap = new Map<string, IApp>(); // Key is widget Unique ID (UID)
     private roomMap = new Map<string, IRoomWidgets>(); // Key is room ID
@@ -51,6 +55,10 @@ export default class WidgetStore extends AsyncStoreWithClient<EmptyObject> {
     }
 
     public static get instance(): WidgetStore {
+        if (!WidgetStore.internalInstance) {
+            WidgetStore.internalInstance = new WidgetStore();
+            WidgetStore.internalInstance.start();
+        }
         return WidgetStore.internalInstance;
     }
 
@@ -203,4 +211,9 @@ export default class WidgetStore extends AsyncStoreWithClient<EmptyObject> {
     }
 }
 
-window.mxWidgetStore = WidgetStore.instance;
+// Lazy getter instead of `window.mxWidgetStore = WidgetStore.instance` — see the .instance getter
+// above for the full explanation (same fix as WidgetLayoutStore's own window.mx... trigger).
+Object.defineProperty(window, "mxWidgetStore", {
+    get: () => WidgetStore.instance,
+    configurable: true,
+});
