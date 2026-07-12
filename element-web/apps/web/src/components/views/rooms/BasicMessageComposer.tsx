@@ -764,7 +764,11 @@ export default class BasicMessageEditor extends React.Component<IProps, IState> 
         this.editorRef.current?.addEventListener("input", this.onInput, true);
         this.editorRef.current?.addEventListener("compositionstart", this.onCompositionStart, true);
         this.editorRef.current?.addEventListener("compositionend", this.onCompositionEnd, true);
-        this.editorRef.current?.focus();
+        // preventScroll: true - the composer is always already visible via its own flex layout;
+        // without this, focusing it while an ancestor panel (e.g. a just-opened ThreadView) is
+        // still mid-resize can make the browser fall back to scrolling the whole document to
+        // "reveal" it, leaving a permanent blank gap at the bottom once layout settles.
+        this.editorRef.current?.focus({ preventScroll: true });
     }
 
     private getInitialCaretPosition(): DocumentPosition {
@@ -872,7 +876,9 @@ export default class BasicMessageEditor extends React.Component<IProps, IState> 
     }
 
     public focus(): void {
-        this.editorRef.current?.focus();
+        // See the componentDidMount call site's comment for why preventScroll matters here -
+        // this is also the method Action.FocusSendMessageComposer ends up calling.
+        this.editorRef.current?.focus({ preventScroll: true });
     }
 
     public insertMention(userId: string): void {

@@ -140,7 +140,7 @@ const composerSanitizeHtmlParams: IOptions = {
 };
 
 // reduced set of allowed tags to avoid turning topics into Myspace
-const topicSanitizeHtmlParams: IOptions = {
+export const topicSanitizeHtmlParams: IOptions = {
     ...sanitizeHtmlParams,
     allowedTags: [
         "font", // custom to matrix for IRC-style font coloring
