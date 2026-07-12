@@ -8,6 +8,7 @@ Please see LICENSE files in the repository root for full details.
 import dotenv from "dotenv";
 import path from "node:path";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import webpack from "webpack";
 import "webpack-dev-server"; // for types
@@ -138,9 +139,21 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
 
     let VERSION = process.env.VERSION;
     if (!VERSION) {
-        VERSION = pkgJson.version;
-        if (devMode) {
-            VERSION += "-dev";
+        // The dist build (scripts/package.sh) already computes this same way and passes it in as
+        // VERSION, so this branch only runs for the dev server (pnpm start) - falling back to the
+        // stock pkgJson.version+"-dev" string here would mean local dev shows a version that can
+        // never be traced back to Haven's own code state, unlike every other build path. Calling
+        // the same script both paths ultimately rely on keeps this single-sourced instead of two
+        // independently-maintained version formats that could drift.
+        try {
+            VERSION = execFileSync(path.resolve(__dirname, "../../../scripts/compute-haven-version.sh"), {
+                encoding: "utf8",
+            }).trim();
+        } catch {
+            VERSION = pkgJson.version;
+            if (devMode) {
+                VERSION += "-dev";
+            }
         }
     }
 
