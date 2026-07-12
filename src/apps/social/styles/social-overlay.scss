@@ -70,13 +70,20 @@
         // sidebar edge (its 12px/--cpd-space-3x margin plus its own 16px/--cpd-space-4x padding),
         // while a plain 16px left inset here left the relocated avatar 12px further left than that,
         // visibly misaligned against the Feed/Groups/Profile icons below it once the sidebar isn't
-        // collapsed (confirmed live: avatar left edge at x=16, nav icon left edge at x=28). Matches
-        // that same 28px via the same two tokens NavButton's own inset is built from, rather than a
-        // bare magic number, so it keeps tracking NavButton's inset if those tokens ever change.
-        // Undone back to the plain symmetric --cpd-space-4x in the --collapsed variant below, whose
-        // own align-items: center centering depends on equal left/right padding to land on the
-        // sidebar's true midpoint - this asymmetric inset is only correct for the row layout.
-        padding-left: calc(var(--cpd-space-3x) + var(--cpd-space-4x));
+        // collapsed (confirmed live: avatar left edge at x=16, nav icon left edge at x=28).
+        //
+        // Matching that 28px left EDGE (as this used to) isn't actually the right target, though:
+        // NavButton's own icon is 24px (.social_NavButton svg), but the relocated UserMenu's trigger
+        // avatar renders at 32px (confirmed live via getBoundingClientRect, not the 36px the popover
+        // -internal Avatar in UserMenu.tsx uses elsewhere - the always-visible trigger is a
+        // different, smaller instance) - a bigger circle starting at the same left edge as a smaller
+        // icon has its visual CENTER further right ((32-24)/2 = 4px), which reads as "the avatar is
+        // shifted right" even though the box edges genuinely match. NavButton's icon center sits at
+        // 28px (left edge) + 12px (half its 24px width) = 40px from the sidebar edge; to land the
+        // 32px avatar's own center at that same 40px, its left edge needs to start 4px earlier than
+        // NavButton's, hence the "- 4px" below - not a bare magic number, it's the derived
+        // correction for the two elements' actual measured size difference.
+        padding-left: calc(var(--cpd-space-3x) + var(--cpd-space-4x) - 4px);
 
         &:not(:empty) {
             padding-bottom: var(--cpd-space-3x);
@@ -107,6 +114,27 @@
     // height like any other block content.
     > .haven_UserMenuPortalTarget--collapsed {
         flex-direction: column;
+        // The base rule's padding-left is deliberately asymmetric (28px vs. padding-right's 16px)
+        // to match NavButton's left-aligned row inset - see that rule's own comment. That asymmetry
+        // was never actually meant to survive into this centered, collapsed variant (the base
+        // rule's own comment says as much - "undone back to the plain symmetric --cpd-space-4x in
+        // the --collapsed variant below"), but nothing here ever did that reset, so align-items:
+        // center below was centering within a box inset 28px on the left and 16px on the right -
+        // landing 6px right of the sidebar's true midpoint, exactly the "avatar sits right of the
+        // nav icons" misalignment reported live. Resetting padding-left to match padding-right here
+        // is what that comment always intended.
+        //
+        // The +/-1px beyond plain symmetry is a separate, empirical nudge: even after the reset
+        // above landed the avatar/apps-button/nav-icon centers on the exact same computed
+        // coordinate (confirmed via getBoundingClientRect - all three at 35.5px), a live visual
+        // check in this fully-collapsed (no spaces bar) state still read as very slightly left of
+        // true. Likely sub-pixel rendering/anti-aliasing on what was a half-pixel coordinate rather
+        // than anything further to derive - shifting both insets by 1px (rather than just
+        // padding-left) moves the centered content a full 1px right without shrinking its available
+        // width. Requested empirical adjustment, not backed by its own measurement the way the
+        // symmetry reset above is - and scoped to only this collapsed variant, not the row layout.
+        padding-left: calc(var(--cpd-space-4x) + 1px);
+        padding-right: calc(var(--cpd-space-4x) - 1px);
         // Centers both icons on the sidebar's own horizontal midpoint - matches
         // .social_NavButton--collapsed's icon centering exactly (both sit inside a symmetrically
         // padded/margined box the same total width as the sidebar itself, so centering either one
