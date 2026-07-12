@@ -1,22 +1,22 @@
 /*
  * Social Overlay — LikeButton
  *
- * Same emoji icon as the composer's EmojiButton, clicking toggles a quick 👍 reaction on/off
- * (onLike decides which, based on whether this user already has one — see SocialHomeView.tsx's
- * handleLike). Always shows the current 👍 reaction count next to its icon (matching Reply's own
- * icon+count pattern) rather than relying on the separate reaction-pills row (SocialReactionsRow)
- * for that number - this button is the single place that count is meant to live, so
- * SocialReactionsRow filters 👍 out of its own pills to avoid showing it twice. Hovering opens the
- * real stock ReactionPicker (the exact popup used for "React" on messages in the normal room
- * timeline) so any emoji can be used as a reaction.
+ * Thumbs-up icon (ThumbUpIcon - no equivalent in @vector-im/compound-design-tokens, see that file),
+ * clicking toggles a quick 👍 reaction on/off (onLike decides which, based on whether this user
+ * already has one — see SocialHomeView.tsx's handleLike). Always shows the current 👍 reaction
+ * count next to its icon (matching Reply's own icon+count pattern) rather than relying on the
+ * separate reaction-pills row (SocialReactionsRow) for that number - this button is the single
+ * place that count is meant to live, so SocialReactionsRow filters 👍 out of its own pills to avoid
+ * showing it twice. Hovering opens the real stock ReactionPicker (the exact popup used for "React"
+ * on messages in the normal room timeline) so any emoji can be used as a reaction.
  */
 
 import React, { type JSX, useCallback, useRef, useState } from "react";
 import { type MatrixEvent } from "matrix-js-sdk/src/matrix";
-import { ReactionIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import ContextMenu, { aboveLeftOf } from "../../../../element-web/apps/web/src/components/structures/ContextMenu";
 import ReactionPicker from "../../../../element-web/apps/web/src/components/views/emojipicker/ReactionPicker";
+import { ThumbUpIcon } from "../icons/ThumbUpIcon";
 
 interface Props {
     event: MatrixEvent;
@@ -76,7 +76,7 @@ export function LikeButton({ event, isLiked, count, onLike, onReact, disabled }:
                 aria-label={isLiked ? "Liked, click to undo" : "Like"}
                 title={isLiked ? "Liked, click to undo" : "Like"}
             >
-                <ReactionIcon className="social_LikeButton_icon" />
+                <ThumbUpIcon className="social_LikeButton_icon" />
                 {count > 0 && <span>{count}</span>}
             </button>
 
