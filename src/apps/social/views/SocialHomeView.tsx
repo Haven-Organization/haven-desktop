@@ -25,6 +25,7 @@ import {
     KnownMembership,
     M_POLL_START,
     RelationType,
+    EventType,
 } from "matrix-js-sdk/src/matrix";
 import { type ICompletion } from "../../../../element-web/apps/web/src/autocomplete/Autocompleter";
 import {
@@ -56,6 +57,7 @@ import { consumePendingFeedThread } from "../utils/pendingFeedThread";
 import { useDispatcher } from "../../../../element-web/apps/web/src/hooks/useDispatcher";
 import { useSettingValue } from "../../../../element-web/apps/web/src/hooks/useSettings";
 import { UPDATE_EVENT } from "../../../../element-web/apps/web/src/stores/AsyncStore";
+import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 import { RoomPermalinkCreator } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { NotificationsButton } from "../components/NotificationsButton";
 import { PostComposerButtons } from "../components/PostComposerButtons";
@@ -216,30 +218,26 @@ function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilte
 
         const events = gatherRoomEvents(room);
 
-        const myLikeEventIds: Record<string, string> = {};
-        const myRepostEventIds: Record<string, string> = {};
-
-        for (const e of events) {
-            if (e.isRedacted()) continue;
-            // getWireContent() - see isFeedEvent's own comment on why relation reads can't use
-            // getContent() (an edited reply would otherwise silently drop out of its parent's count).
-            const rel = e.getWireContent()?.["m.relates_to"];
-            if (!rel?.event_id) continue;
-            if (rel.rel_type === "m.annotation" && rel.key === "👍") {
-                if (e.getSender() === myUserId) myLikeEventIds[rel.event_id] = e.getId()!;
-            } else if (rel.rel_type === "m.annotation" && rel.key === "🔁") {
-                if (e.getSender() === myUserId) myRepostEventIds[rel.event_id] = e.getId()!;
-            }
-        }
-
         for (const event of events) {
             if (!isFeedEvent(event, room, filter)) continue;
             const eid = event.getId()!;
+            // Read my own like/repost state via the room's own relations aggregation
+            // (room.relations.getChildEventsForEvent), not by scanning `events` for annotations
+            // pointing at eid - reaction events aren't reliably present in a plain room-events scan
+            // the way the main timeline's own messages are (Synapse can aggregate/report a
+            // reaction's *count* without that specific reaction event ever landing in a synced
+            // timeline window), which is why a like/repost sent in an earlier session stopped
+            // showing as "mine" here after navigating away and back, despite the reaction pill's
+            // own count (built from this same relations aggregation) still showing correctly.
+            const reactions = room.relations.getChildEventsForEvent(eid, RelationType.Annotation, EventType.Reaction);
+            const myReactions = getMyReactions(reactions, myUserId) ?? [];
+            const myLikeEventId = myReactions.find((e) => e.getContent()?.["m.relates_to"]?.key === "👍")?.getId();
+            const myRepostEventId = myReactions.find((e) => e.getContent()?.["m.relates_to"]?.key === "🔁")?.getId();
             posts.push({
                 event,
                 room,
-                myLikeEventId: myLikeEventIds[eid],
-                myRepostEventId: myRepostEventIds[eid],
+                myLikeEventId,
+                myRepostEventId,
                 // replyCountFor uses matrix-js-sdk's own authoritative Thread.length (matching
                 // stock Element's own thread-summary badge) when `event` is a recognized thread
                 // root, so the total shown here always matches whatever the same event shows in

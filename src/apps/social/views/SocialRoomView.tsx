@@ -22,13 +22,14 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { MatrixEvent, type Room, KnownMembership, JoinRule, RelationType } from "matrix-js-sdk/src/matrix";
+import { MatrixEvent, type Room, KnownMembership, JoinRule, RelationType, EventType } from "matrix-js-sdk/src/matrix";
 import { M_POLL_START } from "matrix-js-sdk/src/@types/polls";
 import { replyCountFor, gatherRoomEvents } from "../utils/thread-relations";
 import { type ICompletion } from "../../../../element-web/apps/web/src/autocomplete/Autocompleter";
 
 import AccessibleButton from "../../../../element-web/apps/web/src/components/views/elements/AccessibleButton";
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
+import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 import { onNewScreen } from "../../../../element-web/apps/web/src/vector/routing";
 import { stampSocialOrigin } from "../utils/socialHistoryOrigin";
 import { RightPanelPhases } from "../../../../element-web/apps/web/src/stores/right-panel/RightPanelStorePhases";
@@ -123,23 +124,6 @@ interface PostData {
 }
 
 function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): PostData[] {
-    const myLikeEventIds: Record<string, string> = {};
-    const myRepostEventIds: Record<string, string> = {};
-
-    for (const e of events) {
-        if (e.isRedacted()) continue;
-        // getWireContent(), not getContent() - an edited event's getContent() substitutes in its
-        // latest replacement content, which drops the original m.relates_to (m.new_content never
-        // carries relation data), so an edited reply would otherwise silently stop being counted.
-        const rel = e.getWireContent()?.["m.relates_to"];
-        if (!rel?.event_id) continue;
-        if (rel.rel_type === "m.annotation" && rel.key === "👍") {
-            if (e.getSender() === myUserId) myLikeEventIds[rel.event_id] = e.getId()!;
-        } else if (rel.rel_type === "m.annotation" && rel.key === "🔁") {
-            if (e.getSender() === myUserId) myRepostEventIds[rel.event_id] = e.getId()!;
-        }
-    }
-
     return events
         .filter((e): boolean => {
             const relates = e.getWireContent()?.["m.relates_to"];
@@ -153,10 +137,17 @@ function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): Pos
         })
         .map((event) => {
             const eid = event.getId()!;
+            // Read my own like/repost state via the room's own relations aggregation
+            // (room.relations.getChildEventsForEvent), not by scanning `events` for annotations -
+            // see SocialHomeView's aggregatePosts for why that scan is unreliable for reactions
+            // specifically (the reaction pill's own count, built from this same aggregation, stays
+            // correct either way - only the "is this mine" check was affected).
+            const reactions = room.relations.getChildEventsForEvent(eid, RelationType.Annotation, EventType.Reaction);
+            const myReactions = getMyReactions(reactions, myUserId) ?? [];
             return {
                 event,
-                myLikeEventId: myLikeEventIds[eid],
-                myRepostEventId: myRepostEventIds[eid],
+                myLikeEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "👍")?.getId(),
+                myRepostEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")?.getId(),
                 // See SocialHomeView's aggregatePosts for why this delegates to matrix-js-sdk's own
                 // Thread.length for a recognized root - keeps this view's number consistent with the
                 // Feed's and the opened thread view's, instead of a third independently-drifting count.

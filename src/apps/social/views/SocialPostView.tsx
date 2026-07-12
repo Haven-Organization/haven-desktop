@@ -28,13 +28,14 @@ import React, {
     useMemo,
     useState,
 } from "react";
-import { type MatrixEvent, type Room, RelationType } from "matrix-js-sdk/src/matrix";
+import { type MatrixEvent, type Room, RelationType, EventType } from "matrix-js-sdk/src/matrix";
 
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
 import { SocialEventTile } from "../components/SocialEventTile";
 import { sendLike, undoLike, sendComment, sendPostReadReceipt, type PostFileAttachment } from "../utils/social-actions";
 import { getProfileOwnerUserId } from "../utils/room-classifier";
 import { immediateParentId, threadRootId } from "../utils/thread-relations";
+import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -263,32 +264,27 @@ export function SocialPostView({
                 }
             }
 
-            const myLikeIds: Record<string, string> = {};
-            const myRepostIds: Record<string, string> = {};
-            for (const e of all) {
-                if (e.isRedacted()) continue;
-                const rel = e.getWireContent()?.["m.relates_to"];
-                if (rel?.rel_type === "m.annotation" && rel.key === "👍" && rel.event_id && e.getSender() === myUserId) {
-                    myLikeIds[rel.event_id] = e.getId()!;
-                } else if (
-                    rel?.rel_type === "m.annotation" &&
-                    rel.key === "🔁" &&
-                    rel.event_id &&
-                    e.getSender() === myUserId
-                ) {
-                    myRepostIds[rel.event_id] = e.getId()!;
-                }
-            }
-
+            // Read my own like/repost state per-reply via the room's own relations aggregation
+            // (room.relations.getChildEventsForEvent), not by scanning `all` for annotations - `all`
+            // is built from live/pending/thread events, which reliably carries real reply MESSAGES
+            // but not necessarily every individual reaction event pointed at them (Synapse can
+            // aggregate/report a reaction's *count* without that specific reaction event ever
+            // landing in a synced timeline/thread window) - see SocialHomeView's aggregatePosts for
+            // the same fix and fuller explanation.
             return all
                 .filter((e) => immediateParentId(e) === parentId)
                 .sort((a, b) => a.getTs() - b.getTs())
-                .map((e) => ({
-                    event: e,
-                    myLikeEventId: myLikeIds[e.getId()!],
-                    myRepostEventId: myRepostIds[e.getId()!],
-                    replyCount: 0,
-                }));
+                .map((e) => {
+                    const eid = e.getId()!;
+                    const reactions = room.relations.getChildEventsForEvent(eid, RelationType.Annotation, EventType.Reaction);
+                    const myReactions = getMyReactions(reactions, myUserId) ?? [];
+                    return {
+                        event: e,
+                        myLikeEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "👍")?.getId(),
+                        myRepostEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")?.getId(),
+                        replyCount: 0,
+                    };
+                });
         },
         [room, myUserId, ensureThread, rootEventId, ancestors, rootRelationEvents],
     );
@@ -317,29 +313,14 @@ export function SocialPostView({
     // The focused post's own like/repost state + total direct-reply count (for its Reply button).
     const { myLikeEventId, myRepostEventId, replyCount } = useMemo(() => {
         const count = replyCountForNode(event);
-        // getDirectReplies already computed my-like-ids/my-repost-ids for every event it touched,
-        // but only returns them keyed to its own replies, not the parent itself — recompute the
-        // parent's own state directly against the same combined event set is overkill for two ids;
-        // simplest correct read is straight off the room/thread the same way likes/reposts are
-        // read elsewhere in this app.
-        const rel = (e: MatrixEvent): { rel_type?: string; event_id?: string; key?: string } | undefined =>
-            e.getWireContent()?.["m.relates_to"];
-        const thread = room.getThread(focusedEventId);
-        const threadEvts = thread ? thread.events : [];
-        const live = room.getLiveTimeline().getEvents();
-        const pending: MatrixEvent[] = (room as any).getPendingEvents?.() ?? [];
-        let liked: string | undefined;
-        let reposted: string | undefined;
-        for (const e of [...live, ...pending, ...threadEvts]) {
-            if (e.isRedacted()) continue;
-            const r = rel(e);
-            if (r?.event_id !== focusedEventId || e.getSender() !== myUserId) continue;
-            if (r?.rel_type === "m.annotation" && r.key === "👍") {
-                liked = e.getId()!;
-            } else if (r?.rel_type === "m.annotation" && r.key === "🔁") {
-                reposted = e.getId()!;
-            }
-        }
+        // Read via the room's own relations aggregation (room.relations.getChildEventsForEvent),
+        // not by scanning live/pending/thread events for annotations pointing at focusedEventId -
+        // see getDirectReplies' own comment (same fix) for why that scan is unreliable for
+        // reactions specifically.
+        const reactions = room.relations.getChildEventsForEvent(focusedEventId, RelationType.Annotation, EventType.Reaction);
+        const myReactions = getMyReactions(reactions, myUserId) ?? [];
+        const liked = myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "👍")?.getId();
+        const reposted = myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")?.getId();
         return { myLikeEventId: liked, myRepostEventId: reposted, replyCount: count };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tick, replyCountForNode, event, room, focusedEventId, myUserId]);
