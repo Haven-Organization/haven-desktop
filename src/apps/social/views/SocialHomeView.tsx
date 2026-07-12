@@ -32,7 +32,7 @@ import {
     GroupIcon,
     UserProfileSolidIcon,
     FilterIcon,
-    HomeIcon,
+    ArrowLeftIcon,
     ComposeIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { Resizable } from "re-resizable";
@@ -278,6 +278,13 @@ export function SocialHomeView(): JSX.Element {
     // haven apps-framework patch: when the spaces bar is hidden, its own Home meta-space button
     // isn't visible either, so there'd be no way back to the regular (non-app) view without this.
     const showSpacesBar = useSettingValue("Haven.showSpacesBar");
+    // Captured once, on mount - whichever room (if any) was open in stock Element's chat view right
+    // before switching to Social, so the sidebar's "Chat" button can return there instead of always
+    // landing on the generic home screen. A lazy initializer (not a mount effect) specifically so
+    // this reads RoomViewStore's state before anything Social does on mount (e.g. its own internal
+    // room navigation for profile/group posts) has a chance to move it - captured once here, then
+    // never re-read, so Social's own subsequent room views don't overwrite what "back" means.
+    const [returnToRoomId] = useState(() => sdkContext.roomViewStore.getRoomId());
     const [feedFilter, setFeedFilter] = useState<SocialFeedFilter>(() => loadSocialFeedFilter(client));
 
     // Lazy initializer (not a plain { section: "feed" }): a "social/groups" or "social/profile"
@@ -893,11 +900,18 @@ export function SocialHomeView(): JSX.Element {
                         {!showSpacesBar && (
                             <>
                                 <NavButton
-                                    icon={<HomeIcon />}
-                                    label="Home"
+                                    icon={<ArrowLeftIcon />}
+                                    label="Chat"
                                     active={false}
                                     collapsed={sidebarCollapsed}
-                                    onClick={() => defaultDispatcher.dispatch({ action: Action.ViewHomePage })}
+                                    onClick={() =>
+                                        returnToRoomId
+                                            ? defaultDispatcher.dispatch({
+                                                  action: Action.ViewRoom,
+                                                  room_id: returnToRoomId,
+                                              })
+                                            : defaultDispatcher.dispatch({ action: Action.ViewHomePage })
+                                    }
                                 />
                                 <div className="social_Sidebar_divider" />
                             </>
