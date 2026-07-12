@@ -14,10 +14,14 @@ import { _t } from "../../../languageHandler";
 
 const AuthFooter = (): ReactElement => {
     const brandingConfig = SdkConfig.getObject("branding");
+    // "Powered by Matrix" is folded into the same default-fallback array as the GitHub link,
+    // rather than being a separate, always-rendered fixture below it - otherwise setting
+    // auth_footer_links to [] (per this option's own documented purpose - see setup.sh's own
+    // comment on it - "remove them entirely") would still leave this one link behind regardless,
+    // which isn't what a host asking for zero footer links wants.
     const links = brandingConfig?.get("auth_footer_links") ?? [
-        { text: "Blog", url: "https://element.io/blog" },
-        { text: "Mastodon", url: "https://mastodon.matrix.org/@Element" },
-        { text: "GitHub", url: "https://github.com/element-hq/element-web" },
+        { text: "GitHub", url: "https://github.com/Haven-Organization/haven-desktop" },
+        { text: _t("powered_by_matrix"), url: "https://matrix.org" },
     ];
 
     const authFooterLinks: JSX.Element[] = [];
@@ -32,9 +36,6 @@ const AuthFooter = (): ReactElement => {
     return (
         <footer className="mx_AuthFooter" role="contentinfo">
             {authFooterLinks}
-            <a href="https://matrix.org" target="_blank" rel="noreferrer noopener">
-                {_t("powered_by_matrix")}
-            </a>
         </footer>
     );
 };

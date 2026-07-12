@@ -102,11 +102,16 @@ const HomePage: React.FC<IProps> = ({ justRegistered = false }) => {
     } else {
         const brandingConfig = SdkConfig.getObject("branding");
         const logoUrl = brandingConfig?.get("auth_header_logo_url") ?? "themes/element/img/logos/element-logo.svg";
+        // haven apps-framework patch: "Welcome to" should name the homeserver you're actually on
+        // (config's server_name, e.g. "Glowers Club"), not the app's own brand — same reasoning as
+        // DefaultWelcome's pre-login title.
+        const homeserverName =
+            config.default_server_config?.["m.homeserver"]?.server_name ?? new URL(cli.getHomeserverUrl()).hostname;
 
         introSection = (
             <React.Fragment>
                 <img src={logoUrl} alt={config.brand} />
-                <h1>{_tDom("onboarding|intro_welcome", { appName: config.brand })}</h1>
+                <h1>{_tDom("onboarding|intro_welcome", { appName: homeserverName })}</h1>
                 <h2>{_tDom("onboarding|intro_byline")}</h2>
             </React.Fragment>
         );

@@ -83,7 +83,9 @@ const DefaultWelcome: React.FC<Props> = ({ serverConfig }) => {
                 <img src={logoUrl} alt={brand} />
             </a>
             <Heading as="h1" weight="semibold">
-                {isElement ? _t("welcome|title_element") : _t("welcome|title_generic", { brand })}
+                {isElement
+                    ? _t("welcome|title_element")
+                    : _t("welcome|title_generic", { brand: serverConfig.hsName })}
             </Heading>
             {isElement && <Text size="md">{_t("welcome|tagline_element")}</Text>}
 

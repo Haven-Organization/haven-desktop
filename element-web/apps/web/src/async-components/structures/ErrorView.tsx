@@ -33,7 +33,7 @@ export const ErrorView: React.FC<IProps> = ({ title, messages, footer, children 
                 className="mx_ErrorView_logo"
                 height="160"
                 src="themes/element/img/logos/element-app-logo.png"
-                alt="Element"
+                alt="Haven"
             />
             <div className="mx_ErrorView_container">
                 <Heading size="md" weight="semibold">

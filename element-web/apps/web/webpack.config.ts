@@ -52,7 +52,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 dotenv.config();
 let ogImageUrl = process.env.RIOT_OG_IMAGE_URL;
-if (!ogImageUrl) ogImageUrl = "https://app.element.io/themes/element/img/logos/opengraph.png";
+// Relative rather than absolute — Haven has no fixed public domain of its own the way
+// app.element.io does, so this resolves against whatever domain a given deployment is served from.
+if (!ogImageUrl) ogImageUrl = "themes/element/img/logos/opengraph.png";
 
 const cssThemes = {
     // CSS themes

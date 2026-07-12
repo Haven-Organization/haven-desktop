@@ -1,0 +1,9 @@
+{
+    "appId": "io.github.haven-organization.desktop",
+    "name": "haven-desktop",
+    "productName": "Haven",
+    "description": "Haven: a Matrix-native social and chat client",
+    "protocols": ["io.github.haven-organization.desktop", "haven"],
+    "linux.executableName": "haven-desktop",
+    "linux.deb.name": "haven-desktop"
+}

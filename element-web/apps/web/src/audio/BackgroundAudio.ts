@@ -33,7 +33,12 @@ export class BackgroundAudio {
         return this.play(`${urlPrefix}.${format}`, loop);
     }
 
-    public async play(url: string, loop = false): Promise<AudioBufferSourceNode> {
+    /**
+     * @param maxDurationSeconds - if given, the sound is cut off after this many seconds instead
+     * of playing to the end — used to cap how long a user-uploaded custom notification sound can
+     * play for, since (unlike the built-in notification sounds) there's no guarantee it's short.
+     */
+    public async play(url: string, loop = false, maxDurationSeconds?: number): Promise<AudioBufferSourceNode> {
         if (!this.sounds.hasOwnProperty(url)) {
             // No cache, fetch it
             const response = await fetch(url);
@@ -55,6 +60,9 @@ export class BackgroundAudio {
         };
 
         source.start();
+        if (maxDurationSeconds && maxDurationSeconds > 0) {
+            source.stop(this.audioContext.currentTime + maxDurationSeconds);
+        }
         return source;
     }
 

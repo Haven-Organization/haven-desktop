@@ -57,7 +57,7 @@ type Writable<T> = NonNullable<
 >;
 
 // Load the default variant as a base configuration
-const DEFAULT_VARIANT = path.join("element.io", "release", "build.json");
+const DEFAULT_VARIANT = path.join("haven", "release", "build.json");
 let variant: Variant = JSON.parse(fs.readFileSync(DEFAULT_VARIANT, "utf8"));
 
 /**
@@ -97,6 +97,15 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
     electronFuses: Required<Configuration["electronFuses"]>;
 } = {
     appId: variant.appId,
+    // haven apps-framework patch: electron-builder's own downloadable "wine@1.0.1" bundle (Wine 11)
+    // fails outright on this host (ntdll.dll error c0000135, killed by a signal, even for a bare
+    // `wineboot --init` - reproduced with a fresh, non-cached download too, so it's a genuine host
+    // incompatibility, not a corrupt download). The *system* wine package boots a prefix
+    // successfully here, so we deliberately leave `toolsets.wine` unset - see WineVmManager's
+    // isLegacyOnLinux branch - to fall back to system wine instead of that broken bundle. WiX's
+    // candle.exe/light.exe additionally need a real .NET Framework (not Mono) installed into
+    // whatever prefix system wine resolves to (its default, unless $WINEPREFIX is set) - see
+    // `winetricks dotnet462` in the README's Windows build notes.
     asarUnpack: "**/*.node",
     electronFuses: {
         enableCookieEncryption: true,
@@ -129,7 +138,7 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         electron_protocol: variant.protocols[0],
     },
     linux: {
-        target: ["tar.gz", "deb"],
+        target: ["tar.gz", "deb", "AppImage"],
         category: "Network;InstantMessaging;Chat",
         icon: "icon.png",
         executableName: variant.name, // element-desktop or element-desktop-nightly

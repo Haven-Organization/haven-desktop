@@ -17,10 +17,10 @@ import ElementDesktopLogoSvg from "../res/img/element-desktop-logo.svg";
 
 // see element-web config.md for docs, or the IConfigOptions interface for dev docs
 export const DEFAULTS: DeepReadonly<IConfigOptions> = {
-    brand: "Element",
+    brand: "Haven",
     branding: {
-        logo_link_url: "https://element.io",
-        auth_header_logo_url: "themes/element/img/logos/element-logo.svg",
+        logo_link_url: "https://github.com/Haven-Organization",
+        auth_header_logo_url: "vector-icons/144.png",
         welcome_background_url: "themes/element/img/backgrounds/lake.jpg",
     },
     help_url: "https://element.io/help",
