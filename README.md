@@ -46,13 +46,13 @@ You can also use the filter button on the feed to add any existing room, bridged
 ## Build Quickstart
 
 ```
-git clone --recurse-submodules https://github.com/Haven-Organization/haven-desktop.git
+git clone https://github.com/Haven-Organization/haven-desktop.git
 cd haven-desktop
 ./scripts/setup.sh
 ```
 
-That's it. The script fetches the `element-web` submodule, applies Haven's patch, drops in the
-custom branding, and installs dependencies. From here, pick web or desktop:
+That's it. The script installs dependencies and drops in custom branding if you've set the
+relevant environment variables. From here, pick web or desktop:
 
 ```
 cd element-web/apps/web
@@ -106,5 +106,5 @@ too.
 ## License
 
 Element Web itself remains under its own upstream license, contained within the `element-web`
-submodule. Haven's own code (`src/apps/`, `docs/`, `patches/`, `scripts/`, and this file's
-siblings) is licensed under the terms in [LICENSE](LICENSE).
+directory. Haven's own code (`src/apps/`, `docs/`, `scripts/`, and this file's siblings) is
+licensed under the terms in [LICENSE](LICENSE).
