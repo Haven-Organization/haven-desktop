@@ -5,8 +5,12 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
+import { createElement } from "react";
 import { BaseViewModel, type UserMenuSnapshot, type UserMenuViewActions } from "@element-hq/web-shared-components";
 import { logger } from "matrix-js-sdk/src/logger";
+
+// haven apps-framework patch
+import { SpacesBarMenuItem } from "../../../../../../src/apps/framework/components/SpacesBarMenuItem";
 
 import { OwnProfileStore } from "../../stores/OwnProfileStore";
 import { UPDATE_EVENT } from "../../stores/AsyncStore";
@@ -45,6 +49,8 @@ export class UserMenuViewModel extends BaseViewModel<UserMenuSnapshot, undefined
             manageAccountHref: accountManagementEndpoint,
             showAvatar: isAuthenticated,
             userStatus: OwnProfileStore.instance.userStatus,
+            // haven apps-framework patch
+            beforeSettingsMenuContent: createElement(SpacesBarMenuItem),
             actions: {
                 createAccount: !isAuthenticated,
                 signIn: !isAuthenticated,

@@ -349,6 +349,8 @@ export interface Settings {
     "Spaces.allRoomsInHome": IBaseSetting<boolean>;
     "Spaces.enabledMetaSpaces": IBaseSetting<Partial<Record<MetaSpace, boolean>>>;
     "Spaces.showPeopleInSpace": IBaseSetting<boolean>;
+    // Haven apps-framework patch
+    "Haven.showSpacesBar": IBaseSetting<boolean>;
     "developerMode": IBaseSetting<boolean>;
     "debug_scroll_panel": IBaseSetting<boolean>;
     "debug_timeline_panel": IBaseSetting<boolean>;
@@ -1330,6 +1332,11 @@ export const SETTINGS: Settings = {
     },
     "Spaces.showPeopleInSpace": {
         supportedLevels: [SettingLevel.ROOM_ACCOUNT],
+        default: true,
+    },
+    // Haven apps-framework patch
+    "Haven.showSpacesBar": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         default: true,
     },
     "developerMode": {

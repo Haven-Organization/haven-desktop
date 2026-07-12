@@ -74,6 +74,34 @@ Please see LICENSE files in the repository root for full details.
         }
     }
 
+    /* haven apps-framework patch: mx_RoomSearch_minimized above only applies once LeftPanel's own
+       isMinimized prop flips (at its 68px fully-collapsed snap point) - this covers the same
+       compact look purely from available width once the panel is that narrow. Scoped to
+       .mx_LeftPanel_minimized specifically (not just the "roomlist" @container query alone): at
+       the wider intermediate breakpoint, RoomSearch now gets a full-width row to itself (dial-pad/
+       explore moved out to their own sibling - see LeftPanel.tsx and _LeftPanel.pcss), so it has
+       room to stay expanded there and should only actually collapse to icon-only once truly
+       minimized. */
+    .mx_LeftPanel_minimized & {
+        @container roomlist (max-width: 280px) {
+            flex: 0 0 auto;
+            height: 32px;
+            min-height: 32px;
+            width: 32px;
+            box-sizing: border-box;
+
+            .mx_RoomSearch_icon {
+                margin: 0 auto;
+                padding: 1px;
+                align-self: center;
+            }
+
+            .mx_RoomSearch_spotlightTriggerText {
+                display: none;
+            }
+        }
+    }
+
     &:hover {
         background-color: $tertiary-content;
 

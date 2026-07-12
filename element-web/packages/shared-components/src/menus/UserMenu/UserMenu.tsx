@@ -5,10 +5,9 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { type JSX } from "react";
+import React, { type JSX, type ReactNode } from "react";
 import { Avatar, Button, IconButton, Link, Menu, MenuItem, Separator, Text } from "@vector-im/compound-web";
 import {
-    ChatProblemIcon,
     DevicesIcon,
     HomeIcon,
     LockIcon,
@@ -57,6 +56,18 @@ export interface UserMenuViewSnapshot {
      * The user status to display, or undefined for no icon / status.
      */
     userStatus?: UserStatus;
+    /**
+     * Haven apps-framework patch: extra content rendered between the profile block and the
+     * standard action list (e.g. "Link new device"). Consumers own everything about its contents
+     * and behaviour; this component only slots it in.
+     */
+    appsMenuContent?: ReactNode;
+    /**
+     * Haven apps-framework patch: extra content rendered at the end of the standard action list,
+     * before "All settings". Consumers own everything about its contents and behaviour; this
+     * component only slots it in.
+     */
+    beforeSettingsMenuContent?: ReactNode;
     /**
      * A set of actions that the user can perform from the menu.
      */
@@ -140,8 +151,19 @@ function StatusButton({ status, clearStatus }: { status: UserStatus; clearStatus
 }
 
 export function UserMenuView({ vm, className }: UserMenuViewProps): JSX.Element {
-    const { userId, displayName, avatarUrl, expanded, open, manageAccountHref, actions, showAvatar, userStatus } =
-        useViewModel(vm);
+    const {
+        userId,
+        displayName,
+        avatarUrl,
+        expanded,
+        open,
+        manageAccountHref,
+        actions,
+        showAvatar,
+        userStatus,
+        appsMenuContent,
+        beforeSettingsMenuContent,
+    } = useViewModel(vm);
     const { translate: _t } = useI18n();
     const trigger = (
         <button className={styles.triggerButton} aria-label={_t("menus|user_menu|title")}>
@@ -206,6 +228,7 @@ export function UserMenuView({ vm, className }: UserMenuViewProps): JSX.Element 
                 </section>
                 <Separator />
                 <section className={styles.actions}>
+                    {appsMenuContent}
                     {actions.openHomePage && (
                         <MenuItem Icon={HomeIcon} label={_t("user_menu|open_home")} onSelect={vm.openHomePage} />
                     )}
@@ -219,13 +242,7 @@ export function UserMenuView({ vm, className }: UserMenuViewProps): JSX.Element 
                     {actions.openSecurity && (
                         <MenuItem Icon={LockIcon} label={_t("user_menu|open_security")} onSelect={vm.openSecurity} />
                     )}
-                    {actions.openFeedback && (
-                        <MenuItem
-                            Icon={ChatProblemIcon}
-                            label={_t("user_menu|open_feedback")}
-                            onSelect={vm.openFeedback}
-                        />
-                    )}
+                    {beforeSettingsMenuContent}
                     {actions.openSettings && (
                         <MenuItem
                             Icon={SettingsIcon}

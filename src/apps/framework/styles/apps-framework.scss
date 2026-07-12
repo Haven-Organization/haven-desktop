@@ -1,0 +1,576 @@
+// ---------------------------------------------------------------------------
+// MainSplit (used by apps that show a right panel, e.g. Social's member-info panel)
+//
+// Stock element-web only gives .mx_MainSplit its flex-grow via a rule scoped to
+// ".mx_RoomView .mx_MainSplit" (see _RoomView.pcss) — apps render MainSplit outside any
+// .mx_RoomView ancestor, so without this it sizes to its content's width instead of filling the
+// space next to the space panel. Same value as the scoped rule, so this changes nothing when
+// MainSplit happens to be used inside an actual RoomView.
+// ---------------------------------------------------------------------------
+
+.mx_MainSplit {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+// ---------------------------------------------------------------------------
+// New room list (RoomListPanel.tsx): room icon/Apps button + RoomListSearch share one row
+// ---------------------------------------------------------------------------
+
+// RoomListPanel's own Flex is direction="column", so without this wrapper the portaled
+// haven_UserMenuPortalTarget and stock RoomListSearch would each land on their own row (visible
+// as the room icon/Apps button stacked above a full-width search bar instead of beside it).
+.haven_RoomListPanel_topRow {
+    // Transparent by default (spaces bar shown, haven_UserMenuPortalTarget empty): this wrapper
+    // exists purely to let the room icon/Apps button share a row with RoomListSearch when spaces
+    // bar is disabled (see the :has() block below) - with spaces bar on there's nothing else in
+    // this row, so it should have zero effect of its own, leaving RoomListSearch exactly as stock
+    // Element renders it (same margins/padding as a plain column child). display: contents removes
+    // this element's own box entirely, so none of the rules below (padding, gap, the @container
+    // wrap-split) apply unless explicitly re-enabled by the :has() selector - previously they
+    // applied unconditionally, which is what caused both the margin mismatch against stock Element
+    // and the down-and-left shift on narrowing, since spaces-bar-on was silently getting the
+    // spaces-bar-off row-splitting behaviour too.
+    display: contents;
+
+    &:has(.haven_UserMenuPortalTarget:not(:empty)) {
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-2x);
+        padding: var(--cpd-space-3x);
+
+        // haven_UserMenuPortalTarget's own margin-right (see apps-framework.scss's base rule for
+        // it) exists for old room list's filterContainer, which has no gap property of its own and
+        // relies on this margin entirely for spacing. This row already spaces all its children via
+        // its own gap above, so that margin only doubles the gap here (16px instead of the
+        // intended 8px) - zero it out in this context specifically, buying back real width for
+        // RoomListSearch before it needs to wrap onto its own row (see the @container rule below).
+        .haven_UserMenuPortalTarget:not(:empty) {
+            margin-right: 0;
+        }
+
+        // The Apps button's outer box already matches the avatar's (both 32px, confirmed via
+        // direct measurement) - the visible mismatch reported here is the *inner content*: the
+        // avatar's photo fills its 32px circle edge to edge, while IconButton fixes its icon at a
+        // hardcoded 0.75x the button size (Compound's own convention, not overridable per-icon) - a
+        // 24px glyph floating in the same 32px box, reading as noticeably smaller/less substantial
+        // next to the avatar's full fill. Scoped to just this row (not the shared
+        // .haven_AppsButton_compactIcon rule itself, which old room list's own stacked column also
+        // uses and which is confirmed stable/correct at 32px there) - bumping the button's overall
+        // size, not just the icon, to the same 38px already approved for the "spacebar" variant
+        // (28px icon) rather than inventing an untested number. !important needed: IconButton sets
+        // --cpd-icon-button-size via inline style, which beats any non-important external rule
+        // regardless of specificity.
+        .haven_AppsButton_compactIcon {
+            --cpd-icon-button-size: 38px !important;
+        }
+
+        // RoomListSearch's own root (a stock @element-hq/web-shared-components element, so
+        // targeted by its stable data-testid/role rather than its hashed CSS-module class) already
+        // lays out its own children (search button, explore button) as a flex row - it just doesn't
+        // grow to fill remaining width on its own once it's a sibling in a row instead of a
+        // full-width column child, needing flex: 1 here to keep behaving like it did as a column
+        // child.
+        [data-testid="room-list-search"] {
+            flex: 1;
+            min-width: 0;
+            // Its own compiled CSS (_view_zk0ja_8) sets padding: 0 var(--cpd-space-3x) (12px) -
+            // built for when this is a full-width column child sitting under this row, giving it a
+            // matching inset from the room list's own edges on its own. In this row it's a sibling
+            // next to the room icon/Apps button instead, and this row already provides that same
+            // 12px inset via its own padding above - the stock left padding was stacking on top,
+            // visibly shifting the search icon/text right of the avatar's edge whenever this wraps
+            // onto its own row (the matching right padding likewise doubled against this row's
+            // right inset, tightening the wrap point more than necessary). Zeroed here; this row's
+            // own padding covers both sides.
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        // Without this, dragging the panel narrow enough eventually squeezes RoomListSearch
+        // (search icon + text + explore button, all fixed-size/min-content) past where it can
+        // actually fit, clipping the search icon itself - the single worst outcome here since
+        // there's then no way to tell a search box is even present. Matches old room list's own
+        // equivalent fix (same "roomlist" @container, same threshold) - drop RoomListSearch onto
+        // its own full-width row instead, before that squeeze point, rather than after. Unlike old
+        // room list, explore isn't split out separately here (RoomListSearch bundles search+explore
+        // as one stock component we can't reach inside), so it travels down to that row together
+        // with search - still satisfies "search gets moved to its own row", just with explore
+        // riding along.
+        @container roomlist (max-width: 280px) {
+            flex-wrap: wrap;
+            row-gap: 8px;
+
+            [data-testid="room-list-search"] {
+                flex: 1 1 100%;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Space panel: Haven app buttons (custom — avoids mx_SpaceButton_avatarPlaceholder
+// which renders the button as always-selected in element-web's dark/light themes)
+// ---------------------------------------------------------------------------
+
+.haven_SpaceAppItem {
+    display: flex;
+    position: relative;
+    list-style: none;
+    padding: 0;
+
+    &--collapsed {
+        // Deliberately NOT re-centering or zeroing the icon's own margin-left/padding-left here:
+        // stock's own space buttons keep the exact same icon position whether the panel is
+        // collapsed or expanded — only the label disappears, leaving empty space to the icon's
+        // right. Matching that (rather than centering within the narrower collapsed width, which
+        // is a different computation) is what keeps our icon aligned with stock's icons in both
+        // panel states.
+        .haven_SpaceAppButton_label {
+            display: none;
+        }
+
+        // padding-right IS shrunk here though (unlike padding-left above): the base rule's 12px
+        // right padding exists to leave room for the label text next to the icon - once the label
+        // is hidden, that space is unused but still part of the button's own box, so :hover/
+        // --active's background (painted on this whole button) lit up that dead strip too,
+        // visibly extending the highlight well past the icon toward the panel edge. Matching
+        // padding-left's 4px pulls the button's right edge in to hug the icon instead, without
+        // moving the icon itself (which only depends on margin-left/padding-left, untouched here).
+        .haven_SpaceAppButton {
+            padding-right: 4px;
+        }
+    }
+}
+
+.haven_SpaceAppButton {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    width: 100%;
+    // 46px (was 40px, still true for the Apps launcher only until this fix) - now that every
+    // pinned app's icon box matches the Apps launcher's 38px size below, the row itself needs the
+    // same height to fit it with the same 4px top/bottom padding, not just the Apps launcher.
+    height: 46px;
+    // Matches stock .mx_SpaceItem:not(.hasSubSpaces) > .mx_SpaceButton's own margin-left, plus the
+    // 4px left inset stock gets from its .mx_SpaceButton_selectionWrapper padding (we don't have an
+    // equivalent inner wrapper, so it's folded into our own padding-left instead) — without both,
+    // our icon sits ~6px further left than a stock space's icon does at the same panel width.
+    //
+    // The extra "- 3px" is this icon's own 38px vs. a stock space avatar's 32px (see &_icon below,
+    // "unified on the Apps launcher's size" - a deliberate, different-from-stock choice, not
+    // something to shrink back down just for this). Anchored from the same left edge as a 32px
+    // avatar, a 6px-wider box's own center sits 3px further right - measured live against the
+    // now-fixed UserMenu avatar and a stock space avatar (both 32px, both centered at the same x)
+    // - shifting this one 3px left brings its own center back in line with theirs without
+    // touching its size.
+    margin-left: calc(var(--gutterSize) - 3px);
+    padding: 4px var(--cpd-space-3x) 4px 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    // Stock's own space name label doesn't set its own color (inherits full-strength text color) —
+    // ours explicitly dimming to secondary made unselected app labels look greyed out next to it.
+    color: $primary-content;
+    // Matches stock .mx_SpaceButton_name's font exactly (was sm, one size below stock's md).
+    font: var(--cpd-font-body-md-regular);
+    text-align: left;
+    position: relative;
+    transition: background 0.1s, color 0.1s;
+
+    &:hover {
+        // rgba($accent, 0.08) is invalid once $accent is a CSS custom property (var(...)) rather
+        // than a literal color - most themes' $accent (see res/themes/*/css/*.pcss) resolves to
+        // var(--cpd-color-text-action-accent), and rgba() requires numeric R/G/B channels, not a
+        // nested color value, so the whole declaration was silently dropped by the browser in
+        // every theme except the two (legacy-light/legacy-dark) where $accent happens to be a
+        // literal hex instead. color-mix() accepts either form as a valid <color> uniformly.
+        background: color-mix(in srgb, $accent 8%, transparent);
+        color: $primary-content;
+    }
+
+    &--active {
+        color: $accent;
+
+        &::before {
+            content: "";
+            position: absolute;
+            // The button's own left:0 used to be flush with the list item's edge before it gained
+            // margin-left for icon alignment — cancel that out here so the bar stays exactly where
+            // it was (flush with the panel edge) instead of shifting right along with the button
+            // and ending up smushed against the icon. Must match margin-left's own value exactly
+            // (currently gutterSize - 3px, from the icon-centering fix below) - this went stale
+            // when that fix landed (still the older gutterSize-only value), pushing the bar 3px
+            // further left than the button's own new position accounts for and off the visible
+            // panel entirely instead of flush with its edge.
+            left: calc(-1 * (var(--gutterSize) - 3px));
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 24px;
+            background: $accent;
+            border-radius: 0 3px 3px 0;
+        }
+
+        .haven_SpaceAppButton_icon {
+            background: $accent;
+            color: $spacePanel-bg-color;
+        }
+
+        .haven_SpaceAppButton_label {
+            color: $accent;
+        }
+    }
+
+    // The Apps launcher's own momentary "picker is open" look (see AppsButton.tsx) - deliberately
+    // narrower than --active above: just the icon's own tint, no accent bar. The bar means "this is
+    // the selected app", which stays true of whatever app was already open/pinned the whole time the
+    // picker is open over it - this button was never that, so it never gets one.
+    &--launcherActive {
+        .haven_SpaceAppButton_icon {
+            background: $accent;
+            color: $spacePanel-bg-color;
+        }
+    }
+
+    &_icon {
+        // 38px (was 32px for every pinned app except the Apps launcher, which alone was already
+        // 38px via the now-removed --apps modifier below). A pinned app's icon box looked visibly
+        // smaller than the Apps launcher's right above it, since the two used different sizes -
+        // unified on the Apps launcher's size instead of shrinking it, since it was already
+        // deliberately sized up once before ("reads as its own distinct kind of button").
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        // Same solid background stock space buttons (including Home) use for their own icon —
+        // matches the established contrast pattern instead of a faint tint that blended into the
+        // space panel's own background.
+        background-color: $panel-actions;
+        color: $secondary-content;
+        transition: background 0.1s, color 0.1s;
+        box-sizing: border-box;
+        overflow: hidden;
+
+        svg {
+            // 28px (was 18px) - scaled up to match the box, same ~74% fill ratio the Apps
+            // launcher's own icon already used rather than the old 32px box's ~58%.
+            width: 28px;
+            height: 28px;
+        }
+
+        // Apps with a custom image (see HavenApp.image) fill the whole box instead of sitting
+        // centered like an svg icon — the box's own border-radius clips it to match.
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    &_label {
+        font: var(--cpd-font-body-md-regular);
+        color: inherit;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+// Haven.showSpacesBar toggled off — collapse the whole panel to nothing, but keep it mounted
+// (react-beautiful-dnd's DragDropContext crashes if unmounted mid-dispatch, and unmounting would
+// also tear down the UserMenu ViewModel that the relocated menu below the search bar still needs).
+.mx_SpacePanel.haven_SpacePanel_hidden {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    border: none;
+}
+
+// The UserMenu relocated (via portal) next to the search bar when the spaces bar is hidden — see
+// SpacePanel.tsx. Its own module CSS assumes a vertical nav column; here it's an inline row item.
+.haven_UserMenuPortalTarget {
+    display: flex;
+    align-items: center;
+    // Space between the relocated UserMenu and the Apps button next to it (both portaled in here
+    // as siblings — see SpacePanel.tsx) — without this they sit flush against each other.
+    gap: var(--cpd-space-2x);
+    flex-shrink: 0;
+
+    &:not(:empty) {
+        // Matches the 8px gap on both sides of it (this target's own internal gap above, and
+        // .mx_LeftPanel_exploreButton/.mx_LeftPanel_dialPadButton's margin-left in _LeftPanel.pcss)
+        // so all three gaps in the row read as one consistent rhythm instead of 8px/12px/8px.
+        margin-right: var(--cpd-space-2x);
+    }
+}
+
+// haven apps-framework patch: once the room list no longer has enough width to lay the room
+// icon/Apps/search/explore buttons out in a row (see the matching "roomlist" @container query on
+// .mx_LeftPanel_filterContainer and .mx_RoomSearch in _LeftPanel.pcss / _RoomSearch.pcss),
+// mx_LeftPanel_searchExploreRow wraps onto its own row underneath this one - this element itself
+// (UserMenu + Apps button) is deliberately left untouched here, staying exactly as it was, since
+// it's search/explore moving rather than this. Its own margin-right (spacing it from whatever
+// used to sit to its right in the single row) is no longer needed once that's below it instead.
+//
+// Scoped to :not(.mx_LeftPanel_newRoomList): RoomListPanel (the new room list) portals its
+// UserMenu into this same target div, but its own collapsed floor (224px) sits below our 280px
+// threshold, and unlike the legacy list it's deliberately never meant to shrink to icon-only
+// (_LeftPanel.pcss's mx_LeftPanel_newRoomList comment) — so it must stay unaffected here.
+@container roomlist (max-width: 280px) {
+    .mx_LeftPanel:not(.mx_LeftPanel_newRoomList) .haven_UserMenuPortalTarget {
+        &:not(:empty) {
+            margin-right: 0;
+        }
+    }
+}
+
+// Collapsed all the way down to the 68px rail - even mx_LeftPanel_searchExploreRow's own row no
+// longer fits alongside this, so *this* now needs to stack too (icon above Apps button), matching
+// the one-per-row stack _LeftPanel.pcss's mx_LeftPanel_minimized override puts search/explore into
+// at the same point, at the same 8px rhythm. The extra .mx_LeftPanel_minimized class gives this
+// higher specificity than the @container rule above so it wins regardless of source order.
+//
+// No margin-bottom here: .mx_LeftPanel_filterContainer's own row-gap: 8px (from the @container
+// query above, still active at this width) already spaces this from mx_LeftPanel_searchExploreRow
+// below it - adding one here on top doubled that particular gap to 16px versus the 8px used
+// everywhere else in the stack (avatar-to-Apps via this element's own `gap`, search-to-explore via
+// exploreButton's margin-top in _LeftPanel.pcss).
+.mx_LeftPanel_minimized .haven_UserMenuPortalTarget {
+    display: flex;
+    flex-direction: column;
+
+    &:not(:empty) {
+        margin-right: 0;
+    }
+}
+
+// Same avatar-size mismatch haven_UserMenu_relocated fixes below, but for the *normal* in-column
+// UserMenu (spaces bar shown, className is plain "mx_UserMenu" - see the showSpacesBar ternary in
+// SpacePanel.tsx) - that fix only ever applied to the relocated instance (portaled next to the
+// search bar when the spaces bar is hidden). Only the avatar's own size is fixed here, not
+// padding-inline-start too (unlike the relocated rule) - that 6px inset is genuinely needed in this
+// context (it's what the un-collapsed panel's own displayname sits flush against, next to the
+// avatar); zeroing it here (tried first, measured live) shifted the avatar further off-center, not
+// closer - it was never the thing misaligning it to begin with, only the size was.
+// Scoped to .mx_SpacePanel so it only ever reaches this in-column instance - the relocated one is
+// portaled elsewhere in the DOM (outside .mx_SpacePanel entirely) and keeps its own rule below.
+.mx_SpacePanel .mx_UserMenu {
+    // UserMenu.tsx hardcodes this trigger avatar's size at 36px, 4px bigger than every other icon
+    // in this column (Apps button, Home/space buttons' own avatars are all 32px) - see
+    // haven_UserMenu_relocated's own identical comment for the full explanation.
+    [data-type="round"] {
+        --cpd-avatar-size: 32px !important;
+    }
+}
+
+.haven_UserMenu_relocated {
+    display: flex;
+    align-items: center;
+    // UserMenu's own module CSS gives its root .wrapper a 12px top / 16px bottom margin (spacing
+    // it from the Home button etc. below it in the space panel's vertical column) and gives its
+    // inner trigger <button> its own 12px left / 8px right margin — both sized for that vertical
+    // context. Left in place here, they made the search-bar row taller than it should be (pushing
+    // everything below it down) and shifted the relocated menu down-and-right within the row,
+    // squeezing the search box more than intended. Both classes are on/inside this same element
+    // (className is merged onto UserMenu's root alongside its own hashed module class), so this
+    // overrides them directly rather than needing to know the hashed class names.
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+
+    button {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        // UserMenu.module.css's .triggerButton also gives itself a 6px left inset (padding-inline-
+        // start, meant to offset the avatar from a displayname that sits alongside it in the
+        // normal vertical space-panel column) with nothing matching on the right — left in place
+        // here, it pushes the avatar off-center within its own clickable area, throwing off
+        // alignment with the centered Apps/search/explore icons next to and below it.
+        padding-inline-start: 0 !important;
+    }
+
+    // UserMenu.tsx hardcodes this trigger avatar's size at 36px (sized for the normal vertical
+    // space-panel column) — 4px bigger than every other icon in this row/stack (AppsButton's
+    // IconButton, RoomSearch's collapsed icon, mx_LeftPanel_exploreButton are all 32px), which is
+    // what actually threw off the "aligned with each other" look. --cpd-avatar-size is set inline
+    // by the Avatar component itself, so this needs !important to win; [data-type="round"] is a
+    // stable attribute Avatar sets rather than a hashed module class name.
+    [data-type="round"] {
+        --cpd-avatar-size: 32px !important;
+    }
+}
+
+// 24px box matching every other menu item's icon size, centering CheckboxInput's own native 20px
+// — see SpacesBarMenuItem.tsx for why this is needed instead of a bare checkbox.
+.haven_SpacesBarMenuItem_iconSlot {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+// Thin horizontal rule between the Haven app buttons and the standard meta-space section
+.haven_SpacePanel_divider {
+    height: 1px;
+    // A symmetric left/right margin (previously 16px, then 18px) can never line this up with the
+    // icons above/below it - measured live, the icons themselves aren't centered in this <li>'s
+    // containing block at all: the surrounding <ul> (mx_SpaceTreeLevel) reserves scrollbar space,
+    // so its real content-box is 58px even though the panel looks 68px wide, and the icons sit at
+    // gutterSize (14px) + the button's own 4px padding = 18px from the left but only 2px from the
+    // right (an asymmetric, left-leaning position, not centered). Matching that means giving the
+    // divider the icon's own fixed width and left offset directly instead of deriving margins from
+    // an assumed-symmetric container width that was never actually symmetric.
+    // Matches .haven_SpaceAppButton's own icon width/position exactly (that's the whole point of
+    // this comment/measurement above) - so when that button's own margin-left picked up its own
+    // "- 3px" correction (re-centering its 38px icon against the 32px avatars above/below it), this
+    // needed the identical adjustment to stay lined up with it.
+    width: 38px;
+    margin: var(--cpd-space-1x) 0 var(--cpd-space-1x) calc(var(--gutterSize) + 4px - 3px);
+    // $quinary-content (--cpd-color-gray-400) is an absolute color, not a tint relative to
+    // whatever's behind it - measured live, it resolves to almost exactly the SpacePanel's own
+    // background in both themes (#26282d vs the panel's rgba(38,39,43,0.82) in dark; similarly
+    // near-white in light), so the divider was reading as nearly invisible/blending straight into
+    // the panel rather than a genuinely wrong color - not literally pure white/black, just close
+    // enough to it against each theme's own near-white/near-black background to read that way.
+    // --cpd-color-alpha-gray-600 is a semi-transparent tint instead of an absolute color - it
+    // lightens a dark background and darkens a light one, so it's guaranteed to contrast against
+    // whatever background it sits on in either theme, rather than coincidentally matching it.
+    background: var(--cpd-color-alpha-gray-600);
+    list-style: none;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+// App right-click menu header (in AppContextMenu) — same text styling as
+// .mx_SpacePanel_contextMenu_header, just with the app's icon alongside the name.
+.haven_AppContextMenu_header {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+}
+
+.haven_AppContextMenu_headerIcon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: $secondary-content;
+}
+
+// ---------------------------------------------------------------------------
+// Apps launcher: AppsButton (compact variant) + AppsPickerModal
+// ---------------------------------------------------------------------------
+
+// Wraps the compact IconButton variant so its anchored popup (a sibling, not a child of the
+// button itself) has somewhere to position from without affecting the portal row's layout.
+.haven_AppsButton_compactWrapper {
+    display: flex;
+    align-items: center;
+}
+
+// IconButton's own default hover/pressed styling reads as much subtler than the rest of this row
+// (RoomSearch and the explore/dial-pad buttons all tint with $accent on hover/active) - !important
+// here for the same reason apps-framework.scss's other Compound-component overrides need it (see
+// haven_UserMenu_relocated below): fighting a real stylesheet rule from the component library
+// itself, not just relying on source order.
+.haven_AppsButton_compactIcon {
+    &:hover {
+        // color-mix(), not rgba($accent, ...): $accent resolves to var(--cpd-color-text-action-
+        // accent) in most themes, and rgba() can't take a nested color/custom-property as its R
+        // channel - that combination silently drops the whole declaration (found by testing this
+        // exact rule live: color applied, background never did). See the same fix/explanation on
+        // .haven_SpaceAppButton:hover above, which had the identical pre-existing bug.
+        background-color: color-mix(in srgb, $accent 8%, transparent) !important;
+        color: $accent !important;
+    }
+
+    // Solid green (not just a stronger tint) while the Apps picker popup this button opens is
+    // actually showing - a 16% tint read too close to the 8% hover tint to tell apart at a
+    // glance, so this needs to be unambiguously a different, "committed" state rather than a
+    // shade of the same hover feedback. Matches the "spacebar" variant's own --active icon
+    // background (solid var(--cpd-color-text-action-accent), see .haven_SpaceAppButton--active
+    // .haven_SpaceAppButton_icon above).
+    &--active {
+        background-color: $accent !important;
+        color: $accent !important;
+    }
+}
+
+// 3 columns x 3 visible rows, sized so the popup reads as roughly square as requested — anything
+// past 9 apps scrolls rather than growing the popup further.
+.haven_AppsPickerModal {
+    padding: var(--cpd-space-3x);
+}
+
+.haven_AppsPickerModal_grid {
+    display: grid;
+    grid-template-columns: repeat(3, 76px);
+    // Tall enough for icon (40) + gap (--cpd-space-1x) + a full line of body-sm label text +
+    // top/bottom padding (--cpd-space-2x each) without clipping the label's descenders.
+    grid-auto-rows: 84px;
+    gap: var(--cpd-space-2x);
+    max-height: calc(84px * 3 + var(--cpd-space-2x) * 2);
+    overflow-y: auto;
+}
+
+.haven_AppsPickerModal_tileWrapper {
+    position: relative;
+}
+
+.haven_AppsPickerModal_tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--cpd-space-1x);
+    width: 100%;
+    height: 100%;
+    padding: var(--cpd-space-2x);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: $primary-content;
+    transition: background 0.1s;
+
+    &:hover {
+        background: rgba($accent, 0.08);
+    }
+}
+
+.haven_AppsPickerModal_tileIcon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background-color: $panel-actions;
+    color: $secondary-content;
+    overflow: hidden;
+
+    svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.haven_AppsPickerModal_tileLabel {
+    font: var(--cpd-font-body-sm-regular);
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}

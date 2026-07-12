@@ -17,10 +17,12 @@ import {
 } from "matrix-js-sdk/src/matrix";
 
 import { useTypedEventEmitter } from "../useEventEmitter";
+// haven apps-framework patch: see bridgedTopicHtml.ts's own comment for why this is needed
+import { withBridgedHtmlFallback } from "../../../../../../src/apps/framework/bridgedTopicHtml";
 
 export const getTopic = (room?: Room): ContentHelpers.TopicState | null => {
     const content = room?.currentState?.getStateEvents(EventType.RoomTopic, "")?.getContent<MRoomTopicEventContent>();
-    return !!content ? ContentHelpers.parseTopicContent(content) : null;
+    return !!content ? withBridgedHtmlFallback(ContentHelpers.parseTopicContent(content)) : null;
 };
 
 /**

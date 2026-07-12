@@ -75,6 +75,13 @@ Please see LICENSE files in the repository root for full details.
         /* Create another flexbox (this time a column) for the room list components */
         display: flex;
         flex-direction: column;
+        /* haven apps-framework patch: lets .mx_LeftPanel_filterContainer (and the portaled
+           UserMenu/Apps buttons within it, see apps-framework.scss) react to how much horizontal
+           room they actually have as this panel is dragged narrower, rather than only reacting to
+           the binary mx_LeftPanel_minimized snap point below - see the "roomlist" @container query
+           on .mx_LeftPanel_filterContainer and .mx_RoomSearch (_RoomSearch.pcss). */
+        container-type: inline-size;
+        container-name: roomlist;
 
         .mx_LeftPanel_userHeader {
             /* 12px top, 12px sides, 20px bottom (using 13px bottom to account
@@ -127,6 +134,65 @@ Please see LICENSE files in the repository root for full details.
                 margin-top: 12px;
             }
 
+            .mx_LeftPanel_searchExploreRow {
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+            }
+
+            /* haven apps-framework patch: once this row no longer has enough width to lay the
+               room icon/Apps/search/explore buttons out side by side without squeezing them (the
+               search box shrinking bg-first while its fixed-size icon overflows into its
+               neighbour), keep the room icon/Apps button and dial-pad/explore together on one row
+               (dial-pad/explore pinned to the right via justify-content: space-between) and drop
+               only RoomSearch (mx_LeftPanel_searchExploreRow - just RoomSearch now, see
+               LeftPanel.tsx) onto its own full-width row underneath, now with room to stay
+               expanded instead of collapsing to an icon (see the matching change dropping
+               .mx_RoomSearch's icon-only override in _RoomSearch.pcss to minimized-only).
+               order values do the reflow rather than reordering the DOM (search precedes
+               dial-pad/explore in markup, for a saner tab order). Only once actually collapsed
+               all the way (mx_LeftPanel_minimized below, which overrides this further) does every
+               button end up one-per-row and centered instead, since even two rows no longer fits
+               that narrow a rail.
+               NOTE: this block must stay textually after the base .mx_LeftPanel_searchExploreRow
+               rule above - both select it at equal specificity, so source order decides the
+               winner for properties (flex) set by both; @container's condition being true doesn't
+               add any specificity of its own.
+               SCOPED to :has(.haven_UserMenuPortalTarget:not(:empty)) - i.e. only when the room
+               icon/Apps button actually live in this row (spaces bar hidden, Haven.showSpacesBar
+               false; see SpacePanel.tsx's portal). When the spaces bar is shown, that portal target
+               is empty (UserMenu renders inside SpacePanel's own column instead) and this row only
+               ever holds RoomSearch + dial-pad/explore - two items, not four - so it already has
+               plenty of room for them to stay side by side at this same width, and splitting them
+               onto two rows here looked wrong (explore stranded alone up top, search alone below,
+               with nothing actually forcing that split). */
+            &:has(.haven_UserMenuPortalTarget:not(:empty)) {
+                @container roomlist (max-width: 280px) {
+                    flex-wrap: wrap;
+                    row-gap: 8px;
+                    justify-content: space-between;
+
+                    .haven_UserMenuPortalTarget {
+                        order: 1;
+                    }
+
+                    .haven_LeftPanel_actionButtons {
+                        order: 2;
+                        flex: 0 0 auto;
+                    }
+
+                    .mx_LeftPanel_searchExploreRow {
+                        /* it was filling the remaining row width via flex: 1 (see above) -
+                           flex-basis: 100% forces it onto its own wrapped line instead (nothing
+                           else fits alongside a 100%-basis item), while flex-wrap above still lets
+                           the room icon/Apps button and dial-pad/explore share the line above it. */
+                        order: 3;
+                        flex: 1 1 100%;
+                    }
+                }
+            }
+
             .mx_LeftPanel_dialPadButton,
             .mx_LeftPanel_exploreButton {
                 width: 20px;
@@ -135,6 +201,14 @@ Please see LICENSE files in the repository root for full details.
                 border-radius: 8px;
                 background-color: $panel-actions;
                 margin-left: 8px;
+                /* haven apps-framework patch: without this, flexbox shrinks this button's own box
+                   as the row narrows (e.g. while the panel is being collapsed) but the icon inside
+                   doesn't track that shrink — width: inherit on the svg below picks up this
+                   element's *specified* width (20px), not its post-shrink rendered size, so the
+                   icon stays full-size and spills out of its now-smaller background. Keeping this
+                   fixed-size instead means .mx_RoomSearch (flex: 1, min-width: 0) absorbs all the
+                   narrowing on its own, which it's already built to do. */
+                flex-shrink: 0;
                 /* For enhanced visibility under contrast control */
                 outline: 1px solid transparent;
 
@@ -196,23 +270,85 @@ Please see LICENSE files in the repository root for full details.
             }
 
             .mx_LeftPanel_filterContainer {
-                /* Organize the flexbox into a centered column layout */
+                /* Collapsed all the way down to the 68px rail - even the two rows from the
+                   "roomlist" @container query above (still active at this width) no longer fit
+                   side-by-side within each other, so every button goes one-per-row instead. The
+                   extra .mx_LeftPanel_minimized class used to give this higher specificity than
+                   the @container rule without needing !important - but that rule's selector grew
+                   a :has(.haven_UserMenuPortalTarget:not(:empty)) guard since (see above), and
+                   :has()'s own argument counts toward specificity same as any other selector -
+                   .haven_UserMenuPortalTarget:not(:empty) alone contributes 2 more "classes" worth,
+                   pushing that rule's total specificity past this one's despite this block's extra
+                   .mx_LeftPanel_minimized ancestor class. Confirmed live: .mx_LeftPanel_searchExploreRow
+                   kept the @container rule's order/flex-basis:100% even inside this fully-collapsed
+                   rail, stretching it to fill the whole column instead of sitting in its own
+                   one-per-row slot. order/flex below need !important to reliably win regardless of
+                   whichever rule's selector happens to be more specific on a given day. */
                 flex-direction: column;
+                flex-wrap: nowrap;
                 justify-content: center;
+                /* ...and now that every button is its own row, flush-left/space-between (see the
+                   @container rule above) no longer mean anything - center them here to match the
+                   room avatars below instead. */
+                align-items: center;
+
+                /* Undo the @container rule's row1/row2 split above - every direct child (room
+                   icon/Apps button, RoomSearch, dial-pad/explore) goes back to being its own row,
+                   in DOM order, since even two rows no longer fits this narrow. */
+                .haven_UserMenuPortalTarget,
+                .mx_LeftPanel_searchExploreRow,
+                .haven_LeftPanel_actionButtons {
+                    order: initial !important;
+                    flex: 0 0 auto !important;
+                }
+
+                .haven_LeftPanel_actionButtons {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                }
 
                 .mx_LeftPanel_dialPadButton {
-                    margin-left: 0;
                     margin-top: 8px;
+                    /* Base rule's margin-left: 8px is meant for row mode (spacing this from
+                       RoomSearch when they sit side by side) - left in place here, it makes
+                       searchExploreRow's align-items: center (also inherited from row mode) center
+                       an asymmetric margin box instead of this button's actual icon, shifting the
+                       visible icon off-center relative to the avatar/Apps/search icons above it. */
+                    margin-left: 0;
                     background-color: transparent;
                 }
 
                 .mx_LeftPanel_exploreButton {
-                    margin-left: 0;
                     margin-top: 8px;
+                    margin-left: 0;
                 }
             }
         }
     }
+}
+
+/* haven apps-framework patch: the relocated Apps button (spaces bar hidden - see
+   haven_UserMenuPortalTarget above) reads visibly smaller than the UserMenu avatar next to/above it
+   - same root cause already fixed for RoomListPanel's own row (apps-framework.scss's
+   .haven_RoomListPanel_topRow rule): both outer boxes are genuinely 32px, but the avatar's photo
+   fills its circle edge to edge while IconButton fixes its icon at a hardcoded 0.75x the button
+   size, so the Apps glyph reads as a smaller 24px floating in the same box. That existing fix only
+   ever covered the new room list's row - old room list's own row fell through the gap here, in both
+   its default (side-by-side row) and fully-minimized (stacked column) widths; an earlier version of
+   this comment claimed the stacked state was "confirmed correct" at 32px, on the theory that a
+   column layout has no neighbouring avatar to look smaller next to - live testing after shipping
+   that showed the mismatch is still visible there too (the avatar sits directly above it, not
+   beside it, but the same size discrepancy still reads the same way), so this now applies
+   unconditionally rather than excluding that state. Matches the same 38px already approved
+   elsewhere rather than inventing a new number. Written as a standalone rule (not nested under
+   .mx_LeftPanel above) because & there expands to the full ".mx_LeftPanel
+   .mx_LeftPanel_roomListContainer" chain, already including .mx_LeftPanel itself - nesting this
+   inside that block and prefixing with a second, separate .mx_LeftPanel ancestor requirement made
+   an earlier version of this selector unsatisfiable (there's only ever one .mx_LeftPanel element),
+   silently matching nothing. */
+.mx_LeftPanel .mx_LeftPanel_filterContainer:has(.haven_UserMenuPortalTarget:not(:empty)) .haven_AppsButton_compactIcon {
+    --cpd-icon-button-size: 38px !important;
 }
 
 .mx_LeftPanel_newRoomList {

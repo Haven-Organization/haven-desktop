@@ -27,12 +27,18 @@ type RoomListPanelProps = {
      * See {@link RoomListSearch}
      */
     activeSpace: string;
+    /**
+     * Haven apps-framework patch: callback ref for a portal target rendered next to the search
+     * bar, used to relocate the top-left UserMenu here when the spaces bar is hidden (see
+     * SpacePanel.tsx).
+     */
+    userMenuPortalRef?: (node: HTMLDivElement | null) => void;
 };
 
 /**
  * The panel of the room list
  */
-export const RoomListPanel: React.FC<RoomListPanelProps> = ({ activeSpace }) => {
+export const RoomListPanel: React.FC<RoomListPanelProps> = ({ activeSpace, userMenuPortalRef }) => {
     const displayRoomSearch = shouldShowComponent(UIComponent.FilterContainer);
     const [focusedElement, setFocusedElement] = useState<Element | null>(null);
 
@@ -76,7 +82,15 @@ export const RoomListPanel: React.FC<RoomListPanelProps> = ({ activeSpace }) => 
             onBlur={onBlur}
             onKeyDown={onKeyDown}
         >
-            {displayRoomSearch && <RoomListSearch activeSpace={activeSpace} />}
+            {/* haven apps-framework patch: room icon/Apps button (portaled) and RoomListSearch
+                (stock, its own already-a-flex-row wrapper - see .haven_RoomListPanel_topRow in
+                apps-framework.scss) share one row instead of stacking as separate rows - this
+                Flex's own direction="column" would otherwise put each direct child on its own
+                line. */}
+            <div className="haven_RoomListPanel_topRow">
+                <div ref={userMenuPortalRef} className="haven_UserMenuPortalTarget" />
+                {displayRoomSearch && <RoomListSearch activeSpace={activeSpace} />}
+            </div>
             <RoomListHeaderView vm={vm} />
             <RoomListView />
         </Flex>

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { type ClipboardEvent } from "react";
+import React, { type ClipboardEvent, Suspense } from "react";
 import {
     ClientEvent,
     type MatrixClient,
@@ -70,6 +70,9 @@ import { Landmark, LandmarkNavigation } from "../../accessibility/LandmarkNaviga
 import { ModuleApi } from "../../modules/Api.ts";
 import { SDKContext } from "../../contexts/SDKContext.ts";
 import { ResizerViewModel } from "../../viewmodels/structures/ResizerViewModel.ts";
+// haven apps-framework patch
+import { getAppByHomeAction } from "../../../../../../src/apps/framework/registry";
+import { UserMenuPortalContext } from "../../../../../../src/apps/framework/UserMenuPortalContext";
 
 // We need to fetch each pinned message individually (if we don't already have it)
 // so each pinned message may trigger a request. Limit the number per room for sanity.
@@ -109,6 +112,9 @@ interface IState {
     useCompactLayout: boolean;
     activeCalls: Array<MatrixCall>;
     backgroundImage?: string;
+    // haven apps-framework patch: portal target rendered by LeftPanel next to the search bar, used
+    // to relocate the top-left UserMenu there when the spaces bar is hidden (see SpacePanel.tsx).
+    userMenuPortalTarget?: HTMLDivElement | null;
 }
 
 const NEW_ROOM_LIST_MIN_WIDTH = 224;
@@ -199,6 +205,11 @@ class LoggedInView extends React.Component<IProps, IState> {
         OwnProfileStore.instance.on(UPDATE_EVENT, this.refreshBackgroundImage);
         this.refreshBackgroundImage();
     }
+
+    // haven apps-framework patch
+    private setUserMenuPortalTarget = (node: HTMLDivElement | null): void => {
+        this.setState({ userMenuPortalTarget: node });
+    };
 
     private getResizerViewModel(): ResizerViewModel {
         if (!this.resizerViewModel) {
@@ -312,11 +323,22 @@ class LoggedInView extends React.Component<IProps, IState> {
                     return;
                 }
                 panelCollapsed = collapsed;
+                // Dispatched synchronously (2nd arg): the default async dispatch (setTimeout 0)
+                // opens a race where a new drag's CollapseDistributor can read a stale, not-yet-
+                // updated "mx_LeftPanel_minimized" DOM class from a still-pending previous
+                // dispatch. Since the distributor only re-dispatches on a *detected* collapsed/
+                // expanded transition, that stale read means a later drag can silently believe
+                // it's already in the correct state and never dispatch "show_left_panel" again -
+                // leaving the panel visibly stuck collapsed (the CSS's !important collapsed width
+                // never gets lifted) even though its own inline resize width keeps updating
+                // correctly underneath. Synchronous dispatch closes that window entirely; this is
+                // safe here since resize() runs from a raw mousemove listener, never from inside
+                // another dispatch.
                 if (collapsed) {
-                    dis.dispatch({ action: "hide_left_panel" });
+                    dis.dispatch({ action: "hide_left_panel" }, true);
                     window.localStorage.setItem("mx_lhs_size", "0");
                 } else {
-                    dis.dispatch({ action: "show_left_panel" });
+                    dis.dispatch({ action: "show_left_panel" }, true);
                 }
             },
             onResized: (size) => {
@@ -744,7 +766,15 @@ class LoggedInView extends React.Component<IProps, IState> {
                 }
                 break;
             default: {
-                if (moduleRenderer) {
+                // haven apps-framework patch: page_type may be a registered app's homeAction
+                const app = this.props.page_type ? getAppByHomeAction(this.props.page_type) : undefined;
+                if (app) {
+                    pageElement = (
+                        <Suspense fallback={null}>
+                            <app.Component />
+                        </Suspense>
+                    );
+                } else if (moduleRenderer) {
                     // Since the view will be removed, remove the vm as well
                     this.disposeResizerViewModel();
                     pageElement = moduleRenderer();
@@ -776,16 +806,27 @@ class LoggedInView extends React.Component<IProps, IState> {
 
         const shouldUseMinimizedUI = !useNewRoomList && this.props.collapseLhs;
 
+        // haven apps-framework patch: must be declared before leftPanel so it can suppress LeftPanel
+        // while an app is open — keeping SpacePanel mounted prevents react-beautiful-dnd context crashes.
+        const isAppMode = !!(this.props.page_type && getAppByHomeAction(this.props.page_type));
+
         const leftPanel = (
             <div className="mx_LeftPanel_outerWrapper">
                 <LeftPanelLiveShareWarning isMinimized={shouldUseMinimizedUI || false} />
                 <div className={leftPanelWrapperClasses}>
-                    {!useNewRoomList && (
+                    {/* haven apps-framework patch: BackdropPanel is the room list's own blurred-avatar
+                        ambient background - gated on isAppMode too (unlike SpacePanel just below,
+                        which stays mounted deliberately), since it otherwise keeps rendering behind
+                        Social's own sidebar while the room list itself is hidden for an open app. */}
+                    {!useNewRoomList && !isAppMode && (
                         <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
                     )}
-                    {!useNewRoomList && <SpacePanel />}
-                    {!useNewRoomList && <BackdropPanel backgroundImage={this.state.backgroundImage} />}
-                    {!moduleRenderer && (
+                    {!useNewRoomList && (
+                        <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
+                    )}
+                    {!useNewRoomList && !isAppMode && <BackdropPanel backgroundImage={this.state.backgroundImage} />}
+                    {/* haven apps-framework patch: hide the room list while an app is open so SpacePanel stays mounted */}
+                    {!moduleRenderer && !isAppMode && (
                         <div
                             className="mx_LeftPanel_wrapper--user"
                             ref={this._resizeContainer}
@@ -794,6 +835,7 @@ class LoggedInView extends React.Component<IProps, IState> {
                             <LeftPanel
                                 isMinimized={shouldUseMinimizedUI || false}
                                 resizeNotifier={this.context.resizeNotifier}
+                                userMenuPortalRef={this.setUserMenuPortalTarget}
                             />
                         </div>
                     )}
@@ -810,18 +852,25 @@ class LoggedInView extends React.Component<IProps, IState> {
             // The SpacePanel lives inside GroupView (leftPanel omits it when the new room list is enabled).
             content = (
                 <GroupView vm={resizerViewModel}>
-                    <SpacePanel />
-                    <LeftResizablePanelView
-                        vm={resizerViewModel}
-                        className="mx_LeftPanel_panel"
-                        minSize="200px"
-                        maxSize="370px"
-                        defaultSize="370px"
-                    >
-                        {leftPanel}
-                    </LeftResizablePanelView>
-                    <SeparatorView className="mx_Separator" vm={resizerViewModel} />
-                    <Panel className="mx_LeftPanel_panel">{roomView}</Panel>
+                    <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
+                    {isAppMode ? (
+                        // haven apps-framework patch: the app fills the space normally used by room list + room view
+                        pageElement
+                    ) : (
+                        <>
+                            <LeftResizablePanelView
+                                vm={resizerViewModel}
+                                className="mx_LeftPanel_panel"
+                                minSize="200px"
+                                maxSize="370px"
+                                defaultSize="370px"
+                            >
+                                {leftPanel}
+                            </LeftResizablePanelView>
+                            <SeparatorView className="mx_Separator" vm={resizerViewModel} />
+                            <Panel className="mx_LeftPanel_panel">{roomView}</Panel>
+                        </>
+                    )}
                 </GroupView>
             );
         } else {
@@ -829,12 +878,28 @@ class LoggedInView extends React.Component<IProps, IState> {
             // must not use the resizable layout above. SpacePanel is guarded on useNewRoomList to avoid a
             // duplicate (the old room list already renders one inside leftPanel); the legacy ResizeHandle is
             // dropped for module views, which manage their own layout.
+            //
+            // haven apps-framework patch: for old room list, leftPanel is always rendered so SpacePanel
+            // stays mounted (react-beautiful-dnd crashes if its DragDropContext is unmounted mid-dispatch).
+            // leftPanel already hides the LeftPanel room-list child when isAppMode is true.
             content = (
                 <>
-                    {useNewRoomList && <SpacePanel />}
-                    {leftPanel}
-                    {!moduleRenderer && <ResizeHandle passRef={this.resizeHandler} id="lp-resizer" />}
-                    {roomView}
+                    {useNewRoomList && (
+                        <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
+                    )}
+                    {/* haven apps-framework patch: always render leftPanel for old room list */}
+                    {!useNewRoomList && leftPanel}
+                    {isAppMode ? (
+                        // haven apps-framework patch: the app fills the space alongside the SpacePanel column
+                        pageElement
+                    ) : (
+                        <>
+                            {/* For module / new-room-list fallback, leftPanel goes here */}
+                            {useNewRoomList && leftPanel}
+                            {!moduleRenderer && <ResizeHandle passRef={this.resizeHandler} id="lp-resizer" />}
+                            {roomView}
+                        </>
+                    )}
                 </>
             );
         }
@@ -848,7 +913,12 @@ class LoggedInView extends React.Component<IProps, IState> {
                     aria-hidden={this.props.hideToSRUsers}
                 >
                     <ToastContainer />
-                    <div className={bodyClasses}>{content}</div>
+                    <div className={bodyClasses}>
+                        {/* haven apps-framework patch */}
+                        <UserMenuPortalContext.Provider value={this.setUserMenuPortalTarget}>
+                            {content}
+                        </UserMenuPortalContext.Provider>
+                    </div>
                 </div>
                 <PipContainer />
                 <NonUrgentToastContainer />

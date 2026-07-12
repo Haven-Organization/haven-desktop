@@ -280,6 +280,9 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
             // [2]: https://github.com/webassembly/esm-integration
             // [3]: https://github.com/webpack/webpack/issues/17692#issuecomment-1866272674.
             conditionNames: ["matrix-org:wasm-esm", "..."],
+            // haven apps-framework patch: resolve packages from element-web/node_modules
+            // for files imported from the src/apps/ directory above.
+            modules: [path.resolve(__dirname, "node_modules"), "node_modules"],
         },
 
         // Some of our deps have broken source maps, so we have to ignore warnings or exclude them one-by-one
@@ -313,6 +316,8 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                     include: (f: string) => {
                         // our own source needs babel-ing
                         if (f.startsWith(path.resolve(__dirname, "src"))) return true;
+                        // haven apps-framework patch
+                        if (f.startsWith(path.resolve(__dirname, "../../..", "src", "apps"))) return true;
 
                         // we use the original source files of js-sdk, so we need to
                         // run them through babel. Because the path tested is the resolved, absolute
@@ -833,6 +838,10 @@ function getAssetOutputPath(url: string, resourcePath: string): string {
     const isFontSource = resourcePath.includes("@fontsource");
     const mobileGuideAssetsPath = path.join("mobile_guide", "assets");
     const isMobileGuide = resourcePath.includes(mobileGuideAssetsPath);
+    // Haven apps framework: assets living at `src/apps/<appId>/assets/...` (outside `res`),
+    // e.g. `src/apps/social/assets/social-icon.png`. Without this, none of the prefixes below
+    // match and outputDir falls back to the full absolute source path (see fallback comment below).
+    const havenAppAssetMatch = resourcePath.match(/[/\\]src[/\\]apps[/\\]([^/\\]+)[/\\]assets(?:[/\\]|$)/);
     // `res` is the parent dir for our own assets in various layers
     // `dist` is the parent dir for KaTeX assets
     // `files` is the parent dir for @fontsource assets
@@ -869,6 +878,10 @@ function getAssetOutputPath(url: string, resourcePath: string): string {
     if (isMobileGuide) {
         // Specific handling for the mobile guide assets, as they live alongside the page sources.
         outputDir = mobileGuideAssetsPath;
+    }
+
+    if (havenAppAssetMatch) {
+        outputDir = path.join("apps", havenAppAssetMatch[1]);
     }
 
     if (isKaTeX) {

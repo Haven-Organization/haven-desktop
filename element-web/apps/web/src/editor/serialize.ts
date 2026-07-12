@@ -16,6 +16,8 @@ import type EditorModel from "./model";
 import SettingsStore from "../settings/SettingsStore";
 import SdkConfig from "../SdkConfig";
 import { Type } from "./parts";
+import { getBlockquoteStyle } from "../../../../../src/apps/framework/config";
+import { toGreentextHTML } from "../../../../../src/apps/framework/greentext";
 
 export function mdSerialize(model: EditorModel): string {
     return model.parts.reduce((html, part) => {
@@ -132,8 +134,12 @@ export function htmlSerializeFromMdIfNeeded(md: string, { forceHTML = false } = 
 
     const parser = new Markdown(md);
     if (!parser.isPlainText() || forceHTML) {
+        // "haven.blockquote_style" (default "stock") - see socialSlashCommands.ts's own identical
+        // choice between these same two renderers for why toGreentextHTML exists at all instead of
+        // patching commonmark itself.
+        const html = getBlockquoteStyle() === "greentext" ? toGreentextHTML(md) : parser.toHTML();
         // feed Markdown output to HTML parser
-        const phtml = new DOMParser().parseFromString(parser.toHTML(), "text/html");
+        const phtml = new DOMParser().parseFromString(html, "text/html");
 
         if (SettingsStore.getValue("feature_latex_maths")) {
             // original Markdown without LaTeX replacements

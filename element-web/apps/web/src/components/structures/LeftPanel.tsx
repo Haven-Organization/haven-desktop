@@ -42,6 +42,9 @@ import { RoomListPanel } from "../views/rooms/RoomListPanel";
 interface IProps {
     isMinimized: boolean;
     resizeNotifier: ResizeNotifier;
+    // haven apps-framework patch: callback ref for a portal target rendered next to the search bar,
+    // used to relocate the top-left UserMenu here when the spaces bar is hidden (see SpacePanel.tsx).
+    userMenuPortalRef?: (node: HTMLDivElement | null) => void;
 }
 
 enum BreadcrumbsMode {
@@ -373,10 +376,24 @@ export default class LeftPanel extends React.Component<IProps, IState> {
                 onKeyDown={this.onKeyDown}
                 role="search"
             >
-                <RoomSearch isMinimized={this.props.isMinimized} />
-
-                {dialPadButton}
-                {rightButton}
+                {/* haven apps-framework patch */}
+                <div ref={this.props.userMenuPortalRef} className="haven_UserMenuPortalTarget" />
+                {/* haven apps-framework patch: RoomSearch alone in here now (dial-pad/explore moved
+                    to their own sibling below) so the "roomlist" @container query in _LeftPanel.pcss
+                    can drop just this onto its own full-width row as the panel narrows, while
+                    dial-pad/explore stay pinned to the top row next to the room icon/Apps button -
+                    see haven_LeftPanel_actionButtons below. DOM order is unchanged from before
+                    (search still precedes dial-pad/explore) for a sane tab order; the @container
+                    query uses CSS `order` to reflow them visually instead. */}
+                <div className="mx_LeftPanel_searchExploreRow">
+                    <RoomSearch isMinimized={this.props.isMinimized} />
+                </div>
+                {(dialPadButton || rightButton) && (
+                    <div className="haven_LeftPanel_actionButtons">
+                        {dialPadButton}
+                        {rightButton}
+                    </div>
+                )}
             </div>
         );
     }
@@ -394,7 +411,10 @@ export default class LeftPanel extends React.Component<IProps, IState> {
             return (
                 <div className={containerClasses}>
                     <div className="mx_LeftPanel_roomListContainer">
-                        <RoomListPanel activeSpace={this.state.activeSpace} />
+                        <RoomListPanel
+                            activeSpace={this.state.activeSpace}
+                            userMenuPortalRef={this.props.userMenuPortalRef}
+                        />
                     </div>
                 </div>
             );

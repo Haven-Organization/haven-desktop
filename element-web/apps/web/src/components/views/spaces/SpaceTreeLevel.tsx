@@ -159,6 +159,11 @@ export const SpaceButton = <T extends keyof HTMLElementTagNameMap>({
             ref={ref}
             tabIndex={tabIndex}
             onFocus={onFocus}
+            // haven apps-framework patch: identifies which space this button activates, so
+            // SpacePanel's own capture-phase handler (handleMetaSpaceClickCapture) can tell whether
+            // it's the space already active before an app was opened - see that handler's own
+            // comment for why that distinction matters.
+            data-space-key={spaceKey}
         >
             {children}
             <div className="mx_SpaceButton_selectionWrapper">
