@@ -297,14 +297,14 @@ export function SocialHomeView(): JSX.Element {
         clearPendingSocialSection();
     }, []);
 
-    // "#/social?post=1[&text=...]" (see tryRouteSocialHashScreen) opens the Post composer directly,
+    // "#/social?post=1[&body=...]" (see tryRouteSocialHashScreen) opens the Post composer directly,
     // optionally prefilled, once mounted - pendingPostModal.ts explains why a destructive consume is
     // safe here specifically (unlike pendingViewUserId's identical-looking but state-setting
     // consume below), since this only ever triggers a Modal.createDialog call.
     useEffect(() => {
         const pending = consumePendingPostModal();
         if (pending) {
-            Modal.createDialog(PostDialog, { client, initialBody: pending.text }, "social_PostDialog_wrapper");
+            Modal.createDialog(PostDialog, { client, initialBody: pending.body }, "social_PostDialog_wrapper");
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -582,12 +582,12 @@ export function SocialHomeView(): JSX.Element {
             return;
         }
         if (consumePendingPost()) return;
-        // Same reasoning as pendingSection just below, for a "#/social?post=1[&text=...]" deep
+        // Same reasoning as pendingSection just below, for a "#/social?post=1[&body=...]" deep
         // link re-dispatching this action while Social is already open - the mount effect that
         // normally consumes this never runs again for an already-mounted component.
         const pendingModal = consumePendingPostModal();
         if (pendingModal) {
-            Modal.createDialog(PostDialog, { client, initialBody: pendingModal.text }, "social_PostDialog_wrapper");
+            Modal.createDialog(PostDialog, { client, initialBody: pendingModal.body }, "social_PostDialog_wrapper");
             return;
         }
         // A "social/groups"/"social/profile" deep link (see tryRouteSocialHashScreen) re-dispatches

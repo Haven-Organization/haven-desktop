@@ -112,16 +112,16 @@ export function tryRouteSocialPermalink(event: { shiftKey?: boolean }, href: str
  * meant for Social. Returns false for any other screen so the caller's own stock handling proceeds
  * unchanged.
  *
- * `params` (query params from the hash, e.g. "#/social?post=1&text=hi") only matters for the bare
- * "social" screen right now - see the post/text handling below.
+ * `params` (query params from the hash, e.g. "#/social?post=1&body=hi") only matters for the bare
+ * "social" screen right now - see the post/body handling below.
  */
 export function tryRouteSocialHashScreen(screen: string, params?: Record<string, unknown>): boolean {
     if (screen === "social") {
-        // ?post=1[&text=...] opens the Post composer directly (optionally prefilled) once
+        // ?post=1[&body=...] opens the Post composer directly (optionally prefilled) once
         // SocialHomeView mounts - see pendingPostModal.ts for why this can't just be a prop/dispatch
         // payload.
         if (params?.post) {
-            setPendingPostModal({ text: typeof params.text === "string" ? params.text : undefined });
+            setPendingPostModal({ body: typeof params.body === "string" ? params.body : undefined });
         }
         defaultDispatcher.dispatch({ action: SOCIAL_HOME_ACTION }, true);
         return true;

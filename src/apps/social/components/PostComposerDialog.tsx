@@ -33,7 +33,7 @@ interface Props {
     /** Rendered between the textarea and the room-picker/composer-buttons footer — e.g.
      *  RepostPreview for a quote post. Omitted entirely for a plain post. */
     extraContent?: JSX.Element;
-    /** Prefills the composer body - used by PostDialog's "#/social?post=1&text=..." deep link
+    /** Prefills the composer body - used by PostDialog's "#/social?post=1&body=..." deep link
      *  (see pendingPostModal.ts). Only ever read once, on mount - not a controlled value. */
     initialBody?: string;
     onSubmit: (body: string, targetRoomId: string) => Promise<void>;

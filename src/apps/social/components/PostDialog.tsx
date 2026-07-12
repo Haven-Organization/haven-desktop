@@ -15,7 +15,7 @@ import { PostComposerDialog } from "./PostComposerDialog";
 interface Props {
     client: MatrixClient;
     onFinished: (sent?: boolean) => void;
-    /** Prefills the composer body - used by the "#/social?post=1&text=..." deep link (see
+    /** Prefills the composer body - used by the "#/social?post=1&body=..." deep link (see
      *  pendingPostModal.ts). */
     initialBody?: string;
 }

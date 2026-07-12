@@ -1,7 +1,7 @@
 /*
  * Social Overlay — pendingPostModal
  *
- * Bridges a "#/social?post=1&text=..." deep link's request to open the Post composer (optionally
+ * Bridges a "#/social?post=1&body=..." deep link's request to open the Post composer (optionally
  * prefilled) into SocialHomeView, which doesn't exist yet at the moment permalinkRouting.ts's
  * tryRouteSocialHashScreen parses the URL and dispatches SOCIAL_HOME_ACTION to create it - same
  * "click/navigation before mount" problem pendingViewUser.ts solves for other Social entry points.
@@ -16,7 +16,7 @@
  */
 export interface PendingPostModal {
     /** Prefilled composer body - undefined opens the modal empty. */
-    text?: string;
+    body?: string;
 }
 
 let pendingPostModal: PendingPostModal | null = null;
