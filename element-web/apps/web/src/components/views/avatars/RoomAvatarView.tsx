@@ -5,7 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { memo, type JSX } from "react";
+import React, { memo, useState, type JSX, type ReactNode } from "react";
 import { type Room } from "matrix-js-sdk/src/matrix";
 import PublicIcon from "@vector-im/compound-design-tokens/assets/web/icons/public";
 import VideoIcon from "@vector-im/compound-design-tokens/assets/web/icons/video-call-solid";
@@ -51,10 +51,41 @@ export const RoomAvatarView = memo(function RoomAvatarView({ room }: RoomAvatarV
     return (
         <Flex className="mx_RoomAvatarView">
             <RoomAvatar className={classNames("mx_RoomAvatarView_RoomAvatar", maskClass)} size="32px" room={room} />
-            {label ? <Tooltip label={label}>{icon}</Tooltip> : icon}
+            {label ? <LazyTooltip label={label}>{icon}</LazyTooltip> : icon}
         </Flex>
     );
 });
+
+/**
+ * Compound's <Tooltip> calls Floating UI's useFloating() unconditionally on mount, which computes
+ * an initial position eagerly (walking the full ancestor chain for scroll containers/clipping
+ * boxes/fixed-position ancestors) even while the tooltip is closed and nobody's hovering it. In a
+ * virtualized room list, Virtuoso mounts a fresh batch of rows on every scroll tick, so every row
+ * with a decoration (presence, public/video room, low priority) was paying that ancestor-walk cost
+ * purely from scrolling past it - confirmed via CPU profiling during scroll, where Floating UI's
+ * internals (isOverflowElement, getClippingElementAncestors, hasFixedPositionAncestor, etc.)
+ * accounted for a large share of sampled time.
+ *
+ * This defers mounting the real <Tooltip> (and so, Floating UI's positioning) until the icon is
+ * actually hovered/focused for the first time - a real user interaction, not a passive scroll -
+ * which is a comparatively rare event next to "this row scrolled past". display: contents on the
+ * placeholder keeps it invisible to layout, so it doesn't affect sizing/flex behavior either way.
+ */
+function LazyTooltip({ label, children }: { label: string; children: ReactNode }): JSX.Element {
+    const [interacted, setInteracted] = useState(false);
+    if (!interacted) {
+        return (
+            <span
+                style={{ display: "contents" }}
+                onMouseEnter={() => setInteracted(true)}
+                onFocus={() => setInteracted(true)}
+            >
+                {children}
+            </span>
+        );
+    }
+    return <Tooltip label={label}>{children}</Tooltip>;
+}
 
 /**
  * Get the decoration for the avatar based on the presence.

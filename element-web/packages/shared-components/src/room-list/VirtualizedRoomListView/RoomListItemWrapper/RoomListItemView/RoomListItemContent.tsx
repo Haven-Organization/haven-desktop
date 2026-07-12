@@ -26,6 +26,15 @@ export interface RoomListItemContentProps {
     renderAvatar: (room: Room) => ReactNode;
     /** Whether the item is being dragged */
     isDragging?: boolean;
+    /**
+     * Whether the row is actually hovered or focused right now. Gates mounting
+     * {@link RoomListItemHoverMenu} - each menu it contains runs Floating UI's positioning setup on
+     * mount even while closed, which is wasted work for every row that scrolls past in a
+     * virtualized list without ever being interacted with. Defaults to true so any other caller
+     * (e.g. the drag overlay, which renders a single static snapshot rather than a live scrolling
+     * row) keeps the previous always-visible behaviour.
+     */
+    showInteractiveChildren?: boolean;
 }
 
 /**
@@ -37,6 +46,7 @@ export const RoomListItemContent = memo(function RoomListItemContent({
     vm,
     renderAvatar,
     isDragging = false,
+    showInteractiveChildren = true,
 }: RoomListItemContentProps): JSX.Element {
     const item = useViewModel(vm);
 
@@ -61,7 +71,7 @@ export const RoomListItemContent = memo(function RoomListItemContent({
                         </Text>
                     )}
                 </div>
-                {!isDragging && (item.showMoreOptionsMenu || item.showNotificationMenu) && (
+                {!isDragging && showInteractiveChildren && (item.showMoreOptionsMenu || item.showNotificationMenu) && (
                     <RoomListItemHoverMenu
                         showMoreOptionsMenu={item.showMoreOptionsMenu}
                         showNotificationMenu={item.showNotificationMenu}

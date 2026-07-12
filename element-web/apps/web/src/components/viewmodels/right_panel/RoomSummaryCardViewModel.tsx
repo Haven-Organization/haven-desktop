@@ -184,28 +184,28 @@ export function useRoomSummaryCardViewModel(
     const isDirectMessage = useIsDirectMessage(room);
 
     const onRoomMembersClick = (): void => {
-        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.MemberList }, true);
+        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.MemberList }, true, room.roomId);
     };
 
     const onRoomThreadsClick = (): void => {
-        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.ThreadPanel }, true);
+        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.ThreadPanel }, true, room.roomId);
     };
 
     const onRoomFilesClick = (): void => {
-        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.FilePanel }, true);
+        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.FilePanel }, true, room.roomId);
     };
 
     const onRoomExtensionsClick = (): void => {
-        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.Extensions }, true);
+        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.Extensions }, true, room.roomId);
     };
 
     const onRoomPinsClick = (): void => {
         PosthogTrackers.trackInteraction("PinnedMessageRoomInfoButton");
-        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.PinnedMessages }, true);
+        RightPanelStore.instance.pushCard({ phase: RightPanelPhases.PinnedMessages }, true, room.roomId);
     };
 
     const onRoomSettingsClick = (ev: Event): void => {
-        defaultDispatcher.dispatch({ action: "open_room_settings" });
+        defaultDispatcher.dispatch({ action: "open_room_settings", room_id: room.roomId });
         PosthogTrackers.trackInteraction("WebRightPanelRoomInfoSettingsButton", ev);
     };
 

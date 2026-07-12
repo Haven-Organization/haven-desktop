@@ -77,6 +77,8 @@ interface IProps {
     resizeNotifier: ResizeNotifier;
     extraTiles?: ReactComponentElement<typeof ExtraTile>[] | null;
     onListCollapse?: (isExpanded: boolean) => void;
+    /** Forwarded to each RoomTile's own activeRoomIdOverride - see RoomTile.tsx's doc for why. */
+    activeRoomId?: string;
 }
 
 function getLabelId(tagId: TagID): string {
@@ -518,6 +520,7 @@ export default class RoomSublist extends React.Component<IProps, IState> {
                         showMessagePreview={this.layout.showPreviews}
                         isMinimized={this.props.isMinimized}
                         tag={this.props.tagId}
+                        activeRoomIdOverride={this.props.activeRoomId}
                     />,
                 );
             }

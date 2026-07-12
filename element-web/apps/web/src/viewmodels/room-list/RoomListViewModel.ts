@@ -16,6 +16,7 @@ import {
     type ToastType,
 } from "@element-hq/web-shared-components";
 import { type Room, type MatrixClient } from "matrix-js-sdk/src/matrix";
+import { debounce } from "lodash";
 
 import { Action } from "../../dispatcher/actions";
 import dispatcher from "../../dispatcher/dispatcher";
@@ -85,6 +86,13 @@ export class RoomListViewModel
      */
     private sections: Section[] = [];
     private lastActiveRoomPosition: StickyRoomPosition | undefined = undefined;
+    /**
+     * Set while Alt+Up/Down navigation is moving the highlighted room faster than the debounced
+     * Action.ViewRoom dispatch below has actually caught up and loaded it - see
+     * handleViewRoomDelta's own comment for why this exists. Cleared once the room actually loads
+     * (Action.ActiveRoomChanged) or once dispatchViewRoomDebounced itself fires.
+     */
+    private pendingRoomId: string | undefined = undefined;
 
     // Child view model management
     private readonly roomItemViewModels = new Map<string, RoomListItemViewModel>();
@@ -212,6 +220,7 @@ export class RoomListViewModel
         this.disposables.track(() => {
             dispatcher.unregister(dispatcherRef);
         });
+        this.disposables.track(() => this.dispatchViewRoomDebounced.cancel());
 
         // Track cleanup of all child view models
         this.disposables.track(() => {
@@ -459,6 +468,10 @@ export class RoomListViewModel
 
     private onDispatch = (payload: any): void => {
         if (payload.action === Action.ActiveRoomChanged) {
+            // The real room load this view model was waiting for (whether from
+            // dispatchViewRoomDebounced below, or a direct click elsewhere) has now landed - any
+            // pending Alt+Up/Down cursor position is moot from here on.
+            this.pendingRoomId = undefined;
             // When the active room changes, update the room list data to reflect the new selected room
             // Pass isRoomChange=true so sticky logic doesn't prevent the index from updating
             this.updateRoomListData(true);
@@ -485,12 +498,41 @@ export class RoomListViewModel
     }
 
     /**
+     * Actually loads the room Alt+Up/Down last landed on, once movement has paused for a moment -
+     * see handleViewRoomDelta. A plain lodash debounce (trailing-edge only, the default), same
+     * class-property pattern ResizerViewModel.onLeftPanelResize already uses for this kind of
+     * "settle before doing the expensive thing" case. Cancelled in the disposables.track below so
+     * a rapid Alt+Up/Down right before navigating away doesn't fire a stale ViewRoom afterward.
+     */
+    private dispatchViewRoomDebounced = debounce((roomId: string): void => {
+        dispatcher.dispatch<ViewRoomPayload>({
+            action: Action.ViewRoom,
+            room_id: roomId,
+            show_room_tile: true, // to make sure the room gets scrolled into view
+            metricsTrigger: "WebKeyboardShortcut",
+            metricsViaKeyboard: true,
+        });
+    }, 200);
+
+    /**
      * Handle keyboard navigation shortcuts (Alt+ArrowUp/Down) to move between rooms.
      * Supports both regular navigation and unread-only navigation.
      * Migrated from useRoomListNavigation hook.
+     *
+     * Moves the highlighted room instantly on every keypress, but only actually dispatches
+     * Action.ViewRoom (which triggers a real timeline load) once movement pauses for ~200ms - see
+     * dispatchViewRoomDebounced. Previously this dispatched Action.ViewRoom on every single
+     * keypress, and the highlight itself never even moved until that room's real load completed
+     * and fired Action.ActiveRoomChanged (see onDispatch) - rapidly holding/pressing Alt+Up/Down
+     * felt sluggish because every room passed over along the way was fully loaded, one after
+     * another, and the visible cursor lagged a full room-load behind each keypress.
      */
     private handleViewRoomDelta(payload: ViewRoomDeltaPayload): void {
-        const currentRoomId = SdkContextClass.instance.roomViewStore.getRoomId();
+        // Continue from wherever the cursor last landed (even if that room hasn't actually loaded
+        // yet), not necessarily the real loaded room - otherwise repeated presses before the
+        // debounce fires would keep recomputing "next/prev" from the same stale loaded room
+        // instead of actually advancing further each time.
+        const currentRoomId = this.pendingRoomId ?? SdkContextClass.instance.roomViewStore.getRoomId();
         if (!currentRoomId) return;
 
         const { delta, unread } = payload;
@@ -514,13 +556,15 @@ export class RoomListViewModel
         const [newRoom] = filteredRooms.slice((currentIndex + delta) % filteredRooms.length);
         if (!newRoom) return;
 
-        dispatcher.dispatch<ViewRoomPayload>({
-            action: Action.ViewRoom,
-            room_id: newRoom.roomId,
-            show_room_tile: true, // to make sure the room gets scrolled into view
-            metricsTrigger: "WebKeyboardShortcut",
-            metricsViaKeyboard: true,
+        this.pendingRoomId = newRoom.roomId;
+        // Cheap, targeted highlight update - just the index, not the full updateRoomListData
+        // rebuild (sticky-room repositioning, section recompute, roomsMap rebuild), which is what
+        // Action.ActiveRoomChanged still triggers once the real load eventually lands.
+        this.snapshot.merge({
+            roomListState: { ...this.snapshot.current.roomListState, activeRoomIndex: this.getActiveRoomIndex(newRoom.roomId) },
         });
+
+        this.dispatchViewRoomDebounced(newRoom.roomId);
     }
 
     /**

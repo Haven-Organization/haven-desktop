@@ -8,6 +8,7 @@ Please see LICENSE files in the repository root for full details.
 
 import { EventType, type Room, RoomType } from "matrix-js-sdk/src/matrix";
 import React, { type JSX, type ComponentType, createRef, type ReactComponentElement, type SyntheticEvent } from "react";
+import { debounce } from "lodash";
 import {
     PlusIcon,
     UserAddSolidIcon,
@@ -447,6 +448,28 @@ const TAG_AESTHETICS: TagAestheticsMap = {
 export default class LegacyRoomList extends React.PureComponent<IProps, IState> {
     private dispatcherRef?: string;
     private treeRef = createRef<HTMLDivElement>();
+    /**
+     * Set while Alt+Up/Down navigation is moving the highlighted room faster than the debounced
+     * Action.ViewRoom dispatch below has actually caught up and loaded it - see onAction's own
+     * comment. Cleared once the room actually loads (onRoomViewStoreUpdate).
+     */
+    private pendingRoomId: string | undefined;
+    /**
+     * Actually loads the room Alt+Up/Down last landed on, once movement has paused for a moment -
+     * see onAction. Plain lodash debounce (trailing-edge only, the default) - same idiom used
+     * elsewhere in this codebase (e.g. ResizerViewModel.onLeftPanelResize) for "settle before doing
+     * the expensive thing". Cancelled in componentWillUnmount so a rapid Alt+Up/Down right before
+     * navigating away doesn't fire a stale ViewRoom afterward.
+     */
+    private dispatchViewRoomDebounced = debounce((roomId: string): void => {
+        defaultDispatcher.dispatch<ViewRoomPayload>({
+            action: Action.ViewRoom,
+            room_id: roomId,
+            show_room_tile: true, // to make sure the room gets scrolled into view
+            metricsTrigger: "WebKeyboardShortcut",
+            metricsViaKeyboard: true,
+        });
+    }, 200);
 
     public static contextType = MatrixClientContext;
     declare public context: React.ContextType<typeof MatrixClientContext>;
@@ -470,6 +493,7 @@ export default class LegacyRoomList extends React.PureComponent<IProps, IState> 
     }
 
     public componentWillUnmount(): void {
+        this.dispatchViewRoomDebounced.cancel();
         SpaceStore.instance.off(UPDATE_SUGGESTED_ROOMS, this.updateSuggestedRooms);
         RoomListStore.instance.off(LISTS_UPDATE_EVENT, this.updateLists);
         defaultDispatcher.unregister(this.dispatcherRef);
@@ -482,25 +506,39 @@ export default class LegacyRoomList extends React.PureComponent<IProps, IState> 
     };
 
     private onRoomViewStoreUpdate = (): void => {
+        // The real room load this component was waiting for (whether from
+        // dispatchViewRoomDebounced above, or a direct click elsewhere) has now landed - any
+        // pending Alt+Up/Down cursor position is moot from here on.
+        this.pendingRoomId = undefined;
         this.setState({
             currentRoomId: SdkContextClass.instance.roomViewStore.getRoomId() ?? undefined,
         });
     };
 
+    /**
+     * Handles Alt+Up/Down keyboard navigation. Moves the highlighted room instantly on every
+     * keypress (a plain setState, immediately reflected via isSelected below), but only actually
+     * dispatches Action.ViewRoom (a real timeline load) once movement pauses for ~200ms - see
+     * dispatchViewRoomDebounced. Previously this dispatched Action.ViewRoom on every single
+     * keypress, and the highlight itself never even moved until that room's real load completed
+     * and fired onRoomViewStoreUpdate - rapidly holding/pressing Alt+Up/Down felt sluggish because
+     * every room passed over along the way was fully loaded, one after another, and the visible
+     * cursor lagged a full room-load behind each keypress.
+     */
     private onAction = (payload: ActionPayload): void => {
         if (payload.action === Action.ViewRoomDelta) {
             const viewRoomDeltaPayload = payload as ViewRoomDeltaPayload;
-            const currentRoomId = SdkContextClass.instance.roomViewStore.getRoomId();
+            // Continue from wherever the cursor last landed (even if that room hasn't actually
+            // loaded yet), not necessarily the real loaded room - otherwise repeated presses
+            // before the debounce fires would keep recomputing "next/prev" from the same stale
+            // loaded room instead of actually advancing further each time.
+            const currentRoomId = this.pendingRoomId ?? SdkContextClass.instance.roomViewStore.getRoomId();
             if (!currentRoomId) return;
             const room = this.getRoomDelta(currentRoomId, viewRoomDeltaPayload.delta, viewRoomDeltaPayload.unread);
             if (room) {
-                defaultDispatcher.dispatch<ViewRoomPayload>({
-                    action: Action.ViewRoom,
-                    room_id: room.roomId,
-                    show_room_tile: true, // to make sure the room gets scrolled into view
-                    metricsTrigger: "WebKeyboardShortcut",
-                    metricsViaKeyboard: true,
-                });
+                this.pendingRoomId = room.roomId;
+                this.setState({ currentRoomId: room.roomId });
+                this.dispatchViewRoomDebounced(room.roomId);
             }
         }
     };
@@ -656,6 +694,7 @@ export default class LegacyRoomList extends React.PureComponent<IProps, IState> 
                     alwaysVisible={alwaysVisible}
                     onListCollapse={this.props.onListCollapse}
                     forceExpanded={forceExpanded}
+                    activeRoomId={this.state.currentRoomId}
                 />
             );
         });

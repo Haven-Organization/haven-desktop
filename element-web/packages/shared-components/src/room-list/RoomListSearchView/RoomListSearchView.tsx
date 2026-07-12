@@ -70,7 +70,7 @@ interface RoomListSearchViewProps {
  */
 export function RoomListSearchView({ vm }: Readonly<RoomListSearchViewProps>): JSX.Element {
     const { translate: _t } = useI18n();
-    const { displayExploreButton, displayDialButton, searchShortcut } = useViewModel(vm);
+    const { displayExploreButton, displayDialButton } = useViewModel(vm);
 
     return (
         <Flex
@@ -90,7 +90,6 @@ export function RoomListSearchView({ vm }: Readonly<RoomListSearchViewProps>): J
             >
                 <Flex className={styles["search_container"]} as="span" justify="space-between">
                     <span className={styles["search_text"]}>{_t("action|search")}</span>
-                    <kbd>{searchShortcut}</kbd>
                 </Flex>
             </Button>
             {displayDialButton && (

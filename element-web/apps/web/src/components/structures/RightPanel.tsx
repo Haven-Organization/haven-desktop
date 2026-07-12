@@ -261,6 +261,7 @@ export default class RightPanel extends React.Component<Props, IState> {
                             onSearchCancel={this.props.onSearchCancel}
                             searchTerm={this.props.searchTerm}
                             focusRoomSearch={cardState?.focusRoomSearch}
+                            onClose={this.onClose}
                         />
                     );
                 }

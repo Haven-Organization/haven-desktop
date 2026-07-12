@@ -52,6 +52,15 @@ interface Props {
     showMessagePreview: boolean;
     isMinimized: boolean;
     tag: TagID;
+    /** Overrides this.state.selected (this tile's own, independent RoomViewStore subscription -
+     *  see componentDidMount) when set - LegacyRoomList threads its own state.currentRoomId down
+     *  through RoomSublist for this, so Alt+Up/Down keyboard navigation can move the visible
+     *  highlight instantly on every keypress, ahead of the real (debounced) room load actually
+     *  landing and updating RoomViewStore for real. Always at least as accurate as this tile's own
+     *  subscription in the steady state (LegacyRoomList's own state is kept in sync with the same
+     *  RoomViewStore updates), so this is safe to prefer unconditionally once provided - not just
+     *  during an in-flight keyboard navigation. */
+    activeRoomIdOverride?: string;
 }
 
 type PartialDOMRect = Pick<DOMRect, "left" | "bottom">;
@@ -109,6 +118,13 @@ class RoomTile extends React.PureComponent<Props, State> {
         // else ignore - not important for this tile
     };
 
+    private get selected(): boolean {
+        if (this.props.activeRoomIdOverride !== undefined) {
+            return this.props.activeRoomIdOverride === this.props.room.roomId;
+        }
+        return this.state.selected;
+    }
+
     private get showContextMenu(): boolean {
         return (
             this.props.tag !== DefaultTagID.Invite &&
@@ -146,7 +162,7 @@ class RoomTile extends React.PureComponent<Props, State> {
         this.generatePreview();
 
         // when we're first rendered (or our sublist is expanded) make sure we are visible if we're active
-        if (this.state.selected) {
+        if (this.selected) {
             this.scrollIntoView();
         }
 
@@ -377,7 +393,7 @@ class RoomTile extends React.PureComponent<Props, State> {
             mx_RoomTile_sticky:
                 SettingsStore.getValue("feature_ask_to_join") &&
                 (this.props.room.getMyMembership() === KnownMembership.Knock || isKnockDenied(this.props.room)),
-            mx_RoomTile_selected: this.state.selected,
+            mx_RoomTile_selected: this.selected,
             mx_RoomTile_hasMenuOpen: !!(this.state.generalMenuPosition || this.state.notificationsMenuPosition),
             mx_RoomTile_minimized: this.props.isMinimized,
         });
@@ -457,7 +473,7 @@ class RoomTile extends React.PureComponent<Props, State> {
                         onContextMenu={this.onContextMenu}
                         role="treeitem"
                         aria-label={ariaLabel}
-                        aria-selected={this.state.selected}
+                        aria-selected={this.selected}
                         aria-describedby={ariaDescribedBy}
                         title={this.props.isMinimized && !this.state.generalMenuPosition ? name : undefined}
                     >
