@@ -38,7 +38,7 @@ import { SettingLevel } from "../../../settings/SettingLevel";
 import Modal from "../../../Modal";
 import ErrorDialog from "../dialogs/ErrorDialog";
 import SdkConfig from "../../../SdkConfig";
-import AccessibleButton from "../elements/AccessibleButton";
+import AccessibleButton, { type ButtonEvent } from "../elements/AccessibleButton";
 import TagComposer from "../elements/TagComposer";
 import { objectClone } from "../../../utils/objects";
 import { arrayDiff, filterBoolean } from "../../../utils/arrays";
@@ -53,6 +53,10 @@ import { SettingsSubsection } from "./shared/SettingsSubsection";
 import { doesRoomHaveUnreadMessages } from "../../../Unread";
 import SettingsFlag from "../elements/SettingsFlag";
 import { onSubmitPreventDefault } from "../../../utils/form.ts";
+import Field from "../elements/Field";
+import { validateNumberInRange } from "../../../utils/validate";
+import { chromeFileInputFix } from "../../../utils/BrowserWorkarounds";
+import { type NotificationSound } from "../../../Notifier";
 
 // TODO: this "view" component still has far too much application logic in it,
 // which should be factored out to other files.
@@ -201,6 +205,171 @@ const NotificationActivitySettings = (): JSX.Element => {
             <SettingsFlag name="Notifications.showbold" level={SettingLevel.DEVICE} />
             <SettingsFlag name="Notifications.tac_only_notifications" level={SettingLevel.DEVICE} />
         </Form.Root>
+    );
+};
+
+const DEFAULT_SOUND_MAX_DURATION = 10;
+const SOUND_MAX_DURATION_MIN = 1;
+const SOUND_MAX_DURATION_MAX = 120;
+
+// Global counterpart to the per-room custom notification sound in
+// tabs/room/NotificationSettingsTab.tsx — set at SettingLevel.ACCOUNT with no roomId, so it acts
+// as the account-wide fallback sound for any room that doesn't have its own override (see
+// notificationSound's LEVELS_ROOM_OR_ACCOUNT resolution and Notifier.getSoundForRoom).
+const NotificationSoundSettings = (): JSX.Element => {
+    const soundUpload = React.useRef<HTMLInputElement>(null);
+    const [soundSetting, setSoundSetting] = React.useState<NotificationSound | false>(
+        () => SettingsStore.getValue("notificationSound") || false,
+    );
+    const [uploadedFile, setUploadedFile] = React.useState<File | null>(null);
+    const [maxDuration, setMaxDuration] = React.useState<string>(() =>
+        String(SettingsStore.getValue("notificationSoundMaxDuration") ?? DEFAULT_SOUND_MAX_DURATION),
+    );
+    const [maxDurationError, setMaxDurationError] = React.useState(false);
+
+    // Keeps the UI in sync with the account data this is stored in — e.g. another device changing
+    // it, or the value only settling in after this component already mounted.
+    React.useEffect(() => {
+        const soundWatcherRef = SettingsStore.watchSetting("notificationSound", null, (_name, _roomId, _level, _atLevel, newValue) => {
+            setSoundSetting((newValue as NotificationSound | false | undefined) || false);
+        });
+        const maxDurationWatcherRef = SettingsStore.watchSetting(
+            "notificationSoundMaxDuration",
+            null,
+            (_name, _roomId, _level, _atLevel, newValue) => {
+                setMaxDuration(String((newValue as number | undefined) ?? DEFAULT_SOUND_MAX_DURATION));
+                setMaxDurationError(false);
+            },
+        );
+        return () => {
+            SettingsStore.unwatchSetting(soundWatcherRef);
+            SettingsStore.unwatchSetting(maxDurationWatcherRef);
+        };
+    }, []);
+
+    const triggerUploader = (e: ButtonEvent): void => {
+        e.stopPropagation();
+        e.preventDefault();
+        soundUpload.current?.click();
+    };
+
+    const onSoundUploadChanged = (e: ChangeEvent<HTMLInputElement>): void => {
+        setUploadedFile(e.target.files?.[0] ?? null);
+    };
+
+    const onClickSaveSound = async (e: ButtonEvent): Promise<void> => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!uploadedFile) return;
+
+        let type = uploadedFile.type;
+        // Browsers sometimes call an audio/ogg file video/ogg — same workaround as the room-level
+        // version of this feature.
+        if (type === "video/ogg") type = "audio/ogg";
+
+        const { content_uri: url } = await MatrixClientPeg.safeGet().uploadContent(uploadedFile, { type });
+        const value: NotificationSound = { name: uploadedFile.name, type, size: uploadedFile.size, url };
+        await SettingsStore.setValue("notificationSound", null, SettingLevel.ACCOUNT, value);
+        setSoundSetting(value);
+        setUploadedFile(null);
+    };
+
+    const onClickClearSound = async (e: ButtonEvent): Promise<void> => {
+        e.stopPropagation();
+        e.preventDefault();
+        await SettingsStore.setValue("notificationSound", null, SettingLevel.ACCOUNT, null);
+        setSoundSetting(false);
+    };
+
+    const onMaxDurationChange = (e: ChangeEvent<HTMLInputElement>): void => {
+        const raw = e.target.value;
+        setMaxDuration(raw);
+        const parsed = parseInt(raw, 10);
+        if (validateNumberInRange(SOUND_MAX_DURATION_MIN, SOUND_MAX_DURATION_MAX)(parsed)) {
+            setMaxDurationError(false);
+            SettingsStore.setValue("notificationSoundMaxDuration", null, SettingLevel.ACCOUNT, parsed);
+        } else {
+            setMaxDurationError(true);
+        }
+    };
+
+    let currentUploadedFile: JSX.Element | undefined;
+    if (uploadedFile) {
+        currentUploadedFile = (
+            <div>
+                <span>
+                    {_t("room_settings|notifications|uploaded_sound")}: <code>{uploadedFile.name}</code>
+                </span>
+            </div>
+        );
+    }
+
+    return (
+        <SettingsSubsection heading={_t("settings|notifications|custom_sound_section")}>
+            <div>
+                <div className="mx_SettingsTab_subsectionText">
+                    <span>
+                        {_t("settings|notifications|custom_sound_current")}:{" "}
+                        <code>
+                            {soundSetting ? soundSetting.name || soundSetting.url : _t("settings|notifications|custom_sound_default")}
+                        </code>
+                    </span>
+                </div>
+                <AccessibleButton disabled={!soundSetting} onClick={onClickClearSound} kind="primary">
+                    {_t("action|remove")}
+                </AccessibleButton>
+            </div>
+            <div>
+                <h4 className="mx_Heading_h4">{_t("room_settings|notifications|custom_sound_prompt")}</h4>
+                <div className="mx_SettingsFlag">
+                    <form autoComplete="off" noValidate={true}>
+                        <input
+                            ref={soundUpload}
+                            className="mx_NotificationSound_soundUpload"
+                            type="file"
+                            onClick={chromeFileInputFix}
+                            onChange={onSoundUploadChanged}
+                            accept="audio/*"
+                            aria-label={_t("room_settings|notifications|upload_sound_label")}
+                        />
+                    </form>
+
+                    {currentUploadedFile}
+                </div>
+
+                <AccessibleButton className="mx_NotificationSound_browse" onClick={triggerUploader} kind="primary">
+                    {_t("room_settings|notifications|browse_button")}
+                </AccessibleButton>
+
+                <AccessibleButton
+                    className="mx_NotificationSound_save"
+                    disabled={uploadedFile == null}
+                    onClick={onClickSaveSound}
+                    kind="primary"
+                >
+                    {_t("action|save")}
+                </AccessibleButton>
+                <br />
+            </div>
+            <Field
+                id="notification-sound-max-duration"
+                className="mx_NotificationSound_maxDuration"
+                type="number"
+                label={_t("settings|notifications|custom_sound_max_play_time_seconds")}
+                value={maxDuration}
+                onChange={onMaxDurationChange}
+                min={SOUND_MAX_DURATION_MIN}
+                max={SOUND_MAX_DURATION_MAX}
+            />
+            {maxDurationError && (
+                <Caption isError>
+                    {_t("settings|notifications|custom_sound_max_play_time_error", {
+                        min: SOUND_MAX_DURATION_MIN,
+                        max: SOUND_MAX_DURATION_MAX,
+                    })}
+                </Caption>
+            )}
+        </SettingsSubsection>
     );
 };
 
@@ -825,6 +994,7 @@ export default class Notifications extends React.PureComponent<EmptyObject, ISta
         return (
             <>
                 {this.renderTopSection()}
+                <NotificationSoundSettings />
                 {this.renderCategory(RuleClass.VectorGlobal)}
                 {this.renderCategory(RuleClass.VectorMentions)}
                 {this.renderCategory(RuleClass.VectorOther)}

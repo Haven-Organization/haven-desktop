@@ -315,6 +315,7 @@ export interface Settings {
     "notificationsEnabled": IBaseSetting<boolean>;
     "deviceNotificationsEnabled": IBaseSetting<boolean>;
     "notificationSound": IBaseSetting<NotificationSound | false>;
+    "notificationSoundMaxDuration": IBaseSetting<number>;
     "notificationBodyEnabled": IBaseSetting<boolean>;
     "audioNotificationsEnabled": IBaseSetting<boolean>;
     "enableWidgetScreenshots": IBaseSetting<boolean>;
@@ -1193,6 +1194,12 @@ export const SETTINGS: Settings = {
         default: false,
         // Contains personal information in file name
         shouldExportToRageshake: false,
+    },
+    // Applies to the global (non-room-specific) custom notificationSound above — set at the
+    // account level so it travels with the sound itself rather than being device-only.
+    "notificationSoundMaxDuration": {
+        supportedLevels: [SettingLevel.ACCOUNT],
+        default: 10,
     },
     "notificationBodyEnabled": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,

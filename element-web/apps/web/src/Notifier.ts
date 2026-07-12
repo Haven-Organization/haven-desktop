@@ -279,7 +279,8 @@ class NotifierClass extends TypedEventEmitter<keyof EmittedEvents, EmittedEvents
         logger.log(`Got sound ${sound?.name || "default"} for ${room.roomId}`);
 
         if (sound) {
-            await this.backgroundAudio.play(sound.url);
+            const maxDuration = SettingsStore.getValue("notificationSoundMaxDuration");
+            await this.backgroundAudio.play(sound.url, false, maxDuration);
         } else {
             await this.backgroundAudio.pickFormatAndPlay("media/message", ["mp3", "ogg"]);
         }

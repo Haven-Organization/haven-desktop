@@ -93,3 +93,12 @@ Please see LICENSE files in the repository root for full details.
 .mx_AccessibleButton.mx_NotificationSound_browse {
     margin-right: 10px;
 }
+
+.mx_NotificationSound_maxDuration {
+    /* Field's own label ("Maximum play time (seconds)") is wider than a bare number input's
+       intrinsic width, and this Field isn't inside a flex/grid parent that would otherwise stretch
+       it (flex: 1 on .mx_Field has nothing to grow against here) - without an explicit width the
+       label gets clipped with an ellipsis. A fixed width (not max-width, which only caps an
+       already-wider box and does nothing here) is what actually widens it. */
+    width: 240px;
+}
