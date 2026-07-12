@@ -1,4 +1,4 @@
-<img src="assets/banner.png" alt="Haven" width="600">
+<img src="assets/banner.png" alt="Haven" width="400">
 
 <img src="assets/screenshot-social-profile.png" alt="A Social profile page in Haven, showing a Fediverse account bridged into Matrix" width="250">
 
