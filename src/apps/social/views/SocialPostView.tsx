@@ -263,6 +263,15 @@ export function SocialPostView({
                     all.push(e);
                 }
             }
+            // `all`'s own order (live timeline first, in true order, then pending/thread events) -
+            // used below as a tiebreaker when getTs() is equal (e.g. a bridge backfilling several
+            // replies with one shared batch timestamp - see SocialHomeView's aggregatePosts for the
+            // same fix and fuller explanation).
+            const timelineIndex = new Map<string, number>();
+            all.forEach((e, i) => {
+                const id = e.getId();
+                if (id) timelineIndex.set(id, i);
+            });
 
             // Read my own like/repost state per-reply via the room's own relations aggregation
             // (room.relations.getChildEventsForEvent), not by scanning `all` for annotations - `all`
@@ -273,7 +282,11 @@ export function SocialPostView({
             // the same fix and fuller explanation.
             return all
                 .filter((e) => immediateParentId(e) === parentId)
-                .sort((a, b) => a.getTs() - b.getTs())
+                .sort((a, b) => {
+                    const tsDiff = a.getTs() - b.getTs();
+                    if (tsDiff !== 0) return tsDiff;
+                    return (timelineIndex.get(a.getId()!) ?? 0) - (timelineIndex.get(b.getId()!) ?? 0);
+                })
                 .map((e) => {
                     const eid = e.getId()!;
                     const reactions = room.relations.getChildEventsForEvent(eid, RelationType.Annotation, EventType.Reaction);
@@ -343,9 +356,25 @@ export function SocialPostView({
                 queue.push(node.event);
             }
         }
-        return result.sort((a, b) => a.event.getTs() - b.event.getTs());
+        // The room's own live timeline order - used below as a tiebreaker when getTs() is equal
+        // (e.g. a bridge backfilling several replies with one shared batch timestamp - see
+        // SocialHomeView's aggregatePosts for the same fix and fuller explanation). BFS traversal
+        // order above doesn't reflect true chronological order on its own, so this can't just fall
+        // back to `result`'s own existing order the way the other sort sites do.
+        const timelineIndex = new Map<string, number>();
+        room.getLiveTimeline()
+            .getEvents()
+            .forEach((e, i) => {
+                const id = e.getId();
+                if (id) timelineIndex.set(id, i);
+            });
+        return result.sort((a, b) => {
+            const tsDiff = a.event.getTs() - b.event.getTs();
+            if (tsDiff !== 0) return tsDiff;
+            return (timelineIndex.get(a.event.getId()!) ?? 0) - (timelineIndex.get(b.event.getId()!) ?? 0);
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tick, getDirectReplies, event, focusedEventId]);
+    }, [tick, getDirectReplies, event, focusedEventId, room]);
 
     const handleLikeFor = useCallback(
         async (targetEventId: string, targetLikeEventId: string | undefined) => {

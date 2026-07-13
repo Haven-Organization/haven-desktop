@@ -124,6 +124,17 @@ interface PostData {
 }
 
 function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): PostData[] {
+    // `events` (from gatherRoomEvents) is already in the room's own true timeline/DAG order,
+    // independent of each event's own claimed origin_server_ts - used below as a tiebreaker when
+    // getTs() is equal (e.g. a bridge backfilling several posts with the same batch timestamp -
+    // see the "reposted X's post" identical-timestamp bug this fixes). Precomputed once here
+    // rather than events.indexOf() inside the sort comparator, which would be O(n) per call.
+    const timelineIndex = new Map<string, number>();
+    events.forEach((e, i) => {
+        const id = e.getId();
+        if (id) timelineIndex.set(id, i);
+    });
+
     return events
         .filter((e): boolean => {
             const relates = e.getWireContent()?.["m.relates_to"];
@@ -154,7 +165,11 @@ function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): Pos
                 replyCount: replyCountFor(event, room, [events]),
             };
         })
-        .sort((a, b) => b.event.getTs() - a.event.getTs());
+        .sort((a, b) => {
+            const tsDiff = b.event.getTs() - a.event.getTs();
+            if (tsDiff !== 0) return tsDiff;
+            return (timelineIndex.get(b.event.getId()!) ?? 0) - (timelineIndex.get(a.event.getId()!) ?? 0);
+        });
 }
 
 

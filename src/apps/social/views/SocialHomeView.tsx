@@ -211,12 +211,21 @@ function isFeedEvent(event: MatrixEvent, room: Room, filter: SocialFeedFilter): 
 
 function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilter): SocialPost[] {
     const posts: SocialPost[] = [];
+    // Each event's position within its OWN room's gatherRoomEvents() result - the room's true
+    // timeline/DAG order, independent of its claimed origin_server_ts. Used below as a tiebreaker
+    // when getTs() is equal (e.g. a bridge backfilling several posts in the same room with one
+    // shared batch timestamp - see the "reposted X's post" identical-timestamp bug this fixes).
+    const timelineIndex = new Map<string, number>();
 
     for (const room of rooms) {
         if (room.getMyMembership() !== KnownMembership.Join) continue;
         if (!roomCountsForFeed(room, filter)) continue;
 
         const events = gatherRoomEvents(room);
+        events.forEach((e, i) => {
+            const id = e.getId();
+            if (id) timelineIndex.set(id, i);
+        });
 
         for (const event of events) {
             if (!isFeedEvent(event, room, filter)) continue;
@@ -250,7 +259,11 @@ function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilte
         }
     }
 
-    return posts.sort((a, b) => b.event.getTs() - a.event.getTs());
+    return posts.sort((a, b) => {
+        const tsDiff = b.event.getTs() - a.event.getTs();
+        if (tsDiff !== 0) return tsDiff;
+        return (timelineIndex.get(b.event.getId()!) ?? 0) - (timelineIndex.get(a.event.getId()!) ?? 0);
+    });
 }
 
 /** True when the post is in a profile room and the sender is the profile owner. Uses the room's
