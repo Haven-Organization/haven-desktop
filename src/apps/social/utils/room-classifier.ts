@@ -25,6 +25,12 @@ export const MSC4501_RELATES_TO_KEY = "org.matrix.msc4501.social.relates_to";
 export const MSC4501_REL_TYPE_REPOST = "org.matrix.msc4501.social.repost";
 export const MSC4501_REL_TYPE_REPLY = "org.matrix.msc4501.social.reply";
 
+// MSC4501 — take priority over body/formatted_body respectively whenever both are present, on any
+// event carrying them (a post's own content, or a repost/reply's embedded content snapshot). See
+// postBody.ts's resolvePostBody, the one place this priority rule is actually applied.
+export const MSC4501_BODY_KEY = "org.matrix.msc4501.social.body";
+export const MSC4501_FORMATTED_BODY_KEY = "org.matrix.msc4501.social.formatted_body";
+
 // MSC4501 — links a user's Matrix account to their profile room (depends on MSC4133 for the
 // extensible profile-field mechanism itself)
 export const MSC4501_PROFILE_ROOM_KEY = "org.matrix.msc4501.social.profile_room_id";

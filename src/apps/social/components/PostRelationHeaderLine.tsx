@@ -25,6 +25,7 @@ import BaseAvatar from "../../../../element-web/apps/web/src/components/views/av
 import { RoomPermalinkCreator } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { stripReplyFallback } from "../utils/reply-fallback";
 import { useLiveUserProfile } from "../utils/liveUserProfile";
+import { resolvePostBodyString } from "../utils/postBody";
 
 /** The embedded snapshot repost/cross-reply relations carry (repostOf.content/
  *  replyCrossPostOf.content in SocialEventTile.tsx) - not present for the in-room reply case, which
@@ -94,8 +95,13 @@ export function PostRelationHeaderLine({ icon, text, room, eventId, embedded, on
     // the stable and unstable key). Without this fallback, replying to a poll always showed
     // "(message not in local timeline)" even when the poll was genuinely loaded right there in the
     // same thread - body-less content isn't the same thing as "couldn't find the event".
+    // resolvePostBodyString, not a raw .body read - org.matrix.msc4501.social.body takes priority
+    // when filled out, same as everywhere else Social shows post content (see postBody.ts).
+    // embedded?.body needs no equivalent here - it's already resolved, built from
+    // SocialEventTile.tsx's own already-resolved repostOfContent/replyCrossPostOfContent.
     const originalEventContent = originalEvent?.getContent<{ body?: string }>();
-    const originalEventText = originalEventContent?.body || M_TEXT.findIn<string>(originalEventContent ?? {});
+    const originalEventText =
+        resolvePostBodyString(originalEventContent) || M_TEXT.findIn<string>(originalEventContent ?? {});
     const previewBody = originalEvent
         ? stripReplyFallback((originalEventText ?? "").trim())
         : embedded?.body

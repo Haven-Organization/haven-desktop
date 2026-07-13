@@ -57,7 +57,10 @@ import {
     MSC4501_RELATES_TO_KEY,
     MSC4501_REL_TYPE_REPOST,
     MSC4501_REL_TYPE_REPLY,
+    MSC4501_BODY_KEY,
+    MSC4501_FORMATTED_BODY_KEY,
 } from "../utils/room-classifier";
+import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
 import { type PostFileAttachment, type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
@@ -955,6 +958,8 @@ export function SocialEventTile({
         msgtype?: string;
         format?: string;
         formatted_body?: string;
+        [MSC4501_BODY_KEY]?: string;
+        [MSC4501_FORMATTED_BODY_KEY]?: string;
         url?: string;
         filename?: string;
         info?: { mimetype?: string };
@@ -979,7 +984,21 @@ export function SocialEventTile({
             "m.in_reply_to"?: { event_id: string };
         };
     }>();
-    const body = content.body ?? "";
+    // content_inline: true means this event's own content doubles as the embedded snapshot of a
+    // reposted/replied-to post too (see repostOfContent/replyCrossPostOfContent and displayContent
+    // further down) - checked directly off the wire rather than via repostOf/replyCrossPostOf,
+    // which aren't computed until further down and don't need duplicating just for this one check.
+    // Used below to suppress the *outer* body/caption area entirely when content_inline (all of
+    // that content already renders inside the repost/reply card instead - see suppressBoostBody) -
+    // NOT to skip the org.matrix.msc4501.social.body/formatted_body override itself, which always
+    // takes priority over stock body/formatted_body regardless of content_inline.
+    const isContentInlineRelation = !!content[MSC4501_RELATES_TO_KEY]?.content_inline;
+    // org.matrix.msc4501.social.body always takes priority over stock body when filled out (see
+    // postBody.ts), used everywhere below EXCEPT the boost-permalink detection a few lines down,
+    // which specifically wants the raw stock body (MSC4501's compat-fallback permalink lives there
+    // regardless of whether a rich social.body caption also exists - see rawBody's own comment).
+    const body = resolvePostBodyString(content);
+    const rawBody = content.body ?? "";
 
     // m.in_reply_to — detect and strip the Matrix fallback quote from the body. Read off the wire
     // content, not the (possibly edit-substituted) `content` above - an edit's m.new_content never
@@ -1003,21 +1022,52 @@ export function SocialEventTile({
     // relates_to.content sent) — used by e.g. a bridge that already builds one copy of the
     // reposted/replied-to content as this event's own content, rather than duplicating it into
     // relates_to.content too. Falls back to relates_to.content otherwise (the normal case).
-    const repostOfContent = stripHavenHeader(repostOf?.content_inline ? content : repostOf?.content);
-    const replyCrossPostOfContent = stripHavenHeader(
-        replyCrossPostOf?.content_inline ? content : replyCrossPostOf?.content,
-    );
+    // resolvePostBody first, stripHavenHeader second - the header-strip works generically off
+    // whatever's in .body/.formatted_body, so it needs to see the already-resolved (social.body/
+    // social.formatted_body-preferred) fields, not the stock ones it'd otherwise strip instead.
+    // The un-stripped/un-resolved source is kept around too (repostOfSourceContent/
+    // replyCrossPostOfSourceContent) so hasPostBodyOverride can check it further down, to tell a
+    // genuine MSC caption apart from content_inline's usual backwards-compat filler.
+    //
+    // content_inline reuses this whole event's own `content` as the embedded snapshot - but that
+    // object also carries *this* event's own relates_to (the repost/reply relation itself), which
+    // describes the wrapper, not the post being reposted/replied to. Left in, it makes the embedded
+    // snapshot look like it's itself a repost/reply of whatever it points at - most visibly when
+    // this snapshot ends up standing in for the real target post (repostedMockEvent below, used as
+    // resolveAndOpenPost's fallback while a knock-restricted room hasn't finished syncing yet): the
+    // fallback gets rendered as a full post via SocialEventTile, which then misreads the leftover
+    // relates_to as a genuine self-repost that never happened. Stripped here, once, rather than at
+    // every downstream consumer.
+    const withoutRelatesTo = <T extends Record<string, any> | undefined>(c: T): T => {
+        if (!c || !(MSC4501_RELATES_TO_KEY in c)) return c;
+        const { [MSC4501_RELATES_TO_KEY]: _relatesTo, ...rest } = c;
+        return rest as T;
+    };
+    const repostOfSourceContent = repostOf?.content_inline ? withoutRelatesTo(content) : repostOf?.content;
+    const repostOfContent = stripHavenHeader(resolvePostBody(repostOfSourceContent));
+    const replyCrossPostOfSourceContent = replyCrossPostOf?.content_inline
+        ? withoutRelatesTo(content)
+        : replyCrossPostOf?.content;
+    const replyCrossPostOfContent = stripHavenHeader(resolvePostBody(replyCrossPostOfSourceContent));
     // The outer event's own content can carry the same redundant header (e.g. a cross-posted
     // reply's own body opening with "⤵️ Reply to X's post:") when it's rendered directly as this
     // tile's main body below — Haven's own RepliedToProfileIndicator/PostRelationHeaderLine already
-    // show the equivalent line, so strip it the same way as the embedded copies above.
-    const displayContent = relatesTo ? stripHavenHeader(content) : content;
+    // show the equivalent line, so strip it the same way as the embedded copies above. The
+    // org.matrix.msc4501.social.body/formatted_body override always applies here too (same as
+    // repostOfContent/replyCrossPostOfContent above) - when content_inline is true this ends up
+    // resolving the exact same content those two do, which is fine: displayContent is never
+    // actually *shown* in that case (suppressBoostBody unconditionally hides the outer body then,
+    // since everything real already renders inside the repost/reply card instead).
+    const displayContent = relatesTo ? stripHavenHeader(resolvePostBody(content)) : resolvePostBody(content);
     // A boost/retweet per MSC4501: the outer body is *only* a permalink to the reposted event
     // (rather than empty) so a non-compliant client still shows a normal clickable link instead of
     // a blank bubble. Detected by content_inline, or by parsing the body as a permalink and
     // checking it points at the same event relates_to references — anything else (real commentary,
     // or a link elsewhere) is a quote-post, even if that commentary happens to look like a URI.
-    const repostPermalink = repostOf && !repostOf.content_inline ? parsePermalink(body.trim()) : null;
+    // Deliberately the raw stock body (rawBody), not the resolved one - MSC4501's compat-fallback
+    // permalink is meant to live in stock body regardless of whether a rich social.body caption
+    // also exists (see rawBody's own comment above).
+    const repostPermalink = repostOf && !repostOf.content_inline ? parsePermalink(rawBody.trim()) : null;
     const isBoost = !!(
         repostOf &&
         (repostOf.content_inline ||
@@ -1027,15 +1077,35 @@ export function SocialEventTile({
     );
     // A boost's own body is normally just the permalink above, so there's nothing worth rendering
     // as the main post body (BoostedIndicator's "reposted X's post" line covers it). But some
-    // bridges also attach a real caption via formatted_body (e.g. an ActivityPub "boosted" note)
-    // rather than leaving it truly empty — show that instead of discarding it, unless the bridge
-    // sets software.haven.remove_header to say its caption just duplicates Haven's own header line.
-    const boostHasFormattedCaption =
+    // bridges also attach a real caption via formatted_body (e.g. an ActivityPub "boosted" note),
+    // or via the MSC4501 social.body/social.formatted_body override fields (now also a plain-text
+    // caption, not just HTML - stock body alone doesn't count, since for a non-inline boost that's
+    // just the permalink per MSC4501, not real commentary) - show that instead of discarding it,
+    // unless the bridge sets software.haven.remove_header to say its caption just duplicates
+    // Haven's own header line. The MSC4501 override fields always count here, even when
+    // content_inline (org.matrix.msc4501.social.body/formatted_body always trumps stock body/
+    // formatted_body, no exceptions besides the raw-permalink check above) - whether this actually
+    // ends up shown to the user is a separate question, handled by suppressBoostBody below, which
+    // unconditionally hides the whole outer body area for a content_inline relation regardless of
+    // what boostHasCaption computes here.
+    const boostHasCaption =
         isBoost &&
-        content.format === "org.matrix.custom.html" &&
-        typeof content.formatted_body === "string" &&
-        content.formatted_body.trim() !== "";
-    const suppressBoostBody = isBoost && (!boostHasFormattedCaption || !!content["software.haven.remove_header"]);
+        ((content.format === "org.matrix.custom.html" &&
+            typeof content.formatted_body === "string" &&
+            content.formatted_body.trim() !== "") ||
+            (typeof content[MSC4501_FORMATTED_BODY_KEY] === "string" &&
+                (content[MSC4501_FORMATTED_BODY_KEY] as string).trim() !== "") ||
+            (typeof content[MSC4501_BODY_KEY] === "string" && (content[MSC4501_BODY_KEY] as string).trim() !== ""));
+    // remove_header is backwards-compat only (see stripHavenHeader's own comment) - never
+    // considered once the event carries either MSC4501 body override, regardless of caption state.
+    // isContentInlineRelation is checked unconditionally (repost or cross-posted reply alike) -
+    // content_inline means this same content object doubles as the embedded snapshot rendered in
+    // the repost/reply card further down (see repostOfContent/replyCrossPostOfContent above), so
+    // whatever it resolves to here belongs inside that card only, never duplicated into the outer
+    // wrapper's own body area too.
+    const suppressBoostBody =
+        isContentInlineRelation ||
+        (isBoost && (!boostHasCaption || (!hasPostBodyOverride(content) && !!content["software.haven.remove_header"])));
 
     // Live-resolve the reposted-from sender's current avatar/displayname instead of (or in
     // addition to) trusting repost_of's own embedded snapshot — see project memory for why avatar
@@ -1543,9 +1613,12 @@ export function SocialEventTile({
                                   // Same media-vs-text content_inline reasoning as the quote card's
                                   // own body further down: only a MEDIA post's content_inline body
                                   // is just backwards-compat filler - a plain-text quoted reply's
-                                  // content_inline body is the whole original post.
+                                  // content_inline body is the whole original post. A genuine
+                                  // MSC4501 body/formatted_body override is never filler though
+                                  // (see hasPostBodyOverride) - always show that regardless of media.
                                   body:
                                       replyCrossPostOf.content_inline &&
+                                      !hasPostBodyOverride(replyCrossPostOfSourceContent) &&
                                       ((replyCrossPostOfContent as { url?: string; file?: { url: string } }).url ||
                                           (replyCrossPostOfContent as { url?: string; file?: { url: string } }).file
                                               ?.url)
@@ -1563,7 +1636,7 @@ export function SocialEventTile({
                 whole body, same as the stock room timeline), and for a detected boost with no real
                 caption of its own (its body is only a permalink, per MSC4501 — not meant to be read
                 as commentary; see the "Reposted" label below instead) — unless it has a
-                formatted_body caption worth keeping, see boostHasFormattedCaption above. */}
+                real caption worth keeping (HTML or plain-text), see boostHasCaption above. */}
             {displayBody && !suppressBoostBody && !(content.url && displayBody === fileName) && !isLocationMessage && !isPollMessage && (
                 <div key={pillsGeneration} className="social_EventTile_body" onClick={handleBodyClick}>
                     <EventContentBodyView vm={eventContentBodyVm} as="div" />
@@ -1590,9 +1663,13 @@ export function SocialEventTile({
                                   // Same media-vs-text content_inline reasoning as the repost card's
                                   // own body below: only a MEDIA post's content_inline body is just
                                   // backwards-compat filler (a filename/permalink) - a plain-text
-                                  // repost's content_inline body is the whole original post.
+                                  // repost's content_inline body is the whole original post. A
+                                  // genuine MSC4501 body/formatted_body override is never filler
+                                  // though (see hasPostBodyOverride) - always show that regardless
+                                  // of media.
                                   body:
                                       repostOf.content_inline &&
+                                      !hasPostBodyOverride(repostOfSourceContent) &&
                                       ((repostOfContent as { url?: string; file?: { url: string } }).url ||
                                           (repostOfContent as { url?: string; file?: { url: string } }).file?.url)
                                           ? undefined
@@ -1651,19 +1728,25 @@ export function SocialEventTile({
                                 {repostedSenderProfile?.displayName || repostOf.displayname || repostOf.sender}
                             </span>
                         </div>
-                        {/* For a MEDIA post (repostedFileUrl below), content_inline's body is the
-                            *outer* boost event's own MSC4501 backwards-compat fallback text (a
-                            filename or plain permalink) - never a real caption, which content_inline
-                            has no separate field for in that case. But for a plain TEXT repost (no
-                            media at all), content_inline's body genuinely *is* the whole original
-                            post - there's nothing else it could be showing instead - just with a
-                            trailing backwards-compat permalink appended for non-MSC4501 clients that
-                            EventContentBodyView won't even render (it prefers formatted_body, which
-                            never includes that trailing link, over the plain body used here only to
-                            decide whether to render anything at all). Wrongly hiding this too
-                            (matching the media case) is what made a plain-text repost's card show
-                            just the sender name with no content underneath. */}
-                        {repostedMedia.body && (!repostOf.content_inline || !repostedFileUrl) && (
+                        {/* For a MEDIA post (repostedFileUrl below), content_inline's body is
+                            usually the *outer* boost event's own MSC4501 backwards-compat fallback
+                            text (a filename or plain permalink) - not a real caption - UNLESS a
+                            genuine org.matrix.msc4501.social.body/formatted_body override is
+                            present (hasPostBodyOverride), which always trumps stock body/
+                            formatted_body and is never filler, media or not. For a plain TEXT
+                            repost (no media at all), content_inline's body genuinely *is* the whole
+                            original post - there's nothing else it could be showing instead - just
+                            with a trailing backwards-compat permalink appended for non-MSC4501
+                            clients that EventContentBodyView won't even render (it prefers
+                            formatted_body, which never includes that trailing link, over the plain
+                            body used here only to decide whether to render anything at all).
+                            Wrongly hiding this too (matching the media case) is what made a
+                            plain-text repost's card show just the sender name with no content
+                            underneath. */}
+                        {repostedMedia.body &&
+                            (!repostOf.content_inline ||
+                                !repostedFileUrl ||
+                                hasPostBodyOverride(repostOfSourceContent)) && (
                             <div className="social_EventTile_repostCard_body" onClick={handleBodyClick}>
                                 <EventContentBodyView vm={repostedBodyVm} as="div" />
                             </div>
@@ -1741,9 +1824,15 @@ export function SocialEventTile({
                         </div>
                         {/* Same media-vs-text content_inline reasoning as the repost card above -
                             only hide this body when there's real media (quotedFileUrl) to show
-                            instead; a plain-text quoted reply's content_inline body is the whole
-                            original post, not just backwards-compat filler. */}
-                        {quotedMedia.body && (!replyCrossPostOf.content_inline || !quotedFileUrl) && (
+                            instead and no genuine MSC4501 body/formatted_body override
+                            (hasPostBodyOverride) is present; a plain-text quoted reply's
+                            content_inline body is the whole original post, not just
+                            backwards-compat filler, and an override always trumps regardless of
+                            media. */}
+                        {quotedMedia.body &&
+                            (!replyCrossPostOf.content_inline ||
+                                !quotedFileUrl ||
+                                hasPostBodyOverride(replyCrossPostOfSourceContent)) && (
                             <div className="social_EventTile_repostCard_body" onClick={handleBodyClick}>
                                 <EventContentBodyView vm={replyCrossPostBodyVm} as="div" />
                             </div>
@@ -1862,8 +1951,21 @@ export function SocialEventTile({
 // never a mirror of formatted_body's text, so stripping it would break that fallback rather than
 // remove a header. Detected generically (not by call site) via parsePermalink, since that's the same
 // check isBoost itself uses to tell a boost's permalink-only body apart from real text.
+// Backwards-compat only, per the latest MSC4501 revision: remove_header predates
+// org.matrix.msc4501.social.body/formatted_body existing at all - a sender using either of those
+// has no redundant header text in body/formatted_body left to strip in the first place, so the
+// flag is never even considered once one is present (see hasPostBodyOverride below), regardless of
+// what it's set to. Still honored for events that already carry it with neither new field, to keep
+// working with content already out there - not meant to be relied on by anything sent from now on,
+// and worth deleting outright later once nothing still needs it.
 function stripHavenHeader<T extends Record<string, any> | undefined>(content: T): T {
     if (!content?.["software.haven.remove_header"]) return content;
+    // Backwards compat only: remove_header predates org.matrix.msc4501.social.body/formatted_body
+    // - a sender using those has no redundant header text left in stock body/formatted_body to
+    // strip in the first place, and shouldn't need to set this flag at all going forward. Still
+    // honored for older events that already have it set and nothing else, phased out later once
+    // nothing in the wild still relies on it.
+    if (hasPostBodyOverride(content)) return content;
     const stripped: Record<string, any> = { ...content };
     if (typeof stripped.formatted_body === "string") {
         stripped.formatted_body = stripped.formatted_body.replace(/^\s*<p>.*?<\/p>\s*(<br\s*\/?>\s*)*/is, "");

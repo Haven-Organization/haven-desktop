@@ -11,6 +11,7 @@ import { type MatrixEvent } from "matrix-js-sdk/src/matrix";
 
 import MemberAvatar from "../../../../element-web/apps/web/src/components/views/avatars/MemberAvatar";
 import { stripReplyFallback } from "../utils/reply-fallback";
+import { resolvePostBodyString } from "../utils/postBody";
 
 interface Props {
     event: MatrixEvent;
@@ -19,7 +20,9 @@ interface Props {
 
 export function RepostPreview({ event, className }: Props): JSX.Element {
     const sender = event.sender?.name ?? event.getSender() ?? "";
-    const body = stripReplyFallback((event.getContent<{ body?: string }>().body ?? "").trim());
+    // org.matrix.msc4501.social.body takes priority over stock body when filled out (see
+    // postBody.ts), same as everywhere else Social shows post content.
+    const body = stripReplyFallback(resolvePostBodyString(event.getContent()).trim());
     const file = event.getContent<{ file?: { name: string } }>().file;
 
     return (
