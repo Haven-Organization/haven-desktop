@@ -456,6 +456,20 @@ export function SocialPostView({
                 ))}
                 <div className="social_PostView_threadItem social_PostView_mainPost">
                     <SocialEventTile
+                        // Unlike every other SocialEventTile render site (ancestors' own wrapping
+                        // div above, replies list below, home feed, room view), this one sits in a
+                        // fixed, unkeyed position rather than inside a .map() over a list - so when
+                        // this view re-focuses on a different post (e.g. clicking through from a
+                        // reply up to the thread root), React was reusing the very same component
+                        // instance instead of remounting it, since neither the event prop nor its
+                        // position in the tree looked "new" to React. SocialEventTile's own reaction
+                        // state only initializes once per mount (see its own comment on `reactions`)
+                        // and has no effect that resets it on an event *identity* change, only on a
+                        // Relations object coming into existence for the first time - so the old
+                        // post's reactions (a real reaction on a totally different event) kept
+                        // showing on whatever post got focused next. Keying by event id forces a
+                        // fresh mount whenever the focused post is actually a different event.
+                        key={focusedEventId}
                         event={event}
                         room={room}
                         isLiked={!!myLikeEventId}
