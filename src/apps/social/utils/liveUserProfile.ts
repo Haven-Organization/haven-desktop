@@ -37,11 +37,17 @@ export interface LiveUserProfile {
 }
 
 // The stable key per MSC4503; checked first, falling back to the MSC's own unstable-prefixed form
-// for homeservers/bridges that haven't caught up to the stable identifier yet.
-const EXTERNAL_HANDLE_STABLE_KEY = "m.external_handle";
-const EXTERNAL_HANDLE_UNSTABLE_KEY = "org.matrix.msc4503.external_handle";
+// for homeservers/bridges that haven't caught up to the stable identifier yet. Exported so callers
+// reading a *post's own* external_handle (SocialEventTile.tsx) rather than a user's profile info can
+// still tell it apart from other content fields worth stripping - see that file's own use.
+export const EXTERNAL_HANDLE_STABLE_KEY = "m.external_handle";
+export const EXTERNAL_HANDLE_UNSTABLE_KEY = "org.matrix.msc4503.external_handle";
 
-function extractExternalHandle(info: Record<string, unknown>): ExternalHandle | undefined {
+/** Not profile-specific despite this module's name - works on any object that might carry either
+ *  external_handle key, so SocialEventTile.tsx reuses it directly on a post's own event content
+ *  (org.matrix.msc4503.social's rendering of the *post's* linked identity, as opposed to this
+ *  module's own fetchUserProfile, which reads a *user's* global profile info). */
+export function extractExternalHandle(info: Record<string, unknown>): ExternalHandle | undefined {
     const raw = (info[EXTERNAL_HANDLE_STABLE_KEY] ?? info[EXTERNAL_HANDLE_UNSTABLE_KEY]) as
         | Partial<ExternalHandle>
         | undefined;

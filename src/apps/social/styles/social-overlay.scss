@@ -561,6 +561,9 @@
 
     &_sender {
         flex: 1;
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-1x);
     }
 
     &_timestamp {
@@ -2241,6 +2244,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+// Icon-only variant (ExternalHandleIcon.tsx) - shown inline next to a post's sender name rather
+// than under the MXID, so it's sized to sit on the same line as the name instead of standing on
+// its own row like .social_ExternalHandleBadge above.
+.social_ExternalHandleIcon {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .social_ExternalHandleBadge_link {
