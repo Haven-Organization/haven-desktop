@@ -25,10 +25,12 @@ import React, {
     type JSX,
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
+    useRef,
     useState,
 } from "react";
-import { type MatrixEvent, type Room, RelationType, EventType } from "matrix-js-sdk/src/matrix";
+import { type MatrixEvent, type Room, RelationType, EventType, ThreadEvent } from "matrix-js-sdk/src/matrix";
 
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
 import { SocialEventTile } from "../components/SocialEventTile";
@@ -186,6 +188,57 @@ export function SocialPostView({
     // The whole thread's true root id (ancestors are root-first - see findThreadAncestors), i.e.
     // the focused post itself when it has no ancestors at all.
     const rootEventId = ancestors.length > 0 ? ancestors[0].getId()! : focusedEventId;
+
+    // Scrolls the focused post's own tile into view - without this, opening a reply deep in a long
+    // thread (whether via a "reply to X's post" link from outside, or re-focusing on a different
+    // reply/ancestor tile within an already-open thread view) leaves the scroll position wherever it
+    // previously was, which for a long ancestor chain means the focused post is nowhere near the
+    // visible area - the view just shows the top of the thread (the root) instead of the post
+    // actually being looked at. ancestors.length in the deps (not just focusedEventId) is needed
+    // because ancestors resolve asynchronously after this component mounts/re-focuses (see
+    // findThreadAncestors) - the focused tile's real on-screen position only settles once the
+    // ancestor chain above it has actually rendered, so this fires again once that lands.
+    const focusedTileRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        focusedTileRef.current?.scrollIntoView({ block: "start" });
+    }, [focusedEventId, ancestors.length]);
+
+    // Backfills the root's own Thread timeline until every reply the server knows about (per its
+    // bundled thread.length count - the "N replies" header) is actually loaded locally, not just
+    // whatever came in via the initial /sync's bundled summary + live timeline. Needed because
+    // Haven's own replies always target their *immediate* parent, not the true root (see this file's
+    // header comment) - Synapse still assigns every nested reply the SAME underlying thread id as
+    // its ancestor (confirmed via MatrixEvent.threadRootId falling back to the server-stamped
+    // io.element.thread_id once an event's own Thread membership is resolved), so the root's own
+    // Thread genuinely does contain the whole nested tree once fully paginated - it just usually
+    // isn't yet, which is what left most replies invisible (thread.length said 19, thread.events had
+    // only 2-11 actually loaded). ensureThread's own call sites elsewhere in this component (inside
+    // getDirectReplies, itself called from the allReplies useMemo below) already guarantee this
+    // Thread exists by the time this effect runs. A hard iteration cap guards against spinning
+    // forever if thread.length and the true paginatable event count ever permanently disagree (e.g.
+    // some replies redacted/inaccessible).
+    useEffect(() => {
+        const thread = room.getThread(rootEventId);
+        if (!thread) return;
+        let cancelled = false;
+        const onUpdate = (): void => {
+            if (!cancelled) refresh();
+        };
+        thread.on(ThreadEvent.Update, onUpdate);
+        void (async () => {
+            const MAX_ITERATIONS = 20;
+            for (let i = 0; !cancelled && i < MAX_ITERATIONS && thread.events.length < thread.length; i++) {
+                const more = await client
+                    .paginateEventTimeline(thread.liveTimeline, { backwards: true, limit: 50 })
+                    .catch(() => false);
+                if (!more) break;
+            }
+        })();
+        return () => {
+            cancelled = true;
+            thread.off(ThreadEvent.Update, onUpdate);
+        };
+    }, [client, room, rootEventId, refresh]);
 
     // Every event the SERVER knows declares an m.thread relation targeting the root, fetched
     // directly via the /relations API rather than relying on whatever's already synced locally.
@@ -454,7 +507,7 @@ export function SocialPostView({
                         />
                     </div>
                 ))}
-                <div className="social_PostView_threadItem social_PostView_mainPost">
+                <div className="social_PostView_threadItem social_PostView_mainPost" ref={focusedTileRef}>
                     <SocialEventTile
                         // Unlike every other SocialEventTile render site (ancestors' own wrapping
                         // div above, replies list below, home feed, room view), this one sits in a
