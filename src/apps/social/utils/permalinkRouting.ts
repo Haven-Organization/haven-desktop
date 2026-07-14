@@ -38,12 +38,21 @@ import { getLastPopStateOrigin } from "./socialHistoryOrigin";
 import { isSocialRoom, MSC4501_ROOM_TYPE_PROFILE, MSC4501_ROOM_TYPE_GROUP } from "./room-classifier";
 import { setPendingSocialSection } from "./pendingSocialSection";
 import { setPendingPostModal } from "./pendingPostModal";
+import { socialApp } from "../app";
+import { setPendingActiveAppId } from "../../framework/pendingActiveApp";
+
+// sync: matches SocialProfileButton's own dispatch - beats any other pending navigation dispatched
+// around the same time (e.g. the caller's own event still bubbling). Also bridges into
+// useActiveAppId's initial state (see pendingActiveApp.ts) - on a cold-start deep link this dispatch
+// happens before SpacePanel ever mounts to hear it directly.
+function dispatchSocialHomeAction(): void {
+    setPendingActiveAppId(socialApp.id);
+    defaultDispatcher.dispatch({ action: SOCIAL_HOME_ACTION }, true);
+}
 
 function routeToSocial(roomId: string, eventId: string | null): void {
     setPendingViewPost(roomId, eventId ?? undefined);
-    // sync: matches SocialProfileButton's own dispatch - beats any other pending navigation
-    // dispatched around the same time (e.g. the caller's own event still bubbling).
-    defaultDispatcher.dispatch({ action: SOCIAL_HOME_ACTION }, true);
+    dispatchSocialHomeAction();
 }
 
 /**
@@ -123,12 +132,12 @@ export function tryRouteSocialHashScreen(screen: string, params?: Record<string,
         if (params?.post) {
             setPendingPostModal({ body: typeof params.body === "string" ? params.body : undefined });
         }
-        defaultDispatcher.dispatch({ action: SOCIAL_HOME_ACTION }, true);
+        dispatchSocialHomeAction();
         return true;
     }
     if (screen === "social/groups" || screen === "social/profile") {
         setPendingSocialSection(screen === "social/groups" ? "groups" : "profile");
-        defaultDispatcher.dispatch({ action: SOCIAL_HOME_ACTION }, true);
+        dispatchSocialHomeAction();
         return true;
     }
     if (!screen.startsWith("social/room/")) return false;
@@ -147,7 +156,7 @@ export function tryRouteSocialHashScreen(screen: string, params?: Record<string,
     // dedicated room page, matching every prior behaviour this hash shape has ever had.
     if (eventId && getLastPopStateOrigin() === "feed") {
         setPendingFeedThread(roomId, eventId);
-        defaultDispatcher.dispatch({ action: SOCIAL_HOME_ACTION }, true);
+        dispatchSocialHomeAction();
         return true;
     }
 

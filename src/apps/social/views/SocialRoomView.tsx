@@ -110,6 +110,14 @@ interface Props {
      *  "scroll to top once the composer scrolls out of view" button FeedPane has, so profile/group
      *  pages get one too, not just the aggregated Feed. */
     scrollContainerRef?: React.RefObject<HTMLElement | null>;
+    /** Same purpose as FeedPane's own identical prop in SocialHomeView.tsx (see its doc there) -
+     *  bumped by SocialHomeView's handleViewUser after resolving a "view this user's profile" click,
+     *  since that can land back on this exact room (e.g. clicking a post's own author while already
+     *  viewing their profile room) where nav.roomId never actually changes, so this component would
+     *  otherwise never remount and its own `threadEvent` - invisible to nav, exactly like FeedPane's
+     *  threadView - would keep showing whatever thread was open instead of returning to the plain
+     *  profile feed. */
+    closeThreadToken?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +195,7 @@ export function SocialRoomView({
     onNavigateToProfile,
     onRoomClick,
     scrollContainerRef,
+    closeThreadToken,
 }: Props): JSX.Element {
     const client = useMatrixClientContext();
     const myUserId = client.getUserId() ?? "";
@@ -229,6 +238,20 @@ export function SocialRoomView({
     const [postBody, setPostBody] = useState("");
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
     const [threadEvent, setThreadEvent] = useState<MatrixEvent | null>(null);
+    // Same closeThreadToken pattern as FeedPane's own identical effect in SocialHomeView.tsx (see
+    // its doc, and closeThreadToken's own doc on this component's Props) - skips the very first
+    // render so mounting with a token that's already non-zero (this component gets a fresh mount
+    // per room via its own `key={nav.roomId}` at the call site, but the token itself is a single
+    // counter shared across every room) doesn't immediately close a thread this same click just
+    // opened.
+    const closeThreadTokenMounted = useRef(false);
+    useEffect(() => {
+        if (!closeThreadTokenMounted.current) {
+            closeThreadTokenMounted.current = true;
+            return;
+        }
+        setThreadEvent(null);
+    }, [closeThreadToken]);
 
     // Keeps the browser URL bar (and back/forward history) in sync with this room's own Social
     // page and, when a thread is open, the specific post within it - see routing.ts's own

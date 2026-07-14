@@ -98,6 +98,7 @@ import { useFeatureEnabled } from "../../../../hooks/useSettings";
 import { filterBoolean } from "../../../../utils/arrays";
 import { transformSearchTerm } from "../../../../utils/SearchInput";
 import { Filter } from "./Filter";
+import { tryRouteSocialRoom } from "../../../../../../../../src/apps/social/utils/permalinkRouting";
 
 const MAX_RECENT_SEARCHES = 10;
 const SECTION_LIMIT = 50; // only show 50 results per section for performance reasons
@@ -558,6 +559,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
         },
         persist = false,
         viaKeyboard = false,
+        shiftKey = false,
     ): void => {
         if (persist) {
             const recents = new Set(SettingsStore.getValue("SpotlightSearch.recentSearches", null).reverse());
@@ -573,19 +575,27 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
             );
         }
 
-        defaultDispatcher.dispatch<ViewRoomPayload>({
-            action: Action.ViewRoom,
-            metricsTrigger: "WebUnifiedSearch",
-            metricsViaKeyboard: viaKeyboard,
-            room_id: room.roomId,
-            room_alias: room.roomAlias,
-            auto_join: room.autoJoin && !canAskToJoin(room.joinRule),
-            should_peek: room.shouldPeek,
-            via_servers: room.viaServers,
-        });
+        const viewNormally = (): void => {
+            defaultDispatcher.dispatch<ViewRoomPayload>({
+                action: Action.ViewRoom,
+                metricsTrigger: "WebUnifiedSearch",
+                metricsViaKeyboard: viaKeyboard,
+                room_id: room.roomId,
+                room_alias: room.roomAlias,
+                auto_join: room.autoJoin && !canAskToJoin(room.joinRule),
+                should_peek: room.shouldPeek,
+                via_servers: room.viaServers,
+            });
 
-        if (canAskToJoin(room.joinRule)) {
-            defaultDispatcher.dispatch({ action: Action.PromptAskToJoin });
+            if (canAskToJoin(room.joinRule)) {
+                defaultDispatcher.dispatch({ action: Action.PromptAskToJoin });
+            }
+        };
+
+        // Same "open in its own app instead of the normal room view" rule matrix.to permalinks
+        // follow (see tryRouteSocialRoom's own doc) - Shift bypasses it, same as there.
+        if (!tryRouteSocialRoom({ shiftKey }, room.roomId, null, viewNormally)) {
+            viewNormally();
         }
 
         onFinished();
@@ -664,7 +674,12 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                         id={`mx_SpotlightDialog_button_result_${result.room.roomId}`}
                         key={`${Section[result.section]}-${result.room.roomId}`}
                         onClick={(ev) => {
-                            viewRoom({ roomId: result.room.roomId }, true, ev?.type !== "click");
+                            viewRoom(
+                                { roomId: result.room.roomId },
+                                true,
+                                ev?.type !== "click",
+                                "shiftKey" in ev && ev.shiftKey,
+                            );
                         }}
                         endAdornment={<RoomResultContextMenus room={result.room} />}
                         {...ariaProperties}
@@ -732,6 +747,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                         },
                         true,
                         ev.type !== "click",
+                        "shiftKey" in ev && ev.shiftKey,
                     );
                 };
 
@@ -901,7 +917,12 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                                     id={`mx_SpotlightDialog_button_result_${room.room_id}`}
                                     key={room.room_id}
                                     onClick={(ev) => {
-                                        viewRoom({ roomId: room.room_id }, true, ev?.type !== "click");
+                                        viewRoom(
+                                            { roomId: room.room_id },
+                                            true,
+                                            ev?.type !== "click",
+                                            "shiftKey" in ev && ev.shiftKey,
+                                        );
                                     }}
                                 >
                                     <BaseAvatar
@@ -941,13 +962,19 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                         <Option
                             id="mx_SpotlightDialog_button_joinRoomAlias"
                             onClick={(ev) => {
-                                defaultDispatcher.dispatch<ViewRoomPayload>({
-                                    action: Action.ViewRoom,
-                                    room_alias: trimmedQuery,
-                                    auto_join: true,
-                                    metricsTrigger: "WebUnifiedSearch",
-                                    metricsViaKeyboard: ev?.type !== "click",
-                                });
+                                const joinNormally = (): void => {
+                                    defaultDispatcher.dispatch<ViewRoomPayload>({
+                                        action: Action.ViewRoom,
+                                        room_alias: trimmedQuery,
+                                        auto_join: true,
+                                        metricsTrigger: "WebUnifiedSearch",
+                                        metricsViaKeyboard: ev?.type !== "click",
+                                    });
+                                };
+                                const shiftKey = "shiftKey" in ev && ev.shiftKey;
+                                if (!tryRouteSocialRoom({ shiftKey }, trimmedQuery, null, joinNormally)) {
+                                    joinNormally();
+                                }
                                 onFinished();
                             }}
                         >
@@ -1082,7 +1109,12 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                                     id={`mx_SpotlightDialog_button_recentSearch_${room.roomId}`}
                                     key={room.roomId}
                                     onClick={(ev) => {
-                                        viewRoom({ roomId: room.roomId }, true, ev?.type !== "click");
+                                        viewRoom(
+                                            { roomId: room.roomId },
+                                            true,
+                                            ev?.type !== "click",
+                                            "shiftKey" in ev && ev.shiftKey,
+                                        );
                                     }}
                                     endAdornment={<RoomResultContextMenus room={room} />}
                                     {...ariaProperties}
@@ -1126,7 +1158,12 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                                     title={room.name}
                                     key={room.roomId}
                                     onClick={(ev) => {
-                                        viewRoom({ roomId: room.roomId }, false, ev.type !== "click");
+                                        viewRoom(
+                                            { roomId: room.roomId },
+                                            false,
+                                            ev.type !== "click",
+                                            "shiftKey" in ev && ev.shiftKey,
+                                        );
                                     }}
                                 >
                                     <DecoratedRoomAvatar room={room} size="32px" tooltipProps={{ tabIndex: -1 }} />
@@ -1234,7 +1271,12 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
             case KeyBindingAction.Enter:
                 ev.stopPropagation();
                 ev.preventDefault();
-                rovingContext.state.activeNode?.click();
+                // Not activeNode.click() - a plain DOM click() always synthesizes shiftKey: false,
+                // which would make holding Shift while pressing Enter indistinguishable from a
+                // plain Enter to the onClick handlers above (see viewRoom's own shiftKey bypass).
+                rovingContext.state.activeNode?.dispatchEvent(
+                    new MouseEvent("click", { bubbles: true, cancelable: true, shiftKey: ev.shiftKey }),
+                );
                 break;
         }
     };

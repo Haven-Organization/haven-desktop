@@ -73,7 +73,7 @@ import { SocialPostView } from "./SocialPostView";
 import { PostDialog } from "../components/PostDialog";
 import { consumePendingViewUserId, peekPendingViewUserId } from "../utils/pendingViewUser";
 import { consumePendingViewPost } from "../utils/pendingViewPost";
-import { setPendingFocusEvent } from "../utils/pendingFocusEvent";
+import { clearPendingFocusEvent, setPendingFocusEvent } from "../utils/pendingFocusEvent";
 import { peekPendingSocialSection, clearPendingSocialSection } from "../utils/pendingSocialSection";
 import { consumePendingPostModal } from "../utils/pendingPostModal";
 import {
@@ -426,6 +426,10 @@ export function SocialHomeView(): JSX.Element {
     );
 
     const viewRoom = useCallback((roomId: string) => {
+        // A plain "go to this room" - not "go to this room, focused on this specific post". Clear
+        // any leftover focus target from an earlier, unrelated navigation (see
+        // clearPendingFocusEvent's own doc) so SocialRoomView opens at the top, not an old thread.
+        clearPendingFocusEvent();
         setNav((prev: SocialNav) => ({ section: prev.section, roomId }));
     }, []);
 
@@ -468,6 +472,15 @@ export function SocialHomeView(): JSX.Element {
                 // No-op for every caller except the pending-user mount case above - see
                 // resolvingPendingUser's own doc for why this needs clearing once resolved.
                 setResolvingPendingUser(false);
+                // FeedPane's own thread view (its `threadView` local state, see closeThreadToken's
+                // own doc there) is invisible to `nav` - every branch above already updated `nav`
+                // correctly, but clicking a sender's name *from inside* FeedPane's thread panel left
+                // that panel showing regardless, since nothing had ever told it to close. Bumping the
+                // same token used for hash-driven resets closes it here too, whichever of the four
+                // outcomes above this call resolved to. Harmless when this call didn't originate from
+                // FeedPane's thread view at all (a currently-unmounted or already-closed FeedPane just
+                // ignores it).
+                setCloseThreadToken((t) => t + 1);
             });
         },
         [client, viewRoom],
@@ -518,8 +531,10 @@ export function SocialHomeView(): JSX.Element {
         const { roomId, eventId } = pending;
         if (eventId) {
             resolveAndOpenPost(client, roomId, eventId, undefined, (event, room) => {
-                setPendingFocusEvent(event);
+                // viewRoom() itself clears any pending focus event - set this one after, not
+                // before, so it isn't immediately wiped out by that same clear.
                 viewRoom(room.roomId);
+                setPendingFocusEvent(event);
             });
             return true;
         }
@@ -811,6 +826,7 @@ export function SocialHomeView(): JSX.Element {
                 onNavigateToProfile={navigateToProfile}
                 scrollContainerRef={contentRef}
                 onRoomClick={viewRoom}
+                closeThreadToken={closeThreadToken}
             />
         ) : (
             <div className="social_ContentEmpty">Room not found.</div>
@@ -857,11 +873,30 @@ export function SocialHomeView(): JSX.Element {
                 onViewUser={handleViewUser}
                 onOpenUserPanel={handleOpenUserPanel}
                 onOpenRoomPanel={openRightPanelForRoom}
+                closeThreadToken={closeThreadToken}
                 onRefresh={() => setRooms(client.getRooms())}
                 scrollContainerRef={contentRef}
             />
         );
     }
+
+    // Reset scroll position on navigating to a genuinely different page - .social_Content itself
+    // persists across every Social nav transition (see contentRef's own doc above), so without this
+    // the browser leaves whatever scroll offset the *previous* page had in place, landing the new
+    // page's content wherever that old offset happens to sit rather than at its own top. This is
+    // what "clicking a name sometimes lands partway down their profile" actually turned out to be -
+    // unrelated to (and independent of) the separate pendingFocusEvent staleness bug fixed above,
+    // which only mattered for the "specific post" case, not this "everything scrolled" case.
+    const contentIdentity = nav.viewUserId
+        ? `user:${nav.viewUserId}`
+        : nav.roomPreview
+          ? `preview:${nav.roomPreview.roomId}`
+          : nav.roomId
+            ? `room:${nav.roomId}`
+            : `section:${nav.section}`;
+    useLayoutEffect(() => {
+        if (contentRef.current) contentRef.current.scrollTop = 0;
+    }, [contentIdentity]);
 
     return (
         <MainSplit panel={rightPanel} defaultSize={420} analyticsRoomType="user_profile">
@@ -1548,6 +1583,7 @@ function ProfilePane({
     onOpenRoomPanel,
     onRefresh,
     scrollContainerRef,
+    closeThreadToken,
 }: {
     rooms: Room[];
     profileRoomId: string | null | undefined;
@@ -1559,6 +1595,9 @@ function ProfilePane({
     onOpenRoomPanel: (room: Room, phase: RightPanelPhases, state?: Record<string, unknown>) => void;
     onRefresh: () => void;
     scrollContainerRef: React.RefObject<HTMLElement | null>;
+    /** Forwarded to SocialRoomView - see its own doc on why this is needed even when profileRoom's
+     *  own `key` doesn't change (clicking your own name while already viewing your own profile). */
+    closeThreadToken: number;
 }): JSX.Element {
     // The profile room is always whatever room org.matrix.msc4501.social.profile_room_id names on
     // the user's own profile (see useProfileRoomLink) - no local guessing while it's still
@@ -1583,6 +1622,7 @@ function ProfilePane({
                 onOpenRoomPanel={onOpenRoomPanel}
                 onRoomClick={onViewRoom}
                 scrollContainerRef={scrollContainerRef}
+                closeThreadToken={closeThreadToken}
             />
         );
     }

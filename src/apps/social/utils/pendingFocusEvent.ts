@@ -43,3 +43,13 @@ export function setPendingFocusEvent(event: MatrixEvent): void {
 export function peekPendingFocusEvent(): MatrixEvent | null {
     return pendingFocusEvent;
 }
+
+// Being a non-destructive peek (see above) means a focus target set for one navigation would
+// otherwise still be sitting here the next time any *other* navigation happens to land back on
+// that same room - e.g. clicking a post author's name (a plain "go to their profile", which never
+// sets this itself) after some earlier click had opened a specific post in that same room. Callers
+// that navigate to a room with no specific event to focus (SocialHomeView's own viewRoom) must call
+// this first so SocialRoomView's mount-time peek finds nothing left over from an unrelated visit.
+export function clearPendingFocusEvent(): void {
+    pendingFocusEvent = null;
+}

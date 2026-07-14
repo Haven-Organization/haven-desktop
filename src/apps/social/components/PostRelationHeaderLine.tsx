@@ -36,6 +36,16 @@ export interface EmbeddedRelationPreview {
     body?: string;
 }
 
+/** Fallback label for the hover preview when a locally-known original event has no textual body at
+ *  all (see noPreviewTextFallback below) - a plain msgtype, not exhaustive (polls/locations etc.
+ *  have their own M_TEXT.findIn-derived fallback text already, so they never reach this map). */
+const MEDIA_MSGTYPE_LABELS: Record<string, string> = {
+    "m.image": "📷 Photo",
+    "m.video": "🎥 Video",
+    "m.audio": "🎵 Audio",
+    "m.file": "📎 File",
+};
+
 interface Props {
     /** Emoji shown at the front of the line - every header line gets one, not just some. */
     icon: string;
@@ -99,7 +109,7 @@ export function PostRelationHeaderLine({ icon, text, room, eventId, embedded, on
     // when filled out, same as everywhere else Social shows post content (see postBody.ts).
     // embedded?.body needs no equivalent here - it's already resolved, built from
     // SocialEventTile.tsx's own already-resolved repostOfContent/replyCrossPostOfContent.
-    const originalEventContent = originalEvent?.getContent<{ body?: string }>();
+    const originalEventContent = originalEvent?.getContent<{ body?: string; msgtype?: string }>();
     const originalEventText =
         resolvePostBodyString(originalEventContent) || M_TEXT.findIn<string>(originalEventContent ?? {});
     const previewBody = originalEvent
@@ -107,6 +117,15 @@ export function PostRelationHeaderLine({ icon, text, room, eventId, embedded, on
         : embedded?.body
           ? stripReplyFallback(embedded.body.trim())
           : null;
+    // A plain media message (a bridged image/video/etc. with no caption) has nothing textual to show
+    // here, but the event is still genuinely known locally - conflating that with "not in local
+    // timeline" below would be an outright lie when originalEvent is set (the viewer can often see
+    // the very same message rendered right above/below this line). Only fall back to the "not in
+    // local timeline" wording when there's truly no local event at all (relying on embedded's own
+    // snapshot instead, or nothing whatsoever).
+    const noPreviewTextFallback = originalEvent
+        ? (MEDIA_MSGTYPE_LABELS[originalEventContent?.msgtype ?? ""] ?? "(no text)")
+        : "(message not in local timeline)";
 
     // Lazy - only fetched once the preview is actually shown, so a feed full of these lines doesn't
     // fire a profile lookup per line just from being mounted. Prefers the room member's own (already
@@ -157,7 +176,7 @@ export function PostRelationHeaderLine({ icon, text, room, eventId, embedded, on
                         </p>
                     ) : (
                         <p className="social_EventTile_replyPreview_body" style={{ fontStyle: "italic" }}>
-                            (message not in local timeline)
+                            {noPreviewTextFallback}
                         </p>
                     )}
                 </div>
