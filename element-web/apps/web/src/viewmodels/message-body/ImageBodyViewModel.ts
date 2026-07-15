@@ -89,7 +89,17 @@ interface InternalState {
     placeholder: ImageBodyViewPlaceholder;
     imageSize: ImageSize;
     generatedThumbnailUrl: string | null;
+    retryCount: number;
 }
+
+// A remote homeserver's media (e.g. joining a room whose media was posted from a different
+// homeserver than this account's own) can transiently fail its very first fetch if the local
+// server hasn't federated/cached it yet, and succeed moments later - exactly what "leave the room
+// and come back" already fixed by chance, since a fresh mount re-issues the request from scratch
+// with no memory of the earlier failure. Retry that same recovery automatically a few times before
+// falling back to the permanent error state (+ the existing reconnected-listener retry below it).
+const MAX_IMAGE_LOAD_RETRIES = 3;
+const IMAGE_LOAD_RETRY_DELAY_MS = 1500;
 
 type ImageInfoWithAnimationFlag = NonNullable<ImageContent["info"]> & {
     "org.matrix.msc4230.is_animated"?: boolean;
@@ -105,6 +115,7 @@ export class ImageBodyViewModel
 {
     private state: InternalState;
     private blurhashTimeout?: number;
+    private retryTimeout?: number;
 
     private readonly reconnectedListener = createReconnectedListener((): void => {
         MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
@@ -145,7 +156,18 @@ export class ImageBodyViewModel
                 : ImageBodyViewPlaceholder.SPINNER,
             imageSize: SettingsStore.getValue("Images.size") as ImageSize,
             generatedThumbnailUrl: null,
+            retryCount: 0,
         };
+    }
+
+    // Applied to the resolved content/thumbnail URLs once a retry is underway - React (and the
+    // underlying <img> element) won't re-issue a network request for an unchanged src string, so
+    // busting the URL is what actually makes the browser try again rather than just replaying its
+    // memory of the earlier failed fetch.
+    private static withRetryCacheBust(url: string | null, retryCount: number): string | null {
+        if (!url || retryCount === 0) return url;
+        const separator = url.includes("?") ? "&" : "?";
+        return `${url}${separator}haven_retry=${retryCount}`;
     }
 
     private static getImageDimensions(
@@ -196,12 +218,15 @@ export class ImageBodyViewModel
         const content = props.mxEvent.getContent<ImageContent>();
         const dimensions = ImageBodyViewModel.getImageDimensions(props, state);
         const autoplayGifs = SettingsStore.getValue("autoplayGifs") as boolean;
-        const contentUrl = ImageBodyViewModel.getContentUrl(props, state);
+        const contentUrl = ImageBodyViewModel.withRetryCacheBust(
+            ImageBodyViewModel.getContentUrl(props, state),
+            state.retryCount,
+        );
         const thumbnailSrc = props.forExport
             ? (contentUrl ?? undefined)
             : state.isAnimated && autoplayGifs
               ? (contentUrl ?? undefined)
-              : (state.thumbUrl ?? contentUrl ?? undefined);
+              : (ImageBodyViewModel.withRetryCacheBust(state.thumbUrl, state.retryCount) ?? contentUrl ?? undefined);
 
         if (state.error || state.imgError) {
             return {
@@ -264,9 +289,19 @@ export class ImageBodyViewModel
 
     private resetState(mxEvent: MatrixEvent): void {
         this.clearBlurhashTimeout();
+        this.clearRetryTimeout();
         MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
         this.revokeGeneratedThumbnailUrl();
         this.state = ImageBodyViewModel.createInitialState(mxEvent);
+    }
+
+    private clearRetryTimeout(): void {
+        if (!this.retryTimeout) {
+            return;
+        }
+
+        clearTimeout(this.retryTimeout);
+        this.retryTimeout = undefined;
     }
 
     private revokeGeneratedThumbnailUrl(): void {
@@ -531,6 +566,23 @@ export class ImageBodyViewModel
             return;
         }
 
+        if (this.state.retryCount < MAX_IMAGE_LOAD_RETRIES) {
+            const retryCount = this.state.retryCount + 1;
+            this.clearRetryTimeout();
+            this.retryTimeout = window.setTimeout(() => {
+                if (this.isDisposed) {
+                    return;
+                }
+
+                this.state = {
+                    ...this.state,
+                    retryCount,
+                };
+                this.updateSnapshotFromState();
+            }, IMAGE_LOAD_RETRY_DELAY_MS * retryCount);
+            return;
+        }
+
         this.state = {
             ...this.state,
             imgError: true,
@@ -667,6 +719,7 @@ export class ImageBodyViewModel
 
     public dispose(): void {
         this.clearBlurhashTimeout();
+        this.clearRetryTimeout();
         MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
         this.revokeGeneratedThumbnailUrl();
         super.dispose();
