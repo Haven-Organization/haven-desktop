@@ -47,18 +47,29 @@ ELEMENT_WEB_DIR="$ROOT_DIR/element-web"
 # by this revert - update BRANDING_COMMIT (or switch to a range) if that happens.
 BRANDING_COMMIT="e92aa1bd70d07a9e9ffba574bf21ee637d57faaf"
 
-# BRANDING_COMMIT also happens to be the same commit that first wired apps-framework.scss/
-# social-overlay.scss into every theme's own top-level .pcss file (each file's *entire* diff in
-# that commit is just those two @import lines - confirmed via `git show BRANDING_COMMIT -- <path>`
-# for each one below, nothing else). That's an unrelated concern that only rode along because it
-# landed in the same commit as the actual rebrand - reverting "branding" should never mean Social's
-# own CSS silently stops loading (e.g. a profile room's own Settings dialog reaches BannerSetting.tsx
-# regardless of whether the Social app/nav itself is reachable, and it renders completely unstyled -
-# unbounded image, no crop - without this CSS). Excluded from the revert loop below rather than
-# folded into BRANDING_COMMIT^'s content, so an unbranded build still gets Haven's own component
-# styling wherever it's still reachable; only the *visual identity* (logos/icons/backgrounds/copy)
+# BRANDING_COMMIT bundled in a couple of non-branding fixes alongside the actual rebrand, which
+# HAVEN_NO_BRANDING's blanket per-file revert would otherwise silently undo too:
+#
+# - Every theme's own top-level .pcss file: each one's *entire* diff in that commit is just the
+#   two @import lines wiring apps-framework.scss/social-overlay.scss in (confirmed via
+#   `git show BRANDING_COMMIT -- <path>` for each one below, nothing else) - reverting "branding"
+#   should never mean Social's own CSS silently stops loading (e.g. a profile room's own Settings
+#   dialog reaches BannerSetting.tsx regardless of whether the Social app/nav itself is reachable,
+#   and it renders completely unstyled - unbounded image, no crop - without this CSS).
+# - AuthFooter.tsx: the pre-branding version renders "Powered by Matrix" as a hardcoded fixture
+#   *after* the configurable auth_footer_links array, unconditionally, regardless of what that
+#   array is set to - so setting auth_footer_links: [] (its own documented purpose - see this
+#   file's own comment above - "remove them entirely") left that one link behind regardless. The
+#   Haven-patched version folds it into the same array instead, so an explicit [] genuinely means
+#   zero links. Both of glowers' own config files (config_element.json and config_haven.json) set
+#   auth_footer_links explicitly, so the file's own default *branding-text* fallback (Haven's own
+#   GitHub org link vs. stock's Blog/Mastodon/GitHub) is never actually reachable in a real deploy
+#   either way - excluding the whole file costs nothing in practice and fixes the actual bug.
+#
+# Excluded from the revert loop below rather than folded into BRANDING_COMMIT^'s content, so an
+# unbranded build keeps these fixes; only the *visual identity* (logos/icons/backgrounds/copy)
 # actually reverts.
-THEME_IMPORT_FILES=(
+BRANDING_REVERT_EXCLUDE=(
     "element-web/apps/web/res/themes/dark/css/dark.pcss"
     "element-web/apps/web/res/themes/dark-custom/css/dark-custom.pcss"
     "element-web/apps/web/res/themes/legacy-dark/css/legacy-dark.pcss"
@@ -66,6 +77,7 @@ THEME_IMPORT_FILES=(
     "element-web/apps/web/res/themes/light/css/light.pcss"
     "element-web/apps/web/res/themes/light-custom/css/light-custom.pcss"
     "element-web/apps/web/res/themes/light-high-contrast/css/light-high-contrast.pcss"
+    "element-web/apps/web/src/components/views/auth/AuthFooter.tsx"
 )
 
 if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
@@ -78,8 +90,8 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
     # back in between) doesn't fail trying to `git rm` a path that's already gone.
     while IFS=$'\t' read -r status path; do
         skip=0
-        for theme_file in "${THEME_IMPORT_FILES[@]}"; do
-            [ "$path" = "$theme_file" ] && skip=1 && break
+        for excluded_file in "${BRANDING_REVERT_EXCLUDE[@]}"; do
+            [ "$path" = "$excluded_file" ] && skip=1 && break
         done
         [ "$skip" -eq 1 ] && continue
         case "$status" in
