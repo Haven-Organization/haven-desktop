@@ -99,6 +99,24 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
             *) git -C "$ROOT_DIR" checkout "${BRANDING_COMMIT}^" -- "$path" ;;
         esac
     done < <(git -C "$ROOT_DIR" diff --name-status "${BRANDING_COMMIT}^" "$BRANDING_COMMIT")
+
+    # Unlike AuthFooter.tsx/the theme .pcss files above, these two files' branding-relevant content
+    # can't just be excluded wholesale - electron-builder.ts's own DEFAULT_VARIANT genuinely needs to
+    # revert back to "element.io/release/build.json" (the Haven-specific "haven/release/build.json"
+    # it'd otherwise still point at was just removed above, per its own "A" status), and package.sh's
+    # version-naming scheme reverting to plain `git describe` is correct too - showing "haven-v0.2+..."
+    # in a build that's trying to hide Haven's own identity would be self-defeating. But both files
+    # also had a real, non-branding fix land in the same commit, patched back in here rather than
+    # lost: electron-builder.ts's own linux.target dropped AppImage entirely on revert (silently
+    # losing that packaging format for an unbranded desktop build, not just a cosmetic difference),
+    # and package.sh's own staging-directory cleanup (rm -rf before cp -r) prevents a previous
+    # interrupted/killed build's leftover cruft from polluting a new one - unrelated to branding
+    # either way. Both sed patterns below match text that's only ever present in each file's stock
+    # (reverted-to) form, so they're no-ops if this block doesn't run (HAVEN_NO_BRANDING unset).
+    sed -i 's/target: \["tar.gz", "deb"\],/target: ["tar.gz", "deb", "AppImage"],/' \
+        "$ROOT_DIR/element-web/apps/desktop/electron-builder.ts"
+    sed -i 's/cp -r webapp element-\$version/rm -rf element-$version\ncp -r webapp element-$version/' \
+        "$ROOT_DIR/element-web/apps/web/scripts/package.sh"
 fi
 
 if [ -n "${HAVEN_LOGIN_BACKGROUND:-}" ]; then
