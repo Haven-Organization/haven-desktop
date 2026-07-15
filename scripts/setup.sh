@@ -47,15 +47,43 @@ ELEMENT_WEB_DIR="$ROOT_DIR/element-web"
 # by this revert - update BRANDING_COMMIT (or switch to a range) if that happens.
 BRANDING_COMMIT="e92aa1bd70d07a9e9ffba574bf21ee637d57faaf"
 
+# BRANDING_COMMIT also happens to be the same commit that first wired apps-framework.scss/
+# social-overlay.scss into every theme's own top-level .pcss file (each file's *entire* diff in
+# that commit is just those two @import lines - confirmed via `git show BRANDING_COMMIT -- <path>`
+# for each one below, nothing else). That's an unrelated concern that only rode along because it
+# landed in the same commit as the actual rebrand - reverting "branding" should never mean Social's
+# own CSS silently stops loading (e.g. a profile room's own Settings dialog reaches BannerSetting.tsx
+# regardless of whether the Social app/nav itself is reachable, and it renders completely unstyled -
+# unbounded image, no crop - without this CSS). Excluded from the revert loop below rather than
+# folded into BRANDING_COMMIT^'s content, so an unbranded build still gets Haven's own component
+# styling wherever it's still reachable; only the *visual identity* (logos/icons/backgrounds/copy)
+# actually reverts.
+THEME_IMPORT_FILES=(
+    "element-web/apps/web/res/themes/dark/css/dark.pcss"
+    "element-web/apps/web/res/themes/dark-custom/css/dark-custom.pcss"
+    "element-web/apps/web/res/themes/legacy-dark/css/legacy-dark.pcss"
+    "element-web/apps/web/res/themes/legacy-light/css/legacy-light.pcss"
+    "element-web/apps/web/res/themes/light/css/light.pcss"
+    "element-web/apps/web/res/themes/light-custom/css/light-custom.pcss"
+    "element-web/apps/web/res/themes/light-high-contrast/css/light-high-contrast.pcss"
+)
+
 if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
     echo "==> HAVEN_NO_BRANDING set - reverting to stock Element branding"
     # Files the branding commit modified existed before it too, so `git checkout <parent> --
     # <path>` restores their pre-branding content. Files it added (e.g. the Haven-specific desktop
     # build variant) don't exist at <parent> at all, so the same checkout would fail on them -
-    # those instead need removing outright.
+    # those instead need removing outright. [ -e "$path" ] guards that removal so re-running this
+    # against an already-reverted tree (e.g. building twice in a row without switching branding
+    # back in between) doesn't fail trying to `git rm` a path that's already gone.
     while IFS=$'\t' read -r status path; do
+        skip=0
+        for theme_file in "${THEME_IMPORT_FILES[@]}"; do
+            [ "$path" = "$theme_file" ] && skip=1 && break
+        done
+        [ "$skip" -eq 1 ] && continue
         case "$status" in
-            A) git -C "$ROOT_DIR" rm -q -f -- "$path" ;;
+            A) [ -e "$ROOT_DIR/$path" ] && git -C "$ROOT_DIR" rm -q -f -- "$path" ;;
             *) git -C "$ROOT_DIR" checkout "${BRANDING_COMMIT}^" -- "$path" ;;
         esac
     done < <(git -C "$ROOT_DIR" diff --name-status "${BRANDING_COMMIT}^" "$BRANDING_COMMIT")
