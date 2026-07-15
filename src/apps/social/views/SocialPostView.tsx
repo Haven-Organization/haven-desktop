@@ -35,6 +35,7 @@ import { type MatrixEvent, type Room, RelationType, EventType, ThreadEvent } fro
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
 import { SocialEventTile } from "../components/SocialEventTile";
 import { sendLike, undoLike, sendComment, sendPostReadReceipt } from "../utils/social-actions";
+import { processSlashCommand } from "../utils/socialSlashCommands";
 import { getProfileOwnerUserId } from "../utils/room-classifier";
 import { immediateParentId, threadRootId } from "../utils/thread-relations";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
@@ -445,7 +446,25 @@ export function SocialPostView({
     // SocialEventTile's onReply prop, not always the focused post itself.
     const handleReplyTo = useCallback(
         async (parentEventId: string, body: string, file?: File) => {
-            await sendComment(client, room.roomId, body, parentEventId, file);
+            // Same media-skips-slash-commands reasoning as the top-level post composers.
+            if (file) {
+                await sendComment(client, room.roomId, body, parentEventId, file);
+                refresh();
+                return;
+            }
+            const result = await processSlashCommand(client, room.roomId, body);
+            if (!result.handled) {
+                await sendComment(
+                    client,
+                    room.roomId,
+                    result.body,
+                    parentEventId,
+                    undefined,
+                    result.formattedBody,
+                    result.isEmote,
+                );
+            }
+            // handled (ran as a command, or declined/errored) - nothing left to send as a reply.
             refresh();
         },
         [client, room.roomId, refresh],

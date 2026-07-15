@@ -336,6 +336,12 @@ export async function sendPost(
 /**
  * Sends a threaded reply — see currentPostEventType() for which event type.
  * Follows the standard Matrix thread relation (m.thread) and includes m.in_reply_to.
+ *
+ * formattedBody/isEmote mirror sendPost's own params - the caller is expected to run typed text
+ * through processSlashCommand (socialSlashCommands.ts) first, same as every top-level post
+ * composer already does, rather than passing raw composer text straight through. Both are ignored
+ * when file is set, same reasoning as sendPost's own file branch (a media caption doesn't carry
+ * rich HTML formatting).
  */
 export async function sendComment(
     client: MatrixClient,
@@ -343,6 +349,8 @@ export async function sendComment(
     body: string,
     parentEventId: string,
     file?: File,
+    formattedBody?: string,
+    isEmote?: boolean,
 ): Promise<void> {
     // Ensure a Thread object exists for the post being replied to *before* sending. Stock Element
     // always has one by this point (opening the thread panel creates it), but Social's reply flow
@@ -358,9 +366,12 @@ export async function sendComment(
         room.createThread(parentEventId, room.findEventById(parentEventId), [], false);
     }
 
+    const msgtype = isEmote ? "m.emote" : "m.text";
     const content: Record<string, unknown> = file
         ? await buildMediaMessageContent(client, roomId, file, body)
-        : { body, msgtype: "m.text" };
+        : formattedBody
+          ? { body, msgtype, format: "org.matrix.custom.html", formatted_body: formattedBody }
+          : { body, msgtype };
     content["m.relates_to"] = {
         rel_type: "m.thread",
         event_id: parentEventId,
@@ -376,7 +387,7 @@ export async function sendComment(
     // reply to your profile" — never blocks or fails the real in-thread reply above, which has
     // already sent successfully by this point regardless of what happens here.
     try {
-        await crossPostReply(client, roomId, parentEventId, body);
+        await crossPostReply(client, roomId, parentEventId, body, file ? undefined : formattedBody);
     } catch (err: unknown) {
         // eslint-disable-next-line no-console
         console.error("crossPostReply failed (feed visibility only - the real reply already sent)", err);
@@ -391,6 +402,7 @@ async function crossPostReply(
     roomId: string,
     parentEventId: string,
     body: string,
+    formattedBody?: string,
 ): Promise<void> {
     const myUserId = client.getSafeUserId();
     const profileRoomId = await getProfileRoomLink(client, myUserId);
@@ -406,7 +418,7 @@ async function crossPostReply(
         ...(parentEvent.sender?.name ? { displayname: parentEvent.sender.name } : {}),
         content: parentEvent.getContent(),
     };
-    await crossPostReplyToProfile(client, profileRoomId, body, repliedTo);
+    await crossPostReplyToProfile(client, profileRoomId, body, repliedTo, formattedBody);
 }
 
 /**
@@ -493,11 +505,14 @@ export async function crossPostReplyToProfile(
     profileRoomId: string,
     body: string,
     repliedTo: RepostContent,
+    formattedBody?: string,
 ): Promise<void> {
     await client.sendEvent(profileRoomId, currentPostEventType() as any, {
         body,
         msgtype: "m.text",
-        format: "plain",
+        ...(formattedBody
+            ? { format: "org.matrix.custom.html", formatted_body: formattedBody }
+            : { format: "plain" }),
         [MSC4501_RELATES_TO_KEY]: {
             rel_type: MSC4501_REL_TYPE_REPLY,
             event_id: repliedTo.event_id,

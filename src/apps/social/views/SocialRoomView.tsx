@@ -568,7 +568,16 @@ export function SocialRoomView({
 
     const handleReply = useCallback(
         async (eventId: string, body: string, file?: File): Promise<void> => {
-            await sendComment(client, room.roomId, body, eventId, file);
+            // Same media-skips-slash-commands reasoning as handlePost above.
+            if (file) {
+                await sendComment(client, room.roomId, body, eventId, file);
+                return;
+            }
+            const result = await processSlashCommand(client, room.roomId, body);
+            if (!result.handled) {
+                await sendComment(client, room.roomId, result.body, eventId, undefined, result.formattedBody, result.isEmote);
+            }
+            // handled (ran as a command, or declined/errored) - nothing left to send as a reply.
         },
         [client, room.roomId],
     );

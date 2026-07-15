@@ -1280,7 +1280,16 @@ function FeedPane({
 
     const handleReply = useCallback(
         async (roomId: string, eventId: string, body: string, file?: File): Promise<void> => {
-            await sendComment(client, roomId, body, eventId, file);
+            // Same media-skips-slash-commands reasoning as handleFeedPost above.
+            if (file) {
+                await sendComment(client, roomId, body, eventId, file);
+                return;
+            }
+            const result = await processSlashCommand(client, roomId, body);
+            if (!result.handled) {
+                await sendComment(client, roomId, result.body, eventId, undefined, result.formattedBody, result.isEmote);
+            }
+            // handled (ran as a command, or declined/errored) - nothing left to send as a reply.
         },
         [client],
     );
