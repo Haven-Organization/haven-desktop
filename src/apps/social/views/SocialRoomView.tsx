@@ -47,6 +47,10 @@ import { Text } from "@vector-im/compound-web";
 import { LinkedText } from "@element-hq/web-shared-components";
 import CopyableText from "../../../../element-web/apps/web/src/components/views/elements/CopyableText";
 import { PostComposerButtons } from "../components/PostComposerButtons";
+import { AttachmentShelf } from "../components/AttachmentShelf";
+import { PostDialog } from "../components/PostDialog";
+import { usePendingAttachment } from "../utils/postAttachment";
+import { handleComposerPaste } from "../utils/pasteFile";
 import { SocialEventTile } from "../components/SocialEventTile";
 import { ProfileImageEditButton } from "../components/ProfileImageEditButton";
 import { ExternalHandleBadge } from "../components/ExternalHandleBadge";
@@ -84,7 +88,6 @@ import {
     updateRoomAvatar,
     updateRoomBanner,
     removeRoomBanner,
-    type PostFileAttachment,
 } from "../utils/social-actions";
 import { processSlashCommand } from "../utils/socialSlashCommands";
 import { peekPendingFocusEvent } from "../utils/pendingFocusEvent";
@@ -236,6 +239,7 @@ export function SocialRoomView({
     // actually succeeding and the reactive membership update landing.
     const [justSentKnock, setJustSentKnock] = useState(false);
     const [postBody, setPostBody] = useState("");
+    const { attachment: pendingAttachment, setFile: setPendingFile, clear: clearAttachment } = usePendingAttachment();
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
     const [threadEvent, setThreadEvent] = useState<MatrixEvent | null>(null);
     // Same closeThreadToken pattern as FeedPane's own identical effect in SocialHomeView.tsx (see
@@ -524,9 +528,18 @@ export function SocialRoomView({
         async (e?: React.SyntheticEvent) => {
             e?.preventDefault();
             const body = postBody.trim();
-            if (!body) return;
+            if (!body && !pendingAttachment) return;
             setBusy(true);
             try {
+                // A slash command is a text-only utility (e.g. ;follow) - doesn't make sense
+                // combined with a media post, so an attachment always skips it and sends as a
+                // plain (possibly caption-less) media post instead.
+                if (pendingAttachment) {
+                    await sendPost(client, room.roomId, body, undefined, pendingAttachment.file);
+                    setPostBody("");
+                    clearAttachment();
+                    return;
+                }
                 const result = await processSlashCommand(client, room.roomId, body);
                 if (!result.handled) {
                     await sendPost(client, room.roomId, result.body, result.formattedBody, undefined, result.isEmote);
@@ -539,7 +552,7 @@ export function SocialRoomView({
                 setBusy(false);
             }
         },
-        [client, room.roomId, postBody],
+        [client, room.roomId, postBody, pendingAttachment, clearAttachment],
     );
 
     const handleLike = useCallback(
@@ -554,7 +567,7 @@ export function SocialRoomView({
     );
 
     const handleReply = useCallback(
-        async (eventId: string, body: string, file?: PostFileAttachment): Promise<void> => {
+        async (eventId: string, body: string, file?: File): Promise<void> => {
             await sendComment(client, room.roomId, body, eventId, file);
         },
         [client, room.roomId],
@@ -616,6 +629,27 @@ export function SocialRoomView({
         const behavior = el.scrollTop > SCROLL_TO_TOP_INSTANT_THRESHOLD ? "auto" : "smooth";
         el.scrollTo({ top: 0, behavior });
     }, [scrollContainerRef]);
+
+    // Same fallback as FeedPane's own identical pair in SocialHomeView.tsx (see its doc) - a file
+    // picked/pasted/dropped while this composer is scrolled out of view pops up the sidebar's own
+    // Post modal, staged with the file and targeting this room directly (no "Post to:" picker here
+    // to preserve - this composer only ever posts into `room`).
+    const openScrolledAwayPostModal = useCallback(
+        (file: File) => {
+            Modal.createDialog(PostDialog, { client, initialRoomId: room.roomId, initialFile: file }, "social_PostDialog_wrapper");
+        },
+        [client, room],
+    );
+    const handleRoomFileSelected = useCallback(
+        (file: File) => {
+            if (composerVisible) {
+                setPendingFile(file);
+            } else {
+                openScrolledAwayPostModal(file);
+            }
+        },
+        [composerVisible, setPendingFile, openScrolledAwayPostModal],
+    );
 
     // Thread view: show SocialPostView when threadEvent is set
     if (threadEvent) {
@@ -852,6 +886,7 @@ export function SocialRoomView({
                             onSelect={(e) => updateSelectionFrom(e.currentTarget)}
                             onClick={(e) => updateSelectionFrom(e.currentTarget)}
                             onKeyUp={(e) => updateSelectionFrom(e.currentTarget)}
+                            onPaste={handleComposerPaste}
                             onKeyDown={(e) => {
                                 if (autocompleteControlRef.current?.hasCompletions()) {
                                     if (e.key === "ArrowUp") {
@@ -885,6 +920,9 @@ export function SocialRoomView({
                             rows={3}
                         />
                     </div>
+                    {pendingAttachment && (
+                        <AttachmentShelf attachment={pendingAttachment} uploading={busy} onRemove={clearAttachment} />
+                    )}
                     <div className="social_ComposeBox_recorderSlot" ref={setRecorderSlot} />
                     <div className="social_ComposeBox_footer">
                         {!busy && (
@@ -894,10 +932,11 @@ export function SocialRoomView({
                                     setPostBody((body) => body + emoji);
                                     return true;
                                 }}
-                                canSubmit={!!postBody.trim()}
+                                canSubmit={!!postBody.trim() || !!pendingAttachment}
                                 onSubmit={() => void handlePost()}
                                 sendButtonTitle="Post"
                                 recorderSlot={recorderSlot}
+                                onFileSelected={handleRoomFileSelected}
                             />
                         )}
                     </div>

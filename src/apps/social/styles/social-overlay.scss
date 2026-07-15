@@ -21,6 +21,30 @@
     overflow: hidden;
 }
 
+// Window-level drag-and-drop feedback (useWindowFileDrop.ts, rendered from SocialHomeView.tsx) -
+// covers the whole layout (sidebar included) rather than just the content pane, since the drop
+// itself is handled at the window level too, not scoped to any one element.
+.social_DropOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px dashed $accent;
+    pointer-events: none;
+}
+
+.social_DropOverlay_label {
+    padding: var(--cpd-space-4x) var(--cpd-space-6x);
+    border-radius: 12px;
+    background: $background;
+    color: $primary-content;
+    font: var(--cpd-font-body-lg-semibold);
+    box-shadow: 0px 16px 32px rgba(0, 0, 0, 0.3);
+}
+
 // Wraps .social_Sidebar via re-resizable (see SocialHomeView.tsx) — width is controlled by the
 // wrapper's own size prop now, not a fixed value on .social_Sidebar itself. Hover-reveal grip pill
 // mirrors stock's own resize handles exactly (same technique as .mx_MainSplit's right panel and
@@ -1276,6 +1300,92 @@
                 border-radius: 10px;
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Attachment shelf (AttachmentShelf.tsx) — the staged-file tile shown between a composer's
+// textbox and its footer once a file has been picked/pasted/dropped but not sent yet.
+// ---------------------------------------------------------------------------
+
+.social_AttachmentShelf {
+    display: flex;
+    padding: var(--cpd-space-3x) var(--cpd-space-4x) var(--cpd-space-2x);
+}
+
+.social_AttachmentShelf_tile {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: $system;
+    border: 1px solid $quinary-content;
+    flex-shrink: 0;
+}
+
+.social_AttachmentShelf_preview {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.social_AttachmentShelf_filePreview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--cpd-space-1x);
+    width: 100%;
+    height: 100%;
+    padding: var(--cpd-space-2x);
+    box-sizing: border-box;
+}
+
+.social_AttachmentShelf_fileIcon {
+    width: 24px;
+    height: 24px;
+    color: $secondary-content;
+}
+
+.social_AttachmentShelf_fileName {
+    max-width: 100%;
+    font: var(--cpd-font-body-xs-regular);
+    color: $secondary-content;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.social_AttachmentShelf_uploadingOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.social_AttachmentShelf_remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: white;
+    cursor: pointer;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.85);
     }
 }
 

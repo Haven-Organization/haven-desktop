@@ -57,13 +57,18 @@ export class RoomUploadViewModel
     implements UploadButtonViewActions
 {
     private readonly uploadSelectFns = new Map<string, ComposerApiFileUploadOption["onSelected"]>();
+    // haven apps-framework patch: room/client/timelineRenderingType/replyToEvent/threadRelation
+    // widened from private to protected so a subclass can read them - Social's own
+    // SocialRoomUploadViewModel (src/apps/social/utils/SocialRoomUploadViewModel.ts) needs them to
+    // call ContentMessages directly itself for its own multi-file "stock upload flow" fallback,
+    // while overriding the single-file case to populate its own attachment shelf instead.
     public constructor(
-        private readonly room: Room,
-        private readonly client: MatrixClient,
-        private readonly timelineRenderingType: TimelineRenderingType,
+        protected readonly room: Room,
+        protected readonly client: MatrixClient,
+        protected readonly timelineRenderingType: TimelineRenderingType,
         private readonly dispatcher: MatrixDispatcher,
-        private replyToEvent: MatrixEvent | undefined,
-        private threadRelation: IEventRelation | undefined,
+        protected replyToEvent: MatrixEvent | undefined,
+        protected threadRelation: IEventRelation | undefined,
         public readonly openUploadDialog: () => void,
         private readonly moduleComposerApi = ModuleApi.instance.composer,
     ) {
@@ -202,7 +207,10 @@ export class RoomUploadViewModel
         );
     };
 
-    private checkCanUpload(): boolean {
+    // haven apps-framework patch: widened from private to protected, same reason as the
+    // constructor params above - SocialRoomUploadViewModel's own initiateViaInputFiles/
+    // initiateViaDataTransfer overrides still need this same guest-account guard.
+    protected checkCanUpload(): boolean {
         if (this.client.isGuest()) {
             this.dispatcher.dispatch({ action: "require_registration" });
             return false;
@@ -221,12 +229,27 @@ export function useRoomUploadViewModel(): RoomUploadViewModel {
     return ctx;
 }
 
+// haven apps-framework patch: lets a caller supply a RoomUploadViewModel subclass instead of the
+// stock one, without duplicating this provider's own hidden-input/dispatcher/effect wiring below.
+// Defaults to the stock constructor call, so every existing (non-Social) usage is unaffected.
+export type RoomUploadViewModelFactory = (
+    room: Room,
+    client: MatrixClient,
+    timelineRenderingType: TimelineRenderingType,
+    dispatcher: MatrixDispatcher,
+    replyToEvent: MatrixEvent | undefined,
+    threadRelation: IEventRelation | undefined,
+    openUploadDialog: () => void,
+) => RoomUploadViewModel;
+
 export function RoomUploadContextProvider({
     children,
     threadRelation,
+    createViewModel = (...args) => new RoomUploadViewModel(...args),
 }: {
     children: ReactNode;
     threadRelation?: IEventRelation;
+    createViewModel?: RoomUploadViewModelFactory;
 }): ReactNode {
     const { room, timelineRenderingType, replyToEvent } = useScopedRoomContext(
         "room",
@@ -247,7 +270,7 @@ export function RoomUploadContextProvider({
         if (!room) {
             throw new Error("RoomUploadContextProvider must have a room");
         }
-        return new RoomUploadViewModel(
+        return createViewModel(
             room,
             client,
             // Checked earlier

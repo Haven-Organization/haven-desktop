@@ -10,6 +10,12 @@ import { type MatrixClient, JoinRule, KnownMembership, Method, ReceiptType } fro
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import SettingsStore from "../../../../element-web/apps/web/src/settings/SettingsStore";
 import {
+    uploadFile,
+    infoForImageFile,
+    infoForAudioFile,
+    infoForVideoFile,
+} from "../../../../element-web/apps/web/src/ContentMessages";
+import {
     MSC4501_EVENT_POST,
     MSC4501_PROFILE_ROOM_KEY,
     MSC4501_RELATES_TO_KEY,
@@ -243,28 +249,59 @@ export async function sendPostReadReceipt(client: MatrixClient, roomId: string, 
 // Posting
 // ---------------------------------------------------------------------------
 
-export interface PostFileAttachment {
-    url: string;
-    name: string;
-    size: number;
-    mimetype: string;
-}
-
 /**
- * Uploads a file using the Matrix content repository and returns the attachment
- * metadata for inclusion in a post event.
+ * Uploads `file` and builds a standard media message content object (msgtype m.image/m.video/
+ * m.audio/m.file, chosen by the file's own mime type) - the same shape a stock Element upload
+ * sends, not a Social-only field other clients/bridges can't render. `caption` becomes `body`
+ * (falling back to the real filename when empty, matching stock's own captionless-upload
+ * convention) - `filename` is always set explicitly alongside it, since `body` holding a caption
+ * instead of the real name is exactly the case `filename` exists to cover.
+ *
+ * Reuses `infoForImageFile`/`infoForAudioFile`/`infoForVideoFile` (exported from stock
+ * ContentMessages.ts - see the "haven apps-framework patch" comments there) for thumbnail/
+ * blurhash/duration generation and `uploadFile` for the actual upload, so attachments sent this
+ * way get identical treatment (including E2EE for encrypted rooms) to the stock Upload button -
+ * this function is really just `ContentMessages.sendContentToRoom`'s own content-building body,
+ * called directly instead of through the immediate-send pipeline, since Social defers the actual
+ * upload until the whole post (caption + attachment) is sent together as one call.
  */
-export async function uploadPostFile(
+export async function buildMediaMessageContent(
     client: MatrixClient,
+    roomId: string,
     file: File,
-): Promise<PostFileAttachment> {
-    const { content_uri: url } = await client.uploadContent(file);
-    return {
-        url,
-        name: file.name,
-        size: file.size,
-        mimetype: file.type || "application/octet-stream",
+    caption: string,
+): Promise<Record<string, unknown>> {
+    const filename = file.name || "attachment";
+    const info: Record<string, unknown> = { size: file.size };
+    if (file.type) info.mimetype = file.type;
+    const content: Record<string, unknown> = {
+        body: caption.trim() || filename,
+        filename,
+        msgtype: "m.file",
+        info,
     };
+
+    try {
+        if (file.type.startsWith("image/")) {
+            content.msgtype = "m.image";
+            Object.assign(info, await infoForImageFile(client, roomId, file));
+        } else if (file.type.startsWith("audio/")) {
+            content.msgtype = "m.audio";
+            Object.assign(info, await infoForAudioFile(file));
+        } else if (file.type.startsWith("video/")) {
+            content.msgtype = "m.video";
+            Object.assign(info, await infoForVideoFile(client, roomId, file));
+        }
+    } catch {
+        // Thumbnailing/metadata read failed - fall back to a plain file attachment rather than
+        // aborting the whole post, same graceful degrade stock's own sendContentToRoom uses.
+        content.msgtype = "m.file";
+    }
+
+    const result = await uploadFile(client, roomId, file);
+    if (result.file) content.file = result.file;
+    if (result.url) content.url = result.url;
+    return content;
 }
 
 /**
@@ -284,14 +321,15 @@ export async function sendPost(
     roomId: string,
     body: string,
     formattedBody?: string,
-    file?: PostFileAttachment,
+    file?: File,
     isEmote?: boolean,
 ): Promise<void> {
     const msgtype = isEmote ? "m.emote" : "m.text";
-    const content: Record<string, unknown> = formattedBody
-        ? { body, msgtype, format: "org.matrix.custom.html", formatted_body: formattedBody }
-        : { body, msgtype, format: "plain" };
-    if (file) content.file = file;
+    const content: Record<string, unknown> = file
+        ? await buildMediaMessageContent(client, roomId, file, body)
+        : formattedBody
+          ? { body, msgtype, format: "org.matrix.custom.html", formatted_body: formattedBody }
+          : { body, msgtype, format: "plain" };
     await client.sendEvent(roomId, currentPostEventType() as any, content);
 }
 
@@ -304,7 +342,7 @@ export async function sendComment(
     roomId: string,
     body: string,
     parentEventId: string,
-    file?: PostFileAttachment,
+    file?: File,
 ): Promise<void> {
     // Ensure a Thread object exists for the post being replied to *before* sending. Stock Element
     // always has one by this point (opening the thread panel creates it), but Social's reply flow
@@ -320,19 +358,17 @@ export async function sendComment(
         room.createThread(parentEventId, room.findEventById(parentEventId), [], false);
     }
 
-    const content: Record<string, unknown> = {
-        body,
-        msgtype: "m.text",
-        "m.relates_to": {
-            rel_type: "m.thread",
+    const content: Record<string, unknown> = file
+        ? await buildMediaMessageContent(client, roomId, file, body)
+        : { body, msgtype: "m.text" };
+    content["m.relates_to"] = {
+        rel_type: "m.thread",
+        event_id: parentEventId,
+        is_falling_back: false,
+        "m.in_reply_to": {
             event_id: parentEventId,
-            is_falling_back: false,
-            "m.in_reply_to": {
-                event_id: parentEventId,
-            },
         },
     };
-    if (file) content.file = file;
     await client.sendEvent(roomId, currentPostEventType() as any, content);
     void sendPostReadReceipt(client, roomId, parentEventId);
 
@@ -408,20 +444,20 @@ export async function sendRepost(
     targetRoomId: string,
     body: string,
     reposted: RepostContent,
+    file?: File,
 ): Promise<void> {
-    await client.sendEvent(targetRoomId, currentPostEventType() as any, {
-        body,
-        msgtype: "m.text",
-        format: "plain",
-        [MSC4501_RELATES_TO_KEY]: {
-            rel_type: MSC4501_REL_TYPE_REPOST,
-            event_id: reposted.event_id,
-            room_id: reposted.room_id,
-            sender: reposted.sender,
-            ...(reposted.displayname ? { displayname: reposted.displayname } : {}),
-            content: reposted.content,
-        },
-    });
+    const content: Record<string, unknown> = file
+        ? await buildMediaMessageContent(client, targetRoomId, file, body)
+        : { body, msgtype: "m.text", format: "plain" };
+    content[MSC4501_RELATES_TO_KEY] = {
+        rel_type: MSC4501_REL_TYPE_REPOST,
+        event_id: reposted.event_id,
+        room_id: reposted.room_id,
+        sender: reposted.sender,
+        ...(reposted.displayname ? { displayname: reposted.displayname } : {}),
+        content: reposted.content,
+    };
+    await client.sendEvent(targetRoomId, currentPostEventType() as any, content);
     void sendPostReadReceipt(client, reposted.room_id, reposted.event_id);
 
     try {

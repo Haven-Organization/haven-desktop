@@ -17,9 +17,11 @@ import { type MatrixEvent, type MatrixClient, type Room } from "matrix-js-sdk/sr
 
 import BaseDialog from "../../../../element-web/apps/web/src/components/views/dialogs/BaseDialog";
 import MatrixClientContext from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
+import { usePendingAttachment } from "../utils/postAttachment";
+import { handleComposerPaste } from "../utils/pasteFile";
 import { PostComposerButtons } from "./PostComposerButtons";
 import { RepostPreview } from "./RepostPreview";
-import { type PostFileAttachment } from "../utils/social-actions";
+import { AttachmentShelf } from "./AttachmentShelf";
 
 interface Props {
     client: MatrixClient;
@@ -28,7 +30,7 @@ interface Props {
     room: Room;
     /** The post being replied to, shown in a preview above the compose box. */
     replyTargetEvent: MatrixEvent;
-    onReply: (body: string, file?: PostFileAttachment) => Promise<void>;
+    onReply: (body: string, file?: File) => Promise<void>;
     onFinished: (sent?: boolean) => void;
 }
 
@@ -43,20 +45,21 @@ export function ReplyComposerDialog({
     const [body, setBody] = useState("");
     const [busy, setBusy] = useState(false);
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
+    const { attachment, setFile, clear: clearAttachment } = usePendingAttachment();
 
     const handleSubmit = useCallback(
         async (e?: React.SyntheticEvent): Promise<void> => {
             e?.preventDefault();
-            if (!body.trim()) return;
+            if (!body.trim() && !attachment) return;
             setBusy(true);
             try {
-                await onReply(body.trim());
+                await onReply(body.trim(), attachment?.file);
                 onFinished(true);
             } finally {
                 setBusy(false);
             }
         },
-        [body, onReply, onFinished],
+        [body, attachment, onReply, onFinished],
     );
 
     return (
@@ -74,6 +77,7 @@ export function ReplyComposerDialog({
                         placeholder="Write a reply…"
                         value={body}
                         onChange={(e) => setBody(e.target.value)}
+                        onPaste={handleComposerPaste}
                         onKeyDown={(e) => {
                             if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                                 e.preventDefault();
@@ -84,6 +88,9 @@ export function ReplyComposerDialog({
                         rows={4}
                         autoFocus
                     />
+                    {attachment && (
+                        <AttachmentShelf attachment={attachment} uploading={busy} onRemove={clearAttachment} />
+                    )}
                     <div className="social_ComposeBox_recorderSlot" ref={setRecorderSlot} />
                     <div className="social_ReplyDialog_actions">
                         {!busy && (
@@ -93,10 +100,11 @@ export function ReplyComposerDialog({
                                     setBody((b) => b + emoji);
                                     return true;
                                 }}
-                                canSubmit={!!body.trim()}
+                                canSubmit={!!body.trim() || !!attachment}
                                 onSubmit={() => void handleSubmit()}
                                 sendButtonTitle="Reply"
                                 recorderSlot={recorderSlot}
+                                onFileSelected={setFile}
                             />
                         )}
                     </div>

@@ -18,12 +18,17 @@ interface Props {
     /** Prefills the composer body - used by the "#/social?post=1&body=..." deep link (see
      *  pendingPostModal.ts). */
     initialBody?: string;
+    /** Preselects the "Post to:" room and/or stages a file into the shelf - used when this dialog
+     *  is opened as the scrolled-away fallback for an inline composer (see
+     *  openScrolledAwayPostModal in SocialHomeView.tsx/SocialRoomView.tsx). */
+    initialRoomId?: string;
+    initialFile?: File;
 }
 
-export function PostDialog({ client, onFinished, initialBody }: Props): JSX.Element {
+export function PostDialog({ client, onFinished, initialBody, initialRoomId, initialFile }: Props): JSX.Element {
     const handleSubmit = useCallback(
-        async (body: string, targetRoomId: string): Promise<void> => {
-            await sendPost(client, targetRoomId, body);
+        async (body: string, targetRoomId: string, file?: File): Promise<void> => {
+            await sendPost(client, targetRoomId, body, undefined, file);
         },
         [client],
     );
@@ -35,6 +40,8 @@ export function PostDialog({ client, onFinished, initialBody }: Props): JSX.Elem
             placeholder="What's on your mind?"
             sendButtonTitle="Post"
             initialBody={initialBody}
+            initialRoomId={initialRoomId}
+            initialFile={initialFile}
             onSubmit={handleSubmit}
             onFinished={onFinished}
         />

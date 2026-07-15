@@ -61,15 +61,10 @@ import {
     MSC4501_FORMATTED_BODY_KEY,
 } from "../utils/room-classifier";
 import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
-import { type PostFileAttachment, type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
+import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
-import {
-    useLiveUserProfile,
-    extractExternalHandle,
-    EXTERNAL_HANDLE_STABLE_KEY,
-    EXTERNAL_HANDLE_UNSTABLE_KEY,
-} from "../utils/liveUserProfile";
+import { useLiveUserProfile } from "../utils/liveUserProfile";
 import { ExternalHandleIcon } from "./ExternalHandleIcon";
 import { stripReplyFallback } from "../utils/reply-fallback";
 import {
@@ -105,7 +100,7 @@ interface Props {
      *  same distinction stock Element draws between clicking a name vs. an avatar. */
     onOpenUserPanel?: (userId: string, room: Room) => void;
     onLike?: () => Promise<void>;
-    onReply?: (body: string, file?: PostFileAttachment) => Promise<void>;
+    onReply?: (body: string, file?: File) => Promise<void>;
     /** Navigates to the Social app's own Profile tab — used by the Boost button's "you don't have
      *  a profile room yet" warning. */
     onNavigateToProfile?: () => void;
@@ -1005,11 +1000,6 @@ export function SocialEventTile({
     // regardless of whether a rich social.body caption also exists - see rawBody's own comment).
     const body = resolvePostBodyString(content);
     const rawBody = content.body ?? "";
-    // MSC4503 external handle (e.g. a Fediverse handle linked via a bridge) on this post's own
-    // content - shown as a small icon next to the sender name (see ExternalHandleIcon), distinct
-    // from liveUserProfile's own fetchUserProfile, which reads a *user's* profile info rather than
-    // a specific post's own content.
-    const externalHandle = extractExternalHandle(content);
 
     // m.in_reply_to — detect and strip the Matrix fallback quote from the body. Read off the wire
     // content, not the (possibly edit-substituted) `content` above - an edit's m.new_content never
@@ -1041,27 +1031,23 @@ export function SocialEventTile({
     // genuine MSC caption apart from content_inline's usual backwards-compat filler.
     //
     // content_inline reuses this whole event's own `content` as the embedded snapshot - but that
-    // object also carries fields that describe *this* wrapper event itself, not the post being
-    // reposted/replied to: its own relates_to (the repost/reply relation), and its own MSC4503
-    // external_handle (the reposter/replier's linked Fediverse identity, not the original author's).
-    // Left in, relates_to makes the embedded snapshot look like it's itself a repost/reply of
-    // whatever it points at - most visibly when this snapshot ends up standing in for the real
-    // target post (repostedMockEvent below, used as resolveAndOpenPost's fallback while a
-    // knock-restricted room hasn't finished syncing yet): the fallback gets rendered as a full post
-    // via SocialEventTile, which then misreads the leftover relates_to as a genuine self-repost that
-    // never happened. external_handle has the analogous problem for ExternalHandleIcon further down
-    // - showing the *reposter's* Fediverse handle as if it belonged to the original post's author.
-    // Both stripped here, once, rather than at every downstream consumer.
+    // object also carries a field that describes *this* wrapper event itself, not the post being
+    // reposted/replied to: its own relates_to (the repost/reply relation). Left in, it makes the
+    // embedded snapshot look like it's itself a repost/reply of whatever it points at - most
+    // visibly when this snapshot ends up standing in for the real target post (repostedMockEvent
+    // below, used as resolveAndOpenPost's fallback while a knock-restricted room hasn't finished
+    // syncing yet): the fallback gets rendered as a full post via SocialEventTile, which then
+    // misreads the leftover relates_to as a genuine self-repost that never happened. Stripped here,
+    // once, rather than at every downstream consumer.
+    //
+    // MSC4503 external_handle used to need the same treatment (a reposter/replier's own linked
+    // Fediverse identity leaking onto the embedded original's ExternalHandleIcon) - no longer
+    // relevant now that the icon is sourced from a live profile lookup keyed off the correct
+    // sender (repostOf.sender/replyCrossPostOf.sender) rather than off this content object at all,
+    // see repostedSenderProfile/replyCrossPostSenderProfile below.
     const withoutWrapperOnlyFields = <T extends Record<string, any> | undefined>(c: T): T => {
-        if (!c) return c;
-        if (!(MSC4501_RELATES_TO_KEY in c) && !(EXTERNAL_HANDLE_STABLE_KEY in c) && !(EXTERNAL_HANDLE_UNSTABLE_KEY in c))
-            return c;
-        const {
-            [MSC4501_RELATES_TO_KEY]: _relatesTo,
-            [EXTERNAL_HANDLE_STABLE_KEY]: _stableHandle,
-            [EXTERNAL_HANDLE_UNSTABLE_KEY]: _unstableHandle,
-            ...rest
-        } = c;
+        if (!c || !(MSC4501_RELATES_TO_KEY in c)) return c;
+        const { [MSC4501_RELATES_TO_KEY]: _relatesTo, ...rest } = c;
         return rest as T;
     };
     const repostOfSourceContent = repostOf?.content_inline ? withoutWrapperOnlyFields(content) : repostOf?.content;
@@ -1132,6 +1118,9 @@ export function SocialEventTile({
     // addition to) trusting repost_of's own embedded snapshot — see project memory for why avatar
     // has no embedded fallback at all, while displayname prefers live but still falls back.
     const repostedSenderProfile = useLiveUserProfile(client, repostOf?.sender);
+    // Same live lookup for a cross-posted reply's own original author - used below for its own
+    // ExternalHandleIcon, same reasoning as repostedSenderProfile's.
+    const replyCrossPostSenderProfile = useLiveUserProfile(client, replyCrossPostOf?.sender);
 
     // Fallback for the post's own sender. Two distinct gaps this covers, not just one:
     // (1) room membership (event.sender) can be null even once membersLoaded() is confirmed true —
@@ -1548,7 +1537,7 @@ export function SocialEventTile({
                     >
                         {senderDisplayName}
                     </button>
-                    <ExternalHandleIcon externalHandle={externalHandle} />
+                    <ExternalHandleIcon externalHandle={liveSenderProfile?.externalHandle} />
                 </div>
                 {isEdited && (
                     <button
@@ -1749,7 +1738,7 @@ export function SocialEventTile({
                             <span className="social_EventTile_repostCard_sender">
                                 {repostedSenderProfile?.displayName || repostOf.displayname || repostOf.sender}
                             </span>
-                            <ExternalHandleIcon externalHandle={extractExternalHandle(repostOfSourceContent ?? {})} />
+                            <ExternalHandleIcon externalHandle={repostedSenderProfile?.externalHandle} />
                         </div>
                         {/* For a MEDIA post (repostedFileUrl below), content_inline's body is
                             usually the *outer* boost event's own MSC4501 backwards-compat fallback
@@ -1844,9 +1833,7 @@ export function SocialEventTile({
                             <span className="social_EventTile_repostCard_sender">
                                 {replyCrossPostOf.displayname || replyCrossPostOf.sender}
                             </span>
-                            <ExternalHandleIcon
-                                externalHandle={extractExternalHandle(replyCrossPostOfSourceContent ?? {})}
-                            />
+                            <ExternalHandleIcon externalHandle={replyCrossPostSenderProfile?.externalHandle} />
                         </div>
                         {/* Same media-vs-text content_inline reasoning as the repost card above -
                             only hide this body when there's real media (quotedFileUrl) to show

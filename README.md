@@ -26,11 +26,11 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 - Create groups to post together in one place
 
 ## Improvements to Element 
-- Add banners to rooms that display in the top bar and the right panel
+- [Room banners](https://github.com/matrix-org/matrix-spec-proposals/pull/4221) that display in the top bar and the right panel
 - You can finally [disable the spaces bar 🎉](https://github.com/element-hq/element-web/issues/18898)
 - [Freeform text reactions](https://github.com/element-hq/element-web/issues/19409)
 - You can set a [custom notification sound](https://github.com/element-hq/element-web/issues/9687) globally instead of just per-room
-- Fixed a crash that could happen on startup under certain load orders.
+- Speed up alt+(up|down) room navigation by not loading each room as you navigate.
 - Fixed room list tooltips and avatars unnecessarily doing extra work for rows that are off
   screen, which was slowing down large room lists.
 

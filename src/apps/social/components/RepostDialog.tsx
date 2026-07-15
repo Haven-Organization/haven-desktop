@@ -22,7 +22,7 @@ interface Props {
 
 export function RepostDialog({ client, repostedEvent, repostedRoom, onFinished }: Props): JSX.Element {
     const handleSubmit = useCallback(
-        async (body: string, targetRoomId: string): Promise<void> => {
+        async (body: string, targetRoomId: string, file?: File): Promise<void> => {
             const displayname = repostedEvent.sender?.name;
             const reposted: RepostContent = {
                 event_id: repostedEvent.getId() ?? "",
@@ -31,7 +31,7 @@ export function RepostDialog({ client, repostedEvent, repostedRoom, onFinished }
                 ...(displayname ? { displayname } : {}),
                 content: repostedEvent.getContent(),
             };
-            await sendRepost(client, targetRoomId, body, reposted);
+            await sendRepost(client, targetRoomId, body, reposted, file);
         },
         [client, repostedEvent, repostedRoom],
     );

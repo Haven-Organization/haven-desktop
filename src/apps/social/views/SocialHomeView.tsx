@@ -61,6 +61,9 @@ import { getMyReactions } from "../../../../element-web/apps/web/src/components/
 import { RoomPermalinkCreator } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { NotificationsButton } from "../components/NotificationsButton";
 import { PostComposerButtons } from "../components/PostComposerButtons";
+import { AttachmentShelf } from "../components/AttachmentShelf";
+import { usePendingAttachment } from "../utils/postAttachment";
+import { handleComposerPaste } from "../utils/pasteFile";
 import { RoomPickerButton } from "../components/RoomPickerButton";
 import { SocialEventTile, resolveAndOpenPost, showPrivateProfileModal } from "../components/SocialEventTile";
 import { SocialScrollToTopButton } from "../components/SocialScrollToTopButton";
@@ -69,6 +72,7 @@ import {
     type SlashCommandAutocompleteHandle,
 } from "../components/SlashCommandAutocomplete";
 import { FeedFilterDialog } from "../components/FeedFilterDialog";
+import { useWindowFileDrop } from "../utils/useWindowFileDrop";
 import { SocialPostView } from "./SocialPostView";
 import { PostDialog } from "../components/PostDialog";
 import { consumePendingViewUserId, peekPendingViewUserId } from "../utils/pendingViewUser";
@@ -99,7 +103,6 @@ import {
     sendPost,
     getProfileRoomLink,
     resolveProfileRoom,
-    type PostFileAttachment,
 } from "../utils/social-actions";
 import { processSlashCommand } from "../utils/socialSlashCommands";
 import { openCreateGroupDialog, openCreateProfileDialog } from "../utils/createSocialRoom";
@@ -286,6 +289,9 @@ export function SocialHomeView(): JSX.Element {
     // .social_Content itself persists across Feed <-> thread-view transitions (only its children
     // get swapped/unmounted) - see FeedPane's own use of this for scroll-position save/restore.
     const contentRef = useRef<HTMLElement>(null);
+    // Window-level drag-and-drop for the whole app - see useWindowFileDrop's own doc. Mounted once
+    // here (SocialHomeView is the root of the whole Social app) rather than per-composer.
+    const isDraggingFile = useWindowFileDrop();
     // haven apps-framework patch: when the spaces bar is hidden, its own Home meta-space button
     // isn't visible either, so there'd be no way back to the regular (non-app) view without this.
     const showSpacesBar = useSettingValue("Haven.showSpacesBar");
@@ -996,6 +1002,11 @@ export function SocialHomeView(): JSX.Element {
                     </nav>
                 </Resizable>
                 <main className="social_Content" ref={contentRef}>{mainContent}</main>
+                {isDraggingFile && (
+                    <div className="social_DropOverlay">
+                        <div className="social_DropOverlay_label">Drop file to attach</div>
+                    </div>
+                )}
             </div>
         </MainSplit>
     );
@@ -1227,6 +1238,11 @@ function FeedPane({
 
     const [postBody, setPostBody] = useState("");
     const [postBusy, setPostBusy] = useState(false);
+    const {
+        attachment: feedPendingAttachment,
+        setFile: setFeedPendingFile,
+        clear: clearFeedAttachment,
+    } = usePendingAttachment();
 
     // Slash command autocomplete (see SlashCommandAutocomplete.tsx and its identical use in
     // SocialRoomView.tsx, which has the full explanation of this state).
@@ -1263,7 +1279,7 @@ function FeedPane({
     );
 
     const handleReply = useCallback(
-        async (roomId: string, eventId: string, body: string, file?: PostFileAttachment): Promise<void> => {
+        async (roomId: string, eventId: string, body: string, file?: File): Promise<void> => {
             await sendComment(client, roomId, body, eventId, file);
         },
         [client],
@@ -1273,7 +1289,7 @@ function FeedPane({
         async (e?: React.SyntheticEvent): Promise<void> => {
             e?.preventDefault();
             const body = postBody.trim();
-            if (!body) return;
+            if (!body && !feedPendingAttachment) return;
             if (!selectedRoomId) return;
             // The real MSC4501 profile-room link is a network round trip (see
             // useProfileRoomLink), not a local cache read - while it's still resolving and the
@@ -1284,6 +1300,16 @@ function FeedPane({
             if (!explicitRoomId && profileRoomId === undefined) return;
             setPostBusy(true);
             try {
+                // A slash command is a text-only utility - doesn't make sense combined with a
+                // media post, so an attachment always skips it, same as SocialRoomView's own
+                // handlePost.
+                if (feedPendingAttachment) {
+                    await sendPost(client, selectedRoomId, body, undefined, feedPendingAttachment.file);
+                    setPostBody("");
+                    clearFeedAttachment();
+                    onRefresh();
+                    return;
+                }
                 // hasRoom: false - selectedRoomId is just the "post to" dropdown target, not a
                 // room this Feed view is actually showing (it aggregates posts from many rooms) -
                 // see processSlashCommand's own comment on why /devtools specifically needs to know
@@ -1301,7 +1327,7 @@ function FeedPane({
                 setPostBusy(false);
             }
         },
-        [client, selectedRoomId, postBody, onRefresh, explicitRoomId, profileRoomId],
+        [client, selectedRoomId, postBody, feedPendingAttachment, clearFeedAttachment, onRefresh, explicitRoomId, profileRoomId],
     );
 
     // "Scroll to top" button (SocialScrollToTopButton.tsx) - shown once the composer scrolls out
@@ -1337,6 +1363,29 @@ function FeedPane({
         const behavior = el.scrollTop > SCROLL_TO_TOP_INSTANT_THRESHOLD ? "auto" : "smooth";
         el.scrollTo({ top: 0, behavior });
     }, [scrollContainerRef]);
+
+    // A single file picked/pasted/dropped while this composer is scrolled out of view (same
+    // composerVisible tracked above for the scroll-to-top button) would otherwise land silently in
+    // this now-offscreen composer's own shelf, giving no feedback that anything happened short of
+    // scrolling all the way back up to check - pop up the same PostDialog the sidebar's own Post
+    // button opens instead, with the file staged into it directly and targeting whatever room this
+    // composer's own "Post to:" picker was already set to.
+    const openScrolledAwayPostModal = useCallback(
+        (file: File) => {
+            Modal.createDialog(PostDialog, { client, initialRoomId: selectedRoomId, initialFile: file }, "social_PostDialog_wrapper");
+        },
+        [client, selectedRoomId],
+    );
+    const handleFeedFileSelected = useCallback(
+        (file: File) => {
+            if (composerVisible) {
+                setFeedPendingFile(file);
+            } else {
+                openScrolledAwayPostModal(file);
+            }
+        },
+        [composerVisible, setFeedPendingFile, openScrolledAwayPostModal],
+    );
 
     // Show thread view if a post was clicked
     if (threadView) {
@@ -1399,6 +1448,7 @@ function FeedPane({
                             onSelect={(e) => updateFeedSelectionFrom(e.currentTarget)}
                             onClick={(e) => updateFeedSelectionFrom(e.currentTarget)}
                             onKeyUp={(e) => updateFeedSelectionFrom(e.currentTarget)}
+                            onPaste={handleComposerPaste}
                             onKeyDown={(e) => {
                                 if (feedAutocompleteControlRef.current?.hasCompletions()) {
                                     if (e.key === "ArrowUp") {
@@ -1432,6 +1482,13 @@ function FeedPane({
                             rows={3}
                         />
                     </div>
+                    {feedPendingAttachment && (
+                        <AttachmentShelf
+                            attachment={feedPendingAttachment}
+                            uploading={postBusy}
+                            onRemove={clearFeedAttachment}
+                        />
+                    )}
                     <div className="social_ComposeBox_recorderSlot" ref={setRecorderSlot} />
                     <div className="social_ComposeBox_footer">
                         <div className="social_ComposeBox_roomPicker">
@@ -1450,10 +1507,14 @@ function FeedPane({
                                     setPostBody((body) => body + emoji);
                                     return true;
                                 }}
-                                canSubmit={!!postBody.trim() && (!!explicitRoomId || profileRoomId !== undefined)}
+                                canSubmit={
+                                    (!!postBody.trim() || !!feedPendingAttachment) &&
+                                    (!!explicitRoomId || profileRoomId !== undefined)
+                                }
                                 onSubmit={() => void handleFeedPost()}
                                 sendButtonTitle="Post"
                                 recorderSlot={recorderSlot}
+                                onFileSelected={handleFeedFileSelected}
                             />
                         )}
                     </div>

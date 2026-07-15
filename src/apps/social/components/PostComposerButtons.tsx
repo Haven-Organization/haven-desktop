@@ -21,12 +21,17 @@
  * - Sticker uses stock `Stickerpicker` directly (also has no context dependency).
  */
 
-import React, { type JSX, useEffect, useRef, useState } from "react";
+import React, { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { type Room, type IEventRelation } from "matrix-js-sdk/src/matrix";
 
 import { ScopedRoomContextProvider } from "../../../../element-web/apps/web/src/contexts/ScopedRoomContext";
-import { RoomUploadContextProvider } from "../../../../element-web/apps/web/src/viewmodels/room/RoomUploadViewModel";
+import {
+    RoomUploadContextProvider,
+    type RoomUploadViewModelFactory,
+} from "../../../../element-web/apps/web/src/viewmodels/room/RoomUploadViewModel";
+import { SocialRoomUploadViewModel } from "../utils/SocialRoomUploadViewModel";
+import { registerAttachmentDropTarget } from "../utils/activeAttachmentTarget";
 import MessageComposerButtons from "../../../../element-web/apps/web/src/components/views/rooms/MessageComposerButtons";
 import Stickerpicker from "../../../../element-web/apps/web/src/components/views/rooms/Stickerpicker";
 import VoiceRecordComposerTile from "../../../../element-web/apps/web/src/components/views/rooms/VoiceRecordComposerTile";
@@ -54,6 +59,13 @@ interface Props {
      *  is portaled into, so it gets its own dedicated space instead of squeezing into the button
      *  row. Falls back to rendering inline here if not given. */
     recorderSlot?: HTMLElement | null;
+    /** Called instead of uploading immediately when exactly one file is picked via the Upload
+     *  button (or routed here from a window-level drop/paste - see activeAttachmentTarget.ts) -
+     *  the caller stages it in its own attachment shelf instead. Picking/dropping/pasting 2+ files
+     *  at once still uploads immediately through the real stock confirm-dialog flow regardless -
+     *  see SocialRoomUploadViewModel. Omit to fall back to stock's own immediate-upload behavior
+     *  for every case (nothing currently omits this, but keeps this component usable standalone). */
+    onFileSelected?: (file: File) => void;
 }
 
 export function PostComposerButtons({
@@ -64,9 +76,59 @@ export function PostComposerButtons({
     onSubmit,
     sendButtonTitle,
     recorderSlot,
+    onFileSelected,
 }: Props): JSX.Element {
     const rootRef = useRef<HTMLDivElement>(null);
     const voiceRef = useRef<VoiceRecordComposerTile>(null);
+    // Set synchronously as a side effect of createViewModel below, which RoomUploadContextProvider
+    // calls exactly once (a useState-style lazy initializer - see useCreateAutoDisposedViewModel)
+    // during this component's first render, well before the registration effect further down ever
+    // runs - so that effect always finds this already populated, even with an empty dep array.
+    const uploadViewModelRef = useRef<SocialRoomUploadViewModel | null>(null);
+    // The vm itself is only ever constructed once per mount (see uploadViewModelRef's own comment
+    // below), so the plain arrow function passed to it below would otherwise permanently close over
+    // whichever onFileSelected happened to be bound on that first render - fine as long as the prop
+    // is referentially stable (setFeedPendingFile/setPendingFile always were), but callers that
+    // need to react to something that changes after mount (e.g. FeedPane/SocialRoomView branching
+    // on composerVisible to redirect a file to the pop-up composer instead, once their own inline
+    // composer scrolls out of view) need every call to see the CURRENT render's prop, not the
+    // stale one from mount. Routing through a ref kept fresh every render is what actually
+    // delivers on that, rather than the closure alone.
+    const onFileSelectedRef = useRef(onFileSelected);
+    useEffect(() => {
+        onFileSelectedRef.current = onFileSelected;
+    });
+    const createViewModel = useCallback<RoomUploadViewModelFactory>(
+        (room, client, timelineRenderingType, dispatcher, replyToEvent, threadRelation, openUploadDialog) => {
+            const vm = new SocialRoomUploadViewModel(
+                room,
+                client,
+                timelineRenderingType,
+                dispatcher,
+                replyToEvent,
+                threadRelation,
+                openUploadDialog,
+                (file) => onFileSelectedRef.current?.(file),
+            );
+            uploadViewModelRef.current = vm;
+            return vm;
+        },
+        // Deliberately empty - onFileSelected is read via onFileSelectedRef, kept fresh every
+        // render above, not captured by value, so this factory doesn't need to change identity
+        // when it changes. It only ever needs to run once per mount anyway (see the comment on
+        // uploadViewModelRef).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
+
+    // Registers this composer's own upload view model as the current target for a window-level
+    // file drop/paste (see SocialHomeView.tsx) while it's mounted - see activeAttachmentTarget.ts's
+    // own doc for why this is a mount-order stack rather than a single ref.
+    useEffect(() => {
+        const vm = uploadViewModelRef.current;
+        if (!vm) return;
+        return registerAttachmentDropTarget(vm);
+    }, []);
     const [isMenuOpen, setMenuOpen] = useState(false);
     const [isStickerPickerOpen, setStickerPickerOpen] = useState(false);
     const [haveRecording, setHaveRecording] = useState(false);
@@ -147,7 +209,7 @@ export function PostComposerButtons({
                 isRoomEncrypted={null}
                 roomViewStore={undefined as any}
             >
-                <RoomUploadContextProvider threadRelation={relation}>
+                <RoomUploadContextProvider threadRelation={relation} createViewModel={createViewModel}>
                     {recorderSlot ? (
                         createPortal(<VoiceRecordComposerTile ref={voiceRef} room={room} relation={relation} />, recorderSlot)
                     ) : (

@@ -150,7 +150,10 @@ const ALWAYS_INCLUDE_THUMBNAIL = ["image/avif", "image/webp", "image/svg+xml"];
  * @param {File} imageFile The image to read and thumbnail.
  * @return {Promise} A promise that resolves with the attachment info.
  */
-async function infoForImageFile(matrixClient: MatrixClient, roomId: string, imageFile: File): Promise<ImageInfo> {
+// haven apps-framework patch: exported (was module-private) so Social's own deferred-upload
+// attachment shelf can reuse the exact same thumbnail/blurhash/animated-detection logic a stock
+// upload already gets, instead of reimplementing it - see src/apps/social/utils/postAttachment.ts.
+export async function infoForImageFile(matrixClient: MatrixClient, roomId: string, imageFile: File): Promise<ImageInfo> {
     let thumbnailType = "image/png";
     if (imageFile.type === "image/jpeg") {
         thumbnailType = "image/jpeg";
@@ -230,7 +233,8 @@ function loadAudioElement(audioFile: File): Promise<HTMLAudioElement> {
  * @param {File} audioFile The audio to read.
  * @return {Promise} A promise that resolves with the attachment info.
  */
-async function infoForAudioFile(audioFile: File): Promise<AudioInfo> {
+// haven apps-framework patch: exported, see infoForImageFile's own comment above.
+export async function infoForAudioFile(audioFile: File): Promise<AudioInfo> {
     const audio = await loadAudioElement(audioFile);
     return { duration: Math.ceil(audio.duration * 1000) };
 }
@@ -288,7 +292,8 @@ function loadVideoElement(videoFile: File): Promise<HTMLVideoElement> {
  * @param {File} videoFile The video to read and thumbnail.
  * @return {Promise} A promise that resolves with the attachment info.
  */
-function infoForVideoFile(matrixClient: MatrixClient, roomId: string, videoFile: File): Promise<VideoInfo> {
+// haven apps-framework patch: exported, see infoForImageFile's own comment above.
+export function infoForVideoFile(matrixClient: MatrixClient, roomId: string, videoFile: File): Promise<VideoInfo> {
     const thumbnailType = "image/jpeg";
 
     const videoInfo: VideoInfo = {};
