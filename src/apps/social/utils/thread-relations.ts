@@ -7,7 +7,7 @@
  * which view happened to compute it.
  */
 
-import { type MatrixEvent, type Room, RelationType } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, type MatrixEvent, type Room, RelationType } from "matrix-js-sdk/src/matrix";
 
 /** The immediate parent's event id. Prefers m.in_reply_to — its whole purpose, universally across
  *  Matrix clients/bridges, is naming the exact message being replied to, unlike m.thread's own
@@ -114,4 +114,41 @@ export function gatherRoomEvents(room: Room): MatrixEvent[] {
         }
     }
     return events;
+}
+
+/**
+ * Walks the m.in_reply_to chain from `eventId` up to its own true thread root - the first ancestor
+ * with no further parent of its own. sendComment (social-actions.ts) needs this rather than just
+ * using `eventId` directly: the Matrix spec requires every reply in a thread to point rel_type:
+ * m.thread's own event_id at the *same*, single, flat root regardless of reply depth - Synapse
+ * rejects "starting a thread" rooted at an event that itself already carries a relation (real
+ * failure mode this fixed: replying to a reply 400'd with "Cannot start threads from an event with
+ * a relation" once Haven briefly used the immediate parent's own id here instead). m.in_reply_to is
+ * what's walked (not rel_type: m.thread's own event_id) because that's reliably "who does this
+ * event actually reply to" regardless of which convention (Haven's own vs. a spec-compliant
+ * client's/bridge's) produced any given hop - see immediateParentId's own comment.
+ *
+ * Falls back to `eventId` itself (treats it as its own root) on a cycle or a parent that can't be
+ * found even after a fetch attempt - same graceful-degradation spirit as findThreadAncestors in
+ * SocialPostView.tsx, which this mirrors, just returning only the final id instead of the whole
+ * chain.
+ */
+export async function resolveThreadRootId(client: MatrixClient, room: Room, eventId: string): Promise<string> {
+    let currentId = eventId;
+    const seen = new Set<string>([eventId]);
+    for (;;) {
+        let current: MatrixEvent | undefined = room.findEventById(currentId);
+        if (!current) {
+            try {
+                const { MatrixEvent } = await import("matrix-js-sdk/src/matrix");
+                current = new MatrixEvent(await client.fetchRoomEvent(room.roomId, currentId));
+            } catch {
+                return currentId;
+            }
+        }
+        const parentId = immediateParentId(current);
+        if (!parentId || seen.has(parentId)) return currentId;
+        seen.add(parentId);
+        currentId = parentId;
+    }
 }

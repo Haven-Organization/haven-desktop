@@ -1505,6 +1505,44 @@
         color: $primary-content;
         margin: 0 0 var(--cpd-space-2x);
     }
+
+    // A maximal run of consecutive replies (in the flat, timestamp-ordered list SocialPostView.tsx
+    // renders - see its own header comment on why replies are never nested/indented) where each one
+    // is actually a direct reply to the one immediately before it, not just adjacent by coincidence
+    // of timestamp - see replyGroups in SocialPostView.tsx. Unconnected replies (including every
+    // singleton "group" of one) still render through this same wrapper for one consistent code
+    // path, but only a --connected group actually draws anything extra.
+    //
+    // Same "continuous line behind opaque tiles, visible only in the gaps" technique as &_thread's
+    // own --connected above, just using this container's own flex gap as that gap directly instead
+    // of &_threadItem's padding - &_replies (this rule's own parent) has no extra horizontal padding
+    // of its own to account for here, unlike &_thread's container, which is why the left offset
+    // below is one --cpd-space-4x short of that rule's.
+    &_replyGroup {
+        display: flex;
+        flex-direction: column;
+        gap: var(--cpd-space-3x);
+
+        &--connected {
+            position: relative;
+
+            &::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: calc(var(--cpd-space-4x) + 20px);
+                width: 2px;
+                background: $quinary-content;
+                z-index: 0;
+            }
+        }
+    }
+
+    &_replyGroupItem {
+        position: relative;
+        z-index: 1;
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -430,6 +430,26 @@ export function SocialPostView({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tick, getDirectReplies, event, focusedEventId, room]);
 
+    // allReplies is flattened and re-sorted by timestamp (see its own comment) - two consecutive
+    // entries are only actually a reply chain (not just adjacent by coincidence of when they arrived)
+    // when the later one's immediate parent is genuinely the earlier one's own event id. Grouping
+    // those maximal runs here is what lets the JSX below give them the same connected-line treatment
+    // as the ancestor chain above the focused post, without drawing a connection between two replies
+    // that just happen to be next to each other in time.
+    const replyGroups: ThreadNode[][] = useMemo(() => {
+        const groups: ThreadNode[][] = [];
+        for (const node of allReplies) {
+            const prevGroup = groups[groups.length - 1];
+            const prev = prevGroup?.[prevGroup.length - 1];
+            if (prev && immediateParentId(node.event) === prev.event.getId()) {
+                prevGroup.push(node);
+            } else {
+                groups.push([node]);
+            }
+        }
+        return groups;
+    }, [allReplies]);
+
     const handleLikeFor = useCallback(
         async (targetEventId: string, targetLikeEventId: string | undefined) => {
             if (targetLikeEventId) {
@@ -569,19 +589,27 @@ export function SocialPostView({
                         <p>No replies yet. Be the first!</p>
                     </div>
                 ) : (
-                    allReplies.map((node) => (
-                        <SocialEventTile
-                            key={node.event.getId()}
-                            event={node.event}
-                            room={room}
-                            isLiked={!!node.myLikeEventId}
-                            isReposted={!!node.myRepostEventId}
-                            replyCount={node.replyCount}
-                            hideRoomName={true}
-                            onReply={(body, file) => handleReplyTo(node.event.getId()!, body, file)}
-                            onLike={() => handleLikeFor(node.event.getId()!, node.myLikeEventId)}
-                            {...tileProps}
-                        />
+                    replyGroups.map((group) => (
+                        <div
+                            className={`social_PostView_replyGroup${group.length > 1 ? " social_PostView_replyGroup--connected" : ""}`}
+                            key={group[0].event.getId()}
+                        >
+                            {group.map((node) => (
+                                <div className="social_PostView_replyGroupItem" key={node.event.getId()}>
+                                    <SocialEventTile
+                                        event={node.event}
+                                        room={room}
+                                        isLiked={!!node.myLikeEventId}
+                                        isReposted={!!node.myRepostEventId}
+                                        replyCount={node.replyCount}
+                                        hideRoomName={true}
+                                        onReply={(body, file) => handleReplyTo(node.event.getId()!, body, file)}
+                                        onLike={() => handleLikeFor(node.event.getId()!, node.myLikeEventId)}
+                                        {...tileProps}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     ))
                 )}
             </div>

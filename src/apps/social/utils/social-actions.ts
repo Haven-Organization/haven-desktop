@@ -24,6 +24,7 @@ import {
     ROOM_BANNER_EVENT_TYPE,
 } from "./room-classifier";
 import { markPendingLeave } from "./pendingRoomLeave";
+import { resolveThreadRootId } from "./thread-relations";
 
 /** Dispatched whenever the user's MSC4501 profile_room_id link is set or cleared, so any mounted
  *  component with its own cached copy (e.g. useProfileRoomLink) knows to re-fetch it — needed
@@ -352,6 +353,13 @@ export async function sendComment(
     formattedBody?: string,
     isEmote?: boolean,
 ): Promise<void> {
+    const room = client.getRoom(roomId);
+    // rel_type: m.thread's own event_id must always be the thread's single, true, flat root -
+    // never the immediate parent - regardless of how deep this reply actually is (see
+    // resolveThreadRootId's own comment: Synapse 400s "Cannot start threads from an event with a
+    // relation" if it isn't). m.in_reply_to is the only field that varies with depth.
+    const rootEventId = room ? await resolveThreadRootId(client, room, parentEventId) : parentEventId;
+
     // Ensure a Thread object exists for the post being replied to *before* sending. Stock Element
     // always has one by this point (opening the thread panel creates it), but Social's reply flow
     // never goes through that path. Without it, matrix-js-sdk's handleRemoteEcho (models/room.ts)
@@ -360,10 +368,10 @@ export async function sendComment(
     // thread-relation message so it doesn't live in the main timeline, and with no thread object to
     // route it into, it isn't added anywhere at all. The reply is visible only as long as its local
     // echo exists, then vanishes the moment the server confirms it. createThread is idempotent
-    // (harmless if a thread already exists from an earlier reply).
-    const room = client.getRoom(roomId);
-    if (room && !room.getThread(parentEventId)) {
-        room.createThread(parentEventId, room.findEventById(parentEventId), [], false);
+    // (harmless if a thread already exists from an earlier reply). Keyed by rootEventId, not
+    // parentEventId, to match the thread id the event being sent below will actually carry.
+    if (room && !room.getThread(rootEventId)) {
+        room.createThread(rootEventId, room.findEventById(rootEventId), [], false);
     }
 
     const msgtype = isEmote ? "m.emote" : "m.text";
@@ -374,7 +382,7 @@ export async function sendComment(
           : { body, msgtype };
     content["m.relates_to"] = {
         rel_type: "m.thread",
-        event_id: parentEventId,
+        event_id: rootEventId,
         is_falling_back: false,
         "m.in_reply_to": {
             event_id: parentEventId,
