@@ -117,7 +117,15 @@ const MessageComposerButtons: React.FC<IProps> = (props: IProps) => {
             ) : (
                 emojiButton(props)
             ),
-            <UploadButton key="upload" vm={roomUploadVM} />,
+            // haven apps-framework patch: explicit type="button" - UploadButton's underlying
+            // native <button> has no type of its own (unlike every other button in this row,
+            // which all go through AccessibleButton's own div-by-default rendering), so it
+            // defaults to type="submit". Harmless for stock Element (MessageComposer.tsx never
+            // wraps this in a real <form>), but Social's own post composers do wrap this same
+            // row in one (see SocialRoomView.tsx/SocialHomeView.tsx's own <form onSubmit=...>) -
+            // without this, clicking Attachment submits that form and sends the post instead of
+            // opening the upload menu.
+            <UploadButton key="upload" vm={roomUploadVM} type="button" />,
         ];
         moreButtons = [
             showStickersButton(props),
