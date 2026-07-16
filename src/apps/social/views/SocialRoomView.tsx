@@ -67,7 +67,6 @@ import {
     MSC4501_EVENT_POST,
     ROOM_BANNER_EVENT_TYPE,
     isProfileRoom,
-    isGroupRoom,
     getVerifiedProfileUserId,
     getProfileOwnerUserId,
 } from "../utils/room-classifier";
@@ -436,11 +435,18 @@ export function SocialRoomView({
     // bio bridged in from the Fediverse with real HTML in it renders identically in both places,
     // through the same reduced/safe tag set (topicToHtml's default allowExtendedHtml=false).
     const topicState = useTopic(room);
+    // Whether this room should look/behave like a Group page: true for an actual MSC4501 Group
+    // room, but also for any plain (non-Social) room reached via a dev-only shortcut (see
+    // EventTile.tsx/SocialEventTile.tsx's own Shift+Click-to-Social conventions) - a room that
+    // isn't a real Social room at all has no "person" to follow, so it should read the same as a
+    // Group (membership language, room alias, etc.) rather than defaulting to profile/person
+    // wording just because isGroupRoom(room) alone happens to be false for it too.
+    const groupLike = !isProfileRoom(room);
     // Shown under the name: the linked MXID for a profile room (only once it's a validly-formed
     // MSC4501 profile_user_id state event - see getVerifiedProfileUserId), or the primary alias
-    // for a group room, whichever applies. Neither shows anything when absent.
+    // for a group-like room, whichever applies. Neither shows anything when absent.
     const profileUserId = isProfileRoom(room) ? getVerifiedProfileUserId(room) : undefined;
-    const groupAlias = isGroupRoom(room) ? room.getCanonicalAlias() : null;
+    const groupAlias = groupLike ? room.getCanonicalAlias() : null;
     // haven apps-framework patch: MSC4503 external handle for a profile room's own user - see
     // ExternalHandleBadge.tsx. Never set for a group room (profileUserId is undefined there).
     const profileLiveUserProfile = useLiveUserProfile(client, profileUserId);
@@ -479,7 +485,7 @@ export function SocialRoomView({
         // this only gates the actually-risky case - cancelling a still-pending knock isn't a real
         // leave either (nothing irreversible about re-requesting), so it's excluded too.
         if (isJoined && (joinRule === JoinRule.Invite || isKnockable)) {
-            const groupRoom = isGroupRoom(room);
+            const groupRoom = groupLike;
             const onlyMember = room.getJoinedMemberCount() === 1;
             const { finished } = Modal.createDialog(QuestionDialog, {
                 title: groupRoom ? "Leave Group" : "Unfollow Profile",
@@ -784,10 +790,10 @@ export function SocialRoomView({
                                     : busy
                                       ? "Sending…"
                                       : isInvited
-                                        ? isGroupRoom(room)
+                                        ? groupLike
                                             ? "Accept Invite"
                                             : "Accept Follow Request"
-                                        : isGroupRoom(room)
+                                        : groupLike
                                           ? isJoined
                                               ? "Leave"
                                               : isKnocking

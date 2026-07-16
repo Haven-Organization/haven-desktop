@@ -437,6 +437,15 @@ export function SocialHomeView(): JSX.Element {
         // clearPendingFocusEvent's own doc) so SocialRoomView opens at the top, not an old thread.
         clearPendingFocusEvent();
         setNav((prev: SocialNav) => ({ section: prev.section, roomId }));
+        // Clicking a post's own room-name badge while already viewing that exact room (the common
+        // case: every tile in SocialRoomView's own thread sub-view is in that same room, per
+        // SocialPostView's own comment on this) leaves nav.roomId unchanged, so SocialRoomView
+        // never remounts (same `key`) and its local threadEvent state - invisible to nav, exactly
+        // like FeedPane's own threadView - would otherwise keep showing the thread instead of
+        // returning to the room's plain feed. Bumping this every time (not just when the room
+        // actually changes) is what closeThreadToken exists for - see its own doc - and is a no-op
+        // when nothing was open to close.
+        setCloseThreadToken((t) => t + 1);
     }, []);
 
     // Never opens the stock member-info right panel — clicking a user anywhere in Social always
