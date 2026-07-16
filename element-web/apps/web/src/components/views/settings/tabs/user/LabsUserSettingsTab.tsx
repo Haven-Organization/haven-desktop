@@ -21,6 +21,7 @@ import { EnhancedMap } from "../../../../../utils/maps";
 import { SettingsSection } from "../../shared/SettingsSection";
 import { SettingsSubsection, SettingsSubsectionText } from "../../shared/SettingsSubsection";
 import SettingsTab from "../SettingsTab";
+import { isAppEnabled } from "../../../../../../../../../src/apps/framework/config";
 
 export const showLabsFlags = (): boolean => {
     return SdkConfig.get("show_labs_settings") || SettingsStore.getValue("developerMode");
@@ -33,13 +34,13 @@ export default class LabsUserSettingsTab extends React.Component<EmptyObject> {
     public constructor(props: EmptyObject) {
         super(props);
 
-        // haven: feature_msc4501_native_post_type is a host-only opt-in (set via config.json's
-        // "features" block, still fully honored by ConfigSettingsHandler) rather than a normal
-        // end-user Labs toggle - Social's own MSC, not something to expose for casual flipping
-        // regardless of whether Social itself is enabled in this build.
-        const features = SettingsStore.getFeatureSettingNames().filter(
-            (f) => f !== "feature_msc4501_native_post_type",
-        );
+        // haven: feature_msc4501_native_post_type only means anything when Social itself is part
+        // of this build - hide it whenever "haven.apps.social" is disabled, same as the app's own
+        // nav entry, rather than showing a toggle for a feature with nothing to affect.
+        let features = SettingsStore.getFeatureSettingNames();
+        if (!isAppEnabled("social")) {
+            features = features.filter((f) => f !== "feature_msc4501_native_post_type");
+        }
         const [labs, betas] = features.reduce(
             (arr, f) => {
                 arr[SettingsStore.getBetaInfo(f) ? 1 : 0].push(f as FeatureSettingKey);
