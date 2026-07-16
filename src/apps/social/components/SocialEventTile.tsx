@@ -53,12 +53,12 @@ import {
     RoomPermalinkCreator,
 } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import {
-    MSC4501_EVENT_POST,
     MSC4501_RELATES_TO_KEY,
     MSC4501_REL_TYPE_REPOST,
     MSC4501_REL_TYPE_REPLY,
     MSC4501_BODY_KEY,
     MSC4501_FORMATTED_BODY_KEY,
+    isSocialPostEventType,
 } from "../utils/room-classifier";
 import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
@@ -1233,7 +1233,7 @@ export function SocialEventTile({
     }, [replyCrossPostMockEvent, replyCrossPostOfContent, replyCrossPostBodyVm]);
 
     const isLegacyMessage = event.getType() === "m.room.message";
-    const isNativePost = event.getType() === MSC4501_EVENT_POST;
+    const isNativePost = isSocialPostEventType(event.getType());
     const isPollMessage = M_POLL_START.matches(event.getType());
     if (!isLegacyMessage && !isNativePost && !isPollMessage) return null;
     if (!isPollMessage && !body && !content.file && !content.url) return null;

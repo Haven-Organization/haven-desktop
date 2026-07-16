@@ -35,7 +35,7 @@ import { SOCIAL_HOME_ACTION } from "../homeAction";
 import { setPendingViewPost } from "./pendingViewPost";
 import { setPendingFeedThread } from "./pendingFeedThread";
 import { getLastPopStateOrigin } from "./socialHistoryOrigin";
-import { isSocialRoom, MSC4501_ROOM_TYPE_PROFILE, MSC4501_ROOM_TYPE_GROUP } from "./room-classifier";
+import { isSocialRoom, isProfileRoomType, isGroupRoomType } from "./room-classifier";
 import { setPendingSocialSection } from "./pendingSocialSection";
 import { setPendingPostModal } from "./pendingPostModal";
 import { socialApp } from "../app";
@@ -90,7 +90,7 @@ export function tryRouteSocialRoom(
     // though the actual decision finishes asynchronously.
     void client.getRoomSummary(roomIdOrAlias).then(
         (summary) => {
-            if (summary.room_type === MSC4501_ROOM_TYPE_PROFILE || summary.room_type === MSC4501_ROOM_TYPE_GROUP) {
+            if (isProfileRoomType(summary.room_type) || isGroupRoomType(summary.room_type)) {
                 routeToSocial(summary.room_id, eventId);
             } else {
                 onNotSocial();

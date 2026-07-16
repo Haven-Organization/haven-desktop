@@ -16,7 +16,7 @@ import AccessibleButton from "../../../../element-web/apps/web/src/components/vi
 import { useLiveUserProfile } from "../utils/liveUserProfile";
 import { useRoomMembership } from "../utils/useRoomMembership";
 import { followRoom } from "../utils/social-actions";
-import { MSC4501_ROOM_TYPE_GROUP } from "../utils/room-classifier";
+import { isGroupRoomType } from "../utils/room-classifier";
 import { linkifyAndSanitizeHtml } from "../../../../element-web/apps/web/src/HtmlUtils";
 
 interface Props {
@@ -49,7 +49,7 @@ export function SocialProfilePreview({
     onBack,
     onFollowed,
 }: Props): JSX.Element {
-    const isGroup = roomType === MSC4501_ROOM_TYPE_GROUP;
+    const isGroup = isGroupRoomType(roomType);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     // Briefly true right after a successful knockRoom() call, until membership (reactive, below)

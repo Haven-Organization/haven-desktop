@@ -19,7 +19,7 @@ import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import BaseDialog from "../../../../element-web/apps/web/src/components/views/dialogs/BaseDialog";
 import MatrixClientContext from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
-import { MSC4501_EVENT_POST, MSC4501_ROOM_TYPE_PROFILE, MSC4501_ROOM_TYPE_GROUP } from "../utils/room-classifier";
+import { MSC4501_EVENT_POST, isProfileRoomType, isGroupRoomType } from "../utils/room-classifier";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
 import { peekPendingRoomPick, clearPendingRoomPick } from "../utils/pendingRoomPick";
 import { usePendingAttachment } from "../utils/postAttachment";
@@ -71,7 +71,7 @@ export function PostComposerDialog({
     const postableRooms = useMemo(() => {
         return client.getRooms().filter((r) => {
             const type = r.currentState.getStateEvents("m.room.create", "")?.getContent()?.type;
-            if (type !== MSC4501_ROOM_TYPE_PROFILE && type !== MSC4501_ROOM_TYPE_GROUP) return false;
+            if (!isProfileRoomType(type) && !isGroupRoomType(type)) return false;
             const member = r.getMember(myUserId);
             if (member?.membership !== "join") return false;
             return r.currentState.maySendEvent(MSC4501_EVENT_POST, myUserId);

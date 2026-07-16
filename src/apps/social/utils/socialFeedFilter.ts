@@ -9,7 +9,7 @@
 
 import { type MatrixClient, type Room } from "matrix-js-sdk/src/matrix";
 
-import { MSC4501_ROOM_TYPE_PROFILE, MSC4501_ROOM_TYPE_GROUP } from "./room-classifier";
+import { MSC4501_ROOM_TYPE_PROFILE, MSC4501_ROOM_TYPE_GROUP, isProfileRoomType, isGroupRoomType } from "./room-classifier";
 
 export const SOCIAL_FEED_FILTER_EVENT_TYPE = "software.haven.social.feed_filter";
 
@@ -84,7 +84,12 @@ export function roomCountsForFeed(room: Room, filter: SocialFeedFilter): boolean
 
     const createEvent = room.currentState.getStateEvents("m.room.create", "");
     const type = (createEvent?.getContent() as { type?: string } | undefined)?.type;
-    return !!type && getIncludedRoomTypes(filter).includes(type);
+    if (!type) return false;
+    // isProfileRoomType/isGroupRoomType also accept MSC3639's older room-type names (see their own
+    // doc in room-classifier.ts) - getIncludedRoomTypes().includes(type) alone wouldn't, since that
+    // list only ever names the current MSC4501 constants plus the filter's own extraRoomTypes.
+    if (isProfileRoomType(type) || isGroupRoomType(type)) return true;
+    return getIncludedRoomTypes(filter).includes(type);
 }
 
 /** True when a post by this sender should be excluded from the feed under this filter. */

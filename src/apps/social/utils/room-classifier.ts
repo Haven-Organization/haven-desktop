@@ -1,7 +1,8 @@
 /*
  * Social Overlay — Room Classifier
  *
- * Uses MSC4501 unstable event-type prefixes throughout.
+ * Uses MSC4501 unstable event-type prefixes throughout, with read-only backwards compatibility
+ * for MSC3639 (MSC4501's own predecessor - see its own doc further down).
  * Do NOT replace with stable types — this MSC is not yet merged.
  */
 
@@ -14,6 +15,35 @@ import { type Room, EventType } from "matrix-js-sdk/src/matrix";
 export const MSC4501_ROOM_TYPE_PROFILE = "org.matrix.msc4501.social.profile";
 export const MSC4501_ROOM_TYPE_GROUP = "org.matrix.msc4501.social.group";
 export const MSC4501_EVENT_POST = "org.matrix.msc4501.social.post";
+
+// MSC3639 backwards compatibility — MSC4501's direct predecessor, renamed (not respec'd) partway
+// through review. Existing rooms/bridges/cached state created under these older type strings
+// should keep being recognized as Social content rather than silently stop working after the
+// rename - read-only: recognize both, but every new room/post this client creates still only ever
+// writes the MSC4501 names (see createSocialRoom.ts, social-actions.ts's currentPostEventType).
+// MSC3639 had two separate event types (post vs. comment) where MSC4501 collapsed them into one.
+const MSC3639_ROOM_TYPE_PROFILE = "org.matrix.msc3639.social.profile";
+const MSC3639_ROOM_TYPE_GROUP = "org.matrix.msc3639.social.group";
+const MSC3639_EVENT_POST = "org.matrix.msc3639.social.post";
+const MSC3639_EVENT_COMMENT = "org.matrix.msc3639.social.comment";
+
+/** True when `type` (an m.room.create content.type, or an MSC3266 room-summary room_type) names a
+ *  Social Profile room under either MSC4501's current name or MSC3639's older one. */
+export function isProfileRoomType(type: string | undefined): boolean {
+    return type === MSC4501_ROOM_TYPE_PROFILE || type === MSC3639_ROOM_TYPE_PROFILE;
+}
+
+/** True when `type` names a Social Group room under either MSC4501's current name or MSC3639's
+ *  older one. */
+export function isGroupRoomType(type: string | undefined): boolean {
+    return type === MSC4501_ROOM_TYPE_GROUP || type === MSC3639_ROOM_TYPE_GROUP;
+}
+
+/** True when `eventType` (a Matrix event's own .getType()) names a Social post under MSC4501's
+ *  single current post type, or either of MSC3639's separate post/comment types it replaced. */
+export function isSocialPostEventType(eventType: string): boolean {
+    return eventType === MSC4501_EVENT_POST || eventType === MSC3639_EVENT_POST || eventType === MSC3639_EVENT_COMMENT;
+}
 
 // Cross-room post references (reposts/boosts/quote-posts and cross-posted replies) — see the
 // "Cross-room post references" section of MSC4501. Superseded the old flat
@@ -62,27 +92,28 @@ function getRoomType(room: Room): string | undefined {
     return (createEvent.getContent() as { type?: string }).type;
 }
 
-/** True when the room is a social Profile room (MSC4501). */
+/** True when the room is a social Profile room (MSC4501, or MSC3639 - see its own doc above). */
 export function isProfileRoom(room: Room): boolean {
-    return getRoomType(room) === MSC4501_ROOM_TYPE_PROFILE;
+    return isProfileRoomType(getRoomType(room));
 }
 
-/** True when the room is a social Group room (MSC4501). */
+/** True when the room is a social Group room (MSC4501, or MSC3639 - see its own doc above). */
 export function isGroupRoom(room: Room): boolean {
-    return getRoomType(room) === MSC4501_ROOM_TYPE_GROUP;
+    return isGroupRoomType(getRoomType(room));
 }
 
 /** True when the room is either a Profile or Group (i.e. any social room). */
 export function isSocialRoom(room: Room): boolean {
     const t = getRoomType(room);
-    return t === MSC4501_ROOM_TYPE_PROFILE || t === MSC4501_ROOM_TYPE_GROUP;
+    return isProfileRoomType(t) || isGroupRoomType(t);
 }
 
+/** Returns MSC4501's own canonical type constant even for a room created under MSC3639's older
+ *  naming, so callers never need to know about the older scheme themselves. */
 export function getSocialRoomType(room: Room): SocialRoomType | undefined {
     const t = getRoomType(room);
-    if (t === MSC4501_ROOM_TYPE_PROFILE || t === MSC4501_ROOM_TYPE_GROUP) {
-        return t as SocialRoomType;
-    }
+    if (isProfileRoomType(t)) return MSC4501_ROOM_TYPE_PROFILE;
+    if (isGroupRoomType(t)) return MSC4501_ROOM_TYPE_GROUP;
     return undefined;
 }
 

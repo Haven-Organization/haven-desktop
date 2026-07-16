@@ -84,7 +84,7 @@ import {
     isGroupRoom,
     isProfileRoom,
     getProfileOwnerUserId,
-    MSC4501_EVENT_POST,
+    isSocialPostEventType,
     ROOM_BANNER_EVENT_TYPE,
 } from "../utils/room-classifier";
 import {
@@ -204,7 +204,7 @@ function isFeedEvent(event: MatrixEvent, room: Room, filter: SocialFeedFilter): 
     if (senderExcludedFromFeed(event.getSender() ?? null, filter)) return false;
 
     const type = event.getType();
-    if (type === MSC4501_EVENT_POST) return true;
+    if (isSocialPostEventType(type)) return true;
     // Stickers, polls (and plain messages, e.g. sent via the stock Upload button) sent from the
     // composer button row are real independent Matrix events, not m.room.message wrapped in our
     // own post schema — still feed-worthy if they landed in a room the feed filter includes.

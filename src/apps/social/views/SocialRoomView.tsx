@@ -64,7 +64,7 @@ import {
 } from "../components/SlashCommandAutocomplete";
 import { SocialPostView } from "./SocialPostView";
 import {
-    MSC4501_EVENT_POST,
+    isSocialPostEventType,
     ROOM_BANNER_EVENT_TYPE,
     isProfileRoom,
     getVerifiedProfileUserId,
@@ -156,7 +156,7 @@ function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): Pos
             // so showing the raw edit event too would just duplicate that same content.
             if (e.isRelation(RelationType.Replace)) return false;
             const type = e.getType();
-            return type === MSC4501_EVENT_POST || type === "m.room.message" || M_POLL_START.matches(type);
+            return isSocialPostEventType(type) || type === "m.room.message" || M_POLL_START.matches(type);
         })
         .map((event) => {
             const eid = event.getId()!;
