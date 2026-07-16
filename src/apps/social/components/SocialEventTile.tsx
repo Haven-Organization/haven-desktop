@@ -1492,13 +1492,34 @@ export function SocialEventTile({
             className={`social_EventTile${onViewThread ? " social_EventTile--clickable" : ""}`}
             onClick={handleArticleClick}
         >
-            {/* Room name badge — top-left, X/Twitter community style */}
+            {/* Room name badge — top-left, X/Twitter community style. Plain click's onRoomClick
+                jumps within Social to this event's own room's page - a no-op whenever that's
+                already the room being shown (e.g. every tile in SocialPostView, since thread
+                relations never cross rooms - see its own comment), which is the common case here.
+                Shift+Click instead opens this room in the regular chat view (same house
+                convention as handleTimestampClick above and SocialRoomView's own name button) -
+                the only way to reach regular chat from here when this room isn't recognized as a
+                Social profile/group at all, since SocialRoomView's own header (with that same
+                Shift+Click escape hatch) never renders while a thread/post sub-view is active. */}
             {!hideRoomName && (
                 <div className="social_EventTile_roomLabel">
                     {onRoomClick ? (
                         <button
                             className="social_EventTile_roomLabelBtn"
-                            onClick={(e) => { e.stopPropagation(); handleRoomClick(); }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (e.shiftKey) {
+                                    defaultDispatcher.dispatch<ViewRoomPayload>({
+                                        action: Action.ViewRoom,
+                                        room_id: room.roomId,
+                                        event_id: eventId,
+                                        highlighted: true,
+                                        metricsTrigger: undefined,
+                                    });
+                                    return;
+                                }
+                                handleRoomClick();
+                            }}
                         >
                             {room.name}
                         </button>
