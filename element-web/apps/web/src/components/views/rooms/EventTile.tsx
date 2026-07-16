@@ -62,6 +62,7 @@ import {
     type EventTileTypeProps,
 } from "../../../events/EventTileFactory";
 import { type ShowThreadPayload } from "../../../dispatcher/payloads/ShowThreadPayload";
+import { tryRouteSocialHashScreen } from "../../../../../../../src/apps/social/utils/permalinkRouting";
 import { UnreadNotificationBadge } from "./NotificationBadge/UnreadNotificationBadge";
 import { getLateEventInfo } from "../../structures/grouper/LateEventGrouper";
 import PinningUtils from "../../../utils/PinningUtils";
@@ -588,6 +589,30 @@ export class UnwrappedEventTile extends React.Component<EventTileProps, IState> 
         // This allows the permalink to be opened in a new tab/window or copied as
         // matrix.to, but also for it to enable routing within Element when clicked.
         e.preventDefault();
+
+        // haven apps-framework patch: Shift+Click a message's timestamp opens it in Social instead
+        // of just jumping within this same regular timeline - deliberately works for any room, not
+        // just actual Social profile/group rooms (a hidden dev-only shortcut for jumping into
+        // Social's own event-tile rendering of arbitrary content while poking around, not a
+        // user-facing feature gated to "real" Social rooms) - the mirror of Social's own
+        // Shift+Click-on-timestamp convention (see SocialEventTile.tsx's own handleTimestampClick
+        // and permalinkRouting.ts's own doc comment on this house convention: Shift always forces
+        // the "other" navigation mode).
+        //
+        // tryRouteSocialHashScreen (not onNewScreen) is what actually mounts Social - onNewScreen
+        // alone only updates the URL bar and relies on the app noticing that hash change to do the
+        // real work, but onHashChange (vector/routing.ts) deliberately skips re-routing any hash it
+        // recognizes as one the app *just* set itself via onNewScreen (`lastLocationHashSet`) - an
+        // optimization every other Social-internal onNewScreen call is safe under only because each
+        // of those already triggers the real navigation directly (setPendingViewPost +
+        // dispatchSocialHomeAction) *before* touching the URL, same as tryRouteSocialHashScreen does
+        // here. Calling onNewScreen instead of this looked like it worked (the URL bar genuinely
+        // changed) but Social itself never actually mounted - confirmed live, not a hypothetical.
+        if (e.shiftKey) {
+            tryRouteSocialHashScreen(`social/room/${this.props.mxEvent.getRoomId()}/${this.props.mxEvent.getId()}`);
+            return;
+        }
+
         dis.dispatch<ViewRoomPayload>({
             action: Action.ViewRoom,
             event_id: this.props.mxEvent.getId(),

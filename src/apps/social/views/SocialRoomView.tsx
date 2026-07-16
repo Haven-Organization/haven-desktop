@@ -29,6 +29,8 @@ import { type ICompletion } from "../../../../element-web/apps/web/src/autocompl
 
 import AccessibleButton from "../../../../element-web/apps/web/src/components/views/elements/AccessibleButton";
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
+import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
+import { type ViewRoomPayload } from "../../../../element-web/apps/web/src/dispatcher/payloads/ViewRoomPayload";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 import { onNewScreen } from "../../../../element-web/apps/web/src/vector/routing";
 import { stampSocialOrigin } from "../utils/socialHistoryOrigin";
@@ -837,10 +839,23 @@ export function SocialRoomView({
                     <div className="social_RoomView_meta">
                         <div className="social_RoomView_info">
                             {/* Opens the stock room-info RightPanel (RoomSummary), same as
-                                clicking the room name in normal Element's own room header. */}
+                                clicking the room name in normal Element's own room header -
+                                Shift+Click instead opens this room in the regular chat view, same
+                                house convention as SocialEventTile's own Shift+Click-on-timestamp
+                                (see permalinkRouting.ts's own doc comment on this). */}
                             <button
                                 className="social_RoomView_nameBtn"
-                                onClick={() => onOpenRoomPanel?.(room, RightPanelPhases.RoomSummary)}
+                                onClick={(e) => {
+                                    if (e.shiftKey) {
+                                        defaultDispatcher.dispatch<ViewRoomPayload>({
+                                            action: Action.ViewRoom,
+                                            room_id: room.roomId,
+                                            metricsTrigger: undefined,
+                                        });
+                                        return;
+                                    }
+                                    onOpenRoomPanel?.(room, RightPanelPhases.RoomSummary);
+                                }}
                             >
                                 <h2>{room.name}</h2>
                             </button>
