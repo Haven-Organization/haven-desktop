@@ -19,13 +19,15 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 
 ## Social Features
 
-- Create a profile on Matrix with full control over who can follow you
+- Create a profile on Matrix, with controls to make it private or public
 - Likes, reposts, quote posts, and emoji reacts on posts
-- A Feed tab for viewing all your followers' posts in one big timeline
-- Profiles are seen on your user card in regular chatrooms to help with discoverability
-- Create groups to post together in one place
+- A Feed tab for viewing posts from everyone you follow in one place
+- Create groups to collaborate on topics
+- Profiles are displayed on user cards in a room's right panel to help with discoverability.
 
-## Improvements to Element 
+## Improvements to Element
+
+- [Custom emoji and sticker packs](https://github.com/element-hq/element-meta/issues/339) (including [emoji reactions](https://github.com/matrix-org/matrix-spec-proposals/pull/4027))
 - [Room banners](https://github.com/matrix-org/matrix-spec-proposals/pull/4221) that display in the top bar and the right panel
 - You can finally [disable the spaces bar 🎉](https://github.com/element-hq/element-web/issues/18898)
 - [Freeform text reactions](https://github.com/element-hq/element-web/issues/19409)
@@ -34,14 +36,15 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 - Fixed room list tooltips and avatars unnecessarily doing extra work for rows that are off
   screen, which was slowing down large room lists.
 
-## Need posts?
+## Got an empty Feed?
 
-A fresh Social feed starts empty. Have your homeserver admin set up
-[matrix-appservice-activitypub](https://github.com/Haven-Organization/matrix-appservice-activitypub)
-to bridge Fediverse activity into Matrix profiles. Following some active ActivityPub accounts will
-fill your feed overnight.
-
-You can also use the filter button on the feed to add any existing room, bridged or not.
+- If you're already in some Matrix rooms that would be a good fit, use the Filter button to add
+  them to your feed. Messages will display as posts.
+- Have your homeserver admin set up
+  [matrix-appservice-activitypub](https://github.com/Haven-Organization/matrix-appservice-activitypub)
+  to turn your Matrix server into a full ActivityPub instance. Following some active accounts will
+  fill your feed overnight. Supports importing your existing follow list from other ActivityPub
+  accounts.
 
 ## Build Quickstart
 
@@ -92,14 +95,13 @@ too.
 - [MSC4501](https://github.com/matrix-org/matrix-spec-proposals/pull/4501): the social media event
   types Social itself is built on, covering profile and group rooms, posts, likes, reposts, and
   replies.
-- [MSC4133](https://github.com/matrix-org/matrix-spec-proposals/pull/4133): extensible profiles,
-  used to link your Matrix account to your Social profile room.
-- [MSC4221](https://github.com/matrix-org/matrix-spec-proposals/pull/4221): room banners, used for
-  profile and group banner images (and shown in the room header bar for any room that sets one).
-- [MSC3266](https://github.com/matrix-org/matrix-spec-proposals/pull/3266): room summaries, used to
-  preview a public or knockable profile or group without joining it first.
+- [MSC3639](https://github.com/matrix-org/matrix-spec-proposals/pull/3639): the original social media MSC that inspired this project. Because posts, groups and profiles currently share the same structure, Haven provides partial compatability with this MSC. See [Comparison to MSC3639](https://github.com/Haven-Organization/matrix-spec-proposals/blob/msc-social-media-pages/proposals/4501-rooms-as-social-media-pages.md#comparison-to-msc3639) for differences.
 - [MSC3827](https://github.com/matrix-org/matrix-spec-proposals/pull/3827): filtering rooms by
   type, used to tell a profile apart from a group in that same preview.
+- [MSC4027](https://github.com/matrix-org/matrix-spec-proposals/pull/4027): Custom emoji in reactions.
+- [MSC4221](https://github.com/matrix-org/matrix-spec-proposals/pull/4221): room banners, used for
+  profile and group banner images (and shown in the room header bar for any room that sets one).
+- [MSC4459](https://github.com/matrix-org/matrix-spec-proposals/pull/4459): Image pack references for advertising and finding what room a custom emoji/sticker came from.
 - [MSC4503](https://github.com/matrix-org/matrix-spec-proposals/pull/4503): external handles,
   used to link a non-Matrix identity (e.g. a Fediverse account) to your profile.
 
