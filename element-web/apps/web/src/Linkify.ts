@@ -90,7 +90,15 @@ export const transformTags: NonNullable<IOptions["transformTags"]> = {
         if (requestedHeight) {
             attribs.style += "height: 100%;";
         }
-        attribs.src = mediaFromMxc(src).getThumbnailOfSourceHttp(width, height)!;
+        // Haven: MSC2545 custom emoji are marked with data-mx-emoticon (see editor/serialize.ts's
+        // own mdSerialize) - a server-generated /thumbnail/ is essentially always a single static
+        // frame even when the source is an animated gif, so an emoticon image goes out as a plain
+        // /download/ (srcHttp) instead to keep it animated. Anything else (a regular inline image)
+        // keeps the existing thumbnailed behaviour unchanged.
+        attribs.src =
+            "data-mx-emoticon" in attribs
+                ? (mediaFromMxc(src).srcHttp ?? "")
+                : mediaFromMxc(src).getThumbnailOfSourceHttp(width, height)!;
         return { tagName, attribs };
     },
     "code": function (tagName: string, attribs: sanitizeHtml.Attributes) {

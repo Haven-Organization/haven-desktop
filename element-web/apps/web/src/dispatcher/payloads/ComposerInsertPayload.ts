@@ -9,6 +9,7 @@ Please see LICENSE files in the repository root for full details.
 import { type ActionPayload } from "../payloads";
 import { type Action } from "../actions";
 import { type TimelineRenderingType } from "../../contexts/RoomContext";
+import { type CustomEmojiChoice } from "../../components/views/emojipicker/customEmoji";
 
 export enum ComposerType {
     Send = "send",
@@ -29,4 +30,14 @@ interface IComposerInsertPlaintextPayload extends IBaseComposerInsertPayload {
     text: string;
 }
 
-export type ComposerInsertPayload = IComposerInsertMentionPayload | IComposerInsertPlaintextPayload;
+/** Haven: dispatched by MessageComposer.tsx's own addEmoji when the chosen emoji was a MSC2545
+ *  pack image rather than a real unicode one - see SendMessageComposer.tsx's own onAction, which
+ *  routes this to BasicMessageComposer.insertCustomEmoji instead of insertPlaintext. */
+interface IComposerInsertCustomEmojiPayload extends IBaseComposerInsertPayload {
+    customEmoji: CustomEmojiChoice;
+}
+
+export type ComposerInsertPayload =
+    | IComposerInsertMentionPayload
+    | IComposerInsertPlaintextPayload
+    | IComposerInsertCustomEmojiPayload;

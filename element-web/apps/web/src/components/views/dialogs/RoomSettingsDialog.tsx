@@ -20,6 +20,7 @@ import {
     NotificationsIcon,
     AdvancedSettingsIcon,
     TreeIcon,
+    StickerIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import TabbedView, { Tab } from "../../structures/TabbedView";
@@ -30,6 +31,7 @@ import GeneralRoomSettingsTab from "../settings/tabs/room/GeneralRoomSettingsTab
 import SecurityRoomSettingsTab from "../settings/tabs/room/SecurityRoomSettingsTab";
 import NotificationSettingsTab from "../settings/tabs/room/NotificationSettingsTab";
 import BridgeSettingsTab from "../settings/tabs/room/BridgeSettingsTab";
+import EmojiStickersRoomSettingsTab from "../settings/tabs/room/EmojiStickersRoomSettingsTab";
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
 import dis from "../../../dispatcher/dispatcher";
 import SettingsStore from "../../../settings/SettingsStore";
@@ -55,6 +57,7 @@ export const enum RoomSettingsTab {
     Bridges = "ROOM_BRIDGES_TAB",
     Advanced = "ROOM_ADVANCED_TAB",
     PollHistory = "ROOM_POLL_HISTORY_TAB",
+    EmojiStickers = "ROOM_EMOJI_STICKERS_TAB",
 }
 
 interface IProps {
@@ -146,6 +149,14 @@ class RoomSettingsDialog extends React.Component<IProps, IState> {
                 <SettingsIcon />,
                 <GeneralRoomSettingsTab room={this.state.room} />,
                 "RoomSettingsGeneral",
+            ),
+        );
+        tabs.push(
+            new Tab(
+                RoomSettingsTab.EmojiStickers,
+                _td("room_settings|emoji_stickers|title"),
+                <StickerIcon />,
+                <EmojiStickersRoomSettingsTab room={this.state.room} />,
             ),
         );
         if (SettingsStore.getValue("feature_ask_to_join") && this.state.room.getJoinRule() === "knock") {

@@ -14,6 +14,7 @@ import { _t } from "../../../languageHandler";
 import { type CategoryKey, type ICategory } from "./Category";
 import { getKeyBindingsManager } from "../../../KeyBindingsManager";
 import { KeyBindingAction } from "../../../accessibility/KeyboardShortcuts";
+import { MatrixClientPeg } from "../../../MatrixClientPeg";
 
 interface IProps {
     categories: ICategory[];
@@ -87,6 +88,12 @@ class Header extends React.PureComponent<IProps> {
                     const classes = classNames("mx_EmojiPicker_anchor", {
                         mx_EmojiPicker_anchor_visible: category.visible,
                     });
+                    // Haven: no width/height/method - see Emoji.tsx's own identical doc, this
+                    // must stay a /download/ so a pack's own animated (gif) avatar still animates
+                    // in the rail.
+                    const iconHttpUrl = category.iconUrl
+                        ? MatrixClientPeg.safeGet().mxcUrlToHttp(category.iconUrl)
+                        : null;
                     // Properties of this button are also modified by EmojiPicker's updateVisibility in DOM.
                     return (
                         <button
@@ -101,7 +108,11 @@ class Header extends React.PureComponent<IProps> {
                             aria-selected={category.visible}
                             aria-controls={`mx_EmojiPicker_category_${category.id}`}
                         >
-                            {category.emoji}
+                            {iconHttpUrl ? (
+                                <img className="mx_EmojiPicker_anchor_img" src={iconHttpUrl} alt={category.name} />
+                            ) : (
+                                category.emoji
+                            )}
                         </button>
                     );
                 })}

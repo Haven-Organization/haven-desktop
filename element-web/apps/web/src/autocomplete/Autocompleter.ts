@@ -28,7 +28,7 @@ export interface ISelectionRange {
 }
 
 export interface ICompletion {
-    type?: "at-room" | "command" | "community" | "room" | "user";
+    type?: "at-room" | "command" | "community" | "room" | "user" | "custom-emoji";
     completion: string;
     completionId?: string;
     component: ReactElement<RefAttributes<HTMLElement> & HTMLAttributes<HTMLElement>>;
@@ -38,6 +38,11 @@ export interface ICompletion {
     // If provided, apply a LINK entity to the completion with the
     // data = { url: href }.
     href?: string;
+    // Haven: MSC2545 custom emoji completion (type: "custom-emoji") - see EmojiProvider.tsx and
+    // editor/autocomplete.ts's own partForCompletion, which uses these to insert a CustomEmojiPart
+    // instead of plain text.
+    mxcUrl?: string;
+    packName?: string;
 }
 
 const PROVIDERS = [UserProvider, RoomProvider, EmojiProvider, NotifProvider, CommandProvider, SpaceProvider];

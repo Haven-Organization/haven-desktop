@@ -42,3 +42,31 @@
     font-size: max($font-18px, 1em);
     vertical-align: bottom;
 }
+
+/* Haven: MSC2545 image pack emoji inserted into the composer - see editor/parts.ts's own
+   CustomEmojiPart. */
+.mx_CustomEmojiPart {
+    position: relative;
+    display: inline-block;
+    vertical-align: bottom;
+}
+
+/* Kept in the DOM (see parts.ts's own CustomEmojiPart.toDOMNode doc - the editor's DOM<->model
+   diffing needs a real text node here) but not meant to be seen - the image is what's shown. */
+.mx_CustomEmojiPart_text {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    font-size: 1px;
+    line-height: 1px;
+    color: transparent;
+    pointer-events: none;
+}
+
+.mx_CustomEmojiPart_image {
+    width: 1.2em;
+    height: 1.2em;
+    object-fit: contain;
+    vertical-align: bottom;
+}

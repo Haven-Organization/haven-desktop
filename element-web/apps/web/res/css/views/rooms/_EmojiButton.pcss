@@ -19,3 +19,45 @@ Please see LICENSE files in the repository root for full details.
         @mixin composerButton 5px, $tertiary-content, $panels;
     }
 }
+
+/* Haven: composer-only Emoji/Stickers top tabs (see EmojiButton.tsx) - not shown for
+   ReactionPicker's own use of EmojiPicker, which has no tabs of its own since a sticker can never
+   be sent as a reaction at all. */
+.mx_EmojiButton_picker {
+    display: flex;
+    flex-direction: column;
+}
+
+.mx_EmojiButton_tabs {
+    display: flex;
+    border-bottom: 1px solid $message-action-bar-border-color;
+}
+
+.mx_EmojiButton_tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--cpd-space-1x);
+    border: none;
+    background: none;
+    padding: var(--cpd-space-2x);
+    font: var(--cpd-font-body-md-semibold);
+    color: var(--cpd-color-text-secondary);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+
+    svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    &:hover {
+        background-color: $focus-bg-color;
+    }
+}
+
+.mx_EmojiButton_tab_active {
+    color: var(--cpd-color-text-primary);
+    border-bottom: 2px solid $accent;
+}

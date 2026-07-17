@@ -1,0 +1,72 @@
+/*
+ * Haven: MSC2545 (Image Packs) — "Add to Pack" dialog.
+ */
+
+.mx_AddToPackDialog {
+    width: 420px;
+}
+
+.mx_AddToPackDialog_search {
+    margin-bottom: var(--cpd-space-3x);
+}
+
+.mx_AddToPackDialog_error {
+    color: var(--cpd-color-text-critical-primary);
+    margin-bottom: var(--cpd-space-3x);
+}
+
+.mx_AddToPackDialog_list {
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-2x);
+}
+
+.mx_AddToPackDialog_empty {
+    color: var(--cpd-color-text-secondary);
+    padding: var(--cpd-space-4x) 0;
+    text-align: center;
+}
+
+.mx_AddToPackDialog_row {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-2x);
+    border-radius: 8px;
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
+}
+
+.mx_AddToPackDialog_rowAvatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.mx_AddToPackDialog_rowAvatar_placeholder {
+    background-color: var(--cpd-color-bg-subtle-secondary);
+}
+
+.mx_AddToPackDialog_rowInfo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.mx_AddToPackDialog_rowName {
+    font-weight: var(--cpd-font-weight-semibold);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.mx_AddToPackDialog_rowRoom {
+    color: var(--cpd-color-text-secondary);
+    font-size: 0.85rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}

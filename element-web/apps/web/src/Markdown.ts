@@ -27,6 +27,14 @@ function isAllowedHtmlTag(node: commonmark.Node): boolean {
         return true;
     }
 
+    // Haven: MSC2545 custom emoji, serialized by editor/serialize.ts's own mdSerialize as a raw
+    // <img data-mx-emoticon> tag (the same convention other custom-emoji-aware Matrix clients look
+    // for when rendering *received* messages) - without this, isPlainText() below never notices the
+    // tag needs real HTML and the image gets sent as inert markdown text instead.
+    if (node.literal.match("^<img data-mx-emoticon [^>]*/>$") != null) {
+        return true;
+    }
+
     // Regex won't work for tags with attrs, but the tags we allow
     // shouldn't really have any anyway.
     const matches = /^<\/?(.*)>$/.exec(node.literal);

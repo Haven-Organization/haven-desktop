@@ -12,6 +12,7 @@ import {
     AdminIcon,
     AdvancedSettingsIcon,
     SettingsSolidIcon,
+    StickerIcon,
     VisibilityOnIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
@@ -26,11 +27,16 @@ import SettingsStore from "../../../settings/SettingsStore";
 import { UIFeature } from "../../../settings/UIFeature";
 import AdvancedRoomSettingsTab from "../settings/tabs/room/AdvancedRoomSettingsTab";
 import RolesRoomSettingsTab from "../settings/tabs/room/RolesRoomSettingsTab";
+import EmojiStickersRoomSettingsTab from "../settings/tabs/room/EmojiStickersRoomSettingsTab";
 import { Action } from "../../../dispatcher/actions";
 import { type NonEmptyArray } from "../../../@types/common";
 
 export enum SpaceSettingsTab {
     General = "SPACE_GENERAL_TAB",
+    // Haven: MSC2545 (Image Packs) - a space is just a room, so it can have its own emoji/sticker
+    // packs too (e.g. ones meant to be favorited across every room in the space) - reuses
+    // EmojiStickersRoomSettingsTab unchanged, same as the Roles/Advanced tabs below already do.
+    EmojiStickers = "SPACE_EMOJI_STICKERS_TAB",
     Visibility = "SPACE_VISIBILITY_TAB",
     Roles = "SPACE_ROLES_TAB",
     Advanced = "SPACE_ADVANCED_TAB",
@@ -56,6 +62,12 @@ const SpaceSettingsDialog: React.FC<IProps> = ({ matrixClient: cli, space, onFin
                 _td("common|general"),
                 <SettingsSolidIcon />,
                 <SpaceSettingsGeneralTab matrixClient={cli} space={space} />,
+            ),
+            new Tab(
+                SpaceSettingsTab.EmojiStickers,
+                _td("room_settings|emoji_stickers|title"),
+                <StickerIcon />,
+                <EmojiStickersRoomSettingsTab room={space} />,
             ),
             new Tab(
                 SpaceSettingsTab.Visibility,

@@ -611,6 +611,10 @@
         },
         "close_sticker_picker": "Hide stickers",
         "edit_composer_label": "Edit message",
+        "emoji_picker": {
+            "emoji_tab": "Emoji",
+            "sticker_tab": "Stickers"
+        },
         "format_bold": "Bold",
         "format_code_block": "Code block",
         "format_decrease_indent": "Indent decrease",
@@ -2255,6 +2259,29 @@
             "title": "Bridges"
         },
         "delete_avatar_label": "Delete avatar",
+        "emoji_stickers": {
+            "body": "Description",
+            "edit_avatar": "Change avatar",
+            "image_count": {
+                "one": "%(count)s image",
+                "other": "%(count)s images"
+            },
+            "images": "Images",
+            "images_usage": "Images usage",
+            "mxc_url": "mxc:// URL",
+            "new_pack": "New pack",
+            "no_packs": "This room has no emoji or sticker packs yet.",
+            "no_packs_space": "This space has no emoji or sticker packs yet.",
+            "or": "or",
+            "pack_name": "Pack name",
+            "packs": "Packs",
+            "shortcode": "Shortcode",
+            "title": "Emoji & Stickers",
+            "upload_image": "Upload image",
+            "usage_both": "Emoji and stickers",
+            "usage_emoji": "Emoji",
+            "usage_sticker": "Stickers"
+        },
         "general": {
             "alias_field_has_domain_invalid": "Missing domain separator e.g. (:domain.org)",
             "alias_field_has_localpart_invalid": "Missing room name or separator e.g. (my-room:domain.org)",
@@ -2563,6 +2590,13 @@
             "title": "How to find you"
         },
         "emoji_autocomplete": "Enable Emoji suggestions while typing",
+        "emoji_stickers": {
+            "dialog_title": "<strong>Settings:</strong> Emoji & Stickers",
+            "favorite_packs": "Favorite Packs",
+            "favorite_packs_description": "Choose which rooms' emoji and sticker packs you want to use everywhere, not just in the room they belong to.",
+            "no_packs": "You haven't joined any rooms with emoji or sticker packs yet.",
+            "title": "Emoji & Stickers"
+        },
         "enable_markdown": "Enable Markdown",
         "enable_markdown_description": "Start messages with <code>/plain</code> to send without markdown.",
         "encryption": {
@@ -3379,6 +3413,9 @@
     },
     "timeline": {
         "context_menu": {
+            "add_to_pack": "Add to Pack",
+            "add_to_pack_no_packs": "No packs to add to - create one in a room's settings first.",
+            "add_to_pack_search": "Search packs or rooms",
             "collapse_reply_thread": "Collapse reply thread",
             "external_url": "Source URL",
             "open_in_osm": "Open in OpenStreetMap",

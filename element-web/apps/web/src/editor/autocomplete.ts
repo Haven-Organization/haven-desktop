@@ -103,6 +103,14 @@ export default class AutocompleteWrapperModel {
             case "command":
                 // command needs special handling for auto complete, but also renders as plain texts
                 return [(this.partCreator as CommandPartCreator).command(text)];
+            case "custom-emoji":
+                // Haven: MSC2545 custom emoji, mixed into EmojiProvider's own completions - render
+                // as the actual pack image inline, same as picking it from the emoji picker (see
+                // BasicMessageComposer.insertCustomEmoji).
+                return [
+                    this.partCreator.customEmoji(text, completion.mxcUrl!, completion.packName!),
+                    this.partCreator.plain(" "),
+                ];
             default:
                 // used for emoji and other plain text completion replacement
                 return this.partCreator.plainWithEmoji(text);

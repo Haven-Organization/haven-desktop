@@ -44,6 +44,18 @@ export function mdSerialize(model: EditorModel): string {
                 const title = part.text.replace(/[[\\\]]/g, (c) => "\\" + c).replace(/\n/g, "<br>");
                 return html + `[${title}](${url})`;
             }
+            case Type.CustomEmoji: {
+                // Haven: raw inline HTML embedded straight into the markdown source, same trick
+                // htmlSerializeFromMdIfNeeded already uses for LaTeX's own data-mx-maths spans
+                // just below - commonmark passes inline HTML through untouched, and its mere
+                // presence is what makes isPlainText() correctly report false so this always goes
+                // out with a real formatted_body (a plain-text-only body could never show the
+                // actual image). `<img data-mx-emoticon>` is the same convention real
+                // custom-emoji-aware Matrix clients already use for rendering *received* custom
+                // emoji, not a Haven-only invention - see MSC2545's own "Sending" section.
+                const alt = escapeHtml(part.text);
+                return html + `<img data-mx-emoticon height="32" src="${part.mxcUrl}" alt="${alt}" title="${alt}" />`;
+            }
         }
     }, "");
 }
@@ -57,12 +69,16 @@ export function htmlSerializeIfNeeded(
     model: EditorModel,
     { forceHTML = false, useMarkdown = true }: ISerializeOpts = {},
 ): string | undefined {
-    if (!useMarkdown) {
+    // Haven: a custom emoji has no plain-text representation that actually shows the image - it
+    // must always go out as real HTML (see CustomEmojiPart's own doc), even with Markdown disabled,
+    // where htmlSerializeIfNeeded would otherwise always take the plain-text shortcut below.
+    const hasCustomEmoji = model.parts.some((part) => part.type === Type.CustomEmoji);
+    if (!useMarkdown && !hasCustomEmoji) {
         return escapeHtml(textSerialize(model)).replace(/\n/g, "<br/>");
     }
 
     const md = mdSerialize(model);
-    return htmlSerializeFromMdIfNeeded(md, { forceHTML });
+    return htmlSerializeFromMdIfNeeded(md, { forceHTML: forceHTML || hasCustomEmoji });
 }
 
 export function htmlSerializeFromMdIfNeeded(md: string, { forceHTML = false } = {}): string | undefined {
@@ -186,6 +202,10 @@ export function textSerialize(model: EditorModel): string {
                 return text + `${part.resourceId}`;
             case Type.UserPill:
                 return text + `${part.text}`;
+            case Type.CustomEmoji:
+                // Plain-text fallback body - shows the shortcode, same as any other client with no
+                // image-pack support of its own would see (part.text is already ":shortcode:").
+                return text + part.text;
         }
     }, "");
 }

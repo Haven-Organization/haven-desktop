@@ -19,6 +19,7 @@ import defaultDispatcher from "../dispatcher/dispatcher";
 import { Action } from "../dispatcher/actions";
 import SettingsStore from "../settings/SettingsStore";
 import { getFirstGrapheme, graphemeSegmenter } from "../utils/strings";
+import { MatrixClientPeg } from "../MatrixClientPeg";
 
 const REGIONAL_EMOJI_SEPARATOR = String.fromCodePoint(0x200b);
 
@@ -33,7 +34,16 @@ interface ISerializedPillPart {
     resourceId?: string;
 }
 
-export type SerializedPart = ISerializedPart | ISerializedPillPart;
+/** Haven: MSC2545 image pack emoji, chosen from EmojiPicker's own pack categories and inserted
+ *  via BasicMessageComposer.insertCustomEmoji - see CustomEmojiPart's own doc below. */
+interface ISerializedCustomEmojiPart {
+    type: Type.CustomEmoji;
+    text: string;
+    mxcUrl: string;
+    packName: string;
+}
+
+export type SerializedPart = ISerializedPart | ISerializedPillPart | ISerializedCustomEmojiPart;
 
 export enum Type {
     Plain = "plain",
@@ -44,6 +54,8 @@ export enum Type {
     RoomPill = "room-pill",
     AtRoomPill = "at-room-pill",
     PillCandidate = "pill-candidate",
+    /** Haven: MSC2545 image pack emoji - see CustomEmojiPart's own doc below. */
+    CustomEmoji = "custom-emoji",
 }
 
 interface IBasePart {
@@ -76,7 +88,14 @@ interface IPillPart extends Omit<IBasePart, "type" | "resourceId"> {
     resourceId: string;
 }
 
-export type Part = IBasePart | IPillCandidatePart | IPillPart;
+/** Haven: MSC2545 image pack emoji - see CustomEmojiPart's own doc below. */
+interface ICustomEmojiPart extends Omit<IBasePart, "type"> {
+    type: Type.CustomEmoji;
+    mxcUrl: string;
+    packName: string;
+}
+
+export type Part = IBasePart | IPillCandidatePart | IPillPart | ICustomEmojiPart;
 
 abstract class BasePart {
     protected _text: string;
@@ -417,6 +436,88 @@ export class EmojiPart extends BasePart implements IBasePart {
     }
 }
 
+/** Haven: MSC2545 image pack emoji, chosen from EmojiPicker's own pack categories (see
+ *  customEmoji.ts's CustomEmojiChoice) and inserted via BasicMessageComposer.insertCustomEmoji -
+ *  renders as the actual pack image inline in the composer rather than showing raw MXC/shortcode
+ *  text (the whole point of this part type), and serializes to the same `<img data-mx-emoticon>`
+ *  convention real custom-emoji-aware Matrix clients already use for rendering *received*
+ *  messages - see editor/serialize.ts's own mdSerialize case for this Type. Atomic/non-editable
+ *  like NewlinePart/EmojiPart - there's no sensible way to "edit into" an image the way you can a
+ *  pill's underlying text. */
+export class CustomEmojiPart extends BasePart implements ICustomEmojiPart {
+    public constructor(
+        text: string,
+        public readonly mxcUrl: string,
+        public readonly packName: string,
+    ) {
+        super(text);
+    }
+
+    protected acceptsInsertion(): boolean {
+        return false;
+    }
+
+    protected acceptsRemoval(): boolean {
+        return true;
+    }
+
+    public toDOMNode(): Node {
+        const container = document.createElement("span");
+        container.className = "mx_CustomEmojiPart";
+        container.setAttribute("contentEditable", "false");
+        container.setAttribute("title", this.text);
+        // Haven: editor/dom.ts's own getCaretOffsetAndText walks every text node under the editor
+        // root to reconstruct "what's actually in the document" and diffs that against the model -
+        // it doesn't know about parts or their boundaries at all. PillPart's own toDOMNode (see its
+        // own doc) puts its real text as a genuine child text node for exactly this reason; without
+        // one here, this part's stretch of the document contributes zero characters to that walk,
+        // so typing anywhere after it (or a select-all + cut spanning it) reads as if this part's
+        // text had been deleted, corrupting the model on the next update. The text node is kept
+        // in the DOM but visually hidden - only the image should be visible.
+        const textNode = document.createElement("span");
+        textNode.className = "mx_CustomEmojiPart_text";
+        textNode.appendChild(document.createTextNode(this.text));
+        container.appendChild(textNode);
+        const img = document.createElement("img");
+        img.className = "mx_CustomEmojiPart_image";
+        // Haven: no width/height/method - see Emoji.tsx's own identical doc, this must stay a
+        // /download/ to keep an animated custom emoji animated while composing.
+        img.src = MatrixClientPeg.safeGet().mxcUrlToHttp(this.mxcUrl) ?? this.mxcUrl;
+        img.alt = this.text;
+        container.appendChild(img);
+        return container;
+    }
+
+    // Static once created (no live property to diff against a rendered DOM node - the mxc/text
+    // are fixed at insertion time) - nothing for updateDOMNode to actually do.
+    public updateDOMNode(): void {}
+
+    public canUpdateDOMNode(node: HTMLElement): boolean {
+        return node.nodeType === Node.ELEMENT_NODE && node.classList?.contains("mx_CustomEmojiPart");
+    }
+
+    public get type(): ICustomEmojiPart["type"] {
+        return Type.CustomEmoji;
+    }
+
+    public get canEdit(): boolean {
+        return false;
+    }
+
+    public get acceptsCaret(): boolean {
+        return true;
+    }
+
+    public serialize(): ISerializedCustomEmojiPart {
+        return {
+            type: Type.CustomEmoji,
+            text: this.text,
+            mxcUrl: this.mxcUrl,
+            packName: this.packName,
+        };
+    }
+}
+
 class RoomPillPart extends PillPart {
     public constructor(
         resourceId: string,
@@ -606,6 +707,8 @@ export class PartCreator {
                 return part.resourceId ? this.roomPill(part.resourceId) : undefined;
             case Type.UserPill:
                 return part.resourceId ? this.userPill(part.text, part.resourceId) : undefined;
+            case Type.CustomEmoji:
+                return this.customEmoji(part.text, part.mxcUrl, part.packName);
         }
     }
 
@@ -644,6 +747,12 @@ export class PartCreator {
     public userPill(displayName: string, userId: string): UserPillPart {
         const member = this.room.getMember(userId);
         return new UserPillPart(userId, displayName, member || undefined);
+    }
+
+    /** Haven: `shortcodeText` is the already-`:shortcode:`-wrapped display text (see
+     *  CustomEmojiPart's own doc and EmojiButton.tsx's own call site). */
+    public customEmoji(shortcodeText: string, mxcUrl: string, packName: string): CustomEmojiPart {
+        return new CustomEmojiPart(shortcodeText, mxcUrl, packName);
     }
 
     private static isRegionalIndicator(c: string): boolean {

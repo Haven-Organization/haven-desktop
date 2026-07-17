@@ -1,0 +1,175 @@
+/*
+ * Haven: MSC2545 (Image Packs) room settings tab.
+ */
+
+.mx_EmojiStickersSettingsTab_newPack {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--cpd-space-3x);
+}
+
+.mx_EmojiStickersSettingsTab_empty {
+    color: var(--cpd-color-text-secondary);
+}
+
+.mx_EmojiStickersSettingsTab_packList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-2x);
+}
+
+.mx_EmojiStickersSettingsTab_packRow {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-2x);
+    border-radius: 8px;
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
+}
+
+.mx_EmojiStickersSettingsTab_packInfo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.mx_EmojiStickersSettingsTab_packName {
+    font-weight: var(--cpd-font-weight-semibold);
+}
+
+.mx_EmojiStickersSettingsTab_packCount {
+    color: var(--cpd-color-text-secondary);
+    font-size: 0.85rem;
+}
+
+.mx_EmojiStickersSettingsTab_avatar {
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.mx_EmojiStickersSettingsTab_avatar_placeholder {
+    background-color: var(--cpd-color-bg-subtle-secondary);
+}
+
+.mx_EmojiStickersSettingsTab_removeBtn {
+    min-width: 32px;
+}
+
+.mx_EmojiStickersSettingsTab_backBar {
+    margin-bottom: var(--cpd-space-3x);
+}
+
+.mx_EmojiStickersSettingsTab_packHeader {
+    display: flex;
+    align-items: center;
+    /* Haven: the settings subsection lays rows out on a CSS grid with `justify-items: flex-start`,
+       so this row shrink-wraps to its own content width by default - stretch it so the trailing
+       Edit/Done button lands at the same right edge as the image rows' Edit buttons below. */
+    justify-self: stretch;
+    gap: var(--cpd-space-3x);
+    /* Haven: matches .mx_EmojiStickersSettingsTab_imageRow's horizontal padding so this row's
+       Edit/Done button lines up exactly with the image rows' Edit buttons below. */
+    padding-inline: var(--cpd-space-2x);
+    margin-bottom: var(--cpd-space-4x);
+
+    /* Haven: .mx_SettingsTab forces every .mx_AccessibleButton to `align-self: flex-start`
+       (so buttons never stretch full width elsewhere), which also overrides this row's own
+       `align-items: center` for the bare Edit/Done button - pin it back to centered so it
+       lines up with the pack name / editable name field next to it. */
+    > .mx_AccessibleButton {
+        align-self: center;
+    }
+}
+
+.mx_EmojiStickersSettingsTab_packHeaderInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.mx_EmojiStickersSettingsTab_packHeaderName {
+    margin: 0;
+}
+
+.mx_EmojiStickersSettingsTab_uploadBtn {
+    display: inline-flex;
+    cursor: pointer;
+}
+
+.mx_EmojiStickersSettingsTab_usageRow {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    max-width: 360px;
+
+    select {
+        /* Haven: leave room for the Field's chevron icon so it doesn't overlap long option text
+           like "Emoji and stickers". */
+        padding-right: 28px;
+    }
+}
+
+.mx_EmojiStickersSettingsTab_imageList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-2x);
+    margin-bottom: var(--cpd-space-3x);
+    /* Haven: stretch to the full grid column width (see packHeader above) so each row's Edit
+       button lands at the same right edge as the pack header's Edit/Done button. */
+    justify-self: stretch;
+}
+
+.mx_EmojiStickersSettingsTab_imageRow {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-1x) var(--cpd-space-2x);
+}
+
+.mx_EmojiStickersSettingsTab_imageRow_editing {
+    align-items: flex-start;
+    background-color: var(--cpd-color-bg-subtle-secondary);
+    border-radius: 8px;
+    padding: var(--cpd-space-3x);
+}
+
+.mx_EmojiStickersSettingsTab_imageThumb {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.mx_EmojiStickersSettingsTab_imageShortcode {
+    flex: 1;
+    font-family: var(--cpd-font-family-mono, monospace);
+}
+
+.mx_EmojiStickersSettingsTab_imageEditFields {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-2x);
+}
+
+.mx_EmojiStickersSettingsTab_saveBar {
+    margin-top: var(--cpd-space-4x);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.mx_EmojiStickersSettingsTab_addImageRow {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--cpd-space-3x);
+}
+
+.mx_EmojiStickersSettingsTab_addImageOr {
+    color: var(--cpd-color-text-secondary);
+}
+
+.mx_EmojiStickersSettingsTab_error {
+    color: var(--cpd-color-text-critical-primary);
+    margin-top: var(--cpd-space-2x);
+}

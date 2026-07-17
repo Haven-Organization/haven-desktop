@@ -41,6 +41,7 @@ import {
     ShareIcon,
     CopyIcon,
     TreeIcon,
+    StickerIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
@@ -75,6 +76,8 @@ import { type ShowThreadPayload } from "../../../dispatcher/payloads/ShowThreadP
 import { CardContext } from "../right_panel/context";
 import PinningUtils from "../../../utils/PinningUtils";
 import PosthogTrackers from "../../../PosthogTrackers.ts";
+import { getPackableImageFromEvent } from "../../../utils/ImagePacks";
+import AddToPackDialog from "../dialogs/AddToPackDialog";
 
 interface IReplyInThreadButton {
     mxEvent: MatrixEvent;
@@ -264,6 +267,11 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
             mxEvent,
             onCloseDialog,
         });
+        this.closeMenu();
+    };
+
+    private onAddToPackClick = (): void => {
+        Modal.createDialog(AddToPackDialog, { mxEvent: this.props.mxEvent }, "mx_AddToPackDialog_wrapper");
         this.closeMenu();
     };
 
@@ -473,6 +481,19 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                     icon={<ForwardIcon />}
                     label={_t("action|forward")}
                     onClick={this.onForwardClick(forwardableEvent)}
+                />
+            );
+        }
+
+        // Haven: MSC2545 image packs - only an unencrypted m.sticker or m.image message actually
+        // has anything addable (see getPackableImageFromEvent's own doc for exactly why).
+        let addToPackButton: JSX.Element | undefined;
+        if (getPackableImageFromEvent(mxEvent)) {
+            addToPackButton = (
+                <IconizedContextMenuOption
+                    icon={<StickerIcon />}
+                    label={_t("timeline|context_menu|add_to_pack")}
+                    onClick={this.onAddToPackClick}
                 />
             );
         }
@@ -726,6 +747,7 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                 {openInMapSiteButton}
                 {endPollButton}
                 {forwardButton}
+                {addToPackButton}
                 {permalinkButton}
                 {reportEventButton}
                 {externalURLButton}

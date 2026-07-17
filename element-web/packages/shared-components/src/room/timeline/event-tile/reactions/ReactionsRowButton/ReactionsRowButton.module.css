@@ -6,7 +6,6 @@
  */
 
 .reactionsRowButton {
-    display: inline-flex;
     all: unset;
     cursor: pointer;
     line-height: var(--cpd-font-size-heading-sm);
@@ -16,6 +15,17 @@
     background-color: var(--cpd-color-gray-200);
     user-select: none;
     align-items: center;
+}
+
+/* Haven: kept as a separate rule from the block above on purpose - the build's own `all: unset`
+   expansion (visible in the compiled output as hundreds of individual `property: unset`
+   declarations) was silently swallowing a `display: inline-flex` declared in the same rule,
+   leaving the button as its default block-level display and breaking vertical centering of a
+   custom emoji reaction's image (it'd sit near the top of the pill via the image's own default
+   inline vertical-align instead, since align-items only has any effect on a flex container). A
+   same-selector rule declared afterward doesn't collide the same way. */
+.reactionsRowButton {
+    display: inline-flex;
 }
 
 .reactionsRowButtonSelected {

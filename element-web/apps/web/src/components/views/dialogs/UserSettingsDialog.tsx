@@ -21,6 +21,7 @@ import SidebarIcon from "@vector-im/compound-design-tokens/assets/web/icons/side
 import MicOnIcon from "@vector-im/compound-design-tokens/assets/web/icons/mic-on";
 import LockIcon from "@vector-im/compound-design-tokens/assets/web/icons/lock";
 import LabsIcon from "@vector-im/compound-design-tokens/assets/web/icons/labs";
+import StickerIcon from "@vector-im/compound-design-tokens/assets/web/icons/sticker";
 import BlockIcon from "@vector-im/compound-design-tokens/assets/web/icons/block";
 import HelpIcon from "@vector-im/compound-design-tokens/assets/web/icons/help";
 import { ToastContext, useActiveToast } from "@element-hq/web-shared-components";
@@ -48,6 +49,7 @@ import { SDKContext, type SdkContextClass } from "../../../contexts/SDKContext";
 import { useSettingValue } from "../../../hooks/useSettings";
 import { NoChange, useEventEmitterAsyncState, type AsyncStateCallbackResult } from "../../../hooks/useEventEmitter";
 import { EncryptionUserSettingsTab, type State } from "../settings/tabs/user/EncryptionUserSettingsTab";
+import EmojiStickersUserSettingsTab from "../settings/tabs/user/EmojiStickersUserSettingsTab";
 
 interface IProps {
     initialTabId?: UserTab;
@@ -86,6 +88,8 @@ function titleForTabID(tabId: UserTab): React.ReactNode {
             return _t("settings|security|dialog_title", undefined, subs);
         case UserTab.Encryption:
             return _t("settings|encryption|dialog_title", undefined, subs);
+        case UserTab.EmojiStickers:
+            return _t("settings|emoji_stickers|dialog_title", undefined, subs);
         case UserTab.Labs:
             return _t("settings|labs|dialog_title", undefined, subs);
         case UserTab.Mjolnir:
@@ -219,6 +223,15 @@ export default function UserSettingsDialog(props: IProps): JSX.Element {
                 <EncryptionUserSettingsTab initialState={initialEncryptionState} />,
                 "UserSettingsEncryption",
                 showSetupRecoveryIndicator ? "mx_SettingsDialog_tabLabelsAlert" : undefined,
+            ),
+        );
+
+        tabs.push(
+            new Tab(
+                UserTab.EmojiStickers,
+                _td("settings|emoji_stickers|title"),
+                <StickerIcon />,
+                <EmojiStickersUserSettingsTab />,
             ),
         );
 

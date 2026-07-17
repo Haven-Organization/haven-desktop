@@ -7,14 +7,32 @@ Please see LICENSE files in the repository root for full details.
 */
 
 .mx_EmojiPicker {
-    width: 340px;
+    /* Haven: was 340px before the rail existed - that figure was exactly sized so the 8-per-row
+       grid (EMOJIS_PER_ROW * 38px = 304px, see .mx_EmojiPicker_list/_category_label's own doc)
+       plus its padding and scrollbar allowance fit with nothing to spare. The rail adds 44px of
+       its own plus a 1px border on the left of that same content, so the total needs to grow by
+       exactly that much too, or the still-304px-wide grid has less room than it needs and wraps
+       to fewer than 8 per row. */
+    width: 385px;
     height: min(450px, 80vh);
     max-height: 80vh;
 
     border-radius: 4px;
 
+    /* Haven: rail (Header) on the left, everything else (search/grid/footer) stacked in a column
+       to its right - see mx_EmojiPicker_main below. Was flex-direction: column with Header as a
+       plain top-of-column sibling; the extra .mx_EmojiPicker_main wrapper around everything else
+       is what makes a left-edge rail possible without otherwise touching this component's own
+       scroll-sync/virtualization logic. */
+    display: flex;
+    flex-direction: row;
+}
+
+.mx_EmojiPicker_main {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-width: 0;
 }
 
 .mx_EmojiPicker_body {
@@ -23,26 +41,47 @@ Please see LICENSE files in the repository root for full details.
 }
 
 .mx_EmojiPicker_header {
-    padding: 4px 8px 0;
-    border-bottom: 1px solid $message-action-bar-border-color;
+    flex-shrink: 0;
+    width: 44px;
+    padding: 8px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    overflow-y: auto;
+    /* Haven: this rail is a narrow icon strip, not a content area with a scroll position worth
+       showing a track/thumb for - stays scrollable (wheel/trackpad/drag), just without a visible
+       scrollbar rendered over it. */
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    border-right: 1px solid $message-action-bar-border-color;
 }
 
 .mx_EmojiPicker_anchor {
+    /* Haven: was a horizontal tab bar (border-bottom underline for the active one) - now a
+       vertical rail, so the "active" indicator moves to a left-edge bar instead. */
     border: none;
+    border-left: 2px solid transparent;
     padding: var(--cpd-space-1x) 0;
     /* We have to explicitly inherit the font as button browser styles are implicitly ignorant */
     font: inherit;
     font-size: $font-20px;
     line-height: 1;
-    border-bottom: 2px solid transparent;
     background-color: transparent;
-    border-radius: 4px 4px 0 0;
+    border-radius: 4px;
 
     width: 36px;
     height: 36px;
+    flex-shrink: 0;
 
     color: $primary-content;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     &:not(:disabled) {
         cursor: pointer;
@@ -53,12 +92,19 @@ Please see LICENSE files in the repository root for full details.
 
     &:not(:disabled):hover {
         background-color: $focus-bg-color;
-        border-bottom: 2px solid $accent;
+        border-left: 2px solid $accent;
     }
 }
 
 .mx_EmojiPicker_anchor_visible {
-    border-bottom: 2px solid $accent;
+    border-left: 2px solid $accent;
+}
+
+.mx_EmojiPicker_anchor_img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    border-radius: 4px;
 }
 
 .mx_EmojiPicker_search {
@@ -121,6 +167,9 @@ Please see LICENSE files in the repository root for full details.
 }
 
 .mx_EmojiPicker_category_label {
+    /* 304px = EMOJIS_PER_ROW (8) * the 38px each item's wrapper takes up - not an arbitrary
+       number, so it stays fixed regardless of where Header/the rail sits; see .mx_EmojiPicker's
+       own doc for how its overall width keeps this fitting exactly 8 per row. */
     width: 304px;
     font: var(--cpd-font-heading-sm-semibold);
 }
@@ -157,6 +206,14 @@ Please see LICENSE files in the repository root for full details.
         width: 100%;
         height: 100%;
     }
+}
+
+/* Haven: the Stickers tab's own grid slot - bigger than a regular emoji's, at the same 4-per-row
+   layout EmojiPicker.tsx's own STICKERS_PER_ROW/STICKER_HEIGHT drives the row virtualization
+   math with (304px / 4 = 76px; these two numbers must change together). */
+.mx_EmojiPicker_item_wrapper_sticker {
+    width: 76px;
+    height: 70px;
 }
 
 .mx_EmojiPicker_body_showHighlight .mx_EmojiPicker_item_wrapper [tabindex="0"] .mx_EmojiPicker_item {
@@ -197,6 +254,18 @@ Please see LICENSE files in the repository root for full details.
     overflow: hidden;
     text-overflow: ellipsis;
     padding: 0 2px;
+}
+
+.mx_EmojiPicker_item_customImg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.mx_EmojiPicker_preview_customImg {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
 }
 
 .mx_EmojiPicker_item_selected {

@@ -555,6 +555,10 @@ export class SendMessageComposer extends React.Component<ISendMessageComposerPro
                     this.editorRef.current?.insertMention(payload.userId);
                 } else if (payload.event) {
                     this.editorRef.current?.insertQuotedMessage(payload.event);
+                } else if (payload.customEmoji) {
+                    // Haven: MSC2545 pack image - see MessageComposer.tsx's own addEmoji and
+                    // ComposerInsertPayload.ts's own doc on this field.
+                    this.editorRef.current?.insertCustomEmoji(payload.customEmoji);
                 } else if (payload.text) {
                     this.editorRef.current?.insertPlaintext(payload.text);
                 }

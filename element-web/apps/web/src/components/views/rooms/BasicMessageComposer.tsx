@@ -44,6 +44,7 @@ import { _t } from "../../../languageHandler";
 import { SdkContextClass } from "../../../contexts/SDKContext";
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
 import { Landmark, LandmarkNavigation } from "../../../accessibility/LandmarkNavigation";
+import { type CustomEmojiChoice } from "../emojipicker/customEmoji";
 
 // matches emoticons which follow the start of a line or whitespace
 const REGEX_EMOTICON_WHITESPACE = new RegExp("(?:^|\\s)(" + EMOTICON_REGEX.source + ")\\s|:^$");
@@ -923,6 +924,24 @@ export default class BasicMessageEditor extends React.Component<IProps, IState> 
         const position = model.positionForOffset(caret.offset, caret.atNodeEnd);
         model.transform(() => {
             const addedLen = model.insert(partCreator.plainWithEmoji(text), position);
+            return model.positionForOffset(caret.offset + addedLen, true);
+        });
+    }
+
+    /** Haven: inserts a chosen MSC2545 pack image as an atomic, non-editable part that renders as
+     *  the actual image inline (see CustomEmojiPart's own doc) - mirrors insertMention's own
+     *  caret-position dance, including its trailing plain-text part: the emoji part is a single
+     *  atomic DOM node with no real text offsets of its own, so without a following text part the
+     *  final positionForOffset call has nowhere real to land the caret and throws. */
+    public insertCustomEmoji(choice: CustomEmojiChoice): void {
+        this.modifiedFlag = true;
+        const { model } = this.props;
+        const { partCreator } = model;
+        const caret = this.getCaret();
+        const position = model.positionForOffset(caret.offset, caret.atNodeEnd);
+        const parts = [partCreator.customEmoji(`:${choice.shortcode}:`, choice.mxcUrl, choice.packName), partCreator.plain(" ")];
+        model.transform(() => {
+            const addedLen = model.insert(parts, position);
             return model.positionForOffset(caret.offset + addedLen, true);
         });
     }

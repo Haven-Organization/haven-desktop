@@ -11,11 +11,13 @@ import React from "react";
 import { type MatrixEvent, EventType, RelationType, type Relations, RelationsEvent } from "matrix-js-sdk/src/matrix";
 
 import EmojiPicker from "./EmojiPicker";
+import { type CustomEmojiChoice } from "./customEmoji";
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
 import dis from "../../../dispatcher/dispatcher";
 import { Action } from "../../../dispatcher/actions";
 import RoomContext from "../../../contexts/RoomContext";
 import { type FocusComposerPayload } from "../../../dispatcher/payloads/FocusComposerPayload";
+import { REACTION_SHORTCODE_KEY } from "../../../viewmodels/room/timeline/event-tile/reactions/reactionShortcode";
 
 interface IProps {
     mxEvent: MatrixEvent;
@@ -89,14 +91,20 @@ class ReactionPicker extends React.Component<IProps, IState> {
         });
     };
 
-    private onChoose = (reaction: string): boolean => {
+    private onChoose = (reaction: string, custom?: CustomEmojiChoice): boolean => {
         this.componentWillUnmount();
         this.props.onFinished();
+        // Haven: a custom emoji reaction's `key` is its mxc:// URL, not its shortcode text - this
+        // is the same convention MSC4459/MSC4027 use and that ReactionsRowButtonViewModel.ts (see
+        // its own `content.startsWith("mxc://")` check) already expects on the *render* side. The
+        // human-readable shortcode still travels along for tooltips/aria-labels, under
+        // REACTION_SHORTCODE_KEY (com.beeper.reaction.shortcode).
+        const key = custom ? custom.mxcUrl : reaction;
         const myReactions = this.getReactions();
-        if (myReactions.hasOwnProperty(reaction)) {
+        if (myReactions.hasOwnProperty(key)) {
             if (this.props.mxEvent.isRedacted() || !this.context.canSelfRedact) return false;
 
-            MatrixClientPeg.safeGet().redactEvent(this.props.mxEvent.getRoomId()!, myReactions[reaction]);
+            MatrixClientPeg.safeGet().redactEvent(this.props.mxEvent.getRoomId()!, myReactions[key]);
             dis.dispatch<FocusComposerPayload>({
                 action: Action.FocusAComposer,
                 context: this.context.timelineRenderingType,
@@ -104,13 +112,16 @@ class ReactionPicker extends React.Component<IProps, IState> {
             // Tell the emoji picker not to bump this in the more frequently used list.
             return false;
         } else {
-            MatrixClientPeg.safeGet().sendEvent(this.props.mxEvent.getRoomId()!, EventType.Reaction, {
+            const content = {
                 "m.relates_to": {
                     rel_type: RelationType.Annotation,
                     event_id: this.props.mxEvent.getId()!,
-                    key: reaction,
+                    key,
                 },
-            });
+                ...(custom ? { [REACTION_SHORTCODE_KEY.name]: `:${custom.shortcode}:` } : {}),
+            };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            MatrixClientPeg.safeGet().sendEvent(this.props.mxEvent.getRoomId()!, EventType.Reaction, content as any);
             this.props.onReact?.();
             dis.dispatch({ action: "message_sent" });
             dis.dispatch<FocusComposerPayload>({
@@ -129,6 +140,10 @@ class ReactionPicker extends React.Component<IProps, IState> {
     };
 
     public render(): React.ReactNode {
+        // Haven: no `mode` passed - reactions are always the plain "emoji" mode (stock unicode +
+        // any emoji/both image packs), never "sticker" - a sticker can't be sent as m.reaction at
+        // all (see EmojiPicker's own IProps.mode doc), so ReactionPicker never even offers it.
+        const room = MatrixClientPeg.safeGet().getRoom(this.props.mxEvent.getRoomId());
         return (
             <EmojiPicker
                 onChoose={this.onChoose}
@@ -136,6 +151,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
                 onFinished={this.props.onFinished}
                 selectedEmojis={this.state.selectedEmojis}
                 allowFreeformReaction
+                room={room ?? undefined}
             />
         );
     }

@@ -39,6 +39,7 @@ import IconizedContextMenu, {
     IconizedContextMenuOptionList,
 } from "../context_menus/IconizedContextMenu";
 import { EmojiButton } from "./EmojiButton";
+import { type CustomEmojiChoice } from "../emojipicker/customEmoji";
 import { filterBoolean } from "../../../utils/arrays";
 import { useSettingValue } from "../../../hooks/useSettings";
 import AccessibleButton, { type ButtonEvent } from "../elements/AccessibleButton";
@@ -46,7 +47,7 @@ import { useScopedRoomContext } from "../../../contexts/ScopedRoomContext.tsx";
 import { useRoomUploadViewModel } from "../../../viewmodels/room/RoomUploadViewModel.tsx";
 
 interface IProps {
-    addEmoji: (emoji: string) => boolean;
+    addEmoji: (emoji: string, custom?: CustomEmojiChoice) => boolean;
     haveRecording: boolean;
     isMenuOpen: boolean;
     isStickerPickerOpen: boolean;
@@ -88,7 +89,7 @@ const MessageComposerButtons: React.FC<IProps> = (props: IProps) => {
                     onClick={props.onComposerModeClick}
                 />
             ) : (
-                emojiButton(props)
+                emojiButton(props, room)
             ),
         ];
         moreButtons = [
@@ -115,7 +116,7 @@ const MessageComposerButtons: React.FC<IProps> = (props: IProps) => {
                     onClick={props.onComposerModeClick}
                 />
             ) : (
-                emojiButton(props)
+                emojiButton(props, room)
             ),
             // haven apps-framework patch: explicit type="button" - UploadButton's underlying
             // native <button> has no type of its own (unlike every other button in this row,
@@ -172,13 +173,15 @@ const MessageComposerButtons: React.FC<IProps> = (props: IProps) => {
     );
 };
 
-function emojiButton(props: IProps): ReactElement {
+function emojiButton(props: IProps, room?: Room): ReactElement {
     return (
         <EmojiButton
             key="emoji_button"
             addEmoji={props.addEmoji}
             menuPosition={props.menuPosition}
             className="mx_MessageComposer_button"
+            room={room}
+            relation={props.relation}
         />
     );
 }

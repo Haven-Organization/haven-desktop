@@ -25,6 +25,8 @@ import SettingsStore from "../settings/SettingsStore";
 import { type TimelineRenderingType } from "../contexts/RoomContext";
 import * as recent from "../emojipicker/recent";
 import { filterBoolean } from "../utils/arrays";
+import { getEmoticonPacks, imagesForUsage, packDisplayName } from "../utils/ImagePacks";
+import { makeCustomEmoji, isCustomEmoji, type CustomEmojiLike } from "../components/views/emojipicker/customEmoji";
 
 const LIMIT = 20;
 
@@ -68,20 +70,44 @@ function colonsTrimmed(str: string): string {
     return str.replace(/^:(.*?):?$/, "$1");
 }
 
+/** Haven: this room's + the user's favorited pack emoji (usage: emoticon), wrapped in the same
+ *  ISortedEmoji shape as stock emojibase data - see customEmoji.ts's own doc for why makeCustomEmoji
+ *  produces an Emoji-shaped stand-in in the first place. Mixed straight into SORTED_EMOJI below so
+ *  a custom emoji ranks, sorts, and dedupes alongside real ones in the exact same completion list,
+ *  under the single "Emoji" heading, rather than getting its own separate autocomplete section. */
+function buildCustomEmojiPool(room: Room): ISortedEmoji[] {
+    const packs = getEmoticonPacks(room, "emoticon");
+    const pool: ISortedEmoji[] = [];
+    let orderBy = SORTED_EMOJI.length;
+    for (const pack of packs) {
+        const name = packDisplayName(pack.content, pack.stateKey);
+        for (const { shortcode, image } of imagesForUsage(pack, "emoticon")) {
+            pool.push({
+                emoji: makeCustomEmoji(shortcode, image.url, name, pack.roomId, pack.stateKey, image.info),
+                _orderBy: orderBy++,
+            });
+        }
+    }
+    return pool;
+}
+
 export default class EmojiProvider extends AutocompleteProvider {
     public matcher: QueryMatcher<ISortedEmoji>;
     public nameMatcher: QueryMatcher<ISortedEmoji>;
     private readonly recentlyUsed: Emoji[];
+    private readonly room: Room;
 
     public constructor(room: Room, renderingType?: TimelineRenderingType) {
         super({ commandRegex: EMOJI_REGEX, renderingType });
-        this.matcher = new QueryMatcher<ISortedEmoji>(SORTED_EMOJI, {
+        this.room = room;
+        const allEmoji: ISortedEmoji[] = SORTED_EMOJI.concat(buildCustomEmojiPool(room));
+        this.matcher = new QueryMatcher<ISortedEmoji>(allEmoji, {
             keys: [],
             funcs: [(o) => o.emoji.shortcodes.map((s) => `:${s}:`)],
             // For matching against ascii equivalents
             shouldMatchWordsOnly: false,
         });
-        this.nameMatcher = new QueryMatcher(SORTED_EMOJI, {
+        this.nameMatcher = new QueryMatcher(allEmoji, {
             keys: ["emoji.label"],
             // For removing punctuation
             shouldMatchWordsOnly: true,
@@ -154,15 +180,37 @@ export default class EmojiProvider extends AutocompleteProvider {
             completions = recentlyUsedAutocomplete.concat(completions);
             completions = uniqBy(completions, "emoji");
 
-            return completions.map((c) => ({
-                completion: c.emoji.unicode,
-                component: (
-                    <PillCompletion title={`:${c.emoji.shortcodes[0]}:`} aria-label={c.emoji.unicode}>
-                        <span>{c.emoji.unicode}</span>
-                    </PillCompletion>
-                ),
-                range: range!,
-            }));
+            return completions.map((c) => {
+                if (isCustomEmoji(c.emoji)) {
+                    const custom: CustomEmojiLike = c.emoji;
+                    const shortcode = `:${custom.shortcodes[0]}:`;
+                    return {
+                        completion: shortcode,
+                        type: "custom-emoji",
+                        mxcUrl: custom.mxcUrl,
+                        packName: custom.packName,
+                        component: (
+                            <PillCompletion title={shortcode} aria-label={custom.shortcodes[0]}>
+                                <img
+                                    className="mx_EmojiProvider_customEmojiImage"
+                                    src={this.room.client.mxcUrlToHttp(custom.mxcUrl) ?? custom.mxcUrl}
+                                    alt=""
+                                />
+                            </PillCompletion>
+                        ),
+                        range: range!,
+                    };
+                }
+                return {
+                    completion: c.emoji.unicode,
+                    component: (
+                        <PillCompletion title={`:${c.emoji.shortcodes[0]}:`} aria-label={c.emoji.unicode}>
+                            <span>{c.emoji.unicode}</span>
+                        </PillCompletion>
+                    ),
+                    range: range!,
+                };
+            });
         }
         return [];
     }

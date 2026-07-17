@@ -12,6 +12,8 @@ import { type Emoji as IEmoji } from "@matrix-org/emojibase-bindings";
 
 import { type ButtonEvent } from "../elements/AccessibleButton";
 import { RovingAccessibleButton } from "../../../accessibility/RovingTabIndex";
+import { isCustomEmoji } from "./customEmoji";
+import { MatrixClientPeg } from "../../../MatrixClientPeg";
 
 interface IProps {
     emoji: IEmoji;
@@ -31,7 +33,9 @@ interface IProps {
 class Emoji extends React.PureComponent<IProps> {
     public render(): React.ReactNode {
         const { onClick, onMouseEnter, onMouseLeave, emoji, selectedEmojis } = this.props;
-        const isSelected = selectedEmojis?.has(emoji.unicode);
+        // Haven: a custom emoji reaction's key (and thus its entry in selectedEmojis) is its
+        // mxc:// URL, not its shortcode text - see ReactionPicker.tsx's own onChoose.
+        const isSelected = selectedEmojis?.has(isCustomEmoji(emoji) ? emoji.mxcUrl : emoji.unicode);
         return (
             <RovingAccessibleButton
                 id={this.props.id}
@@ -45,7 +49,21 @@ class Emoji extends React.PureComponent<IProps> {
                 focusOnMouseOver
             >
                 <div className={`mx_EmojiPicker_item ${isSelected ? "mx_EmojiPicker_item_selected" : ""}`}>
-                    {emoji.unicode}
+                    {isCustomEmoji(emoji) ? (
+                        <img
+                            className="mx_EmojiPicker_item_customImg"
+                            // Haven: no width/height/method here on purpose - those make
+                            // mxcUrlToHttp request a server-generated /thumbnail/, and thumbnails
+                            // are essentially always a single static frame even for an animated
+                            // source. Omitting them requests the original /download/ instead,
+                            // which preserves animation; the fixed CSS size still constrains how
+                            // it's displayed regardless of the source's real resolution.
+                            src={MatrixClientPeg.safeGet().mxcUrlToHttp(emoji.mxcUrl) ?? undefined}
+                            alt={emoji.label}
+                        />
+                    ) : (
+                        emoji.unicode
+                    )}
                 </div>
             </RovingAccessibleButton>
         );
