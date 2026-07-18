@@ -1,4 +1,6 @@
-<img src="assets/banner.png" alt="Haven" width="400">
+<p align="center">
+  <img src="assets/banner.png" alt="Haven" width="400">
+</p>
 
 <img src="assets/screenshot-social-profile.png" alt="A Social profile page in Haven, showing a Fediverse account bridged into Matrix" width="250">
 
@@ -92,17 +94,17 @@ Where possible, Haven builds on real Matrix spec proposals (MSCs) instead of inv
 client-only behavior, so the same data can be understood by other clients, bridges, and servers
 too.
 
-- [MSC4501](https://github.com/matrix-org/matrix-spec-proposals/pull/4501): the social media event
+- [MSC4501](https://github.com/matrix-org/matrix-spec-proposals/pull/4501): The social media event
   types Social itself is built on, covering profile and group rooms, posts, likes, reposts, and
   replies.
-- [MSC3639](https://github.com/matrix-org/matrix-spec-proposals/pull/3639): the original social media MSC that inspired this project. Because posts, groups and profiles currently share the same structure, Haven provides partial compatability with this MSC. See [Comparison to MSC3639](https://github.com/Haven-Organization/matrix-spec-proposals/blob/msc-social-media-pages/proposals/4501-rooms-as-social-media-pages.md#comparison-to-msc3639) for differences.
+- [MSC3639](https://github.com/matrix-org/matrix-spec-proposals/pull/3639): The original social media MSC that inspired this project. Because posts, groups and profiles currently share the same structure, Haven provides partial compatability with this MSC. See [Comparison to MSC3639](https://github.com/Haven-Organization/matrix-spec-proposals/blob/msc-social-media-pages/proposals/4501-rooms-as-social-media-pages.md#comparison-to-msc3639) for differences.
 - [MSC3827](https://github.com/matrix-org/matrix-spec-proposals/pull/3827): filtering rooms by
   type, used to tell a profile apart from a group in that same preview.
 - [MSC4027](https://github.com/matrix-org/matrix-spec-proposals/pull/4027): Custom emoji in reactions.
-- [MSC4221](https://github.com/matrix-org/matrix-spec-proposals/pull/4221): room banners, used for
+- [MSC4221](https://github.com/matrix-org/matrix-spec-proposals/pull/4221): Room banners, used for
   profile and group banner images (and shown in the room header bar for any room that sets one).
 - [MSC4459](https://github.com/matrix-org/matrix-spec-proposals/pull/4459): Image pack references for advertising and finding what room a custom emoji/sticker came from.
-- [MSC4503](https://github.com/matrix-org/matrix-spec-proposals/pull/4503): external handles,
+- [MSC4503](https://github.com/matrix-org/matrix-spec-proposals/pull/4503): External handles,
   used to link a non-Matrix identity (e.g. a Fediverse account) to your profile.
 
 ## License
