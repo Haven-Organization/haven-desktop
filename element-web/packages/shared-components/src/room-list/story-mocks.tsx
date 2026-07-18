@@ -120,6 +120,7 @@ export function createMockRoomItemViewModel(roomId: string, name: string, index:
         onToggleLowPriority: fn(),
         onInvite: fn(),
         onCopyRoomLink: fn(),
+        onOpenSettings: fn(),
         onLeaveRoom: fn(),
         onSetRoomNotifState: fn(),
         onCreateSection: fn(),

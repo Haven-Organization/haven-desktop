@@ -19,6 +19,7 @@ import {
     ArrowRightIcon,
     CheckIcon,
     MinusIcon,
+    SettingsSolidIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { _t } from "../../../../core/i18n/i18n";
@@ -168,6 +169,13 @@ export function MoreOptionContent({ vm }: MoreOptionContentProps): JSX.Element {
                 />
             )}
             <Separator />
+            <MenuItem
+                Icon={SettingsSolidIcon}
+                label={_t("room_list|more_options|settings")}
+                onSelect={vm.onOpenSettings}
+                onClick={(evt) => evt.stopPropagation()}
+                hideChevron={true}
+            />
             <MenuItem
                 kind="critical"
                 Icon={LeaveIcon}

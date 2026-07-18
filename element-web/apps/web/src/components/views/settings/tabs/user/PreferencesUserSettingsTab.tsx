@@ -273,13 +273,14 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
                         </SettingsSubsection>
                     )}
 
-                    <SettingsSubsection heading={_t("settings|preferences|room_list_heading")} formWrap>
-                        {!newRoomListEnabled && this.renderGroup(PreferencesUserSettingsTab.ROOM_LIST_SETTINGS)}
-                        {/* The settings is on device level where the other room list settings are on account level  */}
-                        {newRoomListEnabled && (
-                            <SettingsFlag name="RoomList.showMessagePreview" level={SettingLevel.DEVICE} />
-                        )}
-                    </SettingsSubsection>
+                    {/* Haven: the new room list's message-preview toggle moved to each section's
+                        own "..." menu (Sort/Appearance are per-section now, not global) - nothing
+                        left to show here once the new room list is enabled. */}
+                    {!newRoomListEnabled && (
+                        <SettingsSubsection heading={_t("settings|preferences|room_list_heading")} formWrap>
+                            {this.renderGroup(PreferencesUserSettingsTab.ROOM_LIST_SETTINGS)}
+                        </SettingsSubsection>
+                    )}
 
                     <SettingsSubsection heading={_t("common|spaces")} formWrap>
                         {this.renderGroup(PreferencesUserSettingsTab.SPACES_SETTINGS, SettingLevel.ACCOUNT)}

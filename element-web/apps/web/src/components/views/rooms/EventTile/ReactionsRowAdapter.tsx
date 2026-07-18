@@ -19,7 +19,6 @@ import ContextMenu, { aboveLeftOf } from "../../../structures/ContextMenu";
 import ReactionPicker from "../../emojipicker/ReactionPicker";
 import RoomContext from "../../../../contexts/RoomContext";
 import { useMatrixClientContext } from "../../../../contexts/MatrixClientContext";
-import SettingsStore from "../../../../settings/SettingsStore";
 import { isContentActionable } from "../../../../utils/EventUtils";
 import { type EventTileViewModel } from "../../../../viewmodels/room/timeline/event-tile/EventTileViewModel";
 import { ReactionsRowButtonViewModel } from "../../../../viewmodels/room/timeline/event-tile/reactions/ReactionsRowButtonViewModel";
@@ -221,7 +220,8 @@ export function ReactionsRowAdapter({
     }, [mxEvent, vm]);
 
     const snapshot = useViewModel(vm);
-    const customReactionImagesEnabled = SettingsStore.getValue("feature_render_reaction_images");
+    // Haven: was a labs flag (feature_render_reaction_images), now always on.
+    const customReactionImagesEnabled = true;
     const items = useMemo((): JSX.Element[] | undefined => {
         const mappedItems = reactionGroups.map(({ content, events }) => {
             // Deduplicate reaction events by sender per Matrix spec.

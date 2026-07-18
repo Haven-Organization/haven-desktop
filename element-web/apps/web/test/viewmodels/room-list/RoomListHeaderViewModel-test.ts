@@ -14,7 +14,6 @@ import SpaceStore from "../../../src/stores/spaces/SpaceStore";
 import defaultDispatcher from "../../../src/dispatcher/dispatcher";
 import { Action } from "../../../src/dispatcher/actions";
 import SettingsStore from "../../../src/settings/SettingsStore";
-import { SortingAlgorithm } from "../../../src/stores/room-list-v3/skip-list/sorters";
 import RoomListStoreV3 from "../../../src/stores/room-list-v3/RoomListStoreV3";
 import {
     shouldShowSpaceSettings,
@@ -25,7 +24,6 @@ import {
 } from "../../../src/utils/space";
 import { createTestClient, mkSpace } from "../../test-utils";
 import { createRoom, hasCreateRoomRights } from "../../../src/viewmodels/room-list/utils";
-import PosthogTrackers from "../../../src/PosthogTrackers";
 import { ReleaseAnnouncementStore } from "../../../src/stores/ReleaseAnnouncementStore";
 
 jest.mock("../../../src/PosthogTrackers", () => ({
@@ -64,7 +62,6 @@ describe("RoomListHeaderViewModel", () => {
         jest.spyOn(ReleaseAnnouncementStore.instance, "nextReleaseAnnouncement").mockResolvedValue(undefined);
 
         jest.spyOn(SettingsStore, "getValue").mockImplementation((settingName: string) => {
-            if (settingName === "RoomList.preferredSorting") return SortingAlgorithm.Recency;
             if (settingName === "feature_video_rooms") return true;
             if (settingName === "feature_element_call_video_rooms") return true;
             if (settingName === "RoomList.OrderedCustomSections") return [];
@@ -89,7 +86,6 @@ describe("RoomListHeaderViewModel", () => {
             expect(snapshot.displaySpaceMenu).toBe(false);
             expect(snapshot.canCreateRoom).toBe(true);
             expect(snapshot.canCreateVideoRoom).toBe(true);
-            expect(snapshot.activeSortOption).toBe("recent");
         });
 
         it("should compute snapshot for active space", () => {
@@ -110,16 +106,6 @@ describe("RoomListHeaderViewModel", () => {
 
             vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: SpaceStore.instance });
             expect(vm.getSnapshot().canCreateVideoRoom).toBe(false);
-        });
-
-        it("should show alphabetical sort option when RoomList.preferredSorting is Alphabetic", () => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((settingName: string) => {
-                if (settingName === "RoomList.preferredSorting") return SortingAlgorithm.Alphabetic;
-                return false;
-            });
-
-            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: SpaceStore.instance });
-            expect(vm.getSnapshot().activeSortOption).toBe("alphabetical");
         });
 
         it("should show invite option when space is public", () => {
@@ -144,16 +130,6 @@ describe("RoomListHeaderViewModel", () => {
 
             vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: SpaceStore.instance });
             expect(vm.getSnapshot().canAccessSpaceSettings).toBe(false);
-        });
-
-        it("should show message preview when RoomList.showMessagePreview is enabled", () => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((settingName: string) => {
-                if (settingName === "RoomList.showMessagePreview") return true;
-                return false;
-            });
-
-            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: SpaceStore.instance });
-            expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(true);
         });
 
         it("should set displaySectionReleaseAnnouncement to true when sections feature is enabled and announcement is active", () => {
@@ -274,33 +250,6 @@ describe("RoomListHeaderViewModel", () => {
             expect(showSpaceSettings).toHaveBeenCalledWith(mockSpace);
         });
 
-        it.each([
-            ["recent" as const, SortingAlgorithm.Recency],
-            ["alphabetical" as const, SortingAlgorithm.Alphabetic],
-            ["unread-first" as const, SortingAlgorithm.Unread],
-        ])("should resort when sort is called with '%s'", (option, expectedAlgorithm) => {
-            const resortSpy = jest.spyOn(RoomListStoreV3.instance, "resort").mockImplementation(jest.fn());
-            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: SpaceStore.instance });
-            vm.sort(option);
-            expect(resortSpy).toHaveBeenCalledWith(expectedAlgorithm);
-        });
-
-        it("should track analytics on resort", () => {
-            jest.spyOn(RoomListStoreV3.instance, "activeSortAlgorithm", "get").mockReturnValue(
-                SortingAlgorithm.Alphabetic,
-            );
-            PosthogTrackers.trackRoomListSortingAlgorithmChange = jest.fn();
-
-            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: SpaceStore.instance });
-            jest.spyOn(RoomListStoreV3.instance, "resort").mockImplementation(jest.fn());
-            vm.sort("unread-first");
-
-            expect(PosthogTrackers.trackRoomListSortingAlgorithmChange).toHaveBeenCalledWith(
-                SortingAlgorithm.Alphabetic,
-                SortingAlgorithm.Unread,
-            );
-        });
-
         it("should call createSection on RoomListStoreV3 when createSection is called", () => {
             const createSectionSpy = jest
                 .spyOn(RoomListStoreV3.instance, "createSection")
@@ -391,22 +340,6 @@ describe("RoomListHeaderViewModel", () => {
 
                 expect(vm.getSnapshot().collapseSections).toBeUndefined();
             });
-        });
-
-        it("should toggle message preview from enabled to disabled", () => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((settingName: string) => {
-                if (settingName === "RoomList.showMessagePreview") return true;
-                return false;
-            });
-            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockImplementation(jest.fn());
-
-            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: SpaceStore.instance });
-            expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(true);
-
-            vm.toggleMessagePreview();
-
-            expect(setValueSpy).toHaveBeenCalledWith("RoomList.showMessagePreview", null, expect.anything(), false);
-            expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(false);
         });
 
         it("should call nextReleaseAnnouncement and set displaySectionReleaseAnnouncement to false when closeSectionReleaseAnnouncement is called", () => {

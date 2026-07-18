@@ -5,6 +5,5 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-export { OptionMenuView } from "./OptionMenuView";
 export { SpaceMenuView } from "./SpaceMenuView";
 export { ComposeMenuView } from "./ComposeMenuView";

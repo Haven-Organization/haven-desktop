@@ -39,7 +39,7 @@ import type { ViewRoomPayload } from "../../dispatcher/payloads/ViewRoomPayload"
 import PosthogTrackers from "../../PosthogTrackers";
 import { type Call, CallEvent } from "../../models/Call";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
-import { getCustomSectionData, isDefaultSectionTag } from "../../stores/room-list-v3/section";
+import { CHATS_TAG, getCustomSectionData, isDefaultSectionTag } from "../../stores/room-list-v3/section";
 import { _t } from "../../languageHandler";
 
 interface RoomItemProps {
@@ -82,7 +82,7 @@ export class RoomListItemViewModel
 
         // Subscribe to settings changes for message preview toggle
         const settingsWatchRef = SettingsStore.watchSetting(
-            "RoomList.showMessagePreview",
+            "RoomList.showMessagePreviewBySection",
             null,
             this.onMessagePreviewSettingChanged,
         );
@@ -180,6 +180,9 @@ export class RoomListItemViewModel
 
     private onRoomChanged = (): void => {
         this.updateItem();
+        // The room's tags may have changed which section it belongs to, and each section has its
+        // own message-preview preference - reload in case it changed.
+        void this.loadAndSetMessagePreview();
     };
 
     /**
@@ -203,11 +206,24 @@ export class RoomListItemViewModel
     }
 
     /**
-     * Load the message preview for this room if enabled.
+     * The room-list section tag this room is currently displayed under. Mirrors the same
+     * precedence TagFilter/ExcludeTagsFilter use to build sections in RoomListStoreV3.getSections:
+     * the first section tag (in display order) whose tag is set on the room, falling back to the
+     * Chats catch-all if none apply.
+     */
+    private getSectionTag(): string {
+        const roomTags = this.props.room.tags;
+        const tag = RoomListStoreV3.instance.orderedSectionTags.find((tag) => tag !== CHATS_TAG && roomTags[tag]);
+        return tag ?? CHATS_TAG;
+    }
+
+    /**
+     * Load the message preview for this room if enabled for its current section.
      * Returns undefined if previews are disabled or couldn't be loaded.
      */
     private async loadMessagePreview(): Promise<string | undefined> {
-        const shouldShowMessagePreview = SettingsStore.getValue("RoomList.showMessagePreview");
+        const previewBySection = SettingsStore.getValue("RoomList.showMessagePreviewBySection");
+        const shouldShowMessagePreview = previewBySection[this.getSectionTag()] ?? false;
         if (!shouldShowMessagePreview) {
             return undefined;
         }
@@ -360,6 +376,16 @@ export class RoomListItemViewModel
     public onCopyRoomLink = (): void => {
         dispatcher.dispatch({
             action: "copy_room",
+            room_id: this.props.room.roomId,
+        });
+    };
+
+    // Haven: brought back from the legacy room list's own "Settings" option (see
+    // RoomGeneralContextMenu.tsx's identical dispatch) - the new room list's context menu never
+    // had this action at all.
+    public onOpenSettings = (): void => {
+        dispatcher.dispatch({
+            action: "open_room_settings",
             room_id: this.props.room.roomId,
         });
     };

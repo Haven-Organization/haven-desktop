@@ -18,6 +18,7 @@ import { createTestClient, mkRoom } from "../../test-utils";
 import SettingsStore from "../../../src/settings/SettingsStore";
 import RoomListStoreV3 from "../../../src/stores/room-list-v3/RoomListStoreV3";
 import { DefaultTagID } from "../../../src/stores/room-list-v3/skip-list/tag";
+import { SortingAlgorithm } from "../../../src/stores/room-list-v3/skip-list/sorters";
 import { CHATS_TAG } from "../../../src/stores/room-list-v3/section";
 
 describe("RoomListSectionHeaderViewModel", () => {
@@ -31,8 +32,10 @@ describe("RoomListSectionHeaderViewModel", () => {
         jest.spyOn(SettingsStore, "unwatchSetting").mockReturnValue(undefined);
         jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
             if (setting === "RoomList.OrderedCustomSections") return [];
+            if (setting === "RoomList.showMessagePreviewBySection") return {};
             return null;
         });
+        jest.spyOn(RoomListStoreV3.instance, "getSectionSortAlgorithm").mockReturnValue(SortingAlgorithm.Recency);
     });
 
     afterEach(() => {
@@ -101,6 +104,21 @@ describe("RoomListSectionHeaderViewModel", () => {
     });
 
     describe("displaySectionMenu", () => {
+        it.each([DefaultTagID.Favourite, DefaultTagID.LowPriority, CHATS_TAG, "element.io.section.custom"])(
+            "should always be true (Sort/Appearance apply to every section) for tag %s",
+            (tag) => {
+                const vm = new RoomListSectionHeaderViewModel({
+                    tag,
+                    title: "Section",
+                    spaceId: "!space:server",
+                    onToggleExpanded,
+                });
+                expect(vm.getSnapshot().displaySectionMenu).toBe(true);
+            },
+        );
+    });
+
+    describe("canEditOrRemoveSection", () => {
         it.each([
             [DefaultTagID.Favourite, false],
             [DefaultTagID.LowPriority, false],
@@ -113,7 +131,84 @@ describe("RoomListSectionHeaderViewModel", () => {
                 spaceId: "!space:server",
                 onToggleExpanded,
             });
-            expect(vm.getSnapshot().displaySectionMenu).toBe(expected);
+            expect(vm.getSnapshot().canEditOrRemoveSection).toBe(expected);
+        });
+    });
+
+    describe("sort", () => {
+        it("initializes activeSortOption from RoomListStoreV3.getSectionSortAlgorithm", () => {
+            jest.spyOn(RoomListStoreV3.instance, "getSectionSortAlgorithm").mockReturnValue(SortingAlgorithm.Unread);
+
+            const vm = new RoomListSectionHeaderViewModel({
+                tag: "m.favourite",
+                title: "Favourites",
+                spaceId: "!space:server",
+                onToggleExpanded,
+            });
+
+            expect(vm.getSnapshot().activeSortOption).toBe("unread-first");
+        });
+
+        it("delegates to RoomListStoreV3.setSectionSortAlgorithm and updates the snapshot", () => {
+            const setSectionSortAlgorithmSpy = jest
+                .spyOn(RoomListStoreV3.instance, "setSectionSortAlgorithm")
+                .mockImplementation(jest.fn());
+
+            const vm = new RoomListSectionHeaderViewModel({
+                tag: "m.favourite",
+                title: "Favourites",
+                spaceId: "!space:server",
+                onToggleExpanded,
+            });
+
+            vm.sort("alphabetical");
+
+            expect(setSectionSortAlgorithmSpy).toHaveBeenCalledWith("m.favourite", SortingAlgorithm.Alphabetic);
+            expect(vm.getSnapshot().activeSortOption).toBe("alphabetical");
+        });
+    });
+
+    describe("toggleMessagePreview", () => {
+        it("initializes isMessagePreviewEnabled from this section's own entry", () => {
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
+                if (setting === "RoomList.showMessagePreviewBySection") return { "m.favourite": true };
+                return null;
+            });
+
+            const vm = new RoomListSectionHeaderViewModel({
+                tag: "m.favourite",
+                title: "Favourites",
+                spaceId: "!space:server",
+                onToggleExpanded,
+            });
+
+            expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(true);
+        });
+
+        it("toggles only this section's own entry, preserving others", () => {
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
+                if (setting === "RoomList.showMessagePreviewBySection") return { "m.lowpriority": true };
+                return null;
+            });
+            const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockImplementation(jest.fn());
+
+            const vm = new RoomListSectionHeaderViewModel({
+                tag: "m.favourite",
+                title: "Favourites",
+                spaceId: "!space:server",
+                onToggleExpanded,
+            });
+            expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(false);
+
+            vm.toggleMessagePreview();
+
+            expect(setValueSpy).toHaveBeenCalledWith(
+                "RoomList.showMessagePreviewBySection",
+                null,
+                expect.anything(),
+                { "m.lowpriority": true, "m.favourite": true },
+            );
+            expect(vm.getSnapshot().isMessagePreviewEnabled).toBe(true);
         });
     });
 

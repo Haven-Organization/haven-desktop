@@ -224,7 +224,6 @@ export interface Settings {
     "feature_disable_call_per_sender_encryption": IFeature;
     "feature_location_share_live": IFeature;
     "feature_dynamic_room_predecessors": IFeature;
-    "feature_render_reaction_images": IFeature;
     "feature_new_room_list": IFeature;
     "feature_retention": IFeature;
     "feature_ask_to_join": IFeature;
@@ -332,10 +331,20 @@ export interface Settings {
      */
     "lowBandwidth": IBaseSetting<boolean>;
     "fallbackICEServerAllowed": IBaseSetting<boolean | null>;
-    "RoomList.preferredSorting": IBaseSetting<SortingAlgorithm>;
+    /**
+     * Haven: per-section sort preference, keyed by section tag. Replaces the old single
+     * RoomList.preferredSorting global setting - see Sort/Appearance in each section's own "..."
+     * menu (RoomListSectionHeaderViewModel), no longer available above the whole list.
+     */
+    "RoomList.preferredSortingBySection": IBaseSetting<Record<string, SortingAlgorithm>>;
     "RoomList.panelSize": IBaseSetting<number | null>;
     "RoomList.isPanelCollapsed": IBaseSetting<boolean>;
-    "RoomList.showMessagePreview": IBaseSetting<boolean>;
+    /**
+     * Haven: per-section message-preview preference, keyed by section tag. Replaces the old
+     * single RoomList.showMessagePreview global setting - see RoomList.preferredSortingBySection's
+     * own doc above for why.
+     */
+    "RoomList.showMessagePreviewBySection": IBaseSetting<Record<string, boolean>>;
     "RightPanel.phasesGlobal": IBaseSetting<IRightPanelForRoomStored | null>;
     "RightPanel.phases": IBaseSetting<IRightPanelForRoomStored | null>;
     "enableEventIndexing": IBaseSetting<boolean>;
@@ -657,15 +666,6 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         default: "",
         controller: new FontSizeController(),
-    },
-    "feature_render_reaction_images": {
-        isFeature: true,
-        labsGroup: LabGroup.Messaging,
-        displayName: _td("labs|render_reaction_images"),
-        description: _td("labs|render_reaction_images_description"),
-        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
-        supportedLevelsAreOrdered: true,
-        default: false,
     },
     "feature_new_room_list": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
@@ -1256,9 +1256,9 @@ export const SETTINGS: Settings = {
         default: null,
         controller: new FallbackIceServerController(),
     },
-    "RoomList.preferredSorting": {
+    "RoomList.preferredSortingBySection": {
         supportedLevels: [SettingLevel.DEVICE],
-        default: SortingAlgorithm.Recency,
+        default: {},
     },
     "RoomList.panelSize": {
         supportedLevels: [SettingLevel.DEVICE],
@@ -1268,10 +1268,9 @@ export const SETTINGS: Settings = {
         supportedLevels: [SettingLevel.DEVICE],
         default: false,
     },
-    "RoomList.showMessagePreview": {
+    "RoomList.showMessagePreviewBySection": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
-        default: false,
-        displayName: _td("settings|show_message_previews"),
+        default: {},
     },
     "RightPanel.phasesGlobal": {
         supportedLevels: [SettingLevel.DEVICE],

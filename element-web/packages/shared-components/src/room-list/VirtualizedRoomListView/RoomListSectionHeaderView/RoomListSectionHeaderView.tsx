@@ -17,8 +17,10 @@ import styles from "./RoomListSectionHeaderView.module.css";
 import { useI18n } from "../../../core/i18n/i18nContext";
 import { getGroupHeaderAccessibleProps } from "../../../core/VirtualizedList";
 import { RoomListSectionHeaderContent } from "./RoomListSectionHeaderContent";
+import { RoomListSectionHeaderContextMenu } from "./RoomListSectionHeaderContextMenu";
 import { isSectionDragData, type RoomListDragData, type SectionDragData } from "../dragAndDrop";
 import { type NotificationDecorationData } from "../RoomListItemWrapper/RoomListItemView/NotificationDecoration";
+import { type SortOption } from "../../RoomListHeaderView/RoomListHeaderView";
 
 /**
  * The observable state snapshot for a room list section header.
@@ -36,8 +38,14 @@ export interface RoomListSectionHeaderViewSnapshot {
     notification?: NotificationDecorationData;
     /** Wether to display the section menu  */
     displaySectionMenu: boolean;
+    /** Whether the edit/remove section options should be shown in the section menu (custom sections only) */
+    canEditOrRemoveSection: boolean;
     /** Whether the section can be reordered via drag-and-drop  */
     canBeReordered: boolean;
+    /** This section's own currently active sort option. */
+    activeSortOption: SortOption;
+    /** Whether message previews are enabled for rooms in this section. */
+    isMessagePreviewEnabled: boolean;
 }
 
 /**
@@ -50,6 +58,10 @@ export interface RoomListSectionHeaderActions {
     editSection: () => void;
     /** Handler invoked when the remove section button is clicked  */
     removeSection: () => void;
+    /** Change the sort order of this section only. */
+    sort: (option: SortOption) => void;
+    /** Toggle message preview display for this section only. */
+    toggleMessagePreview: () => void;
 }
 
 /**
@@ -174,49 +186,51 @@ export const RoomListSectionHeaderView = memo(function RoomListSectionHeaderView
             {...getGroupHeaderAccessibleProps(indexInList, sectionIndex, roomCountInSection)}
         >
             <div role="gridcell" aria-expanded={ariaExpanded}>
-                <button
-                    ref={buttonRef}
-                    type="button"
-                    className={classNames(styles.header, {
-                        [styles.firstHeader]: sectionIndex === 0,
-                        // If the section is collapsed and it's the last one
-                        [styles.lastHeader]: !isExpanded && isLastSection,
-                        [styles.unread]: isUnread,
-                        [styles.dragSource]: isDragSource,
-                        [styles.dropTarget]: isDraggingRoom,
-                        [styles.dropTargetBottom]: hasBottomBorder,
-                        [styles.dropTargetTop]: hasTopBorder,
-                    })}
-                    onClick={() => !isDragSource && vm.onClick()}
-                    onKeyDown={(e) => {
-                        if ((e.code === "ArrowRight" && !isExpanded) || (e.code === "ArrowLeft" && isExpanded)) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            vm.onClick();
-                        } else if (e.code === "ArrowRight" && isExpanded && roomCountInSection > 0) {
-                            // Move focus to the first room in the section
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.currentTarget.dispatchEvent(
-                                new KeyboardEvent("keydown", {
-                                    code: "ArrowDown",
-                                    key: "ArrowDown",
-                                    bubbles: true,
-                                }),
-                            );
+                <RoomListSectionHeaderContextMenu vm={vm}>
+                    <button
+                        ref={buttonRef}
+                        type="button"
+                        className={classNames(styles.header, {
+                            [styles.firstHeader]: sectionIndex === 0,
+                            // If the section is collapsed and it's the last one
+                            [styles.lastHeader]: !isExpanded && isLastSection,
+                            [styles.unread]: isUnread,
+                            [styles.dragSource]: isDragSource,
+                            [styles.dropTarget]: isDraggingRoom,
+                            [styles.dropTargetBottom]: hasBottomBorder,
+                            [styles.dropTargetTop]: hasTopBorder,
+                        })}
+                        onClick={() => !isDragSource && vm.onClick()}
+                        onKeyDown={(e) => {
+                            if ((e.code === "ArrowRight" && !isExpanded) || (e.code === "ArrowLeft" && isExpanded)) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                vm.onClick();
+                            } else if (e.code === "ArrowRight" && isExpanded && roomCountInSection > 0) {
+                                // Move focus to the first room in the section
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.currentTarget.dispatchEvent(
+                                    new KeyboardEvent("keydown", {
+                                        code: "ArrowDown",
+                                        key: "ArrowDown",
+                                        bubbles: true,
+                                    }),
+                                );
+                            }
+                        }}
+                        aria-expanded={ariaExpanded}
+                        onFocus={(e) => onFocus(id, e)}
+                        tabIndex={isFocused ? 0 : -1}
+                        aria-label={
+                            isUnread
+                                ? _t("room_list|section_header|toggle_unread", { section: title })
+                                : _t("room_list|section_header|toggle", { section: title })
                         }
-                    }}
-                    aria-expanded={ariaExpanded}
-                    onFocus={(e) => onFocus(id, e)}
-                    tabIndex={isFocused ? 0 : -1}
-                    aria-label={
-                        isUnread
-                            ? _t("room_list|section_header|toggle_unread", { section: title })
-                            : _t("room_list|section_header|toggle", { section: title })
-                    }
-                >
-                    <RoomListSectionHeaderContent vm={vm} />
-                </button>
+                    >
+                        <RoomListSectionHeaderContent vm={vm} />
+                    </button>
+                </RoomListSectionHeaderContextMenu>
             </div>
         </div>
     );

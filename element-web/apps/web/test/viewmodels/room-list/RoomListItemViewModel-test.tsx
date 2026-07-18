@@ -78,7 +78,7 @@ describe("RoomListItemViewModel", () => {
         DMRoomMap.setShared(dmRoomMap);
 
         jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
-            if (setting === "RoomList.showMessagePreview") return false;
+            if (setting === "RoomList.showMessagePreviewBySection") return {};
             if (setting === "RoomList.OrderedCustomSections") return [];
             if (setting === "RoomList.CustomSectionData") return {};
             return false;
@@ -109,7 +109,9 @@ describe("RoomListItemViewModel", () => {
         });
 
         it("should load message preview when enabled", async () => {
-            jest.spyOn(SettingsStore, "getValue").mockReturnValue(true);
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) =>
+                setting === "RoomList.showMessagePreviewBySection" ? { [CHATS_TAG]: true } : false,
+            );
             jest.spyOn(MessagePreviewStore.instance, "getPreviewForRoom").mockResolvedValue({
                 text: "Hello world!",
             } as MessagePreview);
@@ -123,7 +125,9 @@ describe("RoomListItemViewModel", () => {
         });
 
         it("should not load message preview when disabled", async () => {
-            jest.spyOn(SettingsStore, "getValue").mockReturnValue(false);
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) =>
+                setting === "RoomList.showMessagePreviewBySection" ? {} : false,
+            );
 
             viewModel = new RoomListItemViewModel({ room, client: matrixClient });
 
@@ -193,7 +197,9 @@ describe("RoomListItemViewModel", () => {
 
     describe("Message preview", () => {
         it("should update message preview when store emits update", async () => {
-            jest.spyOn(SettingsStore, "getValue").mockReturnValue(true);
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) =>
+                setting === "RoomList.showMessagePreviewBySection" ? { [CHATS_TAG]: true } : false,
+            );
             jest.spyOn(MessagePreviewStore.instance, "getPreviewForRoom").mockResolvedValue({
                 text: "Initial message",
             } as MessagePreview);
@@ -218,9 +224,11 @@ describe("RoomListItemViewModel", () => {
             let showPreview = false;
             let watchCallback: any;
 
-            jest.spyOn(SettingsStore, "getValue").mockImplementation(() => showPreview);
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) =>
+                setting === "RoomList.showMessagePreviewBySection" ? { [CHATS_TAG]: showPreview } : false,
+            );
             jest.spyOn(SettingsStore, "watchSetting").mockImplementation((setting, _room, callback) => {
-                if (setting === "RoomList.showMessagePreview") watchCallback = callback;
+                if (setting === "RoomList.showMessagePreviewBySection") watchCallback = callback;
                 return "watcher-id";
             });
             jest.spyOn(MessagePreviewStore.instance, "getPreviewForRoom").mockResolvedValue({

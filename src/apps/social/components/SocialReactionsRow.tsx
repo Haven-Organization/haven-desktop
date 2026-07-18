@@ -134,7 +134,8 @@ export function SocialReactionsRow({ client, mxEvent, reactions, canReact, canSe
     }, [reactions, updateReactionsState]);
 
     const snapshot = useViewModel(vm);
-    const customReactionImagesEnabled = SettingsStore.getValue("feature_render_reaction_images");
+    // Haven: was a labs flag (feature_render_reaction_images), now always on.
+    const customReactionImagesEnabled = true;
     const items = useMemo((): JSX.Element[] | undefined => {
         const mappedItems = reactionGroups.map(({ content, events }) => {
             // Deduplicate reaction events by sender per Matrix spec.

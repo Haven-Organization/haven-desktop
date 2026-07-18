@@ -157,13 +157,14 @@
         "list_title": "Room list",
         "more_options": {
             "copy_link": "Copy room link",
-            "favourited": "Favourited",
+            "favourited": "Favorited",
             "leave_room": "Leave room",
             "low_priority": "Low priority",
             "mark_read": "Mark as read",
             "mark_unread": "Mark as unread",
             "move_to_section": "Move to",
-            "remove_from_section": "Remove from section"
+            "remove_from_section": "Remove from section",
+            "settings": "Settings"
         },
         "notification_options": "Notification options",
         "open_space_menu": "Open space menu",

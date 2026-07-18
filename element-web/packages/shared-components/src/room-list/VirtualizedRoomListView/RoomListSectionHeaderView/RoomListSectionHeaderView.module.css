@@ -126,6 +126,11 @@
     display: none;
 }
 
+.menuTitle {
+    /* For first title, there is already enough space at the top */
+    margin-top: 0;
+}
+
 .dragging {
     outline: 1px solid var(--cpd-color-border-interactive-hovered);
     background-color: color-mix(in srgb, var(--cpd-color-bg-action-tertiary-hovered) 95%, transparent);

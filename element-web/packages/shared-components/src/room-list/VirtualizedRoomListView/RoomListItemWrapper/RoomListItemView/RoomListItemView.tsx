@@ -115,6 +115,8 @@ export interface RoomListItemViewActions {
     onInvite: () => void;
     /** Called when copying the room link */
     onCopyRoomLink: () => void;
+    /** Called when opening this room's settings */
+    onOpenSettings: () => void;
     /** Called when leaving the room */
     onLeaveRoom: () => void;
     /** Called when setting the room notification state */

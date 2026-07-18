@@ -12,11 +12,13 @@ import { CollapseAllIcon, ExpandAllIcon } from "@vector-im/compound-design-token
 import { type ViewModel, useViewModel } from "../../core/viewmodel";
 import { Flex } from "../../core/utils/Flex";
 import { useI18n } from "../../core/i18n/i18nContext";
-import { ComposeMenuView, OptionMenuView, SpaceMenuView } from "./menu";
+import { ComposeMenuView, SpaceMenuView } from "./menu";
 import styles from "./RoomListHeaderView.module.css";
 
 /**
- * The available sorting options for the room list.
+ * The available sorting options for the room list. Haven: sorting is a per-section preference
+ * (see RoomListSectionHeaderView) rather than a global one - this type still lives here since
+ * it's shared between the two.
  */
 export type SortOption = "recent" | "alphabetical" | "unread-first";
 
@@ -51,14 +53,6 @@ export interface RoomListHeaderViewSnapshot {
      * Whether the user can access space settings
      */
     canAccessSpaceSettings: boolean;
-    /**
-     * The currently active sort option.
-     */
-    activeSortOption: SortOption;
-    /**
-     * Whether message previews are enabled in the room list.
-     */
-    isMessagePreviewEnabled: boolean;
     /**
      * If "collapse", an icon to collapse all sections is shown.
      * If "expand", an icon to expand all sections is shown.
@@ -100,14 +94,6 @@ export interface RoomListHeaderViewActions {
      * Open the space settings
      */
     openSpaceSettings: () => void;
-    /**
-     * Change the sort order of the room-list.
-     */
-    sort: (option: SortOption) => void;
-    /**
-     * Toggle message preview display in the room list.
-     */
-    toggleMessagePreview: () => void;
     /**
      * Create a new section in the room list.
      */
@@ -163,7 +149,6 @@ export function RoomListHeaderView({ vm }: Readonly<RoomListHeaderViewProps>): J
                     {displaySpaceMenu && <SpaceMenuView vm={vm} />}
                 </Flex>
                 <Flex align="center" gap="var(--cpd-space-2x)">
-                    <OptionMenuView vm={vm} />
                     {collapseSections && (
                         <IconButton
                             size="28px"

@@ -86,28 +86,15 @@ describe("RoomListStoreV3", () => {
         expect(store.getSortedRooms()).toEqual(sortedRooms);
     });
 
-    it("Provides a way to resort", async () => {
-        const { store, rooms, client } = await getRoomListStore();
-
-        // List is sorted by recency, sort by alphabetical now
-        store.resort(SortingAlgorithm.Alphabetic);
-        let sortedRooms = new AlphabeticSorter().sort(rooms);
-        expect(store.getSortedRooms()).toEqual(sortedRooms);
-        expect(store.activeSortAlgorithm).toEqual(SortingAlgorithm.Alphabetic);
-
-        // Go back to recency sorting
-        store.resort(SortingAlgorithm.Recency);
-        sortedRooms = new RecencySorter(client.getSafeUserId()).sort(rooms);
-        expect(store.getSortedRooms()).toEqual(sortedRooms);
-        expect(store.activeSortAlgorithm).toEqual(SortingAlgorithm.Recency);
-    });
-
-    it("Uses preferred sorter on startup", async () => {
-        jest.spyOn(SettingsStore, "getValue").mockImplementation(() => {
-            return SortingAlgorithm.Alphabetic;
+    it("Always starts the skip list on Recency, regardless of any per-section preference", async () => {
+        // Haven: sorting is a per-section preference now (see the "Sections" describe block
+        // below) - the skip list's own base order is always Recency.
+        jest.spyOn(SettingsStore, "getValue").mockImplementation((setting: string) => {
+            if (setting === "RoomList.preferredSortingBySection") return { [CHATS_TAG]: SortingAlgorithm.Alphabetic };
+            return false;
         });
         const { store } = await getRoomListStore();
-        expect(store.activeSortAlgorithm).toEqual(SortingAlgorithm.Alphabetic);
+        expect(store.activeSortAlgorithm).toEqual(SortingAlgorithm.Recency);
     });
 
     describe("Updates", () => {
@@ -959,6 +946,40 @@ describe("RoomListStoreV3", () => {
             expect(result.sections[0].tag).toBe(DefaultTagID.Favourite);
             expect(result.sections[1].tag).toBe(CHATS_TAG);
             expect(result.sections[2].tag).toBe(DefaultTagID.LowPriority);
+        });
+
+        it("Haven: sorts a single section independently via setSectionSortAlgorithm, leaving others and the skip list's own order untouched", async () => {
+            enableSections();
+            const { client } = getClientAndRooms();
+
+            const store = new RoomListStoreV3Class(dispatcher);
+            await store.start();
+            expect(store.activeSortAlgorithm).toEqual(SortingAlgorithm.Recency);
+
+            const settingsBySection: Record<string, SortingAlgorithm> = {};
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting: string) => {
+                if (setting === "RoomList.preferredSortingBySection") return settingsBySection;
+                if (setting === "RoomList.OrderedCustomSections") return [];
+                if (setting === "RoomList.CustomSectionData") return {};
+                return false;
+            });
+            jest.spyOn(SettingsStore, "setValue").mockImplementation(async (_name, _roomId, _level, value) => {
+                settingsBySection[CHATS_TAG] = value as SortingAlgorithm;
+            });
+
+            store.setSectionSortAlgorithm(CHATS_TAG, SortingAlgorithm.Alphabetic);
+
+            const { sections } = store.getSortedRoomsInActiveSpace();
+            const chatsSection = findSection(sections, CHATS_TAG)!;
+            const lowPrioritySection = findSection(sections, DefaultTagID.LowPriority)!;
+
+            expect(chatsSection.rooms).toEqual(new AlphabeticSorter().sort(chatsSection.rooms));
+            // The skip list's own base order (and any section without its own preference) is
+            // untouched - still Recency.
+            expect(store.activeSortAlgorithm).toEqual(SortingAlgorithm.Recency);
+            expect(lowPrioritySection.rooms).toEqual(
+                new RecencySorter(client.getSafeUserId()).sort(lowPrioritySection.rooms),
+            );
         });
 
         it.each([

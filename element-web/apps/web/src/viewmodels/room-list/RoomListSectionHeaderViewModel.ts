@@ -12,13 +12,16 @@ import {
     type NotificationDecorationData,
     type RoomListSectionHeaderActions,
     type RoomListSectionHeaderViewSnapshot,
+    type SortOption,
 } from "@element-hq/web-shared-components";
 
 import { RoomNotificationStateStore } from "../../stores/notifications/RoomNotificationStateStore";
 import { NotificationStateEvents } from "../../stores/notifications/NotificationState";
 import { type RoomNotificationState } from "../../stores/notifications/RoomNotificationState";
 import SettingsStore from "../../settings/SettingsStore";
+import { SettingLevel } from "../../settings/SettingLevel";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
+import { SortingAlgorithm } from "../../stores/room-list-v3/skip-list/sorters";
 import {
     CHATS_TAG,
     getCustomSectionData,
@@ -28,6 +31,36 @@ import {
 import PosthogTrackers from "../../PosthogTrackers";
 import { CallStore, CallStoreEvent } from "../../stores/CallStore";
 import { type Call, CallEvent } from "../../models/Call";
+
+/**
+ * Haven: convert a SortingAlgorithm to the shared-components SortOption string union.
+ */
+function algorithmToSortOption(algorithm: SortingAlgorithm): SortOption {
+    switch (algorithm) {
+        case SortingAlgorithm.Alphabetic:
+            return "alphabetical";
+        case SortingAlgorithm.Unread:
+            return "unread-first";
+        case SortingAlgorithm.Recency:
+        default:
+            return "recent";
+    }
+}
+
+/**
+ * Haven: convert a shared-components SortOption string union to a SortingAlgorithm.
+ */
+function sortOptionToAlgorithm(option: SortOption): SortingAlgorithm {
+    switch (option) {
+        case "alphabetical":
+            return SortingAlgorithm.Alphabetic;
+        case "unread-first":
+            return SortingAlgorithm.Unread;
+        case "recent":
+        default:
+            return SortingAlgorithm.Recency;
+    }
+}
 
 interface RoomListSectionHeaderViewModelProps {
     tag: string;
@@ -66,8 +99,15 @@ export class RoomListSectionHeaderViewModel
             title: props.title,
             isExpanded: true,
             isUnread: false,
-            displaySectionMenu: !isDefaultSection,
+            // Haven: every section gets its own Sort/Appearance options now (see
+            // RoomListSectionHeaderContent's MenuComponent), not just custom ones - only the
+            // edit/remove options inside stay gated to custom sections.
+            displaySectionMenu: true,
+            canEditOrRemoveSection: !isDefaultSection,
             canBeReordered: !isDefaultSection || props.tag === CHATS_TAG,
+            activeSortOption: algorithmToSortOption(RoomListStoreV3.instance.getSectionSortAlgorithm(props.tag)),
+            isMessagePreviewEnabled:
+                SettingsStore.getValue("RoomList.showMessagePreviewBySection")[props.tag] ?? false,
         });
         const sectionWatherRef = SettingsStore.watchSetting("RoomList.CustomSectionData", null, () =>
             this.onCustomSectionDataChange(),
@@ -77,6 +117,28 @@ export class RoomListSectionHeaderViewModel
         // Recompute the decoration when a call starts or ends in any room
         this.disposables.trackListener(CallStore.instance, CallStoreEvent.Call, this.onCallChanged);
     }
+
+    /**
+     * Haven: change the sort order for this section only.
+     */
+    public sort = (option: SortOption): void => {
+        const algorithm = sortOptionToAlgorithm(option);
+        RoomListStoreV3.instance.setSectionSortAlgorithm(this.props.tag, algorithm);
+        this.snapshot.merge({ activeSortOption: option });
+    };
+
+    /**
+     * Haven: toggle message preview display for this section only.
+     */
+    public toggleMessagePreview = (): void => {
+        const bySection = SettingsStore.getValue("RoomList.showMessagePreviewBySection");
+        const isMessagePreviewEnabled = !(bySection[this.props.tag] ?? false);
+        SettingsStore.setValue("RoomList.showMessagePreviewBySection", null, SettingLevel.DEVICE, {
+            ...bySection,
+            [this.props.tag]: isMessagePreviewEnabled,
+        });
+        this.snapshot.merge({ isMessagePreviewEnabled });
+    };
 
     public onClick = (): void => {
         const isExpanded = !this.snapshot.current.isExpanded;

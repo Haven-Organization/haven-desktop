@@ -207,17 +207,31 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     }
 
     /**
-     * Resort the list of rooms using a different algorithm.
-     * @param algorithm The sorting algorithm to use.
+     * Haven: get the sorting algorithm a given section is currently displayed with.
+     * Defaults to Recency (the skip list's own base order - see getPreferredSorter) for any
+     * section that hasn't had its own preference set yet.
+     * @param tag The section's tag.
      */
-    public resort(algorithm: SortingAlgorithm): void {
-        if (!this.roomSkipList) throw new Error("Cannot resort room list before skip list is created.");
-        if (!this.matrixClient) throw new Error("Cannot resort room list without matrix client.");
-        if (this.roomSkipList.activeSortAlgorithm === algorithm) return;
-        const sorter = this.getSorterFromSortingAlgorithm(algorithm, this.matrixClient.getSafeUserId());
-        this.roomSkipList.useNewSorter(sorter, this.getRooms());
+    public getSectionSortAlgorithm(tag: string): SortingAlgorithm {
+        const bySection = SettingsStore.getValue("RoomList.preferredSortingBySection");
+        return bySection[tag] ?? SortingAlgorithm.Recency;
+    }
+
+    /**
+     * Haven: set the sorting algorithm for a single section, independently of any other section.
+     * Replaces the old global resort() - each section now keeps its own preference (see
+     * getSections, which re-sorts a section's rooms with its own algorithm when it differs from
+     * the skip list's base order).
+     * @param tag The section's tag.
+     * @param algorithm The sorting algorithm to use for this section.
+     */
+    public setSectionSortAlgorithm(tag: string, algorithm: SortingAlgorithm): void {
+        const bySection = SettingsStore.getValue("RoomList.preferredSortingBySection");
+        SettingsStore.setValue("RoomList.preferredSortingBySection", null, SettingLevel.DEVICE, {
+            ...bySection,
+            [tag]: algorithm,
+        });
         this.emit(LISTS_UPDATE_EVENT);
-        SettingsStore.setValue("RoomList.preferredSorting", null, SettingLevel.DEVICE, algorithm);
     }
 
     /**
@@ -397,13 +411,16 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     }
 
     /**
-     * Create the correct sorter depending on the persisted user preference.
+     * Haven: the skip list's own base sorter. Sorting is now a per-section preference (see
+     * getSectionSortAlgorithm/applySectionSort) rather than a single global one, so this just
+     * needs to be a sensible, cheap-to-maintain incremental order for the underlying skip list -
+     * Recency also happens to be the default for any section without its own override, so most
+     * sections never pay for an extra re-sort on top of this.
      * @param myUserId The user-id of our user.
      * @returns Sorter object that can be passed to the skip list.
      */
     private getPreferredSorter(myUserId: string): Sorter {
-        const preferred = SettingsStore.getValue("RoomList.preferredSorting");
-        return this.getSorterFromSortingAlgorithm(preferred, myUserId);
+        return this.getSorterFromSortingAlgorithm(SortingAlgorithm.Recency, myUserId);
     }
 
     /**
@@ -491,13 +508,25 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
         return this.sortedTags
             .map((tag) => {
                 const filters = filterBoolean([this.filterByTag.get(tag)?.key, ...(filterKeys ?? [])]);
+                const rooms = Array.from(this.roomSkipList?.getRoomsInActiveSpace(filters) || []);
 
                 return {
                     tag,
-                    rooms: Array.from(this.roomSkipList?.getRoomsInActiveSpace(filters) || []),
+                    rooms: this.applySectionSort(tag, rooms),
                 };
             })
             .filter((section) => !filterKeys || section.rooms.length > 0);
+    }
+
+    /**
+     * Haven: re-sort a section's own rooms with its own per-tag sorting preference, if it differs
+     * from the skip list's base order - the rooms are already in that base order coming in, so a
+     * section left on the default doesn't pay for a redundant re-sort.
+     */
+    private applySectionSort(tag: string, rooms: Room[]): Room[] {
+        const algorithm = this.getSectionSortAlgorithm(tag);
+        if (!this.matrixClient || algorithm === this.roomSkipList?.activeSortAlgorithm) return rooms;
+        return this.getSorterFromSortingAlgorithm(algorithm, this.matrixClient.getSafeUserId()).sort(rooms);
     }
 
     /**
