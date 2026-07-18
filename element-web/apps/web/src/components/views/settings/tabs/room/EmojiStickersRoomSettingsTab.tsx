@@ -126,7 +126,10 @@ export default function EmojiStickersRoomSettingsTab({ room }: Props): JSX.Eleme
                                 <div className="mx_EmojiStickersSettingsTab_packRow" key={pack.stateKey}>
                                     <PackAvatar mxcUrl={getPackAvatarMxc(pack, client)} room={room} />
                                     <div className="mx_EmojiStickersSettingsTab_packInfo">
-                                        <span className="mx_EmojiStickersSettingsTab_packName">
+                                        <span
+                                            className="mx_EmojiStickersSettingsTab_packName"
+                                            title={packDisplayName(pack.content, pack.stateKey)}
+                                        >
                                             {packDisplayName(pack.content, pack.stateKey)}
                                         </span>
                                         <span className="mx_EmojiStickersSettingsTab_packCount">

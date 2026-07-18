@@ -42,6 +42,7 @@ import {
     CopyIcon,
     TreeIcon,
     StickerIcon,
+    SearchIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
@@ -78,6 +79,8 @@ import PinningUtils from "../../../utils/PinningUtils";
 import PosthogTrackers from "../../../PosthogTrackers.ts";
 import { getPackableImageFromEvent } from "../../../utils/ImagePacks";
 import AddToPackDialog from "../dialogs/AddToPackDialog";
+import { getImageSourcePackRefs } from "../../../utils/imageSourcePacks";
+import FindPackDialog from "../dialogs/FindPackDialog";
 
 interface IReplyInThreadButton {
     mxEvent: MatrixEvent;
@@ -272,6 +275,13 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
 
     private onAddToPackClick = (): void => {
         Modal.createDialog(AddToPackDialog, { mxEvent: this.props.mxEvent }, "mx_AddToPackDialog_wrapper");
+        this.closeMenu();
+    };
+
+    private onFindPackClick = (): void => {
+        const packRef = getImageSourcePackRefs(this.props.mxEvent)[0];
+        if (!packRef) return;
+        Modal.createDialog(FindPackDialog, { packRef }, "mx_FindPackDialog_wrapper");
         this.closeMenu();
     };
 
@@ -494,6 +504,21 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                     icon={<StickerIcon />}
                     label={_t("timeline|context_menu|add_to_pack")}
                     onClick={this.onAddToPackClick}
+                />
+            );
+        }
+
+        // Haven: MSC4459 (Image pack references) - "find the pack" side of the implementation, for
+        // any event carrying provenance metadata (a sticker, a text message with an inline custom
+        // emoji - see utils/imageSourcePacks.ts's own buildImageSourcePacks/
+        // buildImageSourcePacksFromModel for where this data comes from).
+        let findPackButton: JSX.Element | undefined;
+        if (getImageSourcePackRefs(mxEvent).length > 0) {
+            findPackButton = (
+                <IconizedContextMenuOption
+                    icon={<SearchIcon />}
+                    label={_t("timeline|context_menu|find_pack")}
+                    onClick={this.onFindPackClick}
                 />
             );
         }
@@ -748,6 +773,7 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                 {endPollButton}
                 {forwardButton}
                 {addToPackButton}
+                {findPackButton}
                 {permalinkButton}
                 {reportEventButton}
                 {externalURLButton}

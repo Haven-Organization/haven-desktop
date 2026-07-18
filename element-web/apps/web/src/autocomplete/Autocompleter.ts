@@ -40,9 +40,12 @@ export interface ICompletion {
     href?: string;
     // Haven: MSC2545 custom emoji completion (type: "custom-emoji") - see EmojiProvider.tsx and
     // editor/autocomplete.ts's own partForCompletion, which uses these to insert a CustomEmojiPart
-    // instead of plain text.
+    // instead of plain text. roomId/stateKey identify the pack this image came from - carried all
+    // the way to the composer's own model so a later send can attach MSC4459 provenance.
     mxcUrl?: string;
     packName?: string;
+    roomId?: string;
+    stateKey?: string;
 }
 
 const PROVIDERS = [UserProvider, RoomProvider, EmojiProvider, NotifProvider, CommandProvider, SpaceProvider];

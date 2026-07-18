@@ -436,19 +436,20 @@ export function shortcodeFromMxcUrl(mxcUrl: string): string {
     return sanitizeShortcode(mxcUrl.split("/").pop() ?? "");
 }
 
-/** Resolves the avatar to show for a pack, in order: (1) the pack's own explicit avatar_url - per
- *  MSC2545, "If unset, and the pack event is within a room, defaults to the room's avatar" - so
- *  (2) the pack's source room's avatar, and finally (3), if the room itself has none either, the
- *  first image in the pack, so a pack browsing UI never has to show a bare placeholder for a pack
- *  that actually has images in it. Used everywhere a pack's avatar is shown for display purposes
- *  (the emoji picker's category rail, the room/user/space settings pack lists and pack editor, and
- *  the "Add to Pack" dialog) - not for what a pack editor treats as the pack's own saved avatar
- *  value, which must stay undefined until the user explicitly sets one. */
+/** Resolves the avatar to show for a pack, in order: (1) the pack's own explicit avatar_url, (2)
+ *  the first image in the pack, and finally (3), if the pack has no images either, the pack's
+ *  source room's avatar (MSC2545's own "defaults to the room's avatar" fallback is the last
+ *  resort here, not the second choice, per explicit user direction) - so a pack browsing UI never
+ *  has to show a bare placeholder for a pack that actually has images in it. Used everywhere a
+ *  pack's avatar is shown for display purposes (the emoji picker's category rail, the room/user/
+ *  space settings pack lists and pack editor, and the "Add to Pack" dialog) - not for what a pack
+ *  editor treats as the pack's own saved avatar value, which must stay undefined until the user
+ *  explicitly sets one. */
 export function getPackAvatarMxc(pack: RoomImagePack, client: MatrixClient): string | undefined {
     if (pack.content.pack?.avatar_url) return pack.content.pack.avatar_url;
-    const roomAvatar = client.getRoom(pack.roomId)?.getMxcAvatarUrl();
-    if (roomAvatar) return roomAvatar;
-    return Object.values(pack.content.images)[0]?.url;
+    const firstImage = Object.values(pack.content.images)[0]?.url;
+    if (firstImage) return firstImage;
+    return client.getRoom(pack.roomId)?.getMxcAvatarUrl() ?? undefined;
 }
 
 /** Whether `mxEvent` is something "Add to Pack" can offer: an m.sticker, or an m.room.message with

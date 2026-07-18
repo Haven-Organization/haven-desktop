@@ -46,12 +46,16 @@ import type DocumentOffset from "../../../editor/offset";
 import { attachMentions, attachRelation } from "../../../utils/messages";
 import { filterBoolean } from "../../../utils/arrays";
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
+import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacksFromModel } from "../../../utils/imageSourcePacks";
 
 // exported for tests
 export function createEditContent(
     model: EditorModel,
     editedEvent: MatrixEvent,
     replyToEvent?: MatrixEvent,
+    // Haven: optional for the same reason as SendMessageComposer's own createMessageContent - see
+    // buildImageSourcePacksFromModel's own doc.
+    room?: Room,
 ): RoomMessageEventContent {
     const isEmote = containsEmote(model);
     if (isEmote) {
@@ -77,6 +81,19 @@ export function createEditContent(
         newContent.formatted_body = formattedBody;
         contentBody.format = newContent.format;
         contentBody.formatted_body = `* ${formattedBody}`;
+    }
+
+    // Haven: MSC4459 provenance for any custom emoji typed/picked inline into this text message -
+    // see buildImageSourcePacksFromModel's own doc. Set on both m.new_content and the top-level
+    // fallback body, matching how format/formatted_body are duplicated onto both above.
+    if (room) {
+        const imageSourcePacks = buildImageSourcePacksFromModel(model, room.client);
+        if (Object.keys(imageSourcePacks).length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (newContent as any)[IMAGE_SOURCE_PACKS_KEY] = imageSourcePacks;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (contentBody as any)[IMAGE_SOURCE_PACKS_KEY] = imageSourcePacks;
+        }
     }
 
     // Build the mentions properties for both the content and new_content.
@@ -111,7 +128,7 @@ class EditMessageComposer extends React.Component<IEditMessageComposerProps, ISt
 
         this.replyToEvent = ev.replyEventId ? this.context.room?.findEventById(ev.replyEventId) : undefined;
 
-        const editContent = createEditContent(this.model, ev, this.replyToEvent);
+        const editContent = createEditContent(this.model, ev, this.replyToEvent, this.context.room);
         this.state = {
             saveDisabled: !isRestored || !this.isContentModified(editContent["m.new_content"]!),
         };
@@ -292,7 +309,7 @@ class EditMessageComposer extends React.Component<IEditMessageComposerProps, ISt
             const position = this.model.positionForOffset(caret.offset, caret.atNodeEnd);
             this.editorRef.current.replaceEmoticon(position, REGEX_EMOTICON);
         }
-        const editContent = createEditContent(this.model, editedEvent, this.replyToEvent);
+        const editContent = createEditContent(this.model, editedEvent, this.replyToEvent, this.context.room);
         const newContent = editContent["m.new_content"]!;
 
         let shouldSend = true;

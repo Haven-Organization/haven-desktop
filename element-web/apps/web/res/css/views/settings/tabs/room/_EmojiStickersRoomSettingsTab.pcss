@@ -16,6 +16,12 @@
     display: flex;
     flex-direction: column;
     gap: var(--cpd-space-2x);
+    /* Haven: same shrink-wrap-by-default grid quirk as packHeader/imageList below - this list is
+       itself the grid item, so without an explicit stretch it only sizes to fit its content and
+       can overflow the grid track outright once a descendant has long unwrappable text, instead
+       of clamping to the track width so rows can truncate and line up. */
+    justify-self: stretch;
+    min-width: 0;
 }
 
 .mx_EmojiStickersSettingsTab_packRow {
@@ -25,12 +31,24 @@
     padding: var(--cpd-space-2x);
     border-radius: 8px;
     border: 1px solid var(--cpd-color-border-interactive-secondary);
+    min-width: 0;
 }
 
 .mx_EmojiStickersSettingsTab_packInfo {
     display: flex;
     flex-direction: column;
     flex: 1;
+    min-width: 0;
+}
+
+.mx_EmojiStickersSettingsTab_packName,
+.mx_EmojiStickersSettingsTab_packCount {
+    /* Haven: truncate rather than wrap - a pack row's height must stay the same regardless of how
+       long its name is, both so rows all line up and so the View/✕ buttons stay vertically
+       centered at the same position on every row. */
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     min-width: 0;
 }
 
@@ -110,6 +128,10 @@
     }
 }
 
+.mx_EmojiStickersSettingsTab_imageSearch {
+    margin-bottom: var(--cpd-space-3x);
+}
+
 .mx_EmojiStickersSettingsTab_imageList {
     display: flex;
     flex-direction: column;
@@ -118,6 +140,9 @@
     /* Haven: stretch to the full grid column width (see packHeader above) so each row's Edit
        button lands at the same right edge as the pack header's Edit/Done button. */
     justify-self: stretch;
+    /* Haven: a pack with more images than fit on screen scrolls within this list rather than
+       growing the whole settings page indefinitely. */
+    max-height: 320px;
 }
 
 .mx_EmojiStickersSettingsTab_imageRow {
@@ -125,6 +150,10 @@
     align-items: center;
     gap: var(--cpd-space-3x);
     padding: var(--cpd-space-1x) var(--cpd-space-2x);
+    /* Haven: same border treatment as .mx_EmojiStickersSettingsTab_packRow on the list page this
+       pack was opened from. */
+    border-radius: 8px;
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
 }
 
 .mx_EmojiStickersSettingsTab_imageRow_editing {
@@ -143,7 +172,13 @@
 
 .mx_EmojiStickersSettingsTab_imageShortcode {
     flex: 1;
+    min-width: 0;
     font-family: var(--cpd-font-family-mono, monospace);
+    /* Haven: truncate rather than wrap - see .mx_EmojiStickersSettingsTab_packName's own doc, same
+       reasoning applied to image rows so every one stays the same height. */
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .mx_EmojiStickersSettingsTab_imageEditFields {

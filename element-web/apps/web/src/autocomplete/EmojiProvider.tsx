@@ -189,6 +189,8 @@ export default class EmojiProvider extends AutocompleteProvider {
                         type: "custom-emoji",
                         mxcUrl: custom.mxcUrl,
                         packName: custom.packName,
+                        roomId: custom.roomId,
+                        stateKey: custom.stateKey,
                         component: (
                             <PillCompletion title={shortcode} aria-label={custom.shortcodes[0]}>
                                 <img

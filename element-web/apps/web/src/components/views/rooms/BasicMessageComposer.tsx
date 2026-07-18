@@ -939,7 +939,10 @@ export default class BasicMessageEditor extends React.Component<IProps, IState> 
         const { partCreator } = model;
         const caret = this.getCaret();
         const position = model.positionForOffset(caret.offset, caret.atNodeEnd);
-        const parts = [partCreator.customEmoji(`:${choice.shortcode}:`, choice.mxcUrl, choice.packName), partCreator.plain(" ")];
+        const parts = [
+            partCreator.customEmoji(`:${choice.shortcode}:`, choice.mxcUrl, choice.packName, choice.roomId, choice.stateKey),
+            partCreator.plain(" "),
+        ];
         model.transform(() => {
             const addedLen = model.insert(parts, position);
             return model.positionForOffset(caret.offset + addedLen, true);

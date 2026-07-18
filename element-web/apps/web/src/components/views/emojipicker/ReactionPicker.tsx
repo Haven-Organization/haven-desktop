@@ -18,6 +18,7 @@ import { Action } from "../../../dispatcher/actions";
 import RoomContext from "../../../contexts/RoomContext";
 import { type FocusComposerPayload } from "../../../dispatcher/payloads/FocusComposerPayload";
 import { REACTION_SHORTCODE_KEY } from "../../../viewmodels/room/timeline/event-tile/reactions/reactionShortcode";
+import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacks } from "../../../utils/imageSourcePacks";
 
 interface IProps {
     mxEvent: MatrixEvent;
@@ -112,6 +113,16 @@ class ReactionPicker extends React.Component<IProps, IState> {
             // Tell the emoji picker not to bump this in the more frequently used list.
             return false;
         } else {
+            const client = MatrixClientPeg.safeGet();
+            // Haven: MSC4459 provenance (optional per the MSC's own MSC4027-reactions bullet) - the
+            // pack's own source room may differ from whatever room this reaction is being sent in
+            // (a favorited pack can live anywhere), so it's resolved fresh off custom.roomId rather
+            // than assumed to be this.context.room.
+            const sourceRoom = custom ? client.getRoom(custom.roomId) : undefined;
+            const imageSourcePacks =
+                custom && sourceRoom
+                    ? buildImageSourcePacks(custom.mxcUrl, sourceRoom, custom.stateKey, custom.shortcode)
+                    : {};
             const content = {
                 "m.relates_to": {
                     rel_type: RelationType.Annotation,
@@ -119,9 +130,10 @@ class ReactionPicker extends React.Component<IProps, IState> {
                     key,
                 },
                 ...(custom ? { [REACTION_SHORTCODE_KEY.name]: `:${custom.shortcode}:` } : {}),
+                ...(Object.keys(imageSourcePacks).length > 0 ? { [IMAGE_SOURCE_PACKS_KEY]: imageSourcePacks } : {}),
             };
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            MatrixClientPeg.safeGet().sendEvent(this.props.mxEvent.getRoomId()!, EventType.Reaction, content as any);
+            client.sendEvent(this.props.mxEvent.getRoomId()!, EventType.Reaction, content as any);
             this.props.onReact?.();
             dis.dispatch({ action: "message_sent" });
             dis.dispatch<FocusComposerPayload>({

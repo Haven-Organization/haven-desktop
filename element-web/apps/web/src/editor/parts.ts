@@ -35,12 +35,17 @@ interface ISerializedPillPart {
 }
 
 /** Haven: MSC2545 image pack emoji, chosen from EmojiPicker's own pack categories and inserted
- *  via BasicMessageComposer.insertCustomEmoji - see CustomEmojiPart's own doc below. */
+ *  via BasicMessageComposer.insertCustomEmoji - see CustomEmojiPart's own doc below. roomId/
+ *  stateKey identify the pack this image actually came from (MSC4459 provenance - see
+ *  utils/imageSourcePacks.ts's own buildImageSourcePacksFromModel, which reads these back off
+ *  every CustomEmojiPart in a message at send time). */
 interface ISerializedCustomEmojiPart {
     type: Type.CustomEmoji;
     text: string;
     mxcUrl: string;
     packName: string;
+    roomId: string;
+    stateKey: string;
 }
 
 export type SerializedPart = ISerializedPart | ISerializedPillPart | ISerializedCustomEmojiPart;
@@ -93,6 +98,8 @@ interface ICustomEmojiPart extends Omit<IBasePart, "type"> {
     type: Type.CustomEmoji;
     mxcUrl: string;
     packName: string;
+    roomId: string;
+    stateKey: string;
 }
 
 export type Part = IBasePart | IPillCandidatePart | IPillPart | ICustomEmojiPart;
@@ -449,6 +456,8 @@ export class CustomEmojiPart extends BasePart implements ICustomEmojiPart {
         text: string,
         public readonly mxcUrl: string,
         public readonly packName: string,
+        public readonly roomId: string,
+        public readonly stateKey: string,
     ) {
         super(text);
     }
@@ -514,6 +523,8 @@ export class CustomEmojiPart extends BasePart implements ICustomEmojiPart {
             text: this.text,
             mxcUrl: this.mxcUrl,
             packName: this.packName,
+            roomId: this.roomId,
+            stateKey: this.stateKey,
         };
     }
 }
@@ -708,7 +719,7 @@ export class PartCreator {
             case Type.UserPill:
                 return part.resourceId ? this.userPill(part.text, part.resourceId) : undefined;
             case Type.CustomEmoji:
-                return this.customEmoji(part.text, part.mxcUrl, part.packName);
+                return this.customEmoji(part.text, part.mxcUrl, part.packName, part.roomId, part.stateKey);
         }
     }
 
@@ -750,9 +761,16 @@ export class PartCreator {
     }
 
     /** Haven: `shortcodeText` is the already-`:shortcode:`-wrapped display text (see
-     *  CustomEmojiPart's own doc and EmojiButton.tsx's own call site). */
-    public customEmoji(shortcodeText: string, mxcUrl: string, packName: string): CustomEmojiPart {
-        return new CustomEmojiPart(shortcodeText, mxcUrl, packName);
+     *  CustomEmojiPart's own doc and EmojiButton.tsx's own call site). roomId/stateKey identify
+     *  the pack this image came from - see ICustomEmojiPart's own doc. */
+    public customEmoji(
+        shortcodeText: string,
+        mxcUrl: string,
+        packName: string,
+        roomId: string,
+        stateKey: string,
+    ): CustomEmojiPart {
+        return new CustomEmojiPart(shortcodeText, mxcUrl, packName, roomId, stateKey);
     }
 
     private static isRegionalIndicator(c: string): boolean {

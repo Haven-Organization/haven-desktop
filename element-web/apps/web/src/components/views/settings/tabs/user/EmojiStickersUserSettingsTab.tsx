@@ -126,10 +126,16 @@ export default function EmojiStickersUserSettingsTab(): JSX.Element {
                                                 <div className="mx_EmojiStickersUserSettingsTab_avatar mx_EmojiStickersUserSettingsTab_avatar_placeholder" />
                                             )}
                                             <div className="mx_EmojiStickersUserSettingsTab_packInfo">
-                                                <span className="mx_EmojiStickersUserSettingsTab_packName">
+                                                <span
+                                                    className="mx_EmojiStickersUserSettingsTab_packName"
+                                                    title={packDisplayName(pack.content, pack.stateKey)}
+                                                >
                                                     {packDisplayName(pack.content, pack.stateKey)}
                                                 </span>
-                                                <span className="mx_EmojiStickersUserSettingsTab_roomName">
+                                                <span
+                                                    className="mx_EmojiStickersUserSettingsTab_roomName"
+                                                    title={room?.name ?? pack.roomId}
+                                                >
                                                     {room?.name ?? pack.roomId}
                                                 </span>
                                             </div>

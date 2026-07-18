@@ -11,8 +11,9 @@
  * nothing to preview by leaving them visible).
  */
 
-import React, { type JSX, useCallback, useState } from "react";
+import React, { type JSX, useCallback, useMemo, useState } from "react";
 import { type Room } from "matrix-js-sdk/src/matrix";
+import { AutoHideScrollbar } from "@element-hq/web-shared-components";
 
 import { _t } from "../../../../languageHandler";
 import SettingsTab from "../tabs/SettingsTab";
@@ -183,6 +184,22 @@ export function PackEditor({ room, pack, canManage, onBack }: PackEditorProps): 
         [markDirty],
     );
 
+    // Haven: filters by index rather than filtering `images` directly, so updateImage/removeImage
+    // (both index-into-the-full-array operations) still target the right draft image regardless
+    // of what the search has currently hidden.
+    const [imageQuery, setImageQuery] = useState("");
+    const lcImageQuery = imageQuery.trim().toLowerCase();
+    const filteredImageIndices = useMemo(() => {
+        if (!lcImageQuery) return images.map((_, i) => i);
+        return images
+            .map((img, i) => ({ img, i }))
+            .filter(
+                ({ img }) =>
+                    img.shortcode.toLowerCase().includes(lcImageQuery) || img.body.toLowerCase().includes(lcImageQuery),
+            )
+            .map(({ i }) => i);
+    }, [images, lcImageQuery]);
+
     const handleSave = useCallback(async (): Promise<void> => {
         setBusy(true);
         try {
@@ -310,18 +327,35 @@ export function PackEditor({ room, pack, canManage, onBack }: PackEditorProps): 
                 </SettingsSubsection>
 
                 <SettingsSubsection heading={_t("room_settings|emoji_stickers|images")}>
-                    <div className="mx_EmojiStickersSettingsTab_imageList">
-                        {images.map((img, i) => (
-                            <PackImageRow
-                                key={img.key ?? `new-${i}`}
-                                room={room}
-                                image={img}
-                                canManage={canManage}
-                                onChange={(patch) => updateImage(i, patch)}
-                                onRemove={() => removeImage(i)}
-                            />
-                        ))}
-                    </div>
+                    {images.length > 0 && (
+                        <Field
+                            className="mx_EmojiStickersSettingsTab_imageSearch"
+                            label={_t("room_settings|emoji_stickers|search_images")}
+                            value={imageQuery}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setImageQuery(e.currentTarget.value)}
+                        />
+                    )}
+                    <AutoHideScrollbar className="mx_AutoHideScrollbar mx_EmojiStickersSettingsTab_imageList">
+                        {filteredImageIndices.length === 0 && lcImageQuery ? (
+                            <div className="mx_EmojiStickersSettingsTab_empty">
+                                {_t("room_settings|emoji_stickers|no_images_match")}
+                            </div>
+                        ) : (
+                            filteredImageIndices.map((i) => {
+                                const img = images[i];
+                                return (
+                                    <PackImageRow
+                                        key={img.key ?? `new-${i}`}
+                                        room={room}
+                                        image={img}
+                                        canManage={canManage}
+                                        onChange={(patch) => updateImage(i, patch)}
+                                        onRemove={() => removeImage(i)}
+                                    />
+                                );
+                            })
+                        )}
+                    </AutoHideScrollbar>
                     {canManage && (
                         <div className="mx_EmojiStickersSettingsTab_addImageRow">
                             <label className="mx_EmojiStickersSettingsTab_uploadBtn mx_EmojiStickersSettingsTab_uploadImage">
@@ -410,7 +444,7 @@ function PackImageRow({ room, image, canManage, onChange, onRemove }: PackImageR
                     />
                     <Field
                         element="select"
-                        label={_t("room_settings|emoji_stickers|images_usage")}
+                        label={_t("room_settings|emoji_stickers|image_usage")}
                         value={usageArrayToSelectValue(image.usage)}
                         onChange={(e) =>
                             onChange({ usage: selectValueToUsageArray(e.currentTarget.value as "emoticon" | "sticker" | "both") })
@@ -433,7 +467,9 @@ function PackImageRow({ room, image, canManage, onChange, onRemove }: PackImageR
     return (
         <div className="mx_EmojiStickersSettingsTab_imageRow">
             {httpUrl && <img className="mx_EmojiStickersSettingsTab_imageThumb" src={httpUrl} alt="" />}
-            <span className="mx_EmojiStickersSettingsTab_imageShortcode">{`:${image.shortcode}:`}</span>
+            <span className="mx_EmojiStickersSettingsTab_imageShortcode" title={`:${image.shortcode}:`}>
+                {`:${image.shortcode}:`}
+            </span>
             <AccessibleButton kind="primary_outline" onClick={() => onChange({ editing: true })} disabled={!canManage}>
                 {_t("action|edit")}
             </AccessibleButton>

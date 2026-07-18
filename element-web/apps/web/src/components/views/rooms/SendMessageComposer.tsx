@@ -66,6 +66,7 @@ import { getBlobSafeMimeType } from "../../../utils/blobs";
 import { EMOJI_REGEX } from "../../../HtmlUtils";
 import { attachMentions, attachRelation } from "../../../utils/messages";
 import { type RoomUploadViewModel, useRoomUploadViewModel } from "../../../viewmodels/room/RoomUploadViewModel";
+import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacksFromModel } from "../../../utils/imageSourcePacks";
 
 // The prefix used when persisting editor drafts to localstorage.
 export const EDITOR_STATE_STORAGE_PREFIX = "mx_cider_state_";
@@ -76,6 +77,10 @@ export function createMessageContent(
     model: EditorModel,
     replyToEvent: MatrixEvent | undefined,
     relation: IEventRelation | undefined,
+    // Haven: optional (rather than always required) so the existing "createMessageContent" unit
+    // tests, which construct a model with no custom emoji in it at all, don't need updating just
+    // to pass a room they'd never actually use - see buildImageSourcePacksFromModel's own doc.
+    room?: Room,
 ): RoomMessageEventContent {
     const isEmote = containsEmote(model);
     if (isEmote) {
@@ -98,6 +103,16 @@ export function createMessageContent(
     if (formattedBody) {
         content.format = "org.matrix.custom.html";
         content.formatted_body = formattedBody;
+    }
+
+    // Haven: MSC4459 provenance for any custom emoji typed/picked inline into this text message -
+    // see buildImageSourcePacksFromModel's own doc.
+    if (room) {
+        const imageSourcePacks = buildImageSourcePacksFromModel(model, room.client);
+        if (Object.keys(imageSourcePacks).length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (content as any)[IMAGE_SOURCE_PACKS_KEY] = imageSourcePacks;
+        }
     }
 
     // Build the mentions property and add it to the event content.
@@ -418,6 +433,7 @@ export class SendMessageComposer extends React.Component<ISendMessageComposerPro
                     model,
                     replyToEvent,
                     this.props.relation,
+                    this.props.room,
                 );
             }
             // don't bother sending an empty message

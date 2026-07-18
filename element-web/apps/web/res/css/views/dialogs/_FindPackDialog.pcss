@@ -1,0 +1,43 @@
+/*
+ * Haven: MSC4459 (Image pack references) — "Find Pack" dialog.
+ */
+
+.mx_FindPackDialog {
+    width: 360px;
+}
+
+.mx_FindPackDialog_message {
+    color: var(--cpd-color-text-secondary);
+
+    p {
+        margin-top: 0;
+    }
+}
+
+.mx_FindPackDialog_row {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+}
+
+.mx_FindPackDialog_rowInfo {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.mx_FindPackDialog_rowName {
+    font-weight: var(--cpd-font-weight-semibold);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.mx_FindPackDialog_rowRoom {
+    color: var(--cpd-color-text-secondary);
+    font-size: 0.85rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}

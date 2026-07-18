@@ -108,7 +108,13 @@ export default class AutocompleteWrapperModel {
                 // as the actual pack image inline, same as picking it from the emoji picker (see
                 // BasicMessageComposer.insertCustomEmoji).
                 return [
-                    this.partCreator.customEmoji(text, completion.mxcUrl!, completion.packName!),
+                    this.partCreator.customEmoji(
+                        text,
+                        completion.mxcUrl!,
+                        completion.packName!,
+                        completion.roomId!,
+                        completion.stateKey!,
+                    ),
                     this.partCreator.plain(" "),
                 ];
             default:
