@@ -25,6 +25,7 @@ import { CallType } from "matrix-js-sdk/src/webrtc/call";
 import { HistoryIcon, UserProfileSolidIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { useRoomName } from "../../../../hooks/useRoomName.ts";
+import { useTopic } from "../../../../hooks/room/useTopic.ts";
 import { RightPanelPhases } from "../../../../stores/right-panel/RightPanelStorePhases.ts";
 import { useMatrixClientContext } from "../../../../contexts/MatrixClientContext.tsx";
 import { useRoomMemberCount, useRoomMembers } from "../../../../hooks/useRoomMembers.ts";
@@ -466,6 +467,8 @@ export default function RoomHeader({
     const client = useMatrixClientContext();
     const bannerHttpUrl = useRoomBannerHttpUrl(room);
     const roomName = useRoomName(room);
+    const topic = useTopic(room instanceof LocalRoom ? undefined : room);
+    const topicText = topic?.text;
     const joinRule = useRoomState(room, (state) => state.getJoinRule());
     const historyVisibility = useRoomState(room, (state) => state.getHistoryVisibility());
     const dmMember = useDmMember(room);
@@ -560,6 +563,18 @@ export default function RoomHeader({
 
                             {isRoomEncrypted && historyVisibilityIcon(historyVisibility)}
                         </Text>
+                        {topicText && (
+                            <Text
+                                as="div"
+                                size="sm"
+                                weight="regular"
+                                dir="auto"
+                                title={topicText}
+                                className="mx_RoomHeader_topic mx_RoomHeader_truncated mx_lineClamp"
+                            >
+                                {topicText}
+                            </Text>
+                        )}
                     </Box>
                 </button>
                 {/* If the room is local-only then we don't want to show any additional buttons, as it won't work */}
