@@ -303,6 +303,45 @@ describe("RoomListViewModel", () => {
             await flushPromises();
             expect(viewModel.getSnapshot().roomListState.activeRoomIndex).toBe(2);
         });
+
+        it("should snap a previously sticky room back to its true sort position after switching away from it", async () => {
+            viewModel = new RoomListViewModel({ client: matrixClient });
+
+            // Select room2 (index 1)
+            jest.spyOn(SdkContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!room2:server");
+            dispatcher.dispatch({
+                action: Action.ActiveRoomChanged,
+                newRoomId: "!room2:server",
+            });
+            await flushPromises();
+
+            // The section's own true (e.g. A-Z) sort now puts room2 first - while it's still the
+            // active room, sticky behavior should keep it displayed at its old index (1), same as
+            // the "should keep selected room at same index" test above.
+            jest.spyOn(RoomListStoreV3.instance, "getSortedRoomsInActiveSpace").mockReturnValue({
+                spaceId: "home",
+                sections: [{ tag: CHATS_TAG, rooms: [room2, room1, room3] }],
+            });
+            RoomListStoreV3.instance.emit(RoomListStoreV3Event.ListsUpdate);
+            expect(viewModel.getSnapshot().sections[0].roomIds[1]).toBe("!room2:server");
+
+            // Now switch away to room3, without the underlying sort order changing again -
+            // room2 should snap back to its true position (index 0) instead of staying pinned at
+            // its old sticky index (1).
+            jest.spyOn(SdkContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!room3:server");
+            dispatcher.dispatch({
+                action: Action.ActiveRoomChanged,
+                oldRoomId: "!room2:server",
+                newRoomId: "!room3:server",
+            });
+            await flushPromises();
+
+            expect(viewModel.getSnapshot().sections[0].roomIds).toEqual([
+                "!room2:server",
+                "!room1:server",
+                "!room3:server",
+            ]);
+        });
     });
 
     describe("Filters", () => {

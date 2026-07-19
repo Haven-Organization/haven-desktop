@@ -52,10 +52,12 @@ import { DefaultTagID, type TagID } from "./skip-list/tag";
 
 /**
  * These are the filters passed to the room skip list.
+ * Haven: UnreadFilter isn't included here - it needs a per-store-instance "currently viewed room"
+ * getter (see RoomListStoreV3Class's own currentRoomId), so it's constructed there instead of as
+ * a module-level singleton shared across every store instance (would leak state between tests).
  */
 const FILTERS = [
     new FavouriteFilter(),
-    new UnreadFilter(),
     new PeopleFilter(),
     new RoomsFilter(),
     new InvitesFilter(),
@@ -127,6 +129,16 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
      * Used by {@link scheduleEmit} to coalesce rapid-fire updates into a single emit per frame.
      */
     private pendingEmit = false;
+
+    /**
+     * Haven: the room currently being viewed, if any - kept in sync via Action.ViewRoom (see
+     * onAction below). Read by unreadFilter so opening an unread room from an Unreads-filtered
+     * list doesn't instantly drop it out from under you the moment its read receipt lands; it
+     * stays until you actually view a different room.
+     */
+    private currentRoomId: string | undefined;
+
+    private readonly unreadFilter = new UnreadFilter(() => this.currentRoomId);
 
     public constructor(dispatcher: MatrixDispatcher) {
         super(dispatcher);
@@ -360,6 +372,23 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
                 break;
             }
 
+            case Action.ViewRoom: {
+                // Haven: track the currently-viewed room for unreadFilter's own exemption (see its
+                // own doc) - re-evaluate both the room being left and the room being entered, since
+                // either one's Unreads-filter membership can change as a result. room_id can be
+                // absent on an alias-only navigation; nothing to update in that rare case.
+                const newRoomId = payload.room_id;
+                if (!newRoomId || newRoomId === this.currentRoomId) break;
+                const previousRoomId = this.currentRoomId;
+                this.currentRoomId = newRoomId;
+
+                const previousRoom = previousRoomId ? this.matrixClient.getRoom(previousRoomId) : null;
+                if (previousRoom) this.addRoomAndEmit(previousRoom);
+                const newRoom = this.matrixClient.getRoom(newRoomId);
+                if (newRoom) this.addRoomAndEmit(newRoom);
+                break;
+            }
+
             case Action.AfterForgetRoom: {
                 const room = payload.room;
                 this.roomSkipList.removeRoom(room);
@@ -496,7 +525,7 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
         );
         this.sortedTags.forEach((tag, index) => this.filterByTag.set(tag, tagFilters[index]));
 
-        return [...FILTERS, ...tagFilters];
+        return [...FILTERS, this.unreadFilter, ...tagFilters];
     }
 
     /**

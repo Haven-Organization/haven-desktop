@@ -35,7 +35,6 @@ import SettingsStore from "../../../../src/settings/SettingsStore";
 import * as utils from "../../../../src/utils/notifications";
 import * as utilsRLS from "../../../../src/stores/room-list-v3/utils.ts";
 import { Action } from "../../../../src/dispatcher/actions";
-import { SettingLevel } from "../../../../src/settings/SettingLevel.ts";
 import { CHATS_TAG } from "../../../../src/stores/room-list-v3/section";
 
 describe("RoomListStoreV3", () => {
@@ -588,7 +587,7 @@ describe("RoomListStoreV3", () => {
                 // Let's say 8, 27 are unread
                 jest.spyOn(RoomNotificationStateStore.instance, "getRoomState").mockImplementation((room) => {
                     const state = {
-                        hasUnreadCount: [rooms[8], rooms[27]].includes(room),
+                        hasAnyNotificationOrActivity: [rooms[8], rooms[27]].includes(room),
                     } as unknown as RoomNotificationState;
                     return state;
                 });
@@ -763,7 +762,7 @@ describe("RoomListStoreV3", () => {
                 // Let's say 8, 27 are unread
                 jest.spyOn(RoomNotificationStateStore.instance, "getRoomState").mockImplementation((room) => {
                     const state = {
-                        hasUnreadCount: [rooms[8], rooms[27]].includes(room),
+                        hasAnyNotificationOrActivity: [rooms[8], rooms[27]].includes(room),
                     } as unknown as RoomNotificationState;
                     return state;
                 });
@@ -781,7 +780,6 @@ describe("RoomListStoreV3", () => {
             });
 
             it("should update filters on membership change", async () => {
-                await SettingsStore.setValue("feature_ask_to_join", null, SettingLevel.DEVICE, true);
                 const { store, client, dispatcher } = await getRoomListStore();
                 const room = new Room("!fooknock:matrix.org", client, client.getSafeUserId(), {});
 

@@ -472,6 +472,14 @@ export class RoomListViewModel
             // dispatchViewRoomDebounced below, or a direct click elsewhere) has now landed - any
             // pending Alt+Up/Down cursor position is moot from here on.
             this.pendingRoomId = undefined;
+            // Haven: refresh from the store first - applyStickyRoom operates on whatever
+            // this.roomsResult.sections currently holds, and isRoomChange=true makes it a no-op
+            // (see its own early return) rather than resetting to the canonical order. Without
+            // this, a room that was sticky-pinned out of sort order while it was active (see
+            // applyStickyRoom's own doc) stayed stuck there even after switching away, instead of
+            // snapping back to wherever the section's actual sort (e.g. A-Z) puts it.
+            const filterKeys = this.activeFilter !== undefined ? [this.activeFilter] : undefined;
+            this.roomsResult = RoomListStoreV3.instance.getSortedRoomsInActiveSpace(filterKeys);
             // When the active room changes, update the room list data to reflect the new selected room
             // Pass isRoomChange=true so sticky logic doesn't prevent the index from updating
             this.updateRoomListData(true);
