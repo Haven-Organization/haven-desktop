@@ -979,6 +979,7 @@
     },
     "emoji_picker": {
         "cancel_search_label": "Cancel search",
+        "no_stickers_in_room": "This room has no stickers. Add stickers from other rooms in <a>Favorite Packs</a>.",
         "react_with_text": "React with \"%(text)s\""
     },
     "empty_room": "Empty room",

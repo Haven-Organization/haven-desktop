@@ -37,6 +37,9 @@ import {
     imagesForUsage,
     packDisplayName,
 } from "../../../utils/ImagePacks";
+import dis from "../../../dispatcher/dispatcher";
+import { Action } from "../../../dispatcher/actions";
+import { UserTab } from "../dialogs/UserTab";
 
 export const CATEGORY_HEADER_HEIGHT = 20;
 export const EMOJI_HEIGHT = 35;
@@ -136,6 +139,10 @@ class EmojiPicker extends React.Component<IProps, IState> {
     private readonly recentlyUsed: IEmoji[];
     private readonly freeformRecentUnicodes: Set<string>;
     private readonly memoizedDataByCategory: Record<CategoryKey, IEmoji[]>;
+    // Haven: memoizedDataByCategory gets overwritten in place with filtered results as the user
+    // types (see onChangeFilter), so pack categories' original data needs to survive here too -
+    // DATA_BY_CATEGORY only covers the stock unicode categories, not `pack:...` ones.
+    private readonly packDataByCategory: Record<string, IEmoji[]>;
     private readonly categories: ICategory[];
 
     private scrollElement: HTMLDivElement | null = null;
@@ -165,6 +172,7 @@ class EmojiPicker extends React.Component<IProps, IState> {
             this.recentlyUsed = [];
             this.freeformRecentUnicodes = new Set();
             this.memoizedDataByCategory = packDataByCategory;
+            this.packDataByCategory = packDataByCategory;
             this.categories = packCategoryConfig.map((config, i) => ({
                 ...config,
                 enabled: true,
@@ -190,6 +198,7 @@ class EmojiPicker extends React.Component<IProps, IState> {
             ),
         );
         this.freeformRecentUnicodes = freeformRecentUnicodes;
+        this.packDataByCategory = packDataByCategory;
         this.memoizedDataByCategory = {
             recent: this.recentlyUsed,
             ...DATA_BY_CATEGORY,
@@ -344,6 +353,18 @@ class EmojiPicker extends React.Component<IProps, IState> {
         this.scrollElement?.querySelector(`[data-category-id="${category}"]`)?.scrollIntoView();
     };
 
+    // Haven: sticker mode has nothing else to fall back on (unlike emoji mode, which always has
+    // the stock unicode categories) - a room with no own sticker packs and no favorited ones would
+    // otherwise render a totally blank body. onFinished closes the picker, since the link is
+    // navigating away to Settings rather than picking anything.
+    private onOpenFavoritePacks = (): void => {
+        this.props.onFinished();
+        dis.dispatch({
+            action: Action.ViewUserSettings,
+            initialTabId: UserTab.EmojiStickers,
+        });
+    };
+
     private onChangeFilter = (filter: string): void => {
         const lcFilter = filter.toLowerCase().trim(); // filter is case insensitive
 
@@ -361,7 +382,10 @@ class EmojiPicker extends React.Component<IProps, IState> {
             if (lcFilter.includes(this.state.filter)) {
                 emojis = this.memoizedDataByCategory[cat.id];
             } else {
-                emojis = cat.id === "recent" ? this.recentlyUsed : DATA_BY_CATEGORY[cat.id];
+                emojis =
+                    cat.id === "recent"
+                        ? this.recentlyUsed
+                        : (DATA_BY_CATEGORY[cat.id] ?? this.packDataByCategory[cat.id]);
             }
 
             if (lcFilter !== "") {
@@ -536,46 +560,65 @@ class EmojiPicker extends React.Component<IProps, IState> {
                                         {_t("emoji_picker|react_with_text", { text: this.state.filter.trim() })}
                                     </AccessibleButton>
                                 )}
-                                <AutoHideScrollbar
-                                    id="mx_EmojiPicker_body"
-                                    className={classNames("mx_AutoHideScrollbar mx_EmojiPicker_body", {
-                                        mx_EmojiPicker_body_showHighlight: this.state.showHighlight,
-                                    })}
-                                    wrappedRef={(ref) => {
-                                        this.scrollElement = ref;
-                                    }}
-                                    onScroll={this.onScroll}
-                                >
-                                    {this.categories.map((category) => {
-                                        const emojis = this.memoizedDataByCategory[category.id];
-                                        const categoryElement = (
-                                            <Category
-                                                key={category.id}
-                                                id={category.id}
-                                                name={category.name}
-                                                heightBefore={heightBefore}
-                                                viewportHeight={this.state.viewportHeight}
-                                                scrollTop={this.state.scrollTop}
-                                                emojis={emojis}
-                                                onClick={this.onClickEmoji}
-                                                onMouseEnter={this.onHoverEmoji}
-                                                onMouseLeave={this.onHoverEmojiEnd}
-                                                isEmojiDisabled={this.props.isEmojiDisabled}
-                                                isFreeformEmoji={this.isFreeformEmoji}
-                                                selectedEmojis={this.props.selectedEmojis}
-                                                itemsPerRow={itemsPerRow}
-                                                itemHeight={itemHeight}
-                                            />
-                                        );
-                                        const height = EmojiPicker.categoryHeightForEmojiCount(
-                                            emojis.length,
-                                            itemsPerRow,
-                                            itemHeight,
-                                        );
-                                        heightBefore += height;
-                                        return categoryElement;
-                                    })}
-                                </AutoHideScrollbar>
+                                {this.props.mode === "sticker" && this.categories.length === 0 ? (
+                                    <div className="mx_EmojiPicker_empty">
+                                        {_t(
+                                            "emoji_picker|no_stickers_in_room",
+                                            {},
+                                            {
+                                                a: (sub) => (
+                                                    <AccessibleButton
+                                                        kind="link_inline"
+                                                        onClick={this.onOpenFavoritePacks}
+                                                    >
+                                                        {sub}
+                                                    </AccessibleButton>
+                                                ),
+                                            },
+                                        )}
+                                    </div>
+                                ) : (
+                                    <AutoHideScrollbar
+                                        id="mx_EmojiPicker_body"
+                                        className={classNames("mx_AutoHideScrollbar mx_EmojiPicker_body", {
+                                            mx_EmojiPicker_body_showHighlight: this.state.showHighlight,
+                                        })}
+                                        wrappedRef={(ref) => {
+                                            this.scrollElement = ref;
+                                        }}
+                                        onScroll={this.onScroll}
+                                    >
+                                        {this.categories.map((category) => {
+                                            const emojis = this.memoizedDataByCategory[category.id];
+                                            const categoryElement = (
+                                                <Category
+                                                    key={category.id}
+                                                    id={category.id}
+                                                    name={category.name}
+                                                    heightBefore={heightBefore}
+                                                    viewportHeight={this.state.viewportHeight}
+                                                    scrollTop={this.state.scrollTop}
+                                                    emojis={emojis}
+                                                    onClick={this.onClickEmoji}
+                                                    onMouseEnter={this.onHoverEmoji}
+                                                    onMouseLeave={this.onHoverEmojiEnd}
+                                                    isEmojiDisabled={this.props.isEmojiDisabled}
+                                                    isFreeformEmoji={this.isFreeformEmoji}
+                                                    selectedEmojis={this.props.selectedEmojis}
+                                                    itemsPerRow={itemsPerRow}
+                                                    itemHeight={itemHeight}
+                                                />
+                                            );
+                                            const height = EmojiPicker.categoryHeightForEmojiCount(
+                                                emojis.length,
+                                                itemsPerRow,
+                                                itemHeight,
+                                            );
+                                            heightBefore += height;
+                                            return categoryElement;
+                                        })}
+                                    </AutoHideScrollbar>
+                                )}
                                 {this.state.previewEmoji ? (
                                     <Preview emoji={this.state.previewEmoji} />
                                 ) : this.props.mode !== "sticker" ? (

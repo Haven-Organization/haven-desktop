@@ -40,6 +40,19 @@ Please see LICENSE files in the repository root for full details.
     overflow-y: scroll;
 }
 
+/* Haven: replaces the sticker tab's own blank scroll body when the room has no sticker packs and
+   the user has none favorited either - see EmojiPicker.tsx's own onOpenFavoritePacks doc. */
+.mx_EmojiPicker_empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    text-align: center;
+    color: var(--cpd-color-text-secondary);
+    font: var(--cpd-font-body-sm-regular);
+}
+
 .mx_EmojiPicker_header {
     flex-shrink: 0;
     width: 44px;
