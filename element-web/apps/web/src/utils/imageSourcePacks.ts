@@ -12,6 +12,7 @@ import { JoinRule, type Room, type MatrixClient, type MatrixEvent } from "matrix
 import { calculateRoomVia } from "./permalinks/Permalinks";
 import { Type, type Part } from "../editor/parts";
 import type EditorModel from "../editor/model";
+import SettingsStore from "../settings/SettingsStore";
 
 export const IMAGE_SOURCE_PACKS_KEY = "com.beeper.msc4459.image_source_packs";
 
@@ -30,14 +31,19 @@ function isReferenceableRoom(room: Room): boolean {
 }
 
 /** Builds the `{ [mxcUrl]: ImageSourcePackRef }` map MSC4459 defines - an empty object when the
- *  source room isn't public/knockable, per the MSC's own privacy guidance, so callers can just
- *  merge it into their content unconditionally without their own extra check. */
+ *  source room isn't public/knockable, per the MSC's own privacy guidance, or when the user has
+ *  turned off "Haven.sendImagePackReferences" (off by default - see the Emoji & Stickers user
+ *  settings tab), so callers can just merge it into their content unconditionally without their
+ *  own extra check. This is the single choke point every sending call site goes through
+ *  (buildImageSourcePacksFromModel included), so the setting only needs to be checked here, not at
+ *  each call site - the receiving side (getImageSourcePackRefs/FindPackDialog) is untouched by it. */
 export function buildImageSourcePacks(
     mxcUrl: string,
     room: Room,
     stateKey: string,
     shortcode: string,
 ): Record<string, ImageSourcePackRef> {
+    if (!SettingsStore.getValue("Haven.sendImagePackReferences")) return {};
     if (!isReferenceableRoom(room)) return {};
     return {
         [mxcUrl]: {

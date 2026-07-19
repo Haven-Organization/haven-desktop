@@ -2596,6 +2596,8 @@
             "favorite_packs": "Favorite Packs",
             "favorite_packs_description": "Choose which rooms' emoji and sticker packs you want to use everywhere, not just in the room they belong to.",
             "no_packs": "You haven't joined any rooms with emoji or sticker packs yet.",
+            "send_image_pack_references": "Send pack information with emoji & stickers",
+            "send_image_pack_references_description": "Lets recipients find and add the pack a custom emoji or sticker came from. Does not affect your own ability to find packs from others.",
             "title": "Emoji & Stickers"
         },
         "enable_markdown": "Enable Markdown",

@@ -362,6 +362,8 @@ export interface Settings {
     "Spaces.showPeopleInSpace": IBaseSetting<boolean>;
     // Haven apps-framework patch
     "Haven.showSpacesBar": IBaseSetting<boolean>;
+    // Haven: MSC4459 (image pack references) opt-out - see utils/imageSourcePacks.ts's own doc.
+    "Haven.sendImagePackReferences": IBaseSetting<boolean>;
     "developerMode": IBaseSetting<boolean>;
     "debug_scroll_panel": IBaseSetting<boolean>;
     "debug_timeline_panel": IBaseSetting<boolean>;
@@ -1353,6 +1355,15 @@ export const SETTINGS: Settings = {
     "Haven.showSpacesBar": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         default: true,
+    },
+    // Haven: MSC4459 (image pack references) opt-out - see utils/imageSourcePacks.ts's own doc.
+    // Off by default; does not affect the receiving/"Find Pack" side, only whether this device's
+    // own sent emoji/stickers/reactions attach the provenance metadata.
+    "Haven.sendImagePackReferences": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|emoji_stickers|send_image_pack_references"),
+        description: _td("settings|emoji_stickers|send_image_pack_references_description"),
+        default: false,
     },
     "developerMode": {
         displayName: _td("devtools|developer_mode"),

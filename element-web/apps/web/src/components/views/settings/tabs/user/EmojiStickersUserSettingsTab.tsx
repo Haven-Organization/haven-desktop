@@ -21,6 +21,8 @@ import { SettingsSection } from "../../shared/SettingsSection";
 import { SettingsSubsection } from "../../shared/SettingsSubsection";
 import AccessibleButton from "../../../elements/AccessibleButton";
 import Spinner from "../../../elements/Spinner";
+import SettingsFlag from "../../../elements/SettingsFlag";
+import { SettingLevel } from "../../../../../settings/SettingLevel";
 import { MatrixClientPeg } from "../../../../../MatrixClientPeg";
 import {
     type RoomImagePack,
@@ -93,6 +95,9 @@ export default function EmojiStickersUserSettingsTab(): JSX.Element {
     return (
         <SettingsTab>
             <SettingsSection heading={_t("settings|emoji_stickers|title")}>
+                <SettingsSubsection formWrap>
+                    <SettingsFlag name="Haven.sendImagePackReferences" level={SettingLevel.ACCOUNT} />
+                </SettingsSubsection>
                 <SettingsSubsection
                     heading={_t("settings|emoji_stickers|favorite_packs")}
                     description={_t("settings|emoji_stickers|favorite_packs_description")}
