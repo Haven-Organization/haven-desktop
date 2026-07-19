@@ -226,7 +226,6 @@ export interface Settings {
     "feature_dynamic_room_predecessors": IFeature;
     "feature_new_room_list": IFeature;
     "feature_retention": IFeature;
-    "feature_ask_to_join": IFeature;
     "feature_notifications": IFeature;
     "feature_msc4362_encrypted_state_events": IFeature;
     "feature_msc4501_native_post_type": IFeature;
@@ -758,14 +757,6 @@ export const SETTINGS: Settings = {
         displayName: _td("settings|tac_only_notifications"),
         default: true,
         controller: new AnalyticsController("WebSettingsNotificationsTACOnlyNotificationsToggle"),
-    },
-    "feature_ask_to_join": {
-        isFeature: true,
-        labsGroup: LabGroup.Rooms,
-        default: false,
-        displayName: _td("labs|ask_to_join"),
-        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
-        supportedLevelsAreOrdered: true,
     },
     "feature_notifications": {
         isFeature: true,

@@ -148,8 +148,7 @@ export class RoomNotificationState extends NotificationState implements IDestroy
         );
         const muted =
             RoomNotifs.getRoomNotifsState(this.room.client, this.room.roomId) === RoomNotifs.RoomNotifState.Mute;
-        const knocked =
-            SettingsStore.getValue("feature_ask_to_join") && this.room.getMyMembership() === KnownMembership.Knock;
+        const knocked = this.room.getMyMembership() === KnownMembership.Knock;
         this._level = level;
         this._symbol = symbol;
         this._count = count;

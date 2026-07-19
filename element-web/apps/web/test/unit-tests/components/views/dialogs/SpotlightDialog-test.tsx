@@ -609,31 +609,8 @@ describe("Spotlight Dialog", () => {
 
         beforeEach(() => (mockedClient = mockClient({ rooms: [knockRoom] })));
 
-        describe("when disabling feature", () => {
+        describe("knock rooms", () => {
             beforeEach(async () => {
-                await SettingsStore.setValue("feature_ask_to_join", null, SettingLevel.DEVICE, false);
-
-                render(<SpotlightDialog initialFilter={Filter.PublicRooms} onFinished={() => {}} />);
-
-                // search is debounced
-                jest.advanceTimersByTime(200);
-                await flushPromisesWithFakeTimers();
-
-                fireEvent.click(await screen.findByRole("button", { name: "View" }));
-            });
-
-            it("should not skip to auto join", async () => {
-                expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({ ...viewRoomParams, auto_join: true });
-            });
-
-            it("should not prompt ask to join", async () => {
-                expect(defaultDispatcher.dispatch).not.toHaveBeenCalledWith({ action: Action.PromptAskToJoin });
-            });
-        });
-
-        describe("when enabling feature", () => {
-            beforeEach(async () => {
-                await SettingsStore.setValue("feature_ask_to_join", null, SettingLevel.DEVICE, true);
                 jest.spyOn(mockedClient, "getRoom").mockReturnValue(null);
 
                 render(<SpotlightDialog initialFilter={Filter.PublicRooms} onFinished={() => {}} />);

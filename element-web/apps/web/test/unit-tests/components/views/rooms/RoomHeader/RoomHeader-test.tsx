@@ -883,16 +883,13 @@ describe("RoomHeader", () => {
         expect(event.stopPropagation).toHaveBeenCalled();
     });
 
-    describe("ask to join disabled", () => {
-        it("does not render the RoomKnocksBar", () => {
+    describe("ask to join", () => {
+        it("does not render the RoomKnocksBar when there are no knocking members", () => {
             render(<RoomHeader room={room} />, getWrapper());
             expect(screen.queryByRole("heading", { name: "Asking to join" })).not.toBeInTheDocument();
         });
-    });
 
-    describe("ask to join enabled", () => {
         it("does render the RoomKnocksBar", () => {
-            SettingsStore.setValue("feature_ask_to_join", null, SettingLevel.DEVICE, true);
             jest.spyOn(room, "canInvite").mockReturnValue(true);
             jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Knock);
             jest.spyOn(room, "getMembersWithMembership").mockReturnValue([new RoomMember(room.roomId, "@foo")]);

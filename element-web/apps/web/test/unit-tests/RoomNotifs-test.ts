@@ -343,9 +343,6 @@ describe("RoomNotifs test", () => {
         });
 
         it("indicates the user knock has been denied", async () => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((name) => {
-                return name === "feature_ask_to_join";
-            });
             const roomMember = mkRoomMember(
                 room.roomId,
                 MatrixClientPeg.get()!.getSafeUserId(),

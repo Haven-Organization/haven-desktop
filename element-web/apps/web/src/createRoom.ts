@@ -171,9 +171,14 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
 
         // Video rooms require custom power levels
         if (opts.roomType === RoomType.ElementVideo || opts.roomType === RoomType.UnstableCall) {
+            // Haven: merge onto (rather than replace) any power_level_content_override the caller
+            // already set - this used to clobber it wholesale, silently discarding e.g. Social's
+            // own profile/group room posting-permission overrides whenever this branch ran.
             createOpts.power_level_content_override = {
+                ...createOpts.power_level_content_override,
                 events: {
                     ...DEFAULT_EVENT_POWER_LEVELS,
+                    ...createOpts.power_level_content_override?.events,
                     // Allow all users to send call membership updates
                     [opts.roomType === RoomType.ElementVideo
                         ? JitsiCall.MEMBER_EVENT_TYPE
@@ -187,9 +192,14 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
             };
         }
     } else if (SettingsStore.getValue("feature_group_calls")) {
+        // Haven: same merge fix as above - feature_group_calls is enabled by default in this
+        // fork's config, so this branch runs for every non-video-room room creation and was
+        // silently discarding any caller-supplied power_level_content_override entirely.
         createOpts.power_level_content_override = {
+            ...createOpts.power_level_content_override,
             events: {
                 ...DEFAULT_EVENT_POWER_LEVELS,
+                ...createOpts.power_level_content_override?.events,
                 // It should always (including non video rooms) be possible to join a group call.
                 [ElementCallMemberEventType.name]: 0,
             },

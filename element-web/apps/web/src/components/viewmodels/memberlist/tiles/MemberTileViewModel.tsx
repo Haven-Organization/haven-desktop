@@ -17,6 +17,7 @@ import { getUserDeviceIds } from "../../../../utils/crypto/deviceInfo";
 import { type RoomMember } from "../../../../models/rooms/RoomMember";
 import { _t, _td } from "../../../../languageHandler";
 import { E2EStatus } from "../../../../utils/ShieldUtils";
+import { isSocialRoom } from "../../../../../../../../src/apps/social/utils/room-classifier";
 
 interface MemberTileViewModelProps {
     member: RoomMember;
@@ -135,6 +136,18 @@ export function useMemberTileViewModel(props: MemberTileViewModelProps): MemberT
     const powerStatus = powerStatusMap.get(powerLevel);
     if (powerStatus) {
         userLabel = _t(PowerLabel[powerStatus]);
+    } else if (!props.member.isInvite) {
+        // Haven: Social-only "Trusted" tag - a member who's been explicitly given permission to
+        // post in a profile/group that otherwise restricts posting (Send Messages power level
+        // above Default), but who isn't powerful enough to already get one of the tags above. See
+        // CreateRoomDialog's own "Allow anyone to post" toggle, the usual way a room ends up in
+        // this restricted state to begin with.
+        const room = MatrixClientPeg.safeGet().getRoom(member.roomId);
+        const eventsDefault =
+            room?.currentState.getStateEvents(EventType.RoomPowerLevels, "")?.getContent()?.events_default ?? 0;
+        if (room && isSocialRoom(room) && eventsDefault > 0 && member.powerLevel >= eventsDefault) {
+            userLabel = _t("member_list|trusted_label");
+        }
     }
     if (props.member.isInvite) {
         userLabel = _t("member_list|invited_label");

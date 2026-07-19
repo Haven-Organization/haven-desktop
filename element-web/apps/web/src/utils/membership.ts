@@ -17,7 +17,6 @@ import {
 import { KnownMembership, type Membership } from "matrix-js-sdk/src/types";
 
 import { MatrixClientPeg } from "../MatrixClientPeg";
-import SettingsStore from "../settings/SettingsStore";
 
 /**
  * Approximation of a membership status for a given room.
@@ -68,10 +67,7 @@ export function splitRoomsByMembership(rooms: Room[]): MembershipSplit {
 export function getEffectiveMembership(membership: Membership): EffectiveMembership {
     if (membership === KnownMembership.Invite) {
         return EffectiveMembership.Invite;
-    } else if (
-        membership === KnownMembership.Join ||
-        (SettingsStore.getValue("feature_ask_to_join") && membership === KnownMembership.Knock)
-    ) {
+    } else if (membership === KnownMembership.Join || membership === KnownMembership.Knock) {
         return EffectiveMembership.Join;
     } else {
         // Probably a leave, kick, or ban

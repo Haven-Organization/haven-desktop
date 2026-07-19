@@ -97,40 +97,19 @@ describe("<RoomSettingsDialog />", () => {
         });
 
         describe("people settings tab", () => {
-            it("does not render when disabled and room join rule is not knock", () => {
+            it("does not render when room join rule is not knock", () => {
                 jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Invite);
                 getComponent();
                 expect(screen.queryByTestId("settings-tab-ROOM_PEOPLE_TAB")).not.toBeInTheDocument();
             });
 
-            it("does not render when disabled and room join rule is knock", () => {
-                jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Knock);
-                getComponent();
-                expect(screen.queryByTestId("settings-tab-ROOM_PEOPLE_TAB")).not.toBeInTheDocument();
-            });
-
-            it("does not render when enabled and room join rule is not knock", () => {
-                jest.spyOn(SettingsStore, "getValue").mockImplementation(
-                    (setting) => setting === "feature_ask_to_join",
-                );
-                jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Invite);
-                getComponent();
-                expect(screen.queryByTestId("settings-tab-ROOM_PEOPLE_TAB")).not.toBeInTheDocument();
-            });
-
-            it("renders when enabled and room join rule is knock", () => {
-                jest.spyOn(SettingsStore, "getValue").mockImplementation(
-                    (setting) => setting === "feature_ask_to_join",
-                );
+            it("renders when room join rule is knock", () => {
                 jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Knock);
                 getComponent();
                 expect(screen.getByTestId("settings-tab-ROOM_PEOPLE_TAB")).toBeInTheDocument();
             });
 
             it("re-renders on room join rule changes", async () => {
-                jest.spyOn(SettingsStore, "getValue").mockImplementation(
-                    (setting) => setting === "feature_ask_to_join",
-                );
                 jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Knock);
                 getComponent();
                 jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Invite);

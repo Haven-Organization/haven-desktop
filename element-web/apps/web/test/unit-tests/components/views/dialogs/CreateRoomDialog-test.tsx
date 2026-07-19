@@ -287,24 +287,12 @@ describe("<CreateRoomDialog />", () => {
     });
 
     describe("for a knock room", () => {
-        describe("when feature is disabled", () => {
-            it("should not have the option to create a knock room", async () => {
-                jest.spyOn(SettingsStore, "getValue").mockReturnValue(false);
-                getComponent();
-                fireEvent.click(screen.getByLabelText("Room visibility"));
-                expect(screen.queryByRole("option", { name: "Ask to join" })).not.toBeInTheDocument();
-            });
-        });
-
-        describe("when feature is enabled", () => {
+        describe("knock room creation", () => {
             const onFinished = jest.fn();
             const roomName = "Test Room Name";
 
             beforeEach(async () => {
                 onFinished.mockReset();
-                jest.spyOn(SettingsStore, "getValue").mockImplementation(
-                    (setting) => setting === "feature_ask_to_join",
-                );
                 getComponent({ onFinished });
                 fireEvent.change(screen.getByLabelText("Name"), { target: { value: roomName } });
                 fireEvent.click(screen.getByLabelText("Room visibility"));

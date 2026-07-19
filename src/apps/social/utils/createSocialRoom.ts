@@ -24,6 +24,8 @@ async function openCreateSocialRoomDialog(
     const modal = Modal.createDialog(CreateRoomDialog, {
         entityNoun,
         defaultPublic: true,
+        defaultAskToJoin: true,
+        showAllowAnyonePost: true,
         defaultEncrypted: false,
         defaultName,
     });
@@ -37,14 +39,16 @@ async function openCreateSocialRoomDialog(
         createOpts: {
             ...opts.createOpts,
             creation_content: { ...opts.createOpts?.creation_content, type: roomType },
-            // Profile rooms: only the owner (power 100, above the events_default below) can post;
-            // everyone else (default power 0) can only react. Groups keep the stock PublicChat
-            // defaults (any member can post).
+            // Reactions and the profile-owner marker get their own fixed power levels regardless
+            // of the "Allow anyone to post" toggle (which only ever governs events_default, set
+            // above by CreateRoomDialog itself) - merge onto it rather than replace, so that
+            // toggle's choice survives.
             ...(entityNoun === "profile"
                 ? {
                       power_level_content_override: {
-                          events_default: 50,
+                          ...opts.createOpts?.power_level_content_override,
                           events: {
+                              ...opts.createOpts?.power_level_content_override?.events,
                               "m.reaction": 0,
                               // m.social.profile_user_id isn't one of the event types
                               // m.room.power_levels gives its own default override for, so left

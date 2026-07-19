@@ -860,7 +860,6 @@ describe("RoomView", () => {
         const client = createTestClient();
 
         beforeEach(() => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => setting === "feature_ask_to_join");
             jest.spyOn(room, "getJoinRule").mockReturnValue(JoinRule.Knock);
             jest.spyOn(defaultDispatcher, "dispatch");
         });

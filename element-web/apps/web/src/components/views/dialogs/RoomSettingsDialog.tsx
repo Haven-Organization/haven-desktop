@@ -159,7 +159,7 @@ class RoomSettingsDialog extends React.Component<IProps, IState> {
                 <EmojiStickersRoomSettingsTab room={this.state.room} />,
             ),
         );
-        if (SettingsStore.getValue("feature_ask_to_join") && this.state.room.getJoinRule() === "knock") {
+        if (this.state.room.getJoinRule() === "knock") {
             tabs.push(
                 new Tab(
                     RoomSettingsTab.People,

@@ -666,6 +666,8 @@
         "action_create_room": "Create room",
         "action_create_video_room": "Create video room",
         "alias_heading_profile": "Profile address",
+        "allow_anyone_to_post": "Allow anyone to post",
+        "allow_anyone_to_post_description": "When disabled you will need to add trusted users to post",
         "ask_to_follow": "Ask to Follow",
         "encrypted_video_room_warning": "You can't disable this later. The room will be encrypted but the embedded call will not.",
         "encrypted_warning": "You can't disable this later. Bridges & most bots won't work yet.",
@@ -693,6 +695,8 @@
         "name_validation_required_group": "Please enter a name for the group",
         "name_validation_required_profile": "Please enter a name for your profile",
         "public_group": "Public group",
+        "public_open_posting_warning": "A public profile or group where anyone can post leaves you vulnerable to spam without sufficient moderation tools.",
+        "public_open_posting_warning_title": "This could attract spam",
         "public_profile": "Public profile",
         "room_visibility_label": "Room visibility",
         "state_encrypted_warning": "Enables experimental support for encrypting state events, which hides metadata such as room names and topics from the server. This metadata will also be hidden from people joining rooms later, and people whose clients do not support MSC4362.",
@@ -1734,7 +1738,8 @@
         "invite_button_no_perms_tooltip": "You do not have permission to invite users",
         "invited_label": "Invited",
         "list_title": "Member list",
-        "no_matches": "No matches"
+        "no_matches": "No matches",
+        "trusted_label": "Trusted"
     },
     "member_list_back_action_label": "Room members",
     "message_edit_dialog_title": "Message edits",

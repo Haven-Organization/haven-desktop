@@ -16,7 +16,7 @@ import React, {
     type ChangeEventHandler,
 } from "react";
 import { type Room, RoomType, JoinRule, Preset, Visibility } from "matrix-js-sdk/src/matrix";
-import { Form, SettingsToggleInput } from "@vector-im/compound-web";
+import { Alert, Form, SettingsToggleInput } from "@vector-im/compound-web";
 
 import SdkConfig from "../../../SdkConfig";
 import withValidation, { type IFieldState, type IValidationResult } from "../elements/Validation";
@@ -48,6 +48,18 @@ interface IProps {
      * the stock New Room flow — every string above defaults to its normal `_t(...)` value.
      */
     entityNoun?: "profile" | "group";
+    /**
+     * Haven: pre-selects Ask to Join (JoinRule.Knock) as the initial access value, instead of the
+     * usual Public/Restricted/Invite fallback chain - see Social's own createSocialRoom.ts, the
+     * only current caller.
+     */
+    defaultAskToJoin?: boolean;
+    /**
+     * Haven: shows the "Allow anyone to post" toggle (and, when Public + enabled, its spam-risk
+     * warning) - Social-only, see createSocialRoom.ts. Left off entirely for the stock New Room
+     * flow, which has no such concept.
+     */
+    showAllowAnyonePost?: boolean;
     onFinished(proceed?: false): void;
     onFinished(proceed: true, opts: IOpts): void;
 }
@@ -99,10 +111,15 @@ interface IState {
      * Indicates whether the user can change encryption settings for the room.
      */
     canChangeEncryption: boolean;
+    /**
+     * Haven: whether any member (rather than just those explicitly given permission) can send
+     * messages in the room - only meaningful when showAllowAnyonePost is set. See
+     * roomCreateOptions's own doc for how this becomes an actual power level.
+     */
+    allowAnyonePost: boolean;
 }
 
 export default class CreateRoomDialog extends React.Component<IProps, IState> {
-    private readonly askToJoinEnabled: boolean;
     private readonly advancedSettingsEnabled: boolean;
     private readonly allowCreatingPublicRooms: boolean;
     private readonly supportsRestricted: boolean;
@@ -112,7 +129,6 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
     public constructor(props: IProps) {
         super(props);
 
-        this.askToJoinEnabled = SettingsStore.getValue("feature_ask_to_join");
         this.advancedSettingsEnabled = SettingsStore.getValue(UIFeature.AdvancedSettings);
         this.allowCreatingPublicRooms = SettingsStore.getValue(UIFeature.AllowCreatingPublicRooms);
 
@@ -120,7 +136,9 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         const defaultPublic = this.allowCreatingPublicRooms && this.props.defaultPublic;
 
         let joinRule = JoinRule.Invite;
-        if (defaultPublic) {
+        if (this.props.defaultAskToJoin) {
+            joinRule = JoinRule.Knock;
+        } else if (defaultPublic) {
             joinRule = JoinRule.Public;
         } else if (this.supportsRestricted) {
             joinRule = JoinRule.Restricted;
@@ -139,6 +157,9 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
             noFederate: SdkConfig.get().default_federate === false,
             nameIsValid: false,
             canChangeEncryption: false,
+            // Haven: off by default - a newly created profile/group starts curated (only
+            // explicitly-permitted members can post) until the owner opens it up.
+            allowAnyonePost: false,
         };
     }
 
@@ -176,6 +197,16 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         if (this.state.joinRule === JoinRule.Knock) {
             opts.joinRule = JoinRule.Knock;
             createOpts.visibility = this.state.isPublicKnockRoom ? Visibility.Public : Visibility.Private;
+        }
+
+        // Haven: when "Allow anyone to post" is off, only members explicitly given permission
+        // (power level >= 10) can send messages - everyone else can still read/react/join. See
+        // IState.allowAnyonePost's own doc.
+        if (this.props.showAllowAnyonePost && !this.state.allowAnyonePost) {
+            createOpts.power_level_content_override = {
+                ...createOpts.power_level_content_override,
+                events_default: 10,
+            };
         }
 
         return opts;
@@ -277,6 +308,10 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
 
     private onIsPublicKnockRoomChange: ChangeEventHandler<HTMLInputElement> = (evt): void => {
         this.setState({ isPublicKnockRoom: evt.target.checked });
+    };
+
+    private onAllowAnyonePostChange: ChangeEventHandler<HTMLInputElement> = (evt): void => {
+        this.setState({ allowAnyonePost: evt.target.checked });
     };
 
     private validateRoomName = withValidation({
@@ -442,6 +477,28 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
             );
         }
 
+        let allowAnyonePostSection: JSX.Element | undefined;
+        let spamWarningSection: JSX.Element | undefined;
+        if (this.props.showAllowAnyonePost) {
+            allowAnyonePostSection = (
+                <SettingsToggleInput
+                    name="allow-anyone-post"
+                    label={_t("create_room|allow_anyone_to_post")}
+                    onChange={this.onAllowAnyonePostChange}
+                    checked={this.state.allowAnyonePost}
+                    helpMessage={_t("create_room|allow_anyone_to_post_description")}
+                />
+            );
+
+            if (this.state.joinRule === JoinRule.Public && this.state.allowAnyonePost) {
+                spamWarningSection = (
+                    <Alert type="critical" title={_t("create_room|public_open_posting_warning_title")}>
+                        {_t("create_room|public_open_posting_warning")}
+                    </Alert>
+                );
+            }
+        }
+
         const isProfile = this.props.entityNoun === "profile";
         let federateLabel = _t(
             isProfile ? "create_room|unfederated_label_default_off_profile" : "create_room|unfederated_label_default_off",
@@ -511,11 +568,9 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                                           : _t("create_room|join_rule_invite")
                                 }
                                 labelKnock={
-                                    this.askToJoinEnabled
-                                        ? this.props.entityNoun === "profile"
-                                            ? _t("create_room|ask_to_follow")
-                                            : _t("room_settings|security|join_rule_knock")
-                                        : undefined
+                                    this.props.entityNoun === "profile"
+                                        ? _t("create_room|ask_to_follow")
+                                        : _t("room_settings|security|join_rule_knock")
                                 }
                                 labelPublic={
                                     this.allowCreatingPublicRooms
@@ -537,6 +592,8 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                         </div>
 
                         {visibilitySection}
+                        {allowAnyonePostSection}
+                        {spamWarningSection}
                         {e2eeSection}
                         {e2eeStateSection}
                         {aliasField}

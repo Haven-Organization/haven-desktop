@@ -475,7 +475,6 @@ export default function RoomHeader({
     const isDirectMessage = !!dmMember;
     const isRoomEncrypted = useIsEncrypted(client, room);
     const e2eStatus = useEncryptionStatus(client, room);
-    const askToJoinEnabled = useFeatureEnabled("feature_ask_to_join");
     const onAvatarClick = (): void => {
         defaultDispatcher.dispatch({
             action: "open_room_settings",
@@ -586,7 +585,7 @@ export default function RoomHeader({
                     />
                 )}
             </Flex>
-            {askToJoinEnabled && <RoomKnocksBar room={room} />}
+            <RoomKnocksBar room={room} />
         </CurrentRightPanelPhaseContextProvider>
     );
 }

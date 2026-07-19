@@ -44,7 +44,6 @@ import { shouldShowComponent } from "../../../../../src/customisations/helpers/U
 import { UIComponent } from "../../../../../src/settings/UIFeature";
 import { MessagePreviewStore } from "../../../../../src/stores/message-preview";
 import { MatrixClientPeg } from "../../../../../src/MatrixClientPeg";
-import SettingsStore from "../../../../../src/settings/SettingsStore";
 import { ConnectionState } from "../../../../../src/models/Call";
 import { type WidgetMessaging } from "../../../../../src/stores/widgets/WidgetMessaging";
 
@@ -158,9 +157,6 @@ describe("RoomTile", () => {
         });
 
         it("does not render the room options context menu when knocked to the room", () => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((name) => {
-                return name === "feature_ask_to_join";
-            });
             mocked(shouldShowComponent).mockReturnValue(true);
             jest.spyOn(room, "getMyMembership").mockReturnValue(KnownMembership.Knock);
             const { container } = renderRoomTile();
@@ -169,9 +165,6 @@ describe("RoomTile", () => {
         });
 
         it("does not render the room options context menu when knock has been denied", () => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((name) => {
-                return name === "feature_ask_to_join";
-            });
             mocked(shouldShowComponent).mockReturnValue(true);
             const roomMember = mkRoomMember(
                 room.roomId,

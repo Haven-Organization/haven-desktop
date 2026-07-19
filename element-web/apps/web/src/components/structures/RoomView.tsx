@@ -453,7 +453,7 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
     public constructor(props: IRoomProps, context: React.ContextType<typeof SDKContext>) {
         super(props, context);
 
-        this.askToJoinEnabled = SettingsStore.getValue("feature_ask_to_join");
+        this.askToJoinEnabled = true;
 
         if (!context.client) {
             throw new Error("Unable to create RoomView without MatrixClient");

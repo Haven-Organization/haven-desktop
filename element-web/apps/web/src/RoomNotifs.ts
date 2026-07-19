@@ -273,7 +273,7 @@ export function determineUnreadState(
         return { symbol: "!", count: 1, level: NotificationLevel.Highlight, invited: true };
     }
 
-    if (SettingsStore.getValue("feature_ask_to_join") && isKnockDenied(room)) {
+    if (isKnockDenied(room)) {
         return { symbol: "!", count: 1, level: NotificationLevel.Highlight, invited: false };
     }
 

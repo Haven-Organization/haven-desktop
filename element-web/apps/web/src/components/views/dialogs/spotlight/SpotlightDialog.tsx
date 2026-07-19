@@ -316,7 +316,7 @@ const roomAriaUnreadLabel = (room: Room, notification: RoomNotificationState): s
 };
 
 const canAskToJoin = (joinRule?: JoinRule): boolean => {
-    return SettingsStore.getValue("feature_ask_to_join") && JoinRule.Knock === joinRule;
+    return JoinRule.Knock === joinRule;
 };
 
 interface IDirectoryOpts {

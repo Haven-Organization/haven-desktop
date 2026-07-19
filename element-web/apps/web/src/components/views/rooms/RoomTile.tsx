@@ -44,7 +44,6 @@ import { RoomTileSubtitle } from "./RoomTileSubtitle";
 import { shouldShowComponent } from "../../../customisations/helpers/UIComponents";
 import { UIComponent } from "../../../settings/UIFeature";
 import { isKnockDenied } from "../../../utils/membership";
-import SettingsStore from "../../../settings/SettingsStore";
 import { getNotificationIcon } from "../dialogs/spotlight/RoomResultContextMenus.tsx";
 
 interface Props {
@@ -391,8 +390,7 @@ class RoomTile extends React.PureComponent<Props, State> {
         const classes = classNames({
             mx_RoomTile: true,
             mx_RoomTile_sticky:
-                SettingsStore.getValue("feature_ask_to_join") &&
-                (this.props.room.getMyMembership() === KnownMembership.Knock || isKnockDenied(this.props.room)),
+                this.props.room.getMyMembership() === KnownMembership.Knock || isKnockDenied(this.props.room),
             mx_RoomTile_selected: this.selected,
             mx_RoomTile_hasMenuOpen: !!(this.state.generalMenuPosition || this.state.notificationsMenuPosition),
             mx_RoomTile_minimized: this.props.isMinimized,

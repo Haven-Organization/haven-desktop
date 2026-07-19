@@ -111,7 +111,6 @@ describe("<JoinRuleSettings />", () => {
         client.isRoomEncrypted.mockReturnValue(false);
         client.upgradeRoom.mockResolvedValue({ replacement_room: newRoomId });
         client.getRoom.mockReturnValue(null);
-        jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => setting === "feature_ask_to_join");
     });
 
     type TestCase = [string, { label: string; unsupportedRoomVersion: string; preferredRoomVersion: string }];
