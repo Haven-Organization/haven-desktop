@@ -428,7 +428,23 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             // from another device.
             promisesList.push(
                 (async (): Promise<void> => {
-                    crossSigningIsSetUp = Boolean(await cli.getCrypto()?.userHasCrossSigningKeys());
+                    const crypto = cli.getCrypto();
+                    crossSigningIsSetUp = Boolean(await crypto?.userHasCrossSigningKeys());
+                    if (!crossSigningIsSetUp) {
+                        // Haven: userHasCrossSigningKeys() only reflects whether the *public*
+                        // cross-signing keys are published on the server. An account can have
+                        // valid *private* keys already backed up in secret storage (e.g. left
+                        // over from an interrupted previous setup) without the public half ever
+                        // having been published - in that state, routing to E2E_SETUP is a dead
+                        // end, since that flow assumes a brand-new identity and never attempts to
+                        // use the account's real secret storage data at all, so no recovery key
+                        // typed there can ever succeed. Treat recoverable secret storage data as
+                        // cross-signing being "set up" too, so this case correctly goes through
+                        // COMPLETE_SECURITY's restore-from-recovery-key flow instead, which does
+                        // not have this blind spot.
+                        const status = await crypto?.getCrossSigningStatus();
+                        crossSigningIsSetUp = Boolean(status?.privateKeysInSecretStorage);
+                    }
                 })(),
             );
         }
