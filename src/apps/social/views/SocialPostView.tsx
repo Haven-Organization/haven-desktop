@@ -377,6 +377,28 @@ export function SocialPostView({
         [room, getDirectReplies, rootEventId],
     );
 
+    // Each ancestor's own like/repost state, keyed by event id - same lookup as the focused post's
+    // own below and getDirectReplies' per-reply version, just run once per ancestor instead of once.
+    // Without this, ancestors (root included) were rendered with `isLiked={false}` hardcoded and no
+    // `onLike`/`onReply` handler passed at all: LikeButton disables itself whenever `onLike` is
+    // missing (see its own `disabled={likeBusy || !onLike}`), and openReplyDialog silently no-ops
+    // the same way when `onReply` is missing - so the thread root's (and any other ancestor's) Like
+    // and Reply buttons did nothing at all whenever a reply beneath it was the focused post.
+    const ancestorLikeState = useMemo(() => {
+        const map = new Map<string, { myLikeEventId: string | undefined; myRepostEventId: string | undefined }>();
+        for (const ancestor of ancestors) {
+            const id = ancestor.getId()!;
+            const reactions = room.relations.getChildEventsForEvent(id, RelationType.Annotation, EventType.Reaction);
+            const myReactions = getMyReactions(reactions, myUserId) ?? [];
+            map.set(id, {
+                myLikeEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "👍")?.getId(),
+                myRepostEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")?.getId(),
+            });
+        }
+        return map;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tick, ancestors, room, myUserId]);
+
     // The focused post's own like/repost state + total direct-reply count (for its Reply button).
     const { myLikeEventId, myRepostEventId, replyCount } = useMemo(() => {
         const count = replyCountForNode(event);
@@ -530,22 +552,28 @@ export function SocialPostView({
                 every tile in this group (see .social_PostView_thread's CSS), ending at the focused
                 post. Only rendered as a connected group when there's at least one ancestor. */}
             <div className={`social_PostView_thread${ancestors.length > 0 ? " social_PostView_thread--connected" : ""}`}>
-                {ancestors.map((ancestor, i) => (
-                    <div className="social_PostView_threadItem" key={ancestor.getId()}>
-                        <SocialEventTile
-                            event={ancestor}
-                            room={room}
-                            isLiked={false}
-                            isReposted={false}
-                            replyCount={replyCountForNode(ancestor)}
-                            hideRoomName={hideRoomNameFor(ancestor)}
-                            // Thread root: the oldest ancestor (ancestors are root-first - see
-                            // findThreadAncestors), i.e. i === 0.
-                            forceFullTimestamp={i === 0}
-                            {...tileProps}
-                        />
-                    </div>
-                ))}
+                {ancestors.map((ancestor, i) => {
+                    const ancestorId = ancestor.getId()!;
+                    const likeState = ancestorLikeState.get(ancestorId);
+                    return (
+                        <div className="social_PostView_threadItem" key={ancestorId}>
+                            <SocialEventTile
+                                event={ancestor}
+                                room={room}
+                                isLiked={!!likeState?.myLikeEventId}
+                                isReposted={!!likeState?.myRepostEventId}
+                                replyCount={replyCountForNode(ancestor)}
+                                hideRoomName={hideRoomNameFor(ancestor)}
+                                onLike={() => handleLikeFor(ancestorId, likeState?.myLikeEventId)}
+                                onReply={(body, file) => handleReplyTo(ancestorId, body, file)}
+                                // Thread root: the oldest ancestor (ancestors are root-first - see
+                                // findThreadAncestors), i.e. i === 0.
+                                forceFullTimestamp={i === 0}
+                                {...tileProps}
+                            />
+                        </div>
+                    );
+                })}
                 <div className="social_PostView_threadItem social_PostView_mainPost" ref={focusedTileRef}>
                     <SocialEventTile
                         // Unlike every other SocialEventTile render site (ancestors' own wrapping
