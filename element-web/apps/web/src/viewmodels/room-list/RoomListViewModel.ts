@@ -51,6 +51,12 @@ import { type RoomViewStore } from "../../stores/RoomViewStore.tsx";
  * jump around when the room list is re-sorted.
  */
 interface StickyRoomPosition {
+    /**
+     * The room this tracked position belongs to. Used to detect a race between
+     * Action.ActiveRoomChanged (deferred via dispatcher setTimeout) and RoomListStoreV3's
+     * LISTS_UPDATE_EVENT (deferred via requestAnimationFrame) - see applyStickyRoom's own doc.
+     */
+    roomId: string;
     /** The tag of the section the room belongs to. */
     sectionTag: string;
     /** The index of the room within that section. */
@@ -741,7 +747,7 @@ export class RoomListViewModel
     private findRoomPosition(sections: Section[], roomId: string): StickyRoomPosition | undefined {
         for (const section of sections) {
             const idx = section.rooms.findIndex((room) => room.roomId === roomId);
-            if (idx !== -1) return { sectionTag: section.tag, indexInSection: idx };
+            if (idx !== -1) return { roomId, sectionTag: section.tag, indexInSection: idx };
         }
         return undefined;
     }
@@ -763,6 +769,18 @@ export class RoomListViewModel
         // If there was no previously tracked position, nothing to stick to
         const oldPosition = this.lastActiveRoomPosition;
         if (!oldPosition) return sections;
+
+        // Haven: oldPosition must actually belong to roomId. Action.ActiveRoomChanged (which sets
+        // isRoomChange=true above) is deferred via the dispatcher's setTimeout, while a
+        // LISTS_UPDATE_EVENT from RoomListStoreV3 reacting to the same room switch (it re-inserts
+        // both the old and new room into its skip list) is deferred via requestAnimationFrame -
+        // these two race. When the rAF-scheduled list update wins, this method runs with
+        // isRoomChange still false, roomViewStore.getRoomId() already reporting the *new* room, but
+        // oldPosition still tracking the *previous* room's slot - without this check, the new room
+        // gets misread as "the active room, just reordered" and sticky-swapped into the previous
+        // room's old slot, then snapped back to its real position a moment later once
+        // Action.ActiveRoomChanged actually lands. That snap-back is the visible flicker.
+        if (oldPosition.roomId !== roomId) return sections;
 
         const newPosition = this.findRoomPosition(sections, roomId);
 
