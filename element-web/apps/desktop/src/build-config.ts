@@ -23,6 +23,10 @@ interface BuildConfig {
     // Subject name of the code signing cert used for Windows packages, if signed
     // used as a basis for the Tray GUID which must be rolled if the certificate changes.
     windowsCertSubjectName: string | undefined;
+    // Haven's own full descriptive version string, shown in Help & About in place of the packaged
+    // `version` field (which Windows packaging requires to be a strict X.Y.Z) - undefined for
+    // builds that didn't set HAVEN_FULL_VERSION (e.g. plain local dev builds).
+    havenFullVersion: string | undefined;
 }
 
 export function getBuildConfig(): BuildConfig {
@@ -32,6 +36,7 @@ export function getBuildConfig(): BuildConfig {
             appId: (packageJson["electron_appId"] as string) || "im.riot.app",
             protocol: (packageJson["electron_protocol"] as string) || "io.element.desktop",
             windowsCertSubjectName: packageJson["electron_windows_cert_sn"] as string,
+            havenFullVersion: packageJson["haven_full_version"] as string,
         };
     }
 

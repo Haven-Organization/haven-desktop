@@ -46,6 +46,7 @@ interface ExtraMetadata extends Metadata {
     electron_appId: string;
     electron_protocol: string;
     electron_windows_cert_sn?: string;
+    haven_full_version?: string;
 }
 
 /**
@@ -212,6 +213,16 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
  */
 if (process.env.VERSION) {
     config.extraMetadata.version = process.env.VERSION;
+}
+
+/**
+ * Haven's own full descriptive version string (e.g. "haven-v0.4.0+element-v1.12.23-188-gdd7c9ed6fe"),
+ * shown in Help & About - independent of `version` above, which Windows packaging requires to be a
+ * strict X.Y.Z with no extra suffix (see compute-haven-version.sh).
+ * @param {string} process.env.HAVEN_FULL_VERSION
+ */
+if (process.env.HAVEN_FULL_VERSION) {
+    config.extraMetadata.haven_full_version = process.env.HAVEN_FULL_VERSION;
 }
 
 if (variant["linux.deb.name"]) {

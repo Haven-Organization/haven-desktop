@@ -12,6 +12,7 @@ import { randomArray } from "./utils.js";
 import { getDisplayMediaCallback, setDisplayMediaCallback } from "./displayMediaCallback.js";
 import Store, { clearDataAndRelaunch } from "./store.js";
 import { getConfig } from "./config.js";
+import { getBuildConfig } from "./build-config.js";
 
 let focusHandlerAttached = false;
 ipcMain.on("loudNotification", function (): void {
@@ -61,7 +62,9 @@ ipcMain.on("ipcCall", async function (_ev: IpcMainEvent, payload) {
             global.appLocalization.setAppLocale(args[0]);
             break;
         case "getAppVersion":
-            ret = app.getVersion();
+            // Haven's full descriptive version string when available (see build-config.ts) - falls
+            // back to the packaged version for builds that didn't set HAVEN_FULL_VERSION.
+            ret = getBuildConfig().havenFullVersion || app.getVersion();
             break;
         case "focusWindow":
             if (global.mainWindow.isMinimized()) {
