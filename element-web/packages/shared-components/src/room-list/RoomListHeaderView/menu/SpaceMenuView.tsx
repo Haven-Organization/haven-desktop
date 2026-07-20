@@ -7,13 +7,12 @@
 
 import React, { type JSX, useState } from "react";
 import { IconButton, Menu, MenuItem } from "@vector-im/compound-web";
-import ChevronDownIcon from "@vector-im/compound-design-tokens/assets/web/icons/chevron-down";
+import OverflowHorizontalIcon from "@vector-im/compound-design-tokens/assets/web/icons/overflow-horizontal";
 import HomeIcon from "@vector-im/compound-design-tokens/assets/web/icons/home";
 import SettingsIcon from "@vector-im/compound-design-tokens/assets/web/icons/settings";
 import PreferencesIcon from "@vector-im/compound-design-tokens/assets/web/icons/preferences";
 import UserAddIcon from "@vector-im/compound-design-tokens/assets/web/icons/user-add";
 
-import styles from "./SpaceMenuView.module.css";
 import { useViewModel } from "../../../core/viewmodel";
 import { useI18n } from "../../../core/i18n/i18nContext";
 import { type RoomListHeaderViewModel } from "../RoomListHeaderView";
@@ -44,17 +43,21 @@ export function SpaceMenuView({ vm }: SpaceMenuViewProps): JSX.Element {
         <Menu
             open={open}
             onOpenChange={setOpen}
+            showTitle={false}
             title={title}
             align="start"
             trigger={
+                // Haven: matches the collapse/expand-all and compose "+" buttons it now sits
+                // alongside in the header's right-hand action row (see RoomListHeaderView) - same
+                // 28px button with a 20px icon, same tooltip convention, rather than the smaller
+                // 24px/20px chevron-in-title-row trigger this used to be.
                 <IconButton
-                    className={styles.button}
                     aria-label={_t("room_list|open_space_menu")}
-                    // 24px icon with a 20px icon
-                    size="24px"
-                    style={{ padding: "2px" }}
+                    tooltip={_t("room_list|open_space_menu")}
+                    size="28px"
+                    style={{ padding: "4px" }}
                 >
-                    <ChevronDownIcon />
+                    <OverflowHorizontalIcon color="var(--cpd-color-icon-secondary)" aria-hidden />
                 </IconButton>
             }
         >

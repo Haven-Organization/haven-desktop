@@ -11,5 +11,6 @@ export type {
     RoomListHeaderViewActions,
     SortOption,
     CollapseSectionsOption,
+    SpaceSwitcherItem,
 } from "./RoomListHeaderView";
 export { RoomListHeaderView } from "./RoomListHeaderView";

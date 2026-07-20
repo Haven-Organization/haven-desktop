@@ -5,14 +5,15 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { type JSX } from "react";
+import React, { type JSX, type ReactElement } from "react";
 import { IconButton, H1 } from "@vector-im/compound-web";
 import { CollapseAllIcon, ExpandAllIcon, ChatIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { type ViewModel, useViewModel } from "../../core/viewmodel";
 import { Flex } from "../../core/utils/Flex";
 import { useI18n } from "../../core/i18n/i18nContext";
-import { ComposeMenuView, SpaceMenuView } from "./menu";
+import { ComposeMenuView, SpaceMenuView, SpaceSwitcherMenu } from "./menu";
+import { type NotificationDecorationData } from "../VirtualizedRoomListView/RoomListItemWrapper/RoomListItemView";
 import styles from "./RoomListHeaderView.module.css";
 
 /**
@@ -67,6 +68,35 @@ export interface RoomListHeaderViewSnapshot {
      *  Whether to display the section release announcement
      */
     displaySectionReleaseAnnouncement: boolean;
+    /**
+     * Haven: whether the spaces bar is hidden (Haven.showSpacesBar off). When true, the title acts
+     * as a space-switcher button (see SpaceSwitcherMenu) rather than being static text - the spaces
+     * bar itself is the only other way to switch spaces, so this becomes the sole way to do so.
+     */
+    showSpaceSwitcher: boolean;
+    /**
+     * Haven: the list of spaces to show in the switcher menu. Only meaningful (and non-empty) when
+     * showSpaceSwitcher is true.
+     */
+    spaceSwitcherItems: SpaceSwitcherItem[];
+}
+
+/**
+ * Haven: a single entry in the space-switcher menu (see RoomListHeaderViewSnapshot.showSpaceSwitcher).
+ */
+export interface SpaceSwitcherItem {
+    /** A MetaSpace key, or a real space's room id. */
+    id: string;
+    /** Display name. */
+    name: string;
+    /** Whether this is the currently active space. */
+    isActive: boolean;
+    /**
+     * Unread/notification indicator for this space, mirroring the badge the spaces bar itself
+     * shows for it. Undefined (or all-false) shows nothing - same convention as NotificationDecoration
+     * itself, which already no-ops in that case.
+     */
+    notification?: NotificationDecorationData;
 }
 
 export interface RoomListHeaderViewActions {
@@ -110,6 +140,10 @@ export interface RoomListHeaderViewActions {
      * Close the section release announcement
      */
     closeSectionReleaseAnnouncement: () => void;
+    /**
+     * Haven: switch the active space (see RoomListHeaderViewSnapshot.showSpaceSwitcher).
+     */
+    switchToSpace: (id: string) => void;
 }
 
 /**
@@ -122,6 +156,13 @@ interface RoomListHeaderViewProps {
      * The view model for the room list header component.
      */
     vm: RoomListHeaderViewModel;
+    /**
+     * Haven: renders the icon/avatar for a given space id in the switcher menu (see
+     * RoomListHeaderViewSnapshot.showSpaceSwitcher) - this package has no direct access to Matrix
+     * rooms/avatars, so the app supplies this. Only required when the switcher can actually be
+     * shown; harmless to omit otherwise (the title just renders as plain text in that case too).
+     */
+    renderSpaceIcon?: (spaceId: string) => ReactElement;
 }
 
 /**
@@ -133,10 +174,17 @@ interface RoomListHeaderViewProps {
  * <RoomListHeaderView vm={roomListHeaderViewModel} />
  * ```
  */
-export function RoomListHeaderView({ vm }: Readonly<RoomListHeaderViewProps>): JSX.Element {
+export function RoomListHeaderView({ vm, renderSpaceIcon }: Readonly<RoomListHeaderViewProps>): JSX.Element {
     const { translate: _t } = useI18n();
-    const { title, displaySpaceMenu, collapseSections, areSectionsEnabled, canCreateRoom, canCreateVideoRoom } =
-        useViewModel(vm);
+    const {
+        title,
+        displaySpaceMenu,
+        collapseSections,
+        areSectionsEnabled,
+        canCreateRoom,
+        canCreateVideoRoom,
+        showSpaceSwitcher,
+    } = useViewModel(vm);
     const canOnlyStartChat = !areSectionsEnabled && !canCreateRoom && !canCreateVideoRoom;
 
     return (
@@ -149,12 +197,19 @@ export function RoomListHeaderView({ vm }: Readonly<RoomListHeaderViewProps>): J
         >
             <Flex className={styles.container} justify="space-between" align="center" gap="var(--cpd-space-3x)">
                 <Flex className={styles.title} align="center" gap="var(--cpd-space-1x)">
-                    <H1 size="sm" title={title}>
-                        {title}
-                    </H1>
-                    {displaySpaceMenu && <SpaceMenuView vm={vm} />}
+                    {showSpaceSwitcher && renderSpaceIcon ? (
+                        <SpaceSwitcherMenu vm={vm} title={title} renderSpaceIcon={renderSpaceIcon} />
+                    ) : (
+                        <H1 size="sm" title={title}>
+                            {title}
+                        </H1>
+                    )}
                 </Flex>
                 <Flex align="center" gap="var(--cpd-space-2x)">
+                    {/* Haven: moved here from the title row (see SpaceMenuView's own doc) so it
+                        sits alongside the other icon-only actions instead of as a chevron next to
+                        the space name. */}
+                    {displaySpaceMenu && <SpaceMenuView vm={vm} />}
                     {areSectionsEnabled && collapseSections && (
                         <IconButton
                             size="28px"

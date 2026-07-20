@@ -1,0 +1,54 @@
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+.trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-0-5x);
+    min-width: 0;
+    background: none;
+    border: none;
+    margin: 0;
+    padding: 2px 4px;
+    /* Cancel out the padding's own offset so the title still lines up flush with the panel edge,
+       matching the plain (non-switcher) <H1> this replaces - only the hit target grows, not the
+       visible position. */
+    margin-inline-start: -4px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    transition: background 0.1s;
+
+    &:hover,
+    &:focus-visible {
+        background: var(--cpd-color-bg-action-tertiary-hovered);
+    }
+}
+
+.chevron {
+    flex-shrink: 0;
+    color: var(--cpd-color-icon-secondary);
+    transition: transform 0.1s linear;
+}
+
+.trigger[data-state="open"] .chevron {
+    transform: rotate(180deg);
+}
+
+.list {
+    /* Caps how tall the menu can grow with a large number of spaces - the menu itself (Compound's
+       FloatingMenu) is a plain flex column with no scroll handling of its own, so without this a
+       long list would just keep growing, potentially past the bottom of the screen. min() with a
+       viewport-relative fallback keeps it from ever being *taller* than the screen on small
+       viewports, while still capping at a fixed, comfortable size (~8 rows) on normal ones.
+       overflow-x hidden since this container is only ever taller than it is wide. */
+    max-height: min(400px, 60vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+}

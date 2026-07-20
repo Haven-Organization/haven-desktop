@@ -5,7 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { useState, useCallback, useContext } from "react";
+import React, { useState, useCallback, useContext, type ReactElement } from "react";
+import {
+    HomeSolidIcon,
+    FavouriteSolidIcon,
+    UserProfileSolidIcon,
+    RoomIcon,
+    VideoCallSolidIcon,
+} from "@vector-im/compound-design-tokens/assets/web/icons";
 import { Flex, RoomListHeaderView, useCreateAutoDisposedViewModel } from "@element-hq/web-shared-components";
 
 import { shouldShowComponent } from "../../../../customisations/helpers/UIComponents";
@@ -20,6 +27,20 @@ import { type IState as IRovingTabIndexState } from "../../../../accessibility/R
 import { RoomListHeaderViewModel } from "../../../../viewmodels/room-list/RoomListHeaderViewModel";
 import { useMatrixClientContext } from "../../../../contexts/MatrixClientContext";
 import { SDKContext } from "../../../../contexts/SDKContext.ts";
+import { isMetaSpace, MetaSpace } from "../../../../stores/spaces";
+import RoomAvatar from "../../avatars/RoomAvatar";
+
+/**
+ * Haven: icon for each meta-space in the space-switcher menu (see renderSpaceIcon below) - mirrors
+ * the icon each one gets in the spaces bar itself (see SpacePanel.tsx's metaSpaceComponentMap).
+ */
+const metaSpaceIcons: Record<MetaSpace, ReactElement> = {
+    [MetaSpace.Home]: <HomeSolidIcon />,
+    [MetaSpace.Favourites]: <FavouriteSolidIcon />,
+    [MetaSpace.People]: <UserProfileSolidIcon />,
+    [MetaSpace.Orphans]: <RoomIcon />,
+    [MetaSpace.VideoRooms]: <VideoCallSolidIcon />,
+};
 
 type RoomListPanelProps = {
     /**
@@ -72,6 +93,19 @@ export const RoomListPanel: React.FC<RoomListPanelProps> = ({ activeSpace, userM
         () => new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore }),
     );
 
+    // Haven: renders the icon/avatar for a given space id in the switcher menu (shown when the
+    // spaces bar is off - see RoomListHeaderView's own doc for why it needs this from the app
+    // rather than rendering its own). Meta-spaces get a fixed icon (mirroring the spaces bar);
+    // real spaces get their own square avatar, same as the spaces bar's own SpaceItem/SpaceButton.
+    const renderSpaceIcon = useCallback(
+        (spaceId: string): ReactElement => {
+            if (isMetaSpace(spaceId)) return metaSpaceIcons[spaceId as MetaSpace];
+            const room = matrixClient.getRoom(spaceId) ?? undefined;
+            return <RoomAvatar size="20px" room={room} type="square" />;
+        },
+        [matrixClient],
+    );
+
     return (
         <Flex
             as="nav"
@@ -92,7 +126,7 @@ export const RoomListPanel: React.FC<RoomListPanelProps> = ({ activeSpace, userM
                 <div ref={userMenuPortalRef} className="haven_UserMenuPortalTarget" />
                 {displayRoomSearch && <RoomListSearch activeSpace={activeSpace} />}
             </div>
-            <RoomListHeaderView vm={vm} />
+            <RoomListHeaderView vm={vm} renderSpaceIcon={renderSpaceIcon} />
             <RoomListView />
         </Flex>
     );

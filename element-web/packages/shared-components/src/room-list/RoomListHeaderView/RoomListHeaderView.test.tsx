@@ -12,7 +12,7 @@ import React from "react";
 
 import * as stories from "./RoomListHeaderView.stories";
 
-const { Default, NoSpaceMenu, CollapseSections, ExpandSections } = composeStories(stories);
+const { Default, NoSpaceMenu, CollapseSections, ExpandSections, SpaceSwitcher } = composeStories(stories);
 
 describe("RoomListHeaderView", () => {
     it("renders the default state", () => {
@@ -40,5 +40,13 @@ describe("RoomListHeaderView", () => {
         const collapseButton = getByRole("button", { name: "Collapse all sections" });
         collapseButton.click();
         expect(CollapseSections.args?.collapseOrExpandSections).toHaveBeenCalled();
+    });
+
+    it("renders the title as a space switcher when the spaces bar is hidden", () => {
+        const { container, getByRole } = render(<SpaceSwitcher />);
+        expect(container).toMatchSnapshot();
+        // The title (still an <h1>, for the same heading semantics as the plain-text form) is now
+        // wrapped in a clickable button that opens the space-switcher menu.
+        expect(getByRole("button", { name: "Switch space" })).toHaveTextContent("Rooms");
     });
 });

@@ -7,3 +7,4 @@
 
 export { SpaceMenuView } from "./SpaceMenuView";
 export { ComposeMenuView } from "./ComposeMenuView";
+export { SpaceSwitcherMenu } from "./SpaceSwitcherMenu";

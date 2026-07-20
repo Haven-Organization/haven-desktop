@@ -20,6 +20,14 @@ import { defaultSnapshot } from "./default-snapshot";
 
 type RoomListHeaderProps = RoomListHeaderViewSnapshot & RoomListHeaderViewActions;
 
+const renderSpaceIcon = (spaceId: string): JSX.Element => (
+    <div
+        aria-hidden
+        style={{ width: 20, height: 20, borderRadius: 4, background: "var(--cpd-color-icon-tertiary)" }}
+        data-space-id={spaceId}
+    />
+);
+
 const RoomListHeaderViewWrapperImpl = ({
     createChatRoom,
     createRoom,
@@ -31,6 +39,7 @@ const RoomListHeaderViewWrapperImpl = ({
     createSection,
     collapseOrExpandSections,
     closeSectionReleaseAnnouncement,
+    switchToSpace,
     ...rest
 }: RoomListHeaderProps): JSX.Element => {
     const vm = useMockedViewModel(rest, {
@@ -44,8 +53,9 @@ const RoomListHeaderViewWrapperImpl = ({
         createSection,
         collapseOrExpandSections,
         closeSectionReleaseAnnouncement,
+        switchToSpace,
     });
-    return <RoomListHeaderView vm={vm} />;
+    return <RoomListHeaderView vm={vm} renderSpaceIcon={renderSpaceIcon} />;
 };
 const RoomListHeaderViewWrapper = withViewDocs(RoomListHeaderViewWrapperImpl, RoomListHeaderView);
 
@@ -65,6 +75,7 @@ const meta = {
         createSection: fn(),
         collapseOrExpandSections: fn(),
         closeSectionReleaseAnnouncement: fn(),
+        switchToSpace: fn(),
     },
     parameters: {
         design: {
@@ -140,6 +151,46 @@ export const DisplaySectionReleaseAnnouncement: Story = {
 export const SectionsDisabled: Story = {
     args: {
         areSectionsEnabled: false,
+    },
+};
+
+export const SpaceSwitcher: Story = {
+    args: {
+        showSpaceSwitcher: true,
+        spaceSwitcherItems: [
+            { id: "home-space", name: "Home", isActive: true },
+            {
+                id: "!space1:example.org",
+                name: "My Space",
+                isActive: false,
+                notification: {
+                    hasAnyNotificationOrActivity: true,
+                    isUnsentMessage: false,
+                    isMention: false,
+                    isNotification: true,
+                    isActivityNotification: false,
+                    hasUnreadCount: true,
+                    count: 3,
+                    invited: false,
+                    muted: false,
+                },
+            },
+            { id: "!space2:example.org", name: "Another Space", isActive: false },
+        ],
+    },
+};
+
+export const SpaceSwitcherManySpaces: Story = {
+    args: {
+        showSpaceSwitcher: true,
+        spaceSwitcherItems: [
+            { id: "home-space", name: "Home", isActive: true },
+            ...Array.from({ length: 20 }, (_, i) => ({
+                id: `!space${i}:example.org`,
+                name: `Space ${i + 1}`,
+                isActive: false,
+            })),
+        ],
     },
 };
 

@@ -16,4 +16,6 @@ export const defaultSnapshot: RoomListHeaderViewSnapshot = {
     canAccessSpaceSettings: true,
     displaySectionReleaseAnnouncement: false,
     areSectionsEnabled: true,
+    showSpaceSwitcher: false,
+    spaceSwitcherItems: [],
 };
