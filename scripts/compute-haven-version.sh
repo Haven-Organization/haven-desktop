@@ -34,7 +34,28 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 haven_version=$(cat "$ROOT_DIR/HAVEN_VERSION" 2>/dev/null || echo unknown)
-element_version=$(git -C "$ROOT_DIR/element-web" describe --tags || echo unknown)
+
+if [ -e "$ROOT_DIR/element-web/.git" ]; then
+    # Publishable-repo layout: element-web/ is its own checkout pinned to a real upstream tag, so
+    # its tags are unambiguous.
+    element_version=$(git -C "$ROOT_DIR/element-web" describe --tags || echo unknown)
+else
+    # Dev-repo layout: element-web/ is just a subdirectory of this same unified history (Haven's
+    # changes are merged straight into it), so `git describe` there would search the exact same
+    # tag namespace as the outer repo - including Haven's own early v0.1.0/v0.2.0/v0.3.0 tags
+    # (from before the "haven-v" prefix convention below existed), which collide by name with
+    # genuinely real, much older tags from element-web's own history and would get picked over
+    # them since they're closer to HEAD. Describing from upstream's own tip instead - the second
+    # parent of the most recent merge commit, i.e. exactly what "git subtree pull"/"git merge"
+    # last brought in - sidesteps the collision entirely, since none of Haven's own tags are
+    # reachable from a commit that predates Haven's own history existing.
+    upstream_tip=$(git -C "$ROOT_DIR" log --merges -1 --format='%P' HEAD 2>/dev/null | awk '{print $2}')
+    if [ -n "$upstream_tip" ]; then
+        element_version=$(git -C "$ROOT_DIR" describe --tags "$upstream_tip" 2>/dev/null || echo unknown)
+    else
+        element_version=unknown
+    fi
+fi
 
 version="haven-v${haven_version}+element-${element_version}"
 
