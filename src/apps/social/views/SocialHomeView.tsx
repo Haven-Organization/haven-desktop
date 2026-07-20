@@ -37,6 +37,7 @@ import {
     ComposeIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { Resizable } from "re-resizable";
+import { Virtuoso } from "react-virtuoso";
 import { useSetUserMenuPortalTarget } from "../../framework/UserMenuPortalContext";
 
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
@@ -52,7 +53,7 @@ import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/d
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
 import { onNewScreen } from "../../../../element-web/apps/web/src/vector/routing";
 import { stampSocialOrigin } from "../utils/socialHistoryOrigin";
-import { replyCountFor, gatherRoomEvents } from "../utils/thread-relations";
+import { replyCountFor, gatherRoomEvents, buildDirectReplyCounts } from "../utils/thread-relations";
 import { consumePendingFeedThread } from "../utils/pendingFeedThread";
 import { useDispatcher } from "../../../../element-web/apps/web/src/hooks/useDispatcher";
 import { useSettingValue } from "../../../../element-web/apps/web/src/hooks/useSettings";
@@ -94,7 +95,6 @@ import {
     senderExcludedFromFeed,
 } from "../utils/socialFeedFilter";
 import { useBackfillSocialRooms } from "../utils/useBackfillSocialRooms";
-import { useLoadMoreSentinel } from "../utils/useLoadMoreSentinel";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
 import {
     sendLike,
@@ -116,9 +116,6 @@ export { SOCIAL_HOME_ACTION } from "../homeAction";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-/** How many posts to reveal per "load more" step (from memory, or by fetching more history). */
-const FEED_WINDOW_SIZE = 20;
 
 /** Past this many pixels of scroll, "scroll to top" jumps instantly instead of animating - a
  *  smooth scroll over a very long feed takes a noticeably long time to finish, which reads as
@@ -229,6 +226,10 @@ function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilte
             const id = e.getId();
             if (id) timelineIndex.set(id, i);
         });
+        // Built once per room rather than letting replyCountFor rescan `events` from scratch for
+        // every single post below - see buildDirectReplyCounts's own doc for why that matters once
+        // backfill has pulled real history into a room's event pool.
+        const directReplyCounts = buildDirectReplyCounts([events]);
 
         for (const event of events) {
             if (!isFeedEvent(event, room, filter)) continue;
@@ -257,7 +258,7 @@ function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilte
                 // potentially-drifting count. Falls back to counting direct replies only for a
                 // non-root reply surfaced as its own feed entry (Social has no "total size" concept
                 // for those - see this file's own isFeedEvent comment on why they appear at all).
-                replyCount: replyCountFor(event, room, [events]),
+                replyCount: replyCountFor(event, room, [events], directReplyCounts),
             });
         }
     }
@@ -769,14 +770,30 @@ export function SocialHomeView(): JSX.Element {
     }, [rooms]);
 
     useEffect(() => {
+        // Room.timeline fires once per event, and a single loadMore() backfill page injects up to
+        // 100 events (see useBackfillSocialRooms's PAGE_SIZE) per room, often several rooms at
+        // once. Calling setRooms() synchronously on every one of those - each allocating a brand
+        // new array - re-triggers aggregatePosts() over every room and re-identifies loadMore's own
+        // useCallback (whose deps include `rooms`), which in turn tears down and rebuilds
+        // useLoadMoreSentinel's IntersectionObserver every time. That storm of renders during a
+        // scroll-triggered backfill is what froze the Feed. Coalesce a burst of these events into
+        // one setRooms() call instead of one per event.
+        let pending: ReturnType<typeof setTimeout> | null = null;
         const refresh = (): void => {
-            preRoomsRefreshScrollTop.current = contentRef.current?.scrollTop ?? null;
-            setRooms(client.getRooms());
+            if (pending === null) {
+                preRoomsRefreshScrollTop.current = contentRef.current?.scrollTop ?? null;
+            }
+            if (pending !== null) clearTimeout(pending);
+            pending = setTimeout(() => {
+                pending = null;
+                setRooms(client.getRooms());
+            }, 150);
         };
         client.on("Room" as any, refresh);
         client.on("Room.myMembership" as any, refresh);
         client.on("Room.timeline" as any, refresh);
         return () => {
+            if (pending !== null) clearTimeout(pending);
             client.off("Room" as any, refresh);
             client.off("Room.myMembership" as any, refresh);
             client.off("Room.timeline" as any, refresh);
@@ -1123,38 +1140,40 @@ function FeedPane({
         });
     }, [client, rooms, filter, onFilterChange]);
 
-    // Windowed rendering: only mount the first `visibleCount` posts, growing as the user scrolls
-    // near the bottom (see useLoadMoreSentinel below), instead of mounting every post already
-    // loaded into memory (which can be hundreds once several rooms' history has backfilled) or
-    // eagerly fetching all of a room's history up front.
-    const [visibleCount, setVisibleCount] = useState(FEED_WINDOW_SIZE);
+    // Actual DOM virtualization (react-virtuoso), not just a "mount more as you scroll, never
+    // unmount" window - a large account's worth of backfilled history (dozens of rooms x up to
+    // 2000 events each, see useBackfillSocialRooms's own MAX_PAGES_PER_ROOM) produces thousands of
+    // posts, and the previous approach kept every one of them (images, videos, thread previews and
+    // all) permanently mounted once revealed, which alone was enough to freeze scrolling regardless
+    // of how fast `posts` itself could be computed. Virtuoso only ever mounts DOM for posts near the
+    // viewport, so `posts` can hold everything currently loaded in memory without a manual
+    // "visibleCount" slice - it fires endReached once the user actually scrolls near the bottom of
+    // whatever's currently in `posts`, which is when more history should be fetched from the server.
+    //
+    // customScrollParent (rather than letting Virtuoso own its own internal scroll element) points
+    // it at the same .social_Content DOM node everything else in this file already scrolls -
+    // SocialScrollToTopButton, the composer-visibility IntersectionObserver, and the scroll-position
+    // save/restore around thread transitions all depend on that node being the real scroll
+    // container. It starts out null (scrollContainerRef is owned by the parent and not yet attached
+    // to the DOM during this component's own first render) - the effect below re-renders once it's
+    // actually available after mount.
+    const [scrollParentEl, setScrollParentEl] = useState<HTMLElement | null>(null);
+    useEffect(() => {
+        setScrollParentEl(scrollContainerRef.current);
+    }, [scrollContainerRef]);
+
     const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
-    const visiblePosts = posts.slice(0, visibleCount);
-    const hasMoreAlreadyLoaded = visibleCount < posts.length;
 
-    const handleLoadMore = useCallback(async (): Promise<void> => {
-        if (loadingMoreHistory) return;
-        if (hasMoreAlreadyLoaded) {
-            // Already have more in memory — just reveal the next chunk, no network needed.
-            setVisibleCount((n) => n + FEED_WINDOW_SIZE);
-            return;
-        }
-        if (!hasMoreHistory) return; // every joined social room is exhausted — nothing left to fetch
-        // Nothing more currently loaded — fetch another page of history per room, then reveal it.
+    const handleEndReached = useCallback(async (): Promise<void> => {
+        if (loadingMoreHistory || !hasMoreHistory) return;
         setLoadingMoreHistory(true);
         try {
             await onLoadMoreHistory();
-            setVisibleCount((n) => n + FEED_WINDOW_SIZE);
         } finally {
             setLoadingMoreHistory(false);
         }
-    }, [loadingMoreHistory, hasMoreAlreadyLoaded, hasMoreHistory, onLoadMoreHistory]);
-
-    // Keep the sentinel mounted whenever there's still something to reveal, either already in
-    // memory or (potentially) from the server — not just while a fetch happens to be in flight,
-    // otherwise it would unmount forever the first time memory runs out mid-session.
-    const sentinelRef = useLoadMoreSentinel(handleLoadMore, hasMoreAlreadyLoaded || hasMoreHistory);
+    }, [loadingMoreHistory, hasMoreHistory, onLoadMoreHistory]);
 
     // Local thread navigation state
     const [threadView, setThreadView] = useState<{ event: MatrixEvent; room: Room } | null>(null);
@@ -1544,35 +1563,50 @@ function FeedPane({
                     <p>No posts yet. Follow some profiles or groups to see their posts here.</p>
                 </div>
             ) : (
-                <div className="social_Feed">
-                    {visiblePosts.map(({ event, room, myLikeEventId, myRepostEventId, replyCount }) => (
-                        <SocialEventTile
-                            key={event.getId()}
-                            event={event}
-                            room={room}
-                            isLiked={!!myLikeEventId}
-                            isReposted={!!myRepostEventId}
-                            replyCount={replyCount}
-                            hideRoomName={isProfilePostByOwner(event, room)}
-                            pillsGeneration={pillsGeneration}
-                            onRoomClick={onViewRoom}
-                            onViewUser={onViewUser}
-                            onOpenUserPanel={onOpenUserPanel}
-                            onNavigateToProfile={onNavigateToProfile}
-                            onViewThread={handleViewThread}
-                            onLike={() => handleLike(room.roomId, event.getId()!, myLikeEventId)}
-                            onReply={(body, file) => handleReply(room.roomId, event.getId()!, body, file)}
-                        />
-                    ))}
-                    {/* Sentinel: scrolling this into view reveals more posts (from memory, or by
-                        fetching more history once memory is exhausted) — mirrors Element's own
-                        "load more on scroll" pagination in normal room timelines. */}
-                    {(hasMoreAlreadyLoaded || hasMoreHistory) && (
-                        <div ref={sentinelRef} className="social_Feed_loadMore">
-                            {loadingMoreHistory && <Spinner />}
+                <Virtuoso
+                    className="social_Feed"
+                    customScrollParent={scrollParentEl ?? undefined}
+                    data={posts}
+                    computeItemKey={(_, post) => post.event.getId()!}
+                    endReached={handleEndReached}
+                    // Higher than Virtuoso's default - Social posts commonly carry images/video
+                    // that don't reserve layout space until they load, so during a very fast scroll
+                    // Virtuoso can measure an item before its content has actually painted, logging
+                    // a "Zero-sized element" warning (generally harmless, but noisy). A bigger
+                    // overscan buffer keeps more items pre-rendered ahead of the visible viewport,
+                    // giving their media more time to load before Virtuoso needs their real height.
+                    overscan={1600}
+                    itemContent={(_, { event, room, myLikeEventId, myRepostEventId, replyCount }) => (
+                        <div className="social_Feed_item">
+                            <SocialEventTile
+                                event={event}
+                                room={room}
+                                isLiked={!!myLikeEventId}
+                                isReposted={!!myRepostEventId}
+                                replyCount={replyCount}
+                                hideRoomName={isProfilePostByOwner(event, room)}
+                                pillsGeneration={pillsGeneration}
+                                onRoomClick={onViewRoom}
+                                onViewUser={onViewUser}
+                                onOpenUserPanel={onOpenUserPanel}
+                                onNavigateToProfile={onNavigateToProfile}
+                                onViewThread={handleViewThread}
+                                onLike={() => handleLike(room.roomId, event.getId()!, myLikeEventId)}
+                                onReply={(body, file) => handleReply(room.roomId, event.getId()!, body, file)}
+                            />
                         </div>
                     )}
-                </div>
+                    components={{
+                        // Mirrors the old sentinel div's own spinner - shown while a loadMore fetch
+                        // is in flight, once the user has scrolled to the end of what's in `posts`.
+                        Footer: () =>
+                            loadingMoreHistory ? (
+                                <div className="social_Feed_loadMore">
+                                    <Spinner />
+                                </div>
+                            ) : null,
+                    }}
+                />
             )}
         </div>
     );

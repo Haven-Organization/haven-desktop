@@ -60,6 +60,30 @@ export function countDirectReplies(pools: MatrixEvent[][], parentId: string): nu
 }
 
 /**
+ * Precomputes every event's direct-reply count across `pools` in a single O(n) pass, keyed by
+ * parent event id. Callers that need replyCountFor for many events sharing the same pools (e.g.
+ * aggregating a whole room's worth of posts) should build this once up front and pass it to
+ * replyCountFor's `directReplyCounts` argument, instead of letting each call rescan `pools` from
+ * scratch via countDirectReplies — doing that once per event turns an O(events) computation into
+ * O(events^2) overall, which is exactly what made the Feed grind to a halt once backfill had pulled
+ * enough history into a room's event pool for that quadratic blowup to actually matter.
+ */
+export function buildDirectReplyCounts(pools: MatrixEvent[][]): Map<string, number> {
+    const counts = new Map<string, number>();
+    const seen = new Set<string>();
+    for (const pool of pools) {
+        for (const e of pool) {
+            const id = e.getId();
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            const parentId = immediateParentId(e);
+            if (parentId) counts.set(parentId, (counts.get(parentId) ?? 0) + 1);
+        }
+    }
+    return counts;
+}
+
+/**
  * The reply-count to show on `event`'s own card: when matrix-js-sdk recognizes `event` as an actual
  * thread root, this is the server-authoritative total thread size (matrix-js-sdk's own
  * `Thread.length`, the same number stock Element's own thread summary badge shows) — total, not
@@ -67,8 +91,17 @@ export function countDirectReplies(pools: MatrixEvent[][], parentId: string): nu
  * (Feed/Room view) rather than opened into its own nested reply tree. Otherwise (event isn't a
  * recognized root — e.g. a non-root reply surfaced as its own feed entry), falls back to counting
  * direct replies only, since Social has no broader "total size" concept for a non-root node.
+ *
+ * Pass `directReplyCounts` (see buildDirectReplyCounts above) when calling this for many events
+ * against the same pools — omitting it falls back to a fresh countDirectReplies scan per call,
+ * correct but O(n) per event rather than O(1).
  */
-export function replyCountFor(event: MatrixEvent, room: Room, pools: MatrixEvent[][]): number {
+export function replyCountFor(
+    event: MatrixEvent,
+    room: Room,
+    pools: MatrixEvent[][],
+    directReplyCounts?: Map<string, number>,
+): number {
     const id = event.getId();
     if (!id) return 0;
     // getServerAggregatedRelation(), not just "does room.getThread(id) exist" - SocialPostView's own
@@ -81,7 +114,7 @@ export function replyCountFor(event: MatrixEvent, room: Room, pools: MatrixEvent
         const thread = room.getThread(id);
         if (thread) return thread.length;
     }
-    return countDirectReplies(pools, id);
+    return directReplyCounts ? (directReplyCounts.get(id) ?? 0) : countDirectReplies(pools, id);
 }
 
 /**

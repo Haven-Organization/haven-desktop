@@ -15,4 +15,5 @@ export const defaultSnapshot: RoomListHeaderViewSnapshot = {
     canInviteInSpace: true,
     canAccessSpaceSettings: true,
     displaySectionReleaseAnnouncement: false,
+    areSectionsEnabled: true,
 };

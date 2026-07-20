@@ -69,9 +69,7 @@ const cssThemes = {
 };
 
 // See docs/customisations.md
-let fileOverrides = {
-    /* {[file: string]: string} */
-};
+let fileOverrides = {/* {[file: string]: string} */};
 try {
     const customisationsFile = fs.readFileSync("./customisations.json", "utf-8");
     fileOverrides = JSON.parse(customisationsFile);
@@ -267,10 +265,22 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                 "@matrix-org/react-sdk-module-api": getPackageRoot("@matrix-org/react-sdk-module-api"),
                 // and matrix-widget-api
                 "matrix-widget-api": getPackageRoot("matrix-widget-api"),
-                "oidc-client-ts": getPackageRoot("oidc-client-ts"),
 
                 // Make shared-components imports resolve to EW deps
                 "@vector-im/compound-web": getPackageRoot("@vector-im/compound-web", ""),
+
+                // Haven: the legacy room list is only bundled in at all when explicitly asked for
+                // at build time (off by default) - callers only ever import the "legacy-room-list"
+                // specifier, never a relative path into src/legacy-room-list directly, so this
+                // alias is the single point deciding whether the real ~40-file subsystem or a tiny
+                // always-present stub ends up in the output. See src/legacy-room-list/index.ts and
+                // src/legacy-room-list-stub/index.ts's own doc.
+                "legacy-room-list": path.resolve(
+                    __dirname,
+                    process.env.HAVEN_INCLUDE_OLD_ROOM_LIST
+                        ? "src/legacy-room-list"
+                        : "src/legacy-room-list-stub",
+                ),
             },
             fallback: {
                 // Mock out the NodeFS module: The opus decoder imports this wrongly.
@@ -529,6 +539,7 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                 {
                     test: /\.svg$/,
                     issuer: /\.(js|ts|jsx|tsx|html)$/,
+                    resourceQuery: { not: [/raw/] },
                     use: [
                         {
                             loader: "@svgr/webpack",
@@ -643,7 +654,7 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                         },
                     ],
                 },
-            ].filter(Boolean),
+            ],
         },
 
         plugins: [
@@ -782,7 +793,7 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                 retryDelay: 500,
                 maxRetries: 3,
             }),
-        ].filter(Boolean),
+        ],
 
         output: {
             path: path.join(__dirname, "webapp"),
@@ -846,7 +857,7 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
  *
  * @param url The adjusted name of the file, such as `warning.1234567.svg`.
  * @param resourcePath The absolute path to the source file with unmodified name.
- * @return The returned paths will look like `img/warning.1234567.svg`.
+ * @returns The returned paths will look like `img/warning.1234567.svg`.
  */
 function getAssetOutputPath(url: string, resourcePath: string): string {
     const isKaTeX = resourcePath.includes("KaTeX");

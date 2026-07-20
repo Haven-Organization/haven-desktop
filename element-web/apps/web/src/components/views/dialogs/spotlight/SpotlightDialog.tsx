@@ -35,7 +35,6 @@ import {
     RoomIcon,
     SpaceIcon,
     UserProfileIcon,
-    FavouriteIcon,
     HomeIcon,
     GroupIcon,
     CloseIcon,
@@ -71,9 +70,8 @@ import { BreadcrumbsStore } from "../../../../stores/BreadcrumbsStore";
 import { type RoomNotificationState } from "../../../../stores/notifications/RoomNotificationState";
 import { RoomNotificationStateStore } from "../../../../stores/notifications/RoomNotificationStateStore";
 import { compareRoomsByRecency } from "../../../../utils/room/sortRoomsByRecency";
-import { SdkContextClass } from "../../../../contexts/SDKContext";
+import { SDKContextClass } from "../../../../contexts/SDKContextClass";
 import { getMetaSpaceName, MetaSpace } from "../../../../stores/spaces";
-import SpaceStore from "../../../../stores/spaces/SpaceStore";
 import { DirectoryMember, type Member, startDmOnFirstMessage } from "../../../../utils/direct-messages";
 import DMRoomMap from "../../../../utils/DMRoomMap";
 import { makeUserPermalink } from "../../../../utils/permalinks/Permalinks";
@@ -157,10 +155,6 @@ function metaspaceToIcon(key: MetaSpace): JSX.Element | undefined {
     switch (key) {
         case MetaSpace.Home:
             return <HomeIcon />;
-        case MetaSpace.Favourites:
-            return <FavouriteIcon />;
-        case MetaSpace.People:
-            return <UserProfileIcon />;
         case MetaSpace.Orphans:
             return <RoomIcon />;
     }
@@ -426,13 +420,13 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
         }
 
         return [
-            ...SpaceStore.instance.enabledMetaSpaces.map((spaceKey) => ({
+            ...SDKContextClass.instance.spaceStore.enabledMetaSpaces.map((spaceKey) => ({
                 section: Section.Spaces,
                 filter: [] as Filter[],
                 avatar: <div className="mx_SpotlightDialog_metaspaceResult">{metaspaceToIcon(spaceKey)}</div>,
-                name: getMetaSpaceName(spaceKey, SpaceStore.instance.allRoomsInHome),
+                name: getMetaSpaceName(spaceKey, SDKContextClass.instance.spaceStore.allRoomsInHome),
                 onClick() {
-                    SpaceStore.instance.setActiveSpace(spaceKey);
+                    SDKContextClass.instance.spaceStore.setActiveSpace(spaceKey);
                 },
             })),
             ...roomResults,
@@ -523,7 +517,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
     const numResults = sum(Object.values(results).map((it) => it.length));
     useWebSearchMetrics(numResults, query.length, true);
 
-    const activeSpace = SpaceStore.instance.activeSpaceRoom;
+    const activeSpace = SDKContextClass.instance.spaceStore.activeSpaceRoom;
     const [spaceResults, spaceResultsLoading] = useSpaceResults(activeSpace ?? undefined, query);
 
     const setQuery = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -1151,7 +1145,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                     </h4>
                     <div>
                         {BreadcrumbsStore.instance.rooms
-                            .filter((r) => r.roomId !== SdkContextClass.instance.roomViewStore.getRoomId())
+                            .filter((r) => r.roomId !== SDKContextClass.instance.roomViewStore.getRoomId())
                             .map((room) => (
                                 <TooltipOption
                                     id={`mx_SpotlightDialog_button_recentlyViewed_${room.roomId}`}

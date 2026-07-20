@@ -22,6 +22,7 @@ import { SettingsSection } from "../../shared/SettingsSection";
 import { SettingsSubsection, SettingsSubsectionText } from "../../shared/SettingsSubsection";
 import SettingsTab from "../SettingsTab";
 import { isAppEnabled } from "../../../../../../../../../src/apps/framework/config";
+import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
 
 export const showLabsFlags = (): boolean => {
     return SdkConfig.get("show_labs_settings") || SettingsStore.getValue("developerMode");
@@ -40,6 +41,12 @@ export default class LabsUserSettingsTab extends React.Component<EmptyObject> {
         let features = SettingsStore.getFeatureSettingNames();
         if (!isAppEnabled("social")) {
             features = features.filter((f) => f !== "feature_msc4501_native_post_type");
+        }
+        // haven: Haven.useOldRoomList only means anything when the old room list was actually
+        // bundled into this build (see legacy-room-list-stub/index.ts) - hide the toggle rather
+        // than showing one that can never take effect.
+        if (!LEGACY_ROOM_LIST_AVAILABLE) {
+            features = features.filter((f) => f !== "Haven.useOldRoomList");
         }
         const [labs, betas] = features.reduce(
             (arr, f) => {

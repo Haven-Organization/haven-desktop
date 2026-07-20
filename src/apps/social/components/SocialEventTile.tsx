@@ -46,7 +46,7 @@ import { type ViewRoomPayload } from "../../../../element-web/apps/web/src/dispa
 import { EventContentBodyViewModel } from "../../../../element-web/apps/web/src/viewmodels/message-body/EventContentBodyViewModel";
 import MessageEvent from "../../../../element-web/apps/web/src/components/views/messages/MessageEvent";
 import RoomContext from "../../../../element-web/apps/web/src/contexts/RoomContext";
-import { SdkContextClass } from "../../../../element-web/apps/web/src/contexts/SDKContext";
+import { SDKContextClass } from "../../../../element-web/apps/web/src/contexts/SDKContextClass";
 import {
     tryTransformPermalinkToLocalHref,
     parsePermalink,
@@ -854,7 +854,7 @@ export function SocialEventTile({
     // matches the ambient default.
     const ambientRoomContext = useContext(RoomContext);
     const stockMediaRoomContext = useMemo(
-        () => ({ ...ambientRoomContext, roomViewStore: SdkContextClass.instance.roomViewStore }),
+        () => ({ ...ambientRoomContext, roomViewStore: SDKContextClass.instance.roomViewStore }),
         [ambientRoomContext],
     );
 

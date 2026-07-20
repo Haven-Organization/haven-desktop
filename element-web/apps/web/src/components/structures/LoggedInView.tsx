@@ -28,36 +28,40 @@ import { isOnlyCtrlOrCmdKeyEvent, Key } from "../../Keyboard";
 import PageTypes from "../../PageTypes";
 import MediaDeviceHandler from "../../MediaDeviceHandler";
 import dis from "../../dispatcher/dispatcher";
-import { type IMatrixClientCreds } from "../../MatrixClientPeg";
+import { type IMatrixClientCreds } from "../../utils/createMatrixClient";
 import SettingsStore from "../../settings/SettingsStore";
 import { SettingLevel } from "../../settings/SettingLevel";
-import ResizeHandle from "../views/elements/ResizeHandle";
-import { CollapseDistributor, Resizer } from "../../resizer";
 import PlatformPeg from "../../PlatformPeg";
 import { hideToast as hideServerLimitToast, showToast as showServerLimitToast } from "../../toasts/ServerLimitToast";
 import { Action } from "../../dispatcher/actions";
 import LeftPanel from "./LeftPanel";
+import ResizeHandle from "../views/elements/ResizeHandle";
+import Resizer from "../../resizer/resizer";
+import {
+    CollapseDistributor,
+    type ICollapseConfig,
+    CollapseItem,
+    LEGACY_ROOM_LIST_AVAILABLE,
+    BackdropPanel,
+} from "legacy-room-list";
 import { type ViewRoomDeltaPayload } from "../../dispatcher/payloads/ViewRoomDeltaPayload";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
 import NonUrgentToastContainer from "./NonUrgentToastContainer";
 import { type IOOBData, type IThreepidInvite } from "../../stores/ThreepidInviteStore";
 import Modal from "../../Modal";
-import { type CollapseItem, type ICollapseConfig } from "../../resizer/distributors/collapse";
 import { getKeyBindingsManager } from "../../KeyBindingsManager";
 import { type IOpts } from "../../createRoom";
 import SpacePanel from "../views/spaces/SpacePanel";
-import LegacyCallHandler, { LegacyCallHandlerEvent } from "../../LegacyCallHandler";
+import { LegacyCallHandlerEvent } from "../../LegacyCallHandler";
 import AudioFeedArrayForLegacyCall from "../views/voip/AudioFeedArrayForLegacyCall";
 import { OwnProfileStore } from "../../stores/OwnProfileStore";
 import { UPDATE_EVENT } from "../../stores/AsyncStore";
 import { RoomView } from "./RoomView";
 import ToastContainer from "./ToastContainer";
 import UserView from "./UserView";
-import { BackdropPanel } from "./BackdropPanel";
 import { mediaFromMxc } from "../../customisations/Media";
 import { UserTab } from "../views/dialogs/UserTab";
 import { type OpenToTabPayload } from "../../dispatcher/payloads/OpenToTabPayload";
-import RightPanelStore from "../../stores/right-panel/RightPanelStore";
 import { TimelineRenderingType } from "../../contexts/RoomContext";
 import { KeyBindingAction } from "../../accessibility/KeyboardShortcuts";
 import { type SwitchSpacePayload } from "../../dispatcher/payloads/SwitchSpacePayload";
@@ -92,16 +96,16 @@ interface IProps {
     // transitioned to PWLU)
     onRegistered: (this: void, credentials: IMatrixClientCreds) => Promise<MatrixClient>;
     hideToSRUsers: boolean;
-    // eslint-disable-next-line camelcase
+
     page_type?: string;
     threepidInvite?: IThreepidInvite;
     roomOobData?: IOOBData;
     currentRoomId: string | null;
-    collapseLhs: boolean;
     currentUserId: string | null;
     justRegistered?: boolean;
     roomJustCreatedOpts?: IOpts;
     forceTimeline?: boolean; // see props on MatrixChat
+    collapseLhs: boolean;
 }
 
 interface IState {
@@ -118,6 +122,7 @@ interface IState {
 }
 
 const NEW_ROOM_LIST_MIN_WIDTH = 224;
+
 /**
  * This is what our MatrixChat shows when we are logged in. The precise view is
  * determined by the page_type property.
@@ -134,11 +139,11 @@ class LoggedInView extends React.Component<IProps, IState> {
     protected readonly _roomView: React.RefObject<RoomView | null>;
     protected readonly _resizeContainer: React.RefObject<HTMLDivElement | null>;
     protected readonly resizeHandler: React.RefObject<HTMLDivElement | null>;
+    protected resizer?: Resizer<ICollapseConfig, CollapseItem>;
     protected layoutWatcherRef?: string;
     protected compactLayoutWatcherRef?: string;
     protected backgroundImageWatcherRef?: string;
     protected timezoneProfileUpdateRef?: string[];
-    protected resizer?: Resizer<ICollapseConfig, CollapseItem>;
 
     private resizerViewModel?: ResizerViewModel;
 
@@ -153,7 +158,7 @@ class LoggedInView extends React.Component<IProps, IState> {
             // use compact timeline view
             useCompactLayout: SettingsStore.getValue("useCompactLayout"),
             usageLimitDismissed: false,
-            activeCalls: LegacyCallHandler.instance.getAllActiveCalls(),
+            activeCalls: context.legacyCallHandler.getAllActiveCalls(),
         };
 
         // stash the MatrixClient in case we log out before we are unmounted
@@ -168,7 +173,7 @@ class LoggedInView extends React.Component<IProps, IState> {
 
     public componentDidMount(): void {
         document.addEventListener("keydown", this.onNativeKeyDown, false);
-        LegacyCallHandler.instance.addListener(LegacyCallHandlerEvent.CallState, this.onCallState);
+        this.context.legacyCallHandler.addListener(LegacyCallHandlerEvent.CallState, this.onCallState);
 
         this.updateServerNoticeEvents();
 
@@ -200,10 +205,16 @@ class LoggedInView extends React.Component<IProps, IState> {
         // system time has changed between sessions.
         void this.onTimezoneUpdate();
 
-        this.loadResizer();
-
         OwnProfileStore.instance.on(UPDATE_EVENT, this.refreshBackgroundImage);
         this.refreshBackgroundImage();
+
+        this.loadResizer();
+    }
+
+    public componentDidUpdate(prevProps: Readonly<IProps>): void {
+        if (prevProps.page_type !== this.props.page_type) {
+            this.loadResizer();
+        }
     }
 
     // haven apps-framework patch
@@ -221,24 +232,6 @@ class LoggedInView extends React.Component<IProps, IState> {
     private disposeResizerViewModel(): void {
         this.resizerViewModel?.dispose();
         this.resizerViewModel = undefined;
-    }
-
-    /**
-     * Load or reload the resizer for the left panel
-     */
-    private loadResizer(): void {
-        // If the resizer already exists, detach it first
-        this.resizer?.detach();
-
-        this.resizer = this.createResizer();
-        this.resizer.attach();
-        this.loadResizerPreferences();
-    }
-
-    public componentDidUpdate(nextProps: Readonly<IProps>, nextState: Readonly<IState>, nextContext: any): void {
-        if (nextProps.page_type !== this.props.page_type) {
-            this.loadResizer();
-        }
     }
 
     private onTimezoneUpdate = async (): Promise<void> => {
@@ -271,7 +264,7 @@ class LoggedInView extends React.Component<IProps, IState> {
 
     public componentWillUnmount(): void {
         document.removeEventListener("keydown", this.onNativeKeyDown, false);
-        LegacyCallHandler.instance.removeListener(LegacyCallHandlerEvent.CallState, this.onCallState);
+        this.context.legacyCallHandler.removeListener(LegacyCallHandlerEvent.CallState, this.onCallState);
         this._matrixClient.removeListener(ClientEvent.AccountData, this.onAccountData);
         this._matrixClient.removeListener(ClientEvent.Sync, this.onSync);
         this._matrixClient.removeListener(RoomStateEvent.Events, this.onRoomStateEvents);
@@ -280,12 +273,19 @@ class LoggedInView extends React.Component<IProps, IState> {
         SettingsStore.unwatchSetting(this.compactLayoutWatcherRef);
         SettingsStore.unwatchSetting(this.backgroundImageWatcherRef);
         this.timezoneProfileUpdateRef?.forEach((s) => SettingsStore.unwatchSetting(s));
-        this.resizer?.detach();
         this.resizerViewModel?.dispose();
+        this.resizer?.detach();
+    }
+
+    private loadResizer(): void {
+        this.resizer?.detach();
+        this.resizer = this.createResizer();
+        this.resizer.attach();
+        this.loadResizerPreferences();
     }
 
     private onCallState = (): void => {
-        const activeCalls = LegacyCallHandler.instance.getAllActiveCalls();
+        const activeCalls = this.context.legacyCallHandler.getAllActiveCalls();
         if (activeCalls === this.state.activeCalls) return;
         this.setState({ activeCalls });
     };
@@ -311,7 +311,7 @@ class LoggedInView extends React.Component<IProps, IState> {
     private createResizer(): Resizer<ICollapseConfig, CollapseItem> {
         let panelSize: number | null;
         let panelCollapsed: boolean;
-        const useNewRoomList = SettingsStore.getValue("feature_new_room_list");
+        const useNewRoomList = !LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList");
         // TODO decrease this once Spaces launches as it'll no longer need to include the 56px Community Panel
         const toggleSize = useNewRoomList ? NEW_ROOM_LIST_MIN_WIDTH : 206 - 50;
 
@@ -369,7 +369,7 @@ class LoggedInView extends React.Component<IProps, IState> {
     }
 
     private loadResizerPreferences(): void {
-        const useNewRoomList = SettingsStore.getValue("feature_new_room_list");
+        const useNewRoomList = !LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList");
         let lhsSize = parseInt(window.localStorage.getItem("mx_lhs_size")!, 10);
         // If the user has not set a size, or for the new room list if the size is less than the minimum width,
         // set a default size.
@@ -425,7 +425,7 @@ class LoggedInView extends React.Component<IProps, IState> {
     private calculateServerLimitToast(syncError: IState["syncErrorData"], usageLimitEventContent?: IUsageLimit): void {
         const error = (syncError?.error as MatrixError)?.errcode === "M_RESOURCE_LIMIT_EXCEEDED";
         if (error) {
-            usageLimitEventContent = (syncError?.error as MatrixError).data as IUsageLimit;
+            usageLimitEventContent = (syncError?.error as MatrixError)?.data as IUsageLimit;
         }
 
         // usageLimitDismissed is true when the user has explicitly hidden the toast
@@ -608,7 +608,7 @@ class LoggedInView extends React.Component<IProps, IState> {
                 break;
             case KeyBindingAction.ToggleRoomSidePanel:
                 if (this.props.page_type === "room_view") {
-                    RightPanelStore.instance.togglePanel(null);
+                    this.context.rightPanelStore.togglePanel(null);
                     handled = true;
                 }
                 break;
@@ -784,6 +784,8 @@ class LoggedInView extends React.Component<IProps, IState> {
             }
         }
 
+        const useNewRoomList = !LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList");
+
         const wrapperClasses = classNames({
             mx_MatrixChat_wrapper: true,
             mx_MatrixChat_useCompactLayout: this.state.useCompactLayout,
@@ -792,8 +794,6 @@ class LoggedInView extends React.Component<IProps, IState> {
             "mx_MatrixChat": true,
             "mx_MatrixChat--with-avatar": this.state.backgroundImage,
         });
-
-        const useNewRoomList = SettingsStore.getValue("feature_new_room_list");
 
         const leftPanelWrapperClasses = classNames({
             mx_LeftPanel_wrapper: true,
@@ -846,10 +846,10 @@ class LoggedInView extends React.Component<IProps, IState> {
         const roomView = <div className="mx_RoomView_wrapper">{pageElement}</div>;
 
         let content: React.ReactNode;
-        const resizerViewModel = !moduleRenderer ? this.getResizerViewModel() : undefined;
+        const resizerViewModel = useNewRoomList && !moduleRenderer ? this.getResizerViewModel() : undefined;
         if (useNewRoomList && resizerViewModel && !moduleRenderer) {
-            // New room list owned by element-web: resizable layout with a draggable separator.
-            // The SpacePanel lives inside GroupView (leftPanel omits it when the new room list is enabled).
+            // Resizable layout with a draggable separator. The SpacePanel lives inside GroupView
+            // (leftPanel omits it).
             content = (
                 <GroupView vm={resizerViewModel}>
                     <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />

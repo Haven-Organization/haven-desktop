@@ -19,11 +19,7 @@ button.preview {
     background-position: center;
     border: none;
     padding: 0;
-    > img {
-        height: 200px;
-        width: 478px;
-        object-fit: cover;
-    }
+
     .playButton[data-kind="primary"] {
         padding: 0;
         width: 50px;
@@ -39,10 +35,11 @@ button.preview {
 }
 
 .container {
+    box-sizing: border-box;
     max-width: 100%;
     width: 478px;
     display: flex;
-    border: 1px solid var(--cpd-color-border-interactive-primary);
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
     border-radius: 12px; /* Get radius from cpd */
     flex-direction: column;
     color: var(--cpd-color-gray-900);
@@ -87,31 +84,31 @@ button.preview {
         flex: 1;
         overflow: hidden; /* cause it to wrap rather than clip */
     }
+}
 
-    .title,
-    .description {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        white-space: normal;
-        line-clamp: 2;
-        -webkit-line-clamp: 2;
-        margin: 0;
+.siteName {
+    margin-top: var(--cpd-space-1x);
+    vertical-align: middle;
+    display: flex;
+    gap: var(--cpd-space-1-5x);
+    > * {
+        /* Center everything */
+        margin: auto 0;
     }
+}
 
-    .title {
-        color: var(--cpd-color-text-primary);
-        text-decoration-line: none;
-    }
+.title,
+.description {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    margin: 0;
+}
 
-    .siteName {
-        margin-top: var(--cpd-space-1x);
-        vertical-align: middle;
-        display: flex;
-        gap: var(--cpd-space-1-5x);
-        > * {
-            /* Center everything */
-            margin: auto 0;
-        }
-    }
+.title {
+    color: var(--cpd-color-text-primary);
+    text-decoration-line: none;
 }

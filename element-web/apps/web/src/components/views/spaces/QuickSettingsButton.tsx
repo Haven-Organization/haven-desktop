@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { type JSX } from "react";
+import React, { type JSX, useContext } from "react";
 import classNames from "classnames";
 import {
     OverflowHorizontalIcon,
@@ -30,20 +30,23 @@ import { UserTab } from "../dialogs/UserTab";
 import QuickThemeSwitcher from "./QuickThemeSwitcher";
 import Modal from "../../../Modal";
 import DevtoolsDialog from "../dialogs/DevtoolsDialog";
-import { SdkContextClass } from "../../../contexts/SDKContext";
+import { SDKContext } from "../../../contexts/SDKContext.ts";
+import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
+import SettingsStore from "../../../settings/SettingsStore";
 
 const QuickSettingsButton: React.FC<{
     isPanelCollapsed: boolean;
 }> = ({ isPanelCollapsed = false }) => {
+    const sdkContext = useContext(SDKContext);
     const [menuDisplayed, handle, openMenu, closeMenu] = useContextMenu<HTMLButtonElement>();
 
     const { [MetaSpace.Favourites]: favouritesEnabled, [MetaSpace.People]: peopleEnabled } =
         useSettingValue("Spaces.enabledMetaSpaces");
 
-    const currentRoomId = SdkContextClass.instance.roomViewStore.getRoomId();
+    const currentRoomId = sdkContext.roomViewStore.getRoomId();
     const developerModeEnabled = useSettingValue("developerMode");
     // "Favourites" and "People" meta spaces are not available in the new room list
-    const newRoomListEnabled = useSettingValue("feature_new_room_list");
+    const useNewRoomList = !LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList");
 
     let contextMenu: JSX.Element | undefined;
     if (menuDisplayed && handle.current) {
@@ -51,7 +54,7 @@ const QuickSettingsButton: React.FC<{
             <ContextMenu
                 {...alwaysAboveRightOf(handle.current.getBoundingClientRect(), ChevronFace.None, 16)}
                 wrapperClassName={classNames("mx_QuickSettingsButton_ContextMenuWrapper", {
-                    mx_QuickSettingsButton_ContextMenuWrapper_new_room_list: newRoomListEnabled,
+                    mx_QuickSettingsButton_ContextMenuWrapper_new_room_list: useNewRoomList,
                 })}
                 // Eventually replace with a properly aria-labelled menu
                 data-testid="quick-settings-menu"
@@ -91,7 +94,7 @@ const QuickSettingsButton: React.FC<{
                     </AccessibleButton>
                 )}
 
-                {!newRoomListEnabled && (
+                {!useNewRoomList && (
                     <>
                         <h4>
                             <PinSolidIcon className="mx_QuickSettingsButton_icon" />

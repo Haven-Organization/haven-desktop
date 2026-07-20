@@ -15,8 +15,7 @@ import { _t } from "../../../languageHandler";
 import ContextMenu, { aboveLeftOf, type MenuProps, useContextMenu } from "../../structures/ContextMenu";
 import EmojiPicker from "../emojipicker/EmojiPicker";
 import { type CustomEmojiChoice } from "../emojipicker/customEmoji";
-import { CollapsibleButton } from "./CollapsibleButton";
-import { OverflowMenuContext } from "./MessageComposerButtons";
+import { CollapsibleButton, OverflowMenuContext } from "./CollapsibleButton";
 import { doMaybeLocalRoomAction } from "../../../utils/local-room";
 import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacks } from "../../../utils/imageSourcePacks";
 

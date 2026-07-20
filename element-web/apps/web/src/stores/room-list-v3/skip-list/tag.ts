@@ -17,6 +17,7 @@ export enum DefaultTagID {
     DM = "im.vector.fake.direct",
     Conference = "im.vector.fake.conferences",
     ServerNotice = "m.server_notice",
+    // Haven: only used by the old room list's "Suggested Rooms" section - see legacy-room-list/index.ts's own doc.
     Suggested = "im.vector.fake.suggested",
 }
 

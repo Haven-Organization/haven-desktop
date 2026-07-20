@@ -40,15 +40,13 @@ import {
 import dis from "../../../dispatcher/dispatcher";
 import { Action } from "../../../dispatcher/actions";
 import { UserTab } from "../dialogs/UserTab";
-
-export const CATEGORY_HEADER_HEIGHT = 20;
-export const EMOJI_HEIGHT = 35;
-export const EMOJIS_PER_ROW = 8;
-// Haven: stickers get a visibly bigger grid slot than emoji - same row width (304px, see
-// _EmojiPicker.pcss's own doc on that figure), just 4 wider cells instead of 8 narrower ones, at
-// roughly the same width:height ratio as the emoji grid's own 38:35.
-export const STICKER_HEIGHT = 70;
-export const STICKERS_PER_ROW = 4;
+import {
+    CATEGORY_HEADER_HEIGHT,
+    EMOJI_HEIGHT,
+    EMOJIS_PER_ROW,
+    STICKER_HEIGHT,
+    STICKERS_PER_ROW,
+} from "./config";
 
 const ZERO_WIDTH_JOINER = "\u200D";
 

@@ -15,6 +15,7 @@ import classNames from "classnames";
 import katex from "katex";
 import { decode } from "html-entities";
 import { type IContent } from "matrix-js-sdk/src/matrix";
+import { logger } from "matrix-js-sdk/src/logger";
 import escapeHtml from "escape-html";
 import { getEmojiFromUnicode } from "@matrix-org/emojibase-bindings";
 import { PERMITTED_URL_SCHEMES, LINKIFIED_DATA_ATTRIBUTE } from "@element-hq/web-shared-components";
@@ -79,7 +80,7 @@ function mightContainEmoji(str?: string): boolean {
  * Returns the shortcode for an emoji character.
  *
  * @param {String} char The emoji character
- * @return {String} The shortcode (such as :thumbup:)
+ * @returns {String} The shortcode (such as :thumbup:)
  */
 export function unicodeToShortcode(char: string): string {
     const shortcodes = getEmojiFromUnicode(char)?.shortcodes;
@@ -119,7 +120,7 @@ export function getHtmlText(insaneHtml: string): string {
  * Note that the HTML sanitiser library has its own internal logic for
  * doing this, to which we pass the same list of schemes. This is used in
  * other places we need to sanitise URLs.
- * @return true if permitted, otherwise false
+ * @returns true if permitted, otherwise false
  */
 export function isUrlPermitted(inputUrl: string): boolean {
     try {
@@ -376,27 +377,41 @@ function analyseEvent(content: IContent, highlights?: string[], opts: EventRende
         }
 
         if (isFormattedBody) {
-            let unsafeBody = formattedBody!;
+            // sanitizeHtml/linkifyHtml both walk the HTML tree recursively - pathologically deep
+            // formatted_body content (seen from a fediverse-bridged reply chain nested many levels
+            // deep) can exhaust the call stack there. That's a genuine "too much recursion"/"Maximum
+            // call stack size exceeded" throw, not a bug in this function's own logic, and it's
+            // catchable like any other exception - fall back to the already-computed plain-text
+            // strippedBody (below) for just this one message instead of crashing the whole view.
+            try {
+                let unsafeBody = formattedBody!;
 
-            if (opts.linkify) {
-                unsafeBody = linkifyHtml(unsafeBody);
-            }
+                if (opts.linkify) {
+                    unsafeBody = linkifyHtml(unsafeBody);
+                }
 
-            safeBody = sanitizeHtml(unsafeBody, sanitizeParams);
+                safeBody = sanitizeHtml(unsafeBody, sanitizeParams);
 
-            const phtml = new DOMParser().parseFromString(safeBody, "text/html");
-            const isPlainText = phtml.body.innerHTML === phtml.body.textContent;
-            isHtmlMessage = !isPlainText;
+                const phtml = new DOMParser().parseFromString(safeBody, "text/html");
+                const isPlainText = phtml.body.innerHTML === phtml.body.textContent;
+                isHtmlMessage = !isPlainText;
 
-            if (isHtmlMessage && SettingsStore.getValue("feature_latex_maths")) {
-                [...phtml.querySelectorAll<HTMLElement>("div[data-mx-maths], span[data-mx-maths]")].forEach((e) => {
-                    e.outerHTML = katex.renderToString(decode(e.getAttribute("data-mx-maths")), {
-                        throwOnError: false,
-                        displayMode: e.tagName == "DIV",
-                        output: "htmlAndMathml",
-                    });
-                });
-                safeBody = phtml.body.innerHTML;
+                if (isHtmlMessage && SettingsStore.getValue("feature_latex_maths")) {
+                    [...phtml.querySelectorAll<HTMLElement>("div[data-mx-maths], span[data-mx-maths]")].forEach(
+                        (e) => {
+                            e.outerHTML = katex.renderToString(decode(e.getAttribute("data-mx-maths")), {
+                                throwOnError: false,
+                                displayMode: e.tagName == "DIV",
+                                output: "htmlAndMathml",
+                            });
+                        },
+                    );
+                    safeBody = phtml.body.innerHTML;
+                }
+            } catch (e) {
+                logger.warn("Failed to render formatted_body, falling back to plain text", e);
+                safeBody = undefined;
+                isHtmlMessage = false;
             }
         } else if (opts.linkify) {
             // If we are linkifying plain text, pass the result through sanitizeHtml so that the highlighter configured in sanitizeParams.textFilter gets applied.
@@ -421,49 +436,69 @@ interface BodyToNodeReturn {
 export function bodyToNode(content: IContent, highlights?: string[], opts: EventRenderOpts = {}): BodyToNodeReturn {
     const eventInfo = analyseEvent(content, highlights, opts);
 
-    let emojiBody = false;
-    if (!opts.disableBigEmoji && eventInfo.bodyHasEmoji) {
-        const contentBody = eventInfo.safeBody ?? eventInfo.strippedBody;
-        let contentBodyTrimmed = contentBody !== undefined ? contentBody.trim() : "";
+    // Haven: everything below this point does its own regex/text-walking work on top of whatever
+    // analyseEvent already produced (BIGEMOJI_REGEX matching, formatEmojis's own emoji-boundary
+    // scan) - regex execution against a long or pathologically-shaped string can throw a genuine
+    // "too much recursion"/"Maximum call stack size exceeded" error the same way deep HTML parsing
+    // can (confirmed live: a specific backfilled fediverse post's body crashed the whole Feed here,
+    // in BIGEMOJI_REGEX.exec, even with analyseEvent's own HTML-parsing try/catch already in place -
+    // that first fix only covered the isFormattedBody branch, not this). Rather than guard every
+    // individual regex call as each new pathological post surfaces one, wrap the whole thing: fall
+    // back to the plain strippedBody analyseEvent already computed (no big-emoji styling, no
+    // markdown/HTML class) for just this one message instead of crashing the whole view.
+    try {
+        let emojiBody = false;
+        if (!opts.disableBigEmoji && eventInfo.bodyHasEmoji) {
+            const contentBody = eventInfo.safeBody ?? eventInfo.strippedBody;
+            let contentBodyTrimmed = contentBody !== undefined ? contentBody.trim() : "";
 
-        // Remove zero width joiner, zero width spaces and other spaces in body
-        // text. This ensures that emojis with spaces in between or that are made
-        // up of multiple unicode characters are still counted as purely emoji
-        // messages.
-        contentBodyTrimmed = contentBodyTrimmed.replace(EMOJI_SEPARATOR_REGEX, "");
+            // Remove zero width joiner, zero width spaces and other spaces in body
+            // text. This ensures that emojis with spaces in between or that are made
+            // up of multiple unicode characters are still counted as purely emoji
+            // messages.
+            contentBodyTrimmed = contentBodyTrimmed.replace(EMOJI_SEPARATOR_REGEX, "");
 
-        const match = BIGEMOJI_REGEX.exec(contentBodyTrimmed);
-        emojiBody =
-            match?.[0]?.length === contentBodyTrimmed.length &&
-            // Prevent user pills expanding for users with only emoji in
-            // their username. Permalinks (links in pills) can be any URL
-            // now, so we just check for an HTTP-looking thing.
-            (eventInfo.strippedBody === eventInfo.safeBody || // replies have the html fallbacks, account for that here
-                content.formatted_body === undefined ||
-                (!content.formatted_body.includes("http:") && !content.formatted_body.includes("https:")));
-    }
-
-    const className = classNames({
-        "mx_EventTile_body": true,
-        "mx_EventTile_bigEmoji": emojiBody,
-        "markdown-body": eventInfo.isHtmlMessage && !emojiBody,
-        // Override the global `notranslate` class set by the top-level `matrixchat` div.
-        "translate": true,
-    });
-
-    let formattedBody = eventInfo.safeBody;
-    let emojiBodyElements: JSX.Element[] | undefined;
-
-    if (eventInfo.bodyHasEmoji) {
-        if (eventInfo.safeBody) {
-            // This has to be done after the emojiBody check as to not break big emoji on replies
-            formattedBody = formatEmojis(eventInfo.safeBody, true).join("");
-        } else {
-            emojiBodyElements = formatEmojis(eventInfo.strippedBody, false) as JSX.Element[];
+            const match = BIGEMOJI_REGEX.exec(contentBodyTrimmed);
+            emojiBody =
+                match?.[0]?.length === contentBodyTrimmed.length &&
+                // Prevent user pills expanding for users with only emoji in
+                // their username. Permalinks (links in pills) can be any URL
+                // now, so we just check for an HTTP-looking thing.
+                (eventInfo.strippedBody === eventInfo.safeBody || // replies have the html fallbacks, account for that here
+                    content.formatted_body === undefined ||
+                    (!content.formatted_body.includes("http:") && !content.formatted_body.includes("https:")));
         }
-    }
 
-    return { strippedBody: eventInfo.strippedBody, formattedBody, emojiBodyElements, className };
+        const className = classNames({
+            "mx_EventTile_body": true,
+            "mx_EventTile_bigEmoji": emojiBody,
+            "markdown-body": eventInfo.isHtmlMessage && !emojiBody,
+            // Override the global `notranslate` class set by the top-level `matrixchat` div.
+            "translate": true,
+        });
+
+        let formattedBody = eventInfo.safeBody;
+        let emojiBodyElements: JSX.Element[] | undefined;
+
+        if (eventInfo.bodyHasEmoji) {
+            if (eventInfo.safeBody) {
+                // This has to be done after the emojiBody check as to not break big emoji on replies
+                formattedBody = formatEmojis(eventInfo.safeBody, true).join("");
+            } else {
+                emojiBodyElements = formatEmojis(eventInfo.strippedBody, false) as JSX.Element[];
+            }
+        }
+
+        return { strippedBody: eventInfo.strippedBody, formattedBody, emojiBodyElements, className };
+    } catch (e) {
+        logger.warn("Failed to process message body, falling back to plain text", e);
+        return {
+            strippedBody: eventInfo.strippedBody,
+            formattedBody: undefined,
+            emojiBodyElements: undefined,
+            className: classNames({ "mx_EventTile_body": true, "translate": true }),
+        };
+    }
 }
 
 /**
@@ -497,7 +532,7 @@ export function bodyToHtml(content: IContent, highlights?: string[], opts: Event
  * @param htmlTopic optional html topic
  * @param ref React ref to attach to any React components returned
  * @param allowExtendedHtml whether to allow extended HTML tags such as headings and lists
- * @return The HTML-ified node.
+ * @returns The HTML-ified node.
  */
 export function topicToHtml(
     topic?: string,

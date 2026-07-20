@@ -33,7 +33,6 @@ import { _t, UserFriendlyError } from "./languageHandler";
 import dis from "./dispatcher/dispatcher";
 import * as Rooms from "./Rooms";
 import { getAddressType } from "./UserAddress";
-import SpaceStore from "./stores/spaces/SpaceStore";
 import { makeSpaceParentEvent } from "./utils/space";
 import { JitsiCall, ElementCall } from "./models/Call";
 import { Action } from "./dispatcher/actions";
@@ -45,14 +44,13 @@ import { privateShouldBeEncrypted } from "./utils/rooms";
 import { shouldForceDisableEncryption } from "./utils/crypto/shouldForceDisableEncryption";
 import { waitForMember } from "./utils/membership";
 import { doesRoomVersionSupport, PreferredRoomVersions } from "./utils/PreferredRoomVersions";
-import SettingsStore from "./settings/SettingsStore";
 import { MEGOLM_ENCRYPTION_ALGORITHM } from "./utils/crypto";
 import { ElementCallMemberEventType } from "./call-types";
 import { htmlSerializeFromMdIfNeeded } from "./editor/serialize";
+import { SDKContextClass } from "./contexts/SDKContextClass.ts";
+import SdkConfig from "./SdkConfig";
 
 // we define a number of interfaces which take their names from the js-sdk
-/* eslint-disable camelcase */
-
 export interface IOpts {
     dmUserId?: string;
     /**
@@ -86,15 +84,26 @@ export interface IOpts {
     joinRule?: JoinRule;
 }
 
-const DEFAULT_EVENT_POWER_LEVELS = {
-    [EventType.RoomName]: 50,
+/**
+ * The power levels set by synapse as of 30.06.2026.
+ * If power_level_content_override is used, these values should be used
+ * as a starting point to ensure the expected room power levels.
+ *
+ * NOTE: power_level_content_override does do a merge but NOT a deep merge.
+ * e.g. "ban": 50, will still be set by the server when `power_level_content_override = {events: {"custom": 0}}`
+ * BUT `events` will lose all the other default props listed below.
+ * So we have to do: `power_level_content_override = {events: {...POWER_LEVEL_EVENTS_DEFAULT, "custom": 0}}`
+ * This is very unfortunate if defaults change in synapse we have to keep the sdk in sync... (todo)
+ */
+export const DEFAULT_EVENTS_POWER_LEVEL = {
     [EventType.RoomAvatar]: 50,
-    [EventType.RoomPowerLevels]: 100,
-    [EventType.RoomHistoryVisibility]: 100,
     [EventType.RoomCanonicalAlias]: 50,
-    [EventType.RoomTombstone]: 100,
-    [EventType.RoomServerAcl]: 100,
     [EventType.RoomEncryption]: 100,
+    [EventType.RoomHistoryVisibility]: 100,
+    [EventType.RoomName]: 50,
+    [EventType.RoomPowerLevels]: 100,
+    [EventType.RoomServerAcl]: 100,
+    [EventType.RoomTombstone]: 100,
 };
 
 /**
@@ -177,7 +186,7 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
             createOpts.power_level_content_override = {
                 ...createOpts.power_level_content_override,
                 events: {
-                    ...DEFAULT_EVENT_POWER_LEVELS,
+                    ...DEFAULT_EVENTS_POWER_LEVEL,
                     ...createOpts.power_level_content_override?.events,
                     // Allow all users to send call membership updates
                     [opts.roomType === RoomType.ElementVideo
@@ -191,14 +200,14 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
                 },
             };
         }
-    } else if (SettingsStore.getValue("feature_group_calls")) {
-        // Haven: same merge fix as above - feature_group_calls is enabled by default in this
-        // fork's config, so this branch runs for every non-video-room room creation and was
-        // silently discarding any caller-supplied power_level_content_override entirely.
+    } else if (!SdkConfig.get("element_call").disable) {
+        // Haven: same merge fix as above - this branch runs for every non-video-room room
+        // creation whenever group calls aren't disabled, and was silently discarding any
+        // caller-supplied power_level_content_override entirely.
         createOpts.power_level_content_override = {
             ...createOpts.power_level_content_override,
             events: {
-                ...DEFAULT_EVENT_POWER_LEVELS,
+                ...DEFAULT_EVENTS_POWER_LEVEL,
                 ...createOpts.power_level_content_override?.events,
                 // It should always (including non video rooms) be possible to join a group call.
                 [ElementCallMemberEventType.name]: 0,
@@ -383,7 +392,7 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
         })
         .then(() => {
             if (opts.parentSpace) {
-                return SpaceStore.instance.addRoomToSpace(
+                return SDKContextClass.instance.spaceStore.addRoomToSpace(
                     opts.parentSpace,
                     roomId,
                     [client.getDomain()!],

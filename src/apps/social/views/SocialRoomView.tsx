@@ -24,7 +24,7 @@ import React, {
 } from "react";
 import { MatrixEvent, type Room, KnownMembership, JoinRule, RelationType, EventType } from "matrix-js-sdk/src/matrix";
 import { M_POLL_START } from "matrix-js-sdk/src/@types/polls";
-import { replyCountFor, gatherRoomEvents } from "../utils/thread-relations";
+import { replyCountFor, gatherRoomEvents, buildDirectReplyCounts } from "../utils/thread-relations";
 import { type ICompletion } from "../../../../element-web/apps/web/src/autocomplete/Autocompleter";
 
 import AccessibleButton from "../../../../element-web/apps/web/src/components/views/elements/AccessibleButton";
@@ -146,6 +146,10 @@ function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): Pos
         const id = e.getId();
         if (id) timelineIndex.set(id, i);
     });
+    // Built once here rather than letting replyCountFor rescan `events` from scratch for every
+    // single post below - see buildDirectReplyCounts's own doc for why that matters once backfill
+    // has pulled real history into this room's event pool.
+    const directReplyCounts = buildDirectReplyCounts([events]);
 
     return events
         .filter((e): boolean => {
@@ -174,7 +178,7 @@ function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): Pos
                 // See SocialHomeView's aggregatePosts for why this delegates to matrix-js-sdk's own
                 // Thread.length for a recognized root - keeps this view's number consistent with the
                 // Feed's and the opened thread view's, instead of a third independently-drifting count.
-                replyCount: replyCountFor(event, room, [events]),
+                replyCount: replyCountFor(event, room, [events], directReplyCounts),
             };
         })
         .sort((a, b) => {
@@ -704,15 +708,15 @@ export function SocialRoomView({
                         src={bannerHttpUrl}
                         className="social_RoomView_banner social_RoomView_banner--clickable"
                         alt={`${room.name} banner`}
-                        onClick={() =>
+                        onClick={() => {
                             Modal.createDialog(
                                 ImageView,
                                 { src: bannerHttpUrl, name: room.name },
                                 "mx_Dialog_lightbox",
                                 undefined,
                                 true,
-                            )
-                        }
+                            );
+                        }}
                     />
                 ) : (
                     <div className="social_RoomView_banner" aria-hidden />

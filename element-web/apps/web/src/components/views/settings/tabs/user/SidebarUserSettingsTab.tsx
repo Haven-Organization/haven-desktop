@@ -10,8 +10,8 @@ import React, { type ChangeEvent, useMemo } from "react";
 import {
     VideoCallSolidIcon,
     HomeSolidIcon,
-    UserProfileSolidIcon,
     FavouriteSolidIcon,
+    UserProfileSolidIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { _t } from "../../../../../languageHandler";
@@ -25,6 +25,7 @@ import SettingsTab from "../SettingsTab";
 import { SettingsSection } from "../../shared/SettingsSection";
 import { SettingsSubsection } from "../../shared/SettingsSubsection";
 import SdkConfig from "../../../../../SdkConfig";
+import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
 
 type InteractionName = "WebSettingsSidebarTabSpacesCheckbox" | "WebQuickSettingsPinToSidebarCheckbox";
 
@@ -59,6 +60,8 @@ const SidebarUserSettingsTab: React.FC = () => {
         [MetaSpace.VideoRooms]: videoRoomsEnabled,
     } = useSettingValue("Spaces.enabledMetaSpaces");
     const allRoomsInHome = useSettingValue("Spaces.allRoomsInHome");
+    // "Favourites" and "People" meta spaces are not available in the new room list
+    const useNewRoomList = !LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList");
     const guestSpaUrl = useMemo(() => {
         return SdkConfig.get("element_call").guest_spa_url;
     }, []);
@@ -70,9 +73,6 @@ const SidebarUserSettingsTab: React.FC = () => {
         await SettingsStore.setValue("Spaces.allRoomsInHome", null, SettingLevel.ACCOUNT, event.target.checked);
         PosthogTrackers.trackInteraction("WebSettingsSidebarTabSpacesCheckbox", event, 1);
     };
-
-    // "Favourites" and "People" meta spaces are not available in the new room list
-    const newRoomListEnabled = useSettingValue("feature_new_room_list");
 
     return (
         <SettingsTab>
@@ -103,7 +103,7 @@ const SidebarUserSettingsTab: React.FC = () => {
                         {_t("settings|sidebar|metaspaces_home_all_rooms")}
                     </StyledCheckbox>
 
-                    {!newRoomListEnabled && (
+                    {!useNewRoomList && (
                         <>
                             <StyledCheckbox
                                 checked={!!favouritesEnabled}

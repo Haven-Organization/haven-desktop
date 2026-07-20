@@ -549,10 +549,15 @@
 // Feed
 // ---------------------------------------------------------------------------
 
-.social_Feed {
-    display: flex;
-    flex-direction: column;
-    gap: var(--cpd-space-4x);
+// Haven: this is react-virtuoso's (customScrollParent mode) own root element now, not a plain
+// array of direct SocialEventTile children - it expects normal block flow to measure/position
+// items via getBoundingClientRect, not a flex container, so display:flex/gap here (meant for the
+// old plain .map() rendering) both stopped actually spacing posts apart (Virtuoso wraps each item
+// in its own div, so gap no longer sits between the right elements) and could interfere with
+// Virtuoso's own layout math. Spacing between posts now comes from .social_Feed_item's own
+// margin-bottom instead - see SocialHomeView.tsx's itemContent.
+.social_Feed_item {
+    margin-bottom: var(--cpd-space-4x);
 }
 
 // Sentinel for scroll-triggered "load more" — see useLoadMoreSentinel. Height gives the

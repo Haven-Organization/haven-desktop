@@ -45,7 +45,8 @@ import KeyboardUserSettingsTab from "../settings/tabs/user/KeyboardUserSettingsT
 import SessionManagerTab from "../settings/tabs/user/SessionManagerTab";
 import { UserTab } from "./UserTab";
 import { type NonEmptyArray } from "../../../@types/common";
-import { SDKContext, type SdkContextClass } from "../../../contexts/SDKContext";
+import { SDKContext } from "../../../contexts/SDKContext";
+import { type SDKContextClass } from "../../../contexts/SDKContextClass";
 import { useSettingValue } from "../../../hooks/useSettings";
 import { NoChange, useEventEmitterAsyncState, type AsyncStateCallbackResult } from "../../../hooks/useEventEmitter";
 import { EncryptionUserSettingsTab, type State } from "../settings/tabs/user/EncryptionUserSettingsTab";
@@ -59,7 +60,7 @@ interface IProps {
      * If undefined, the default state is used ("loading").
      */
     initialEncryptionState?: State;
-    sdkContext: SdkContextClass;
+    sdkContext: SDKContextClass;
     onFinished(this: void): void;
 }
 

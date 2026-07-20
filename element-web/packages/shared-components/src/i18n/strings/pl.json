@@ -137,10 +137,7 @@
             "no_chats": "Nie ma jeszcze żadnych czatów",
             "no_chats_description": "Zacznij od wysłania wiadomości lub utworzenia pokoju",
             "no_chats_description_no_room_rights": "Zacznij od wysłania komuś wiadomości",
-            "no_favourites": "Nie masz jeszcze żadnych ulubionych czatów",
-            "no_favourites_description": "Możesz dodać czat do ulubionych w ustawieniach czatu",
             "no_invites": "Nie masz żadnych nieprzeczytanych zaproszeń",
-            "no_lowpriority": "Nie masz żadnych pokoi o niskim priorytecie",
             "no_mentions": "Nie masz żadnych nieprzeczytanych wzmianek",
             "no_people": "Nie prowadzisz jeszcze z nikim czatów prywatnych",
             "no_people_description": "Wyczyść filtry, aby zobaczyć pozostałe czaty",
@@ -197,6 +194,17 @@
         "space_menu": {
             "home": "Strona główna przestrzeni",
             "space_settings": "Ustawienia przestrzeni"
+        },
+        "unread_messages": "Nieprzeczytane wiadomości"
+    },
+    "status": {
+        "set_status": {
+            "away": "Z dala od urządzenia",
+            "be_right_back": "Zaraz wracam",
+            "focus_time": "W trakcie skupienia",
+            "in_a_meeting": "Na spotkaniu",
+            "on_the_road": "W trasie",
+            "set_status_prompt": "Jaki jest twój status?"
         }
     },
     "terms": {
@@ -226,6 +234,11 @@
             "declined": {
                 "call_declined": "Połączenie odrzucone",
                 "call_declined_by_us": "Odrzuciłeś połączenie"
+            },
+            "tombstone": {
+                "room": {
+                    "title": "Połączenie grupowe zakończone"
+                }
             },
             "video_call_title": "Połączenie wideo",
             "voice_call_title": "Połączenie głosowe"

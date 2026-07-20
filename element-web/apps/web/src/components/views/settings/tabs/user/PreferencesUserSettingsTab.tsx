@@ -36,6 +36,7 @@ import { type BooleanSettingKey } from "../../../../../settings/Settings.tsx";
 import { MediaPreviewAccountSettings } from "./MediaPreviewAccountSettings.tsx";
 import { InviteRulesAccountSetting } from "./InviteRulesAccountSettings.tsx";
 import SettingsDropdown from "../../../elements/SettingsDropdown.tsx";
+import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
 
 interface IState {
     timezone: string | undefined;
@@ -241,8 +242,8 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
             timezone: TimezoneHandler.shortBrowserTimezone(),
         });
 
-        const newRoomListEnabled = SettingsStore.getValue("feature_new_room_list");
         const brand = SdkConfig.get().brand;
+        const useNewRoomList = !LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList");
 
         const timezones = this.state.timezones.map((tz) => {
             return <div key={tz}>{tz}</div>;
@@ -276,7 +277,7 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
                     {/* Haven: the new room list's message-preview toggle moved to each section's
                         own "..." menu (Sort/Appearance are per-section now, not global) - nothing
                         left to show here once the new room list is enabled. */}
-                    {!newRoomListEnabled && (
+                    {!useNewRoomList && (
                         <SettingsSubsection heading={_t("settings|preferences|room_list_heading")} formWrap>
                             {this.renderGroup(PreferencesUserSettingsTab.ROOM_LIST_SETTINGS)}
                         </SettingsSubsection>

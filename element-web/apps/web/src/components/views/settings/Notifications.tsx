@@ -93,9 +93,9 @@ const RULE_DISPLAY_ORDER: string[] = [
     RuleId.EncryptedMessage,
 
     // Mentions
-    RuleId.ContainsDisplayName,
     RuleId.ContainsUserName,
     RuleId.AtRoomNotification,
+    RuleId.ContainsDisplayName,
 
     // Other
     RuleId.InviteToSelf,

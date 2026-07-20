@@ -10,6 +10,9 @@ import { TimelineRenderingType } from "../contexts/RoomContext";
 import { Action } from "../dispatcher/actions";
 import defaultDispatcher from "../dispatcher/dispatcher";
 import SettingsStore from "../settings/SettingsStore";
+import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
+
+const useNewRoomList = (): boolean => !LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList");
 
 export const enum Landmark {
     // This is the space/home button in the left panel.
@@ -74,11 +77,11 @@ const landmarkToDomElementMap: Record<Landmark, () => HTMLElement | null | undef
     [Landmark.ACTIVE_SPACE_BUTTON]: () => document.querySelector<HTMLElement>(".mx_SpaceButton_active"),
 
     [Landmark.ROOM_SEARCH]: () =>
-        SettingsStore.getValue("feature_new_room_list")
+        useNewRoomList()
             ? document.querySelector<HTMLElement>("#room-list-search-button")
             : document.querySelector<HTMLElement>(".mx_RoomSearch"),
     [Landmark.ROOM_LIST]: () =>
-        SettingsStore.getValue("feature_new_room_list")
+        useNewRoomList()
             ? document.querySelector<HTMLElement>(".mx_RoomListItemView_selected") ||
               document.querySelector<HTMLElement>(".mx_RoomListItemView")
             : document.querySelector<HTMLElement>(".mx_RoomTile_selected") ||

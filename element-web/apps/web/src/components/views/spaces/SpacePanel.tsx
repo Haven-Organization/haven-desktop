@@ -27,11 +27,11 @@ import classNames from "classnames";
 import { type Room } from "matrix-js-sdk/src/matrix";
 import { KnownMembership } from "matrix-js-sdk/src/types";
 import {
-    FavouriteSolidIcon,
     HomeSolidIcon,
+    FavouriteSolidIcon,
+    UserProfileSolidIcon,
     RoomIcon,
     VideoCallSolidIcon,
-    UserProfileSolidIcon,
     PlusIcon,
     ChevronRightIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
@@ -42,7 +42,6 @@ import { useContextMenu } from "../../structures/ContextMenu";
 import SpaceCreateMenu from "./SpaceCreateMenu";
 import { SpaceButton, SpaceItem } from "./SpaceTreeLevel";
 import { useEventEmitter, useEventEmitterState } from "../../../hooks/useEventEmitter";
-import SpaceStore from "../../../stores/spaces/SpaceStore";
 import {
     getMetaSpaceName,
     isMetaSpace,
@@ -54,10 +53,7 @@ import {
     UPDATE_TOP_LEVEL_SPACES,
 } from "../../../stores/spaces";
 import { RovingTabIndexProvider } from "../../../accessibility/RovingTabIndex";
-import {
-    RoomNotificationStateStore,
-    UPDATE_STATUS_INDICATOR,
-} from "../../../stores/notifications/RoomNotificationStateStore";
+import { UPDATE_STATUS_INDICATOR } from "../../../stores/notifications/RoomNotificationStateStore";
 import type SpaceContextMenu from "../context_menus/SpaceContextMenu";
 import IconizedContextMenu, {
     IconizedContextMenuCheckbox,
@@ -82,6 +78,7 @@ import { UIComponent } from "../../../settings/UIFeature";
 import { ThreadsActivityCentre } from "./threads-activity-centre/";
 import AccessibleButton from "../elements/AccessibleButton";
 import { Landmark, LandmarkNavigation } from "../../../accessibility/LandmarkNavigation";
+import { useMatrixClientContext } from "../../../contexts/MatrixClientContext.tsx";
 // haven apps-framework patch
 import { SpacePanelAppButtons } from "../../../../../../../src/apps/framework/components/SpacePanelAppButtons";
 import { AppsButton } from "../../../../../../../src/apps/framework/components/AppsButton";
@@ -90,21 +87,24 @@ import { getEnabledApps } from "../../../../../../../src/apps/framework/registry
 import { KeyboardShortcut } from "../settings/KeyboardShortcut";
 import { ModuleApi } from "../../../modules/Api.ts";
 import { useModuleSpacePanelItems } from "../../../modules/ExtrasApi.ts";
+import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
 import { UserMenuViewModel } from "../../../viewmodels/menus/UserMenuViewModel.ts";
-import { useMatrixClientContext } from "../../../contexts/MatrixClientContext.tsx";
 import { SDKContext } from "../../../contexts/SDKContext.ts";
+import { OwnProfileStore } from "../../../stores/OwnProfileStore.ts";
+import { type SDKContextClass } from "../../../contexts/SDKContextClass.ts";
 
 const useSpaces = (): [Room[], MetaSpace[], Room[], SpaceKey] => {
-    const invites = useEventEmitterState<Room[]>(SpaceStore.instance, UPDATE_INVITED_SPACES, () => {
-        return SpaceStore.instance.invitedSpaces;
+    const sdkContext = useContext(SDKContext);
+    const invites = useEventEmitterState<Room[]>(sdkContext.spaceStore, UPDATE_INVITED_SPACES, () => {
+        return sdkContext.spaceStore.invitedSpaces;
     });
     const [metaSpaces, actualSpaces] = useEventEmitterState<[MetaSpace[], Room[]]>(
-        SpaceStore.instance,
+        sdkContext.spaceStore,
         UPDATE_TOP_LEVEL_SPACES,
-        () => [SpaceStore.instance.enabledMetaSpaces, SpaceStore.instance.spacePanelSpaces],
+        () => [sdkContext.spaceStore.enabledMetaSpaces, sdkContext.spaceStore.spacePanelSpaces],
     );
-    const activeSpace = useEventEmitterState<SpaceKey>(SpaceStore.instance, UPDATE_SELECTED_SPACE, () => {
-        return SpaceStore.instance.activeSpace;
+    const activeSpace = useEventEmitterState<SpaceKey>(sdkContext.spaceStore, UPDATE_SELECTED_SPACE, () => {
+        return sdkContext.spaceStore.activeSpace;
     });
     return [invites, metaSpaces, actualSpaces, activeSpace];
 };
@@ -155,22 +155,23 @@ const MetaSpaceButton: React.FC<IMetaSpaceButtonProps> = ({ selected, isPanelCol
     );
 };
 
-const getHomeNotificationState = (): NotificationState => {
-    return SpaceStore.instance.allRoomsInHome
-        ? RoomNotificationStateStore.instance.globalState
-        : SpaceStore.instance.getNotificationState(MetaSpace.Home);
+const getHomeNotificationState = (sdkContext: SDKContextClass): NotificationState => {
+    return sdkContext.spaceStore.allRoomsInHome
+        ? sdkContext.roomNotificationStateStore.globalState
+        : sdkContext.spaceStore.getNotificationState(MetaSpace.Home);
 };
 
 const HomeButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollapsed }) => {
-    const allRoomsInHome = useEventEmitterState(SpaceStore.instance, UPDATE_HOME_BEHAVIOUR, () => {
-        return SpaceStore.instance.allRoomsInHome;
+    const sdkContext = useContext(SDKContext);
+    const allRoomsInHome = useEventEmitterState(sdkContext.spaceStore, UPDATE_HOME_BEHAVIOUR, () => {
+        return sdkContext.spaceStore.allRoomsInHome;
     });
-    const [notificationState, setNotificationState] = useState(getHomeNotificationState());
+    const [notificationState, setNotificationState] = useState(getHomeNotificationState(sdkContext));
     const updateNotificationState = useCallback(() => {
-        setNotificationState(getHomeNotificationState());
-    }, []);
+        setNotificationState(getHomeNotificationState(sdkContext));
+    }, [sdkContext]);
     useEffect(updateNotificationState, [updateNotificationState, allRoomsInHome]);
-    useEventEmitter(RoomNotificationStateStore.instance, UPDATE_STATUS_INDICATOR, updateNotificationState);
+    useEventEmitter(sdkContext.roomNotificationStateStore, UPDATE_STATUS_INDICATOR, updateNotificationState);
 
     return (
         <MetaSpaceButton
@@ -187,28 +188,32 @@ const HomeButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollapsed
     );
 };
 
+// Haven: kept alive for the old room list - see legacy-room-list/index.ts's own doc.
 const FavouritesButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollapsed }) => {
+    const sdkContext = useContext(SDKContext);
     return (
         <MetaSpaceButton
             spaceKey={MetaSpace.Favourites}
             selected={selected}
             isPanelCollapsed={isPanelCollapsed}
             label={getMetaSpaceName(MetaSpace.Favourites)}
-            notificationState={SpaceStore.instance.getNotificationState(MetaSpace.Favourites)}
+            notificationState={sdkContext.spaceStore.getNotificationState(MetaSpace.Favourites)}
             size="32px"
             icon={<FavouriteSolidIcon />}
         />
     );
 };
 
+// Haven: kept alive for the old room list - see legacy-room-list/index.ts's own doc.
 const PeopleButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollapsed }) => {
+    const sdkContext = useContext(SDKContext);
     return (
         <MetaSpaceButton
             spaceKey={MetaSpace.People}
             selected={selected}
             isPanelCollapsed={isPanelCollapsed}
             label={getMetaSpaceName(MetaSpace.People)}
-            notificationState={SpaceStore.instance.getNotificationState(MetaSpace.People)}
+            notificationState={sdkContext.spaceStore.getNotificationState(MetaSpace.People)}
             size="32px"
             icon={<UserProfileSolidIcon />}
         />
@@ -216,13 +221,14 @@ const PeopleButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollaps
 };
 
 const OrphansButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollapsed }) => {
+    const sdkContext = useContext(SDKContext);
     return (
         <MetaSpaceButton
             spaceKey={MetaSpace.Orphans}
             selected={selected}
             isPanelCollapsed={isPanelCollapsed}
             label={getMetaSpaceName(MetaSpace.Orphans)}
-            notificationState={SpaceStore.instance.getNotificationState(MetaSpace.Orphans)}
+            notificationState={sdkContext.spaceStore.getNotificationState(MetaSpace.Orphans)}
             size="32px"
             icon={<RoomIcon />}
         />
@@ -230,13 +236,14 @@ const OrphansButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollap
 };
 
 const VideoRoomsButton: React.FC<MetaSpaceButtonProps> = ({ selected, isPanelCollapsed }) => {
+    const sdkContext = useContext(SDKContext);
     return (
         <MetaSpaceButton
             spaceKey={MetaSpace.VideoRooms}
             selected={selected}
             isPanelCollapsed={isPanelCollapsed}
             label={getMetaSpaceName(MetaSpace.VideoRooms)}
-            notificationState={SpaceStore.instance.getNotificationState(MetaSpace.VideoRooms)}
+            notificationState={sdkContext.spaceStore.getNotificationState(MetaSpace.VideoRooms)}
             size="32px"
             icon={<VideoCallSolidIcon />}
         />
@@ -312,6 +319,7 @@ interface IInnerSpacePanelProps extends DroppableProvidedProps {
 // Optimisation based on https://github.com/atlassian/react-beautiful-dnd/blob/master/docs/api/droppable.md#recommended-droppable--performance-optimisation
 const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
     ({ children, isPanelCollapsed, setPanelCollapsed, isDraggingOver, innerRef, ...props }) => {
+        const sdkContext = useContext(SDKContext);
         const [invites, metaSpaces, actualSpaces, activeSpace] = useSpaces();
 
         // haven apps-framework patch: track whether an app is open so we can deselect both the
@@ -372,13 +380,13 @@ const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
                       | undefined;
 
                   if (clickedSpaceKey && clickedSpaceKey === activeSpace) {
-                      const roomId = SpaceStore.instance.getLastSelectedRoomIdForSpace(clickedSpaceKey);
+                      const roomId = sdkContext.spaceStore.getLastSelectedRoomIdForSpace(clickedSpaceKey);
                       const cliSpace = isMetaSpace(clickedSpaceKey) ? null : client.getRoom(clickedSpaceKey);
                       if (
                           roomId &&
                           cliSpace?.getMyMembership() !== KnownMembership.Invite &&
                           client.getRoom(roomId)?.getMyMembership() === KnownMembership.Join &&
-                          SpaceStore.instance.isRoomInSpace(clickedSpaceKey, roomId)
+                          sdkContext.spaceStore.isRoomInSpace(clickedSpaceKey, roomId)
                       ) {
                           defaultDispatcher.dispatch<ViewRoomPayload>(
                               {
@@ -466,7 +474,7 @@ const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
                             size="32px"
                             selected={activeSpace === item.spaceKey}
                             onClick={() => {
-                                SpaceStore.instance.setActiveSpace(item.spaceKey);
+                                sdkContext.spaceStore.setActiveSpace(item.spaceKey);
                                 item.onSelected?.();
                             }}
                         />
@@ -487,7 +495,8 @@ interface IProps {
 }
 
 const SpacePanel: React.FC<IProps> = ({ userMenuPortalTarget }) => {
-    const client = useMatrixClientContext();
+    const sdkContext = useContext(SDKContext);
+    const client = sdkContext.client!;
     // haven apps-framework patch
     const showSpacesBar = useSettingValue("Haven.showSpacesBar");
     const [dragging, setDragging] = useState(false);
@@ -497,7 +506,6 @@ const SpacePanel: React.FC<IProps> = ({ userMenuPortalTarget }) => {
         if (ref.current) UIStore.instance.trackElementDimensions("SpacePanel", ref.current);
         return () => UIStore.instance.stopTrackingElementDimensions("SpacePanel");
     }, []);
-    const sdkContext = useContext(SDKContext);
 
     useDispatcher(defaultDispatcher, (payload: ActionPayload) => {
         if (payload.action === Action.ToggleSpacePanel) {
@@ -505,15 +513,15 @@ const SpacePanel: React.FC<IProps> = ({ userMenuPortalTarget }) => {
         }
     });
 
-    const newRoomListEnabled = useSettingValue("feature_new_room_list");
+    const useNewRoomList = !LEGACY_ROOM_LIST_AVAILABLE || !useSettingValue("Haven.useOldRoomList");
 
     const userMenuVm = useCreateAutoDisposedViewModel(
         () =>
             new UserMenuViewModel(
+                { ownProfileStore: OwnProfileStore.instance },
                 defaultDispatcher,
                 client,
                 isPanelCollapsed,
-                sdkContext.oidcClientStore.accountManagementEndpoint,
             ),
     );
 
@@ -539,14 +547,14 @@ const SpacePanel: React.FC<IProps> = ({ userMenuPortalTarget }) => {
                     onDragEnd={(result) => {
                         setDragging(false);
                         if (!result.destination) return; // dropped outside the list
-                        SpaceStore.instance.moveRootSpace(result.source.index, result.destination.index);
+                        sdkContext.spaceStore.moveRootSpace(result.source.index, result.destination.index);
                         onDragEndHandler();
                     }}
                 >
                     <nav
                         className={classNames("mx_SpacePanel", {
                             collapsed: isPanelCollapsed,
-                            newUi: newRoomListEnabled,
+                            newUi: useNewRoomList,
                             // haven apps-framework patch
                             haven_SpacePanel_hidden: !showSpacesBar,
                         })}

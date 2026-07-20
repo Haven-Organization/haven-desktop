@@ -5,7 +5,7 @@
  * No new client instances are created here.
  */
 
-import { type MatrixClient, JoinRule, KnownMembership, Method, ReceiptType } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, EventType, JoinRule, KnownMembership, Method, ReceiptType } from "matrix-js-sdk/src/matrix";
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import SettingsStore from "../../../../element-web/apps/web/src/settings/SettingsStore";
@@ -37,21 +37,23 @@ export const PROFILE_ROOM_LINK_CHANGED = "social_profile_room_link_changed";
 // ---------------------------------------------------------------------------
 
 export async function updateRoomName(client: MatrixClient, roomId: string, name: string): Promise<void> {
-    await client.sendStateEvent(roomId, "m.room.name", { name }, "");
+    await client.sendStateEvent(roomId, EventType.RoomName, { name }, "");
 }
 
 export async function updateRoomAvatar(client: MatrixClient, roomId: string, file: File): Promise<void> {
     const { content_uri: url } = await client.uploadContent(file);
-    await client.sendStateEvent(roomId, "m.room.avatar", { url }, "");
+    await client.sendStateEvent(roomId, EventType.RoomAvatar, { url }, "");
 }
 
 export async function updateRoomBanner(client: MatrixClient, roomId: string, file: File): Promise<void> {
     const { content_uri: url } = await client.uploadContent(file);
-    await client.sendStateEvent(roomId, ROOM_BANNER_EVENT_TYPE, { url, info: { mimetype: file.type } }, "");
+    // ROOM_BANNER_EVENT_TYPE is a Haven-specific event type, not part of matrix-js-sdk's own
+    // StateEvents map, so sendStateEvent's content type can't be inferred from it.
+    await client.sendStateEvent(roomId, ROOM_BANNER_EVENT_TYPE as any, { url, info: { mimetype: file.type } }, "");
 }
 
 export async function removeRoomBanner(client: MatrixClient, roomId: string): Promise<void> {
-    await client.sendStateEvent(roomId, ROOM_BANNER_EVENT_TYPE, {}, "");
+    await client.sendStateEvent(roomId, ROOM_BANNER_EVENT_TYPE as any, {}, "");
 }
 
 // ---------------------------------------------------------------------------

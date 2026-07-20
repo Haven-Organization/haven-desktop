@@ -11,7 +11,7 @@ import React, { type JSX, type RefObject } from "react";
 import classNames from "classnames";
 import { type Emoji as IEmoji } from "@matrix-org/emojibase-bindings";
 
-import { CATEGORY_HEADER_HEIGHT, EMOJI_HEIGHT, EMOJIS_PER_ROW, STICKERS_PER_ROW } from "./EmojiPicker";
+import { CATEGORY_HEADER_HEIGHT, EMOJI_HEIGHT, EMOJIS_PER_ROW, STICKERS_PER_ROW } from "./config";
 import LazyRenderList from "../elements/LazyRenderList";
 import Emoji from "./Emoji";
 import { isCustomEmoji } from "./customEmoji";

@@ -12,4 +12,13 @@ cd `dirname $0`
         while read i; do
             echo "@import \"$i\";"
         done
+
+    # Haven: the old room list's own CSS lives outside this directory, isolated in
+    # src/legacy-room-list/css/ instead of the usual res/css/... path that mirrors
+    # src/components/... (see src/legacy-room-list/index.ts's own doc) - the find above never
+    # scans it, so it was silently dropped from every regeneration until this was added.
+    find ../../src/legacy-room-list/css -iname _\*.pcss | LC_ALL=C sort |
+        while read i; do
+            echo "@import \"$i\";"
+        done
 } > _components.pcss

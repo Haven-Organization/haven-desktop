@@ -13,23 +13,17 @@ import { ExploreIcon, DialPadIcon } from "@vector-im/compound-design-tokens/asse
 
 import dis from "../../dispatcher/dispatcher";
 import { _t } from "../../languageHandler";
-import LegacyRoomList from "../views/rooms/LegacyRoomList";
-import LegacyCallHandler, { LegacyCallHandlerEvent } from "../../LegacyCallHandler";
-import { HEADER_HEIGHT } from "../views/rooms/RoomSublist";
+import { LegacyCallHandlerEvent } from "../../LegacyCallHandler";
 import { Action } from "../../dispatcher/actions";
-import RoomSearch from "./RoomSearch";
 import type ResizeNotifier from "../../utils/ResizeNotifier";
-import SpaceStore from "../../stores/spaces/SpaceStore";
+import { SDKContextClass } from "../../contexts/SDKContextClass";
 import { MetaSpace, type SpaceKey, UPDATE_SELECTED_SPACE } from "../../stores/spaces";
 import { getKeyBindingsManager } from "../../KeyBindingsManager";
 import UIStore from "../../stores/UIStore";
 import { type IState as IRovingTabIndexState } from "../../accessibility/RovingTabIndex";
-import LegacyRoomListHeader from "../views/rooms/LegacyRoomListHeader";
 import { BreadcrumbsStore } from "../../stores/BreadcrumbsStore";
-import RoomListStore, { LISTS_UPDATE_EVENT } from "../../stores/room-list/RoomListStore";
 import { UPDATE_EVENT } from "../../stores/AsyncStore";
 import IndicatorScrollbar from "./IndicatorScrollbar";
-import RoomBreadcrumbs from "../views/rooms/RoomBreadcrumbs";
 import { KeyBindingAction } from "../../accessibility/KeyboardShortcuts";
 import { shouldShowComponent } from "../../customisations/helpers/UIComponents";
 import { UIComponent } from "../../settings/UIFeature";
@@ -37,6 +31,16 @@ import AccessibleButton, { type ButtonEvent } from "../views/elements/Accessible
 import PosthogTrackers from "../../PosthogTrackers";
 import { Landmark, LandmarkNavigation } from "../../accessibility/LandmarkNavigation";
 import SettingsStore from "../../settings/SettingsStore";
+import {
+    LegacyRoomList,
+    LegacyRoomListHeader,
+    LegacyRoomSearch,
+    LegacyRoomBreadcrumbs as RoomBreadcrumbs,
+    LEGACY_ROOM_LIST_HEADER_HEIGHT as HEADER_HEIGHT,
+    LegacyRoomListStore as RoomListStore,
+    LEGACY_ROOM_LIST_LISTS_UPDATE_EVENT as LISTS_UPDATE_EVENT,
+    LEGACY_ROOM_LIST_AVAILABLE,
+} from "legacy-room-list";
 import { RoomListPanel } from "../views/rooms/RoomListPanel";
 
 interface IProps {
@@ -60,7 +64,9 @@ interface IState {
 
 export default class LeftPanel extends React.Component<IProps, IState> {
     private listContainerRef = createRef<HTMLDivElement>();
-    private roomListRef = createRef<LegacyRoomList>();
+    // Haven: loosely typed on purpose - avoids depending on the concrete (possibly-stubbed,
+    // see legacy-room-list-stub) class shape just for this ref.
+    private roomListRef = createRef<{ focus: () => void } | null>();
     private focusedElement: Element | null = null;
     private isDoingStickyHeaders = false;
 
@@ -68,9 +74,9 @@ export default class LeftPanel extends React.Component<IProps, IState> {
         super(props);
 
         this.state = {
-            activeSpace: SpaceStore.instance.activeSpace,
+            activeSpace: SDKContextClass.instance.spaceStore.activeSpace,
             showBreadcrumbs: LeftPanel.breadcrumbsMode,
-            supportsPstnProtocol: LegacyCallHandler.instance.getSupportsPstnProtocol(),
+            supportsPstnProtocol: SDKContextClass.instance.legacyCallHandler.getSupportsPstnProtocol(),
         };
     }
 
@@ -80,9 +86,14 @@ export default class LeftPanel extends React.Component<IProps, IState> {
 
     public componentDidMount(): void {
         BreadcrumbsStore.instance.on(UPDATE_EVENT, this.onBreadcrumbsUpdate);
-        RoomListStore.instance.on(LISTS_UPDATE_EVENT, this.onBreadcrumbsUpdate);
-        SpaceStore.instance.on(UPDATE_SELECTED_SPACE, this.updateActiveSpace);
-        LegacyCallHandler.instance.on(LegacyCallHandlerEvent.ProtocolSupport, this.updateProtocolSupport);
+        // Haven: RoomListStore here is the old room list's own store (see the "legacy-room-list"
+        // barrel import above) - its .instance getter throws when the old room list wasn't built in
+        // at all (see legacy-room-list-stub/index.ts), so only touch it when it's actually available.
+        if (LEGACY_ROOM_LIST_AVAILABLE) {
+            RoomListStore.instance.on(LISTS_UPDATE_EVENT, this.onBreadcrumbsUpdate);
+        }
+        SDKContextClass.instance.spaceStore.on(UPDATE_SELECTED_SPACE, this.updateActiveSpace);
+        SDKContextClass.instance.legacyCallHandler.on(LegacyCallHandlerEvent.ProtocolSupport, this.updateProtocolSupport);
 
         if (this.listContainerRef.current) {
             UIStore.instance.trackElementDimensions("ListContainer", this.listContainerRef.current);
@@ -95,9 +106,11 @@ export default class LeftPanel extends React.Component<IProps, IState> {
 
     public componentWillUnmount(): void {
         BreadcrumbsStore.instance.off(UPDATE_EVENT, this.onBreadcrumbsUpdate);
-        RoomListStore.instance.off(LISTS_UPDATE_EVENT, this.onBreadcrumbsUpdate);
-        SpaceStore.instance.off(UPDATE_SELECTED_SPACE, this.updateActiveSpace);
-        LegacyCallHandler.instance.off(LegacyCallHandlerEvent.ProtocolSupport, this.updateProtocolSupport);
+        if (LEGACY_ROOM_LIST_AVAILABLE) {
+            RoomListStore.instance.off(LISTS_UPDATE_EVENT, this.onBreadcrumbsUpdate);
+        }
+        SDKContextClass.instance.spaceStore.off(UPDATE_SELECTED_SPACE, this.updateActiveSpace);
+        SDKContextClass.instance.legacyCallHandler.off(LegacyCallHandlerEvent.ProtocolSupport, this.updateProtocolSupport);
         UIStore.instance.stopTrackingElementDimensions("ListContainer");
         UIStore.instance.removeListener("ListContainer", this.refreshStickyHeaders);
         this.listContainerRef.current?.removeEventListener("scroll", this.onScroll);
@@ -110,7 +123,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
     }
 
     private updateProtocolSupport = (): void => {
-        this.setState({ supportsPstnProtocol: LegacyCallHandler.instance.getSupportsPstnProtocol() });
+        this.setState({ supportsPstnProtocol: SDKContextClass.instance.legacyCallHandler.getSupportsPstnProtocol() });
     };
 
     private updateActiveSpace = (activeSpace: SpaceKey): void => {
@@ -386,7 +399,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
                     (search still precedes dial-pad/explore) for a sane tab order; the @container
                     query uses CSS `order` to reflow them visually instead. */}
                 <div className="mx_LeftPanel_searchExploreRow">
-                    <RoomSearch isMinimized={this.props.isMinimized} />
+                    <LegacyRoomSearch isMinimized={this.props.isMinimized} />
                 </div>
                 {(dialPadButton || rightButton) && (
                     <div className="haven_LeftPanel_actionButtons">
@@ -399,7 +412,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
     }
 
     public render(): React.ReactNode {
-        const useNewRoomList = SettingsStore.getValue("feature_new_room_list");
+        const useNewRoomList = (!LEGACY_ROOM_LIST_AVAILABLE || !SettingsStore.getValue("Haven.useOldRoomList"));
         const containerClasses = classNames({
             mx_LeftPanel: true,
             mx_LeftPanel_newRoomList: useNewRoomList,
@@ -430,7 +443,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
                 activeSpace={this.state.activeSpace}
                 onResize={this.refreshStickyHeaders}
                 onListCollapse={this.refreshStickyHeaders}
-                ref={this.roomListRef}
+                ref={this.roomListRef as React.Ref<LegacyRoomList>}
             />
         );
 

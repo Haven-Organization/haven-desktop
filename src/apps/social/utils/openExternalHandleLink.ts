@@ -28,11 +28,8 @@ export function openExternalHandleLink(url: string): void {
         return;
     }
 
-    Modal.createDialog(ExternalHandleLinkWarningDialog, {
-        url,
-        domain,
-        onFinished: (openLink?: boolean) => {
-            if (openLink) openInNewTab(url);
-        },
+    const { finished } = Modal.createDialog(ExternalHandleLinkWarningDialog, { url, domain });
+    finished.then(([openLink]: [boolean?]) => {
+        if (openLink) openInNewTab(url);
     });
 }
