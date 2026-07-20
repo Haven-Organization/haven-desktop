@@ -174,6 +174,18 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
     return {
         ...development,
 
+        // Haven: webpack 5's own default cache (mode: "development") is in-memory only, thrown
+        // away every time this process exits - so restarting the dev server always forces a full
+        // cold recompile of the entire codebase, even though nothing but the running process
+        // actually changed. Persisting it to disk instead means a restart only has to redo the
+        // work for whatever's genuinely changed since the last run. buildDependencies.config
+        // invalidates the cache automatically if this file itself changes. Left as the (unwritten)
+        // default for production builds - those are one-shot anyway, so there's no restart to
+        // speed up, and it's not worth the risk of a stale on-disk cache affecting a shipped build.
+        ...(devMode
+            ? { cache: { type: "filesystem" as const, buildDependencies: { config: [fileURLToPath(import.meta.url)] } } }
+            : {}),
+
         experiments: {
             asyncWebAssembly: true,
         },
