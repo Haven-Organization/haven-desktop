@@ -66,6 +66,19 @@ const BIGEMOJI_REGEX = (() => {
     }
 })();
 
+// A message this long or longer skips the BIGEMOJI_REGEX check entirely (see its call site in
+// bodyToNode) rather than ever running the regex on it - found 2026-07-20 profiling a real freeze
+// that lasted several minutes with zero recovery, on a message consisting of thousands of repeated
+// flag emoji mixed with a handful of HTML tags. `^(alternation)+$` against a long, mostly-but-not-
+// entirely-matching string is a textbook catastrophic-backtracking (ReDoS) shape - unlike a thrown
+// error (which the try/catch around this whole check already handles, added for an earlier,
+// different pathological post that hit "Maximum call stack size exceeded"), runaway backtracking
+// never throws, it just runs for an amount of time that blows up combinatorially with input length -
+// no try/catch or iteration cap can bound it once started, it has to be avoided before calling exec()
+// at all. A real "big emoji" message (the styling this check exists for) is a handful of emoji at
+// most; nothing meaningful is lost by skipping the check past this length.
+const BIGEMOJI_REGEX_MAX_LENGTH = 1000;
+
 /*
  * Return true if the given string contains emoji
  * Uses a much, much simpler regex than emojibase's so will give false
@@ -252,6 +265,26 @@ const emojiToJsxSpan = (emoji: string, key: Key): JSX.Element => (
     </span>
 );
 
+// Caps how many individual emoji this function will wrap in their own <span> (for hover-shortcode
+// tooltips) per message - found 2026-07-20 profiling a real freeze: a single message consisting of
+// thousands of repeated flag emoji (a 53KB formatted_body, one grapheme-segmenter iteration + regex
+// test + shortcode lookup per emoji, all synchronous) pegged the main thread for minutes on render.
+// This is a distinct failure mode from the existing pathological-content guard elsewhere in this
+// file (a thrown stack overflow from deeply *nested* HTML) - flat repetition never throws, it's just
+// slow, so that guard never catches it. Past this many emoji in one message, the rest of the message
+// renders as plain text instead of continuing the per-grapheme loop - a message with this many
+// distinct emoji has no real practical benefit from individual hover tooltips on the remainder
+// anyway.
+//
+// Critically, once the cap is hit, the *rest of the raw message text is dropped too* (see below) -
+// capping only the wrapping loop and still appending the true remainder (tens of thousands more
+// characters for a message like the one that prompted this) doesn't actually fix the freeze: the
+// browser's own text shaping/layout engine still has to render every one of those emoji glyphs once
+// they land in the DOM as one huge text node, which is just as slow as the JS-side loop this caps -
+// confirmed by a live repro that was STILL freezing for minutes after the wrapping-loop cap alone
+// shipped.
+const MAX_EMOJI_SUBSTITUTIONS_PER_MESSAGE = 500;
+
 /**
  * Wraps emojis in <span> to style them separately from the rest of message. Consecutive emojis (and modifiers) are wrapped
  * in the same <span>.
@@ -269,15 +302,28 @@ export function formatEmojis(message: string | undefined, isHtmlMessage?: boolea
 
     let text = "";
     let key = 0;
+    let emojiCount = 0;
 
     for (const data of graphemeSegmenter.segment(message)) {
         if (EMOJI_REGEX.test(data.segment)) {
+            if (emojiCount >= MAX_EMOJI_SUBSTITUTIONS_PER_MESSAGE) {
+                // Deliberately not `message.slice(data.index)` - see this cap's own comment above.
+                // A short plain-text marker is also safe to append even mid-way through the
+                // original HTML's tag structure (isHtmlMessage case): any tag left unclosed by
+                // dropping the rest of the message (e.g. a wrapping <blockquote> whose closing tag
+                // was past this cut point) is auto-closed by the browser's own tolerant HTML
+                // parsing when this eventually gets inserted via dangerouslySetInnerHTML, same as
+                // any other truncated HTML fragment - not a real breakage, just an implicit close.
+                text += "…";
+                break;
+            }
             if (text) {
                 result.push(text);
                 text = "";
             }
             result.push(emojiToSpan(data.segment, key));
             key++;
+            emojiCount++;
         } else {
             text += data.segment;
         }
@@ -458,7 +504,10 @@ export function bodyToNode(content: IContent, highlights?: string[], opts: Event
             // messages.
             contentBodyTrimmed = contentBodyTrimmed.replace(EMOJI_SEPARATOR_REGEX, "");
 
-            const match = BIGEMOJI_REGEX.exec(contentBodyTrimmed);
+            // See BIGEMOJI_REGEX_MAX_LENGTH's own comment - skip the regex entirely past this
+            // length rather than ever calling exec() on it.
+            const match =
+                contentBodyTrimmed.length < BIGEMOJI_REGEX_MAX_LENGTH ? BIGEMOJI_REGEX.exec(contentBodyTrimmed) : null;
             emojiBody =
                 match?.[0]?.length === contentBodyTrimmed.length &&
                 // Prevent user pills expanding for users with only emoji in

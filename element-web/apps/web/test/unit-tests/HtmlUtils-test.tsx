@@ -233,9 +233,40 @@ describe("formatEmojis", () => {
             expect(res[i].props.title).toEqual(`:${title}:`);
         }
     });
+
+    it("stops wrapping individual emoji past the substitution cap and drops the rest of the message", () => {
+        // 600 flag emoji in a row - past the 500 cap. The remaining 100 are dropped entirely (not
+        // just left unwrapped) - see the cap's own comment in HtmlUtils.tsx for why: a real 53KB
+        // message of repeated flag emoji still froze the app for minutes even after wrapping alone
+        // was capped, because the raw remainder still had to be shaped/laid out by the browser
+        // itself once inserted into the DOM.
+        const message = "🇪🇸".repeat(600);
+        const res = formatEmojis(message, false);
+
+        const spans = res.filter((el) => typeof el !== "string");
+        const plainText = res.filter((el) => typeof el === "string").join("");
+
+        expect(spans).toHaveLength(500);
+        expect(plainText).toEqual("…");
+    });
 });
 
 describe("bodyToNode", () => {
+    it("skips the big-emoji check (rather than hang) for a very long mostly-emoji message", () => {
+        // Regression test for a real freeze: BIGEMOJI_REGEX (^(alternation)+$) exhibits catastrophic
+        // backtracking against a long run of emoji that doesn't match all the way to the end (see
+        // BIGEMOJI_REGEX_MAX_LENGTH's own comment in HtmlUtils.tsx) - a real 53KB message of
+        // thousands of repeated flag emoji froze the whole app for several minutes with no recovery
+        // before this guard existed. This test would hang (and eventually fail on Jest's own test
+        // timeout) if the guard were removed or the threshold raised back above this message's
+        // length - the trailing "X" is deliberate, so the string never actually matches as
+        // all-emoji, same shape as the real pathological post.
+        const flagSpam = "\u{1F1EA}\u{1F1F8}".repeat(3000) + "X";
+        const { className } = bodyToNode({ body: flagSpam, msgtype: "m.text" }, [], { stripReplyFallback: true });
+
+        expect(className).not.toContain("mx_EventTile_bigEmoji");
+    });
+
     it("generates big emoji for emoji made of multiple characters", () => {
         const { className, emojiBodyElements } = bodyToNode(
             {
