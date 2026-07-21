@@ -118,7 +118,7 @@ export async function clearProfileRoomLink(client: MatrixClient): Promise<void> 
  *  single-field one Synapse apparently doesn't extend to arbitrary keys. */
 export async function getProfileRoomLink(client: MatrixClient, userId: string): Promise<string | null> {
     try {
-        const profile = (await client.getProfileInfo(userId)) as unknown as Record<string, string>;
+        const profile = (await withTimeout(client.getProfileInfo(userId), 15_000)) as unknown as Record<string, string>;
         return profile[MSC4501_PROFILE_ROOM_KEY] || null;
     } catch {
         return null;
@@ -129,6 +129,29 @@ export async function getProfileRoomLink(client: MatrixClient, userId: string): 
  *  hash-based !opaque form with no server name suffix (the same change event IDs already went
  *  through) — the trailing :server part is optional, not required. */
 export const PROFILE_ROOM_ID_PATTERN = /^![^\s:]+(:[^\s]+)?$/;
+
+/** Races `promise` against a timeout — several matrix-js-sdk calls used in profile-room resolution
+ *  accept no timeout or AbortSignal of their own, and a request that never settles (e.g. resolving a
+ *  bridged/fediverse user's profile info/room from an unresponsive remote homeserver) can otherwise
+ *  hang forever with no rejection at all, which a try/catch can't do anything about. Rejects with
+ *  `timedOut` on expiry so callers can tell that apart from a real failure if they ever need to.
+ *  Exported so callers needing a broader safety net than any single call here can reuse it too (see
+ *  handleViewUser in SocialHomeView.tsx). */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("timedOut")), ms);
+        promise.then(
+            (value) => {
+                clearTimeout(timer);
+                resolve(value);
+            },
+            (err) => {
+                clearTimeout(timer);
+                reject(err);
+            },
+        );
+    });
+}
 
 export type ProfileRoomResolution =
     /** client.getRoom(profileRoomId) now returns a usable Room — already joined, or just peeked. */
@@ -178,7 +201,7 @@ export async function resolveProfileRoom(
 
     let summary;
     try {
-        summary = await client.getRoomSummary(profileRoomId);
+        summary = await withTimeout(client.getRoomSummary(profileRoomId), 15_000);
     } catch {
         return { kind: "private" };
     }
@@ -189,7 +212,7 @@ export async function resolveProfileRoom(
     if (joinRule === JoinRule.Public) {
         if (summary.world_readable) {
             try {
-                await client.peekInRoom(profileRoomId);
+                await withTimeout(client.peekInRoom(profileRoomId), 15_000);
                 return { kind: "room" };
             } catch {
                 // Summary said world-readable but the peek itself was refused/failed — fall back

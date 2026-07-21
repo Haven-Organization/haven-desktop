@@ -2,9 +2,10 @@
  * Social Overlay — SocialUserProfileView
  *
  * Shown instead of a real profile room when a clicked user's linked profile room can't be shown at
- * all — either they never linked a valid one (`reason: "no_profile"`, the default) or it's
+ * all — either they never linked a valid one (`reason: "no_profile"`, the default), it's
  * invite-only/private (`reason: "private"` — see resolveProfileRoom in social-actions.ts, which is
- * what decides between this and SocialProfilePreview for a public/knockable room). Mirrors
+ * what decides between this and SocialProfilePreview for a public/knockable room), or resolving it
+ * failed outright (`reason: "error"` — see handleViewUser in SocialHomeView.tsx). Mirrors
  * SocialRoomView's own profile page layout (banner/avatar/name) so it doesn't look like a dead
  * end, but uses the user's own live Matrix profile (avatar_url/displayname) instead of a room's,
  * and has no posts, no composer, no follow/edit actions.
@@ -20,7 +21,7 @@ import { useLiveUserProfile } from "../utils/liveUserProfile";
 
 interface Props {
     userId: string;
-    reason?: "no_profile" | "private";
+    reason?: "no_profile" | "private" | "error";
     onBack?: () => void;
 }
 
@@ -75,7 +76,9 @@ export function SocialUserProfileView({ userId, reason = "no_profile", onBack }:
                 <p>
                     {reason === "private"
                         ? `${displayName}'s profile is private.`
-                        : `${displayName} hasn't created a profile yet.`}
+                        : reason === "error"
+                          ? `Couldn't load ${displayName}'s profile right now. Try again later.`
+                          : `${displayName} hasn't created a profile yet.`}
                 </p>
             </div>
         </div>

@@ -103,6 +103,7 @@ import {
     sendPost,
     getProfileRoomLink,
     resolveProfileRoom,
+    withTimeout,
 } from "../utils/social-actions";
 import { processSlashCommand } from "../utils/socialSlashCommands";
 import { openCreateGroupDialog, openCreateProfileDialog } from "../utils/createSocialRoom";
@@ -145,13 +146,14 @@ interface SocialNav {
     section: SocialSection;
     roomId?: string;
     /** Set when viewing a user whose linked profile room can't be resolved to a real Room object —
-     *  either they have none at all (or an invalid one) or it's invite-only/private. Shows a
-     *  profile-shaped placeholder page for that user (their own live avatar/displayname, no posts)
-     *  instead of a real room. `reason` distinguishes "never made one"/"invalid" from "exists but
-     *  you can't see it" so the placeholder can say the right thing. Mutually exclusive with
+     *  either they have none at all (or an invalid one), it's invite-only/private, or resolving it
+     *  failed outright (e.g. a federated getRoomSummary/peekInRoom call to an unresponsive remote
+     *  homeserver timed out - see handleViewUser). Shows a profile-shaped placeholder page for that
+     *  user (their own live avatar/displayname, no posts) instead of a real room. `reason`
+     *  distinguishes these cases so the placeholder can say the right thing. Mutually exclusive with
      *  roomId/roomPreview in practice; kept separate so this is unambiguous from "room not found". */
     viewUserId?: string;
-    viewUserReason?: "no_profile" | "private";
+    viewUserReason?: "no_profile" | "private" | "error";
     /** Set when the user's profile room is public-or-knockable but couldn't be (fully) peeked —
      *  no Room object exists, just what its public summary revealed. Shows a lighter, summary-only
      *  profile page with a Follow/Request Follow call to action instead of SocialRoomView's full
@@ -456,48 +458,69 @@ export function SocialHomeView(): JSX.Element {
     // see SocialUserProfileView) rather than falling back to the right panel.
     const handleViewUser = useCallback(
         (userId: string) => {
-            void getProfileRoomLink(client, userId).then(async (profileRoomId) => {
-                const resolution = await resolveProfileRoom(client, profileRoomId);
-                switch (resolution.kind) {
-                    case "room":
-                        // profileRoomId is non-null here — "room" is only returned once
-                        // client.getRoom(profileRoomId) succeeds (already joined, or just peeked).
-                        viewRoom(profileRoomId!);
-                        break;
-                    case "preview":
-                        setNav((prev: SocialNav) => ({
-                            section: prev.section,
-                            roomPreview: {
-                                userId,
-                                roomId: profileRoomId!,
-                                joinRule: resolution.joinRule,
-                                name: resolution.name,
-                                avatarUrl: resolution.avatarUrl,
-                                topic: resolution.topic,
-                                roomType: resolution.roomType,
-                            },
-                        }));
-                        break;
-                    case "private":
-                        setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "private" }));
-                        break;
-                    case "invalid":
-                        setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "no_profile" }));
-                        break;
-                }
-                // No-op for every caller except the pending-user mount case above - see
-                // resolvingPendingUser's own doc for why this needs clearing once resolved.
-                setResolvingPendingUser(false);
-                // FeedPane's own thread view (its `threadView` local state, see closeThreadToken's
-                // own doc there) is invisible to `nav` - every branch above already updated `nav`
-                // correctly, but clicking a sender's name *from inside* FeedPane's thread panel left
-                // that panel showing regardless, since nothing had ever told it to close. Bumping the
-                // same token used for hash-driven resets closes it here too, whichever of the four
-                // outcomes above this call resolved to. Harmless when this call didn't originate from
-                // FeedPane's thread view at all (a currently-unmounted or already-closed FeedPane just
-                // ignores it).
-                setCloseThreadToken((t) => t + 1);
-            });
+            // getProfileRoomLink and resolveProfileRoom's own individual network calls are each
+            // timeout-bounded (see withTimeout in social-actions.ts) - up to ~15s + ~30s worst case
+            // (resolveProfileRoom can make two sequential calls). This outer withTimeout is a hard
+            // backstop on top of that, not a replacement for it: it guarantees the UI can't get stuck
+            // forever even if some other await in here (present or added later) turns out to be
+            // unbounded too - safer than relying on every individual call being correctly wrapped.
+            // The .catch() below is still required even with every call timeout-bounded: without it,
+            // any rejection (a timeout, or a genuinely unexpected error e.g. from setNav/viewRoom
+            // themselves) would leave resolvingPendingUser stuck true forever with no recovery - the
+            // "still resolving" spinner would show indefinitely instead of ever reaching a real
+            // outcome.
+            void withTimeout(
+                getProfileRoomLink(client, userId).then(async (profileRoomId) => {
+                    const resolution = await resolveProfileRoom(client, profileRoomId);
+                    switch (resolution.kind) {
+                        case "room":
+                            // profileRoomId is non-null here — "room" is only returned once
+                            // client.getRoom(profileRoomId) succeeds (already joined, or just peeked).
+                            viewRoom(profileRoomId!);
+                            break;
+                        case "preview":
+                            setNav((prev: SocialNav) => ({
+                                section: prev.section,
+                                roomPreview: {
+                                    userId,
+                                    roomId: profileRoomId!,
+                                    joinRule: resolution.joinRule,
+                                    name: resolution.name,
+                                    avatarUrl: resolution.avatarUrl,
+                                    topic: resolution.topic,
+                                    roomType: resolution.roomType,
+                                },
+                            }));
+                            break;
+                        case "private":
+                            setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "private" }));
+                            break;
+                        case "invalid":
+                            setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "no_profile" }));
+                            break;
+                    }
+                }),
+                45_000,
+            )
+                .catch((err: unknown) => {
+                    // eslint-disable-next-line no-console
+                    console.error("handleViewUser: resolving profile room failed", err);
+                    setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "error" }));
+                })
+                .finally(() => {
+                    // No-op for every caller except the pending-user mount case above - see
+                    // resolvingPendingUser's own doc for why this needs clearing once resolved.
+                    setResolvingPendingUser(false);
+                    // FeedPane's own thread view (its `threadView` local state, see closeThreadToken's
+                    // own doc there) is invisible to `nav` - every branch above already updated `nav`
+                    // correctly, but clicking a sender's name *from inside* FeedPane's thread panel left
+                    // that panel showing regardless, since nothing had ever told it to close. Bumping the
+                    // same token used for hash-driven resets closes it here too, whichever outcome this
+                    // call landed on, including the error case above. Harmless when this call didn't
+                    // originate from FeedPane's thread view at all (a currently-unmounted or
+                    // already-closed FeedPane just ignores it).
+                    setCloseThreadToken((t) => t + 1);
+                });
         },
         [client, viewRoom],
     );
