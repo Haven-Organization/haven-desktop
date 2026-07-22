@@ -14,7 +14,7 @@
  * DO expect context (PostComposerButtons's MessageComposerButtons chain) get a real client.
  */
 
-import React, { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import React, { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import BaseDialog from "../../../../element-web/apps/web/src/components/views/dialogs/BaseDialog";
@@ -22,6 +22,7 @@ import MatrixClientContext from "../../../../element-web/apps/web/src/contexts/M
 import { MSC4501_EVENT_POST, isProfileRoomType, isGroupRoomType } from "../utils/room-classifier";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
 import { peekPendingRoomPick, clearPendingRoomPick } from "../utils/pendingRoomPick";
+import { peekPendingComposerDraft, setPendingComposerDraft, clearPendingComposerDraft } from "../utils/pendingComposerDraft";
 import { usePendingAttachment } from "../utils/postAttachment";
 import { handleComposerPaste } from "../utils/pasteFile";
 import { PostComposerButtons } from "./PostComposerButtons";
@@ -112,18 +113,51 @@ export function PostComposerDialog({
     // its avatar/name before snapping to "Your Profile" - not just "no room selected yet".
     const targetRoomId =
         explicitRoomId || myProfileRoom?.roomId || (profileRoomId === null ? postableRooms[0]?.roomId : undefined) || "";
-    const [body, setBody] = useState(initialBody ?? "");
+    // A pending draft (see pendingComposerDraft.ts) always wins over initialBody/initialFile - it
+    // reflects an in-progress edit from immediately before the room-picker remount, strictly more
+    // recent than whatever this dialog was originally opened with.
+    const [body, setBody] = useState(() => peekPendingComposerDraft()?.body ?? initialBody ?? "");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
     const { attachment, setFile, clear: clearAttachment } = usePendingAttachment();
 
-    // Stage initialFile once, on mount - same "read once, not a controlled value" contract as
-    // initialBody above. setFile is stable (see usePendingAttachment), so this genuinely only
-    // needs to run once regardless.
+    // Stage the pending draft's file, or else initialFile, once on mount - same "read once, not a
+    // controlled value" contract as initialBody above. setFile is stable (see usePendingAttachment),
+    // so this genuinely only needs to run once regardless.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
-        if (initialFile) setFile(initialFile);
+        const draftFile = peekPendingComposerDraft()?.file;
+        if (draftFile) setFile(draftFile);
+        else if (initialFile) setFile(initialFile);
+    }, []);
+
+    // Kept fresh every render (not captured by value) so the unmount cleanup below - which only
+    // ever runs once, with whatever closure it was created with on mount - can still see the
+    // latest body/attachment rather than what they were when this instance was first mounted. Same
+    // ref-kept-fresh pattern as PostComposerButtons.tsx's onFileSelectedRef.
+    const bodyRef = useRef(body);
+    useEffect(() => {
+        bodyRef.current = body;
+    });
+    const attachmentRef = useRef(attachment);
+    useEffect(() => {
+        attachmentRef.current = attachment;
+    });
+    // Set just before onFinished on a real close (submitted or cancelled) - distinguishes that
+    // from the room-picker's fake unmount below, since both look identical to React (a plain
+    // unmount) but need opposite handling: a real close should clear the bridge so a later,
+    // unrelated Post/Quote-post open doesn't inherit a stale draft; the fake unmount should stash
+    // one so the *next* instance (mounted moments later once the picker closes) can recover it.
+    const isClosingRef = useRef(false);
+    useEffect(() => {
+        return () => {
+            if (isClosingRef.current) {
+                clearPendingComposerDraft();
+            } else {
+                setPendingComposerDraft({ body: bodyRef.current, file: attachmentRef.current?.file ?? null });
+            }
+        };
     }, []);
 
     const handleSubmit = useCallback(
@@ -139,6 +173,7 @@ export function PostComposerDialog({
             setError(null);
             try {
                 await onSubmit(body.trim(), targetRoomId, attachment?.file);
+                isClosingRef.current = true;
                 onFinished(true);
             } catch (err: unknown) {
                 setError(err instanceof Error ? err.message : "Failed to post");
@@ -152,7 +187,15 @@ export function PostComposerDialog({
 
     return (
         <MatrixClientContext.Provider value={client}>
-            <BaseDialog className="social_PostComposerDialog" title={title} hasCancel onFinished={() => onFinished(false)}>
+            <BaseDialog
+                className="social_PostComposerDialog"
+                title={title}
+                hasCancel
+                onFinished={() => {
+                    isClosingRef.current = true;
+                    onFinished(false);
+                }}
+            >
                 <form className="social_PostComposerDialog_form" onSubmit={handleSubmit}>
                     <textarea
                         className="social_ComposeBox_input"
