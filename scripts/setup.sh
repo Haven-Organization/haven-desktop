@@ -117,6 +117,59 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
         "$ROOT_DIR/element-web/apps/desktop/electron-builder.ts"
     sed -i 's/cp -r webapp element-\$version/rm -rf element-$version\ncp -r webapp element-$version/' \
         "$ROOT_DIR/element-web/apps/web/scripts/package.sh"
+
+    # webpack.config.ts's own branding-commit diff is the same kind of mix as the two files above -
+    # can't be excluded wholesale (the OG image URL default and VERSION string scheme genuinely are
+    # branding and should revert), but it also bundled in an unrelated dependency swap that reverting
+    # otherwise silently undoes: the stock "oidc-client-ts" resolve.alias comes back (a package this
+    # fork doesn't actually have installed - HAVEN_INCLUDE_OLD_ROOM_LIST or not, this alone breaks
+    # every unbranded build outright), and Haven's own "legacy-room-list" alias (see that env var's
+    # own comment above) disappears - an unbranded build with HAVEN_INCLUDE_OLD_ROOM_LIST=1 would
+    # fail to resolve that specifier at all. Confirmed live 2026-07-22 building "glowers element"
+    # with the old room list flag together for the first time - this combination had never actually
+    # been exercised before. Patched back in here the same way as the two sed calls above; a no-op
+    # if this block doesn't run.
+    python3 - "$ROOT_DIR/element-web/apps/web/webpack.config.ts" <<'PYEOF'
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    content = f.read()
+
+old = (
+    '                "matrix-widget-api": getPackageRoot("matrix-widget-api"),\n'
+    '                "oidc-client-ts": getPackageRoot("oidc-client-ts"),\n'
+    "\n"
+    "                // Make shared-components imports resolve to EW deps\n"
+    '                "@vector-im/compound-web": getPackageRoot("@vector-im/compound-web", ""),\n'
+    "            },"
+)
+new = (
+    '                "matrix-widget-api": getPackageRoot("matrix-widget-api"),\n'
+    "\n"
+    "                // Make shared-components imports resolve to EW deps\n"
+    '                "@vector-im/compound-web": getPackageRoot("@vector-im/compound-web", ""),\n'
+    "\n"
+    "                // Haven: the legacy room list is only bundled in at all when explicitly asked for\n"
+    "                // at build time (off by default) - callers only ever import the \"legacy-room-list\"\n"
+    "                // specifier, never a relative path into src/legacy-room-list directly, so this\n"
+    "                // alias is the single point deciding whether the real ~40-file subsystem or a tiny\n"
+    "                // always-present stub ends up in the output. See src/legacy-room-list/index.ts and\n"
+    "                // src/legacy-room-list-stub/index.ts's own doc.\n"
+    '                "legacy-room-list": path.resolve(\n'
+    "                    __dirname,\n"
+    "                    process.env.HAVEN_INCLUDE_OLD_ROOM_LIST\n"
+    '                        ? "src/legacy-room-list"\n'
+    '                        : "src/legacy-room-list-stub",\n'
+    "                ),\n"
+    "            },"
+)
+
+if old in content:
+    content = content.replace(old, new, 1)
+    with open(path, "w") as f:
+        f.write(content)
+PYEOF
 fi
 
 if [ -n "${HAVEN_LOGIN_BACKGROUND:-}" ]; then
