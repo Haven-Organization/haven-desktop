@@ -222,7 +222,6 @@ export interface Settings {
     "feature_disable_call_per_sender_encryption": IFeature;
     "feature_location_share_live": IFeature;
     "feature_dynamic_room_predecessors": IFeature;
-    "feature_render_reaction_images": IFeature;
     "feature_retention": IFeature;
     "feature_notifications": IFeature;
     "feature_msc4362_encrypted_state_events": IFeature;
@@ -645,15 +644,6 @@ export const SETTINGS: Settings = {
         displayName: _td("labs|dynamic_room_predecessors"),
         description: _td("labs|dynamic_room_predecessors_description"),
         shouldWarn: true,
-        default: false,
-    },
-    "feature_render_reaction_images": {
-        isFeature: true,
-        labsGroup: LabGroup.Messaging,
-        displayName: _td("labs|render_reaction_images"),
-        description: _td("labs|render_reaction_images_description"),
-        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
-        supportedLevelsAreOrdered: true,
         default: false,
     },
     "feature_login_with_qr": {
