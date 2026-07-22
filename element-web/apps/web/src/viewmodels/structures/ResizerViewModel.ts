@@ -61,16 +61,40 @@ export class ResizerViewModel
     }, 50);
 
     public onLeftPanelResized = (newSize: number): void => {
-        // We don't want the panels to have fractional widths as that can cause blurry UI elements.
-        if (!Number.isInteger(newSize)) {
-            this.panelHandle?.resize(`${Math.round(newSize)}%`);
-            return;
-        }
+        // Round to the nearest whole percent for storage, but always persist *something* - don't
+        // early-return and wait for a follow-up call to land on a clean integer. `newSize` is
+        // fractional whenever the drag lands at the panel's min/max pixel constraint (props
+        // minSize="200px"/maxSize="370px" below) - react-resizable-panels reports whatever
+        // fractional flex-grow value produces that clamped pixel width, not a clean percentage, and
+        // it stays fractional no matter how many times it's re-resized since the same constraint
+        // re-clamps it right back. A previous version of this function called
+        // `panelHandle?.resize()` and returned without persisting in that case, hoping a follow-up
+        // onLeftPanelResized call would arrive with a rounded integer - at a hard constraint, that
+        // call never comes, so dragging to the minimum silently never persisted anything at all: the
+        // panel visibly sat at 200px all session while the stored setting kept whatever value was
+        // last persisted before that drag - confirmed live 2026-07-21 (dragged to the 200px minimum,
+        // setting stayed frozen at an old 39% from an earlier resize) - so returning from an app
+        // (which remounts the panel fresh from the stored setting) visibly snapped the width back to
+        // that stale value. Rounding for storage doesn't even guarantee an integer *pixel* width
+        // anyway (percentage × container width is still usually fractional), so the original
+        // rounding's own goal wasn't reliably achieved either - not worth the risk of never
+        // persisting at all.
+        const roundedSize = Math.round(newSize);
 
-        const isCollapsed = newSize === 0;
+        const isCollapsed = roundedSize === 0;
         // Store the size if the panel isn't collapsed.
         if (!isCollapsed) {
-            SettingsStore.setValue("RoomList.panelSize", null, SettingLevel.DEVICE, newSize);
+            SettingsStore.setValue("RoomList.panelSize", null, SettingLevel.DEVICE, roundedSize);
+            // Haven: also keep the live snapshot's initialSize in sync, not just the persisted
+            // setting - getInitialState() only ever runs once, at construction, so without this the
+            // in-memory value stays frozen at whatever it was on app boot for the rest of the
+            // session. LeftResizablePanelView (and so react-resizable-panels' own defaultSize) reads
+            // this fresh on every mount, and this VM instance is cached/reused across navigation -
+            // entering and leaving an app (isAppMode) unmounts and remounts the panel entirely, so a
+            // stale initialSize here visibly "resets" the room list back to whatever size it was at
+            // boot, silently discarding any resize made since, even though SettingsStore itself
+            // already had the right value the whole time.
+            this.snapshot.merge({ initialSize: roundedSize });
         }
         // Store whether the panel was collapsed.
         // This is stored separately instead of being inferred from the stored panel size so that
