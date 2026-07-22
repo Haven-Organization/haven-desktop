@@ -117,6 +117,14 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
         "$ROOT_DIR/element-web/apps/desktop/electron-builder.ts"
     sed -i 's/cp -r webapp element-\$version/rm -rf element-$version\ncp -r webapp element-$version/' \
         "$ROOT_DIR/element-web/apps/web/scripts/package.sh"
+    # Same as Haven's own committed package.sh fix (see its own comment): webpack's output.path
+    # (webapp/) has no `clean` option, so nothing ever wipes a previous build's bundle directory
+    # before the next one runs - every build in a checkout's history piles up there and gets copied
+    # into the tarball wholesale. Confirmed 2026-07-22: a 48-build-deep webapp/ produced a ~1.9G
+    # tarball that should've been ~160M. This sed just re-adds the same fix on top of the stock
+    # (reverted-to) form's own `VERSION=$version pnpm build` line.
+    sed -i 's/VERSION=\$version pnpm build/rm -rf webapp\nVERSION=$version pnpm build/' \
+        "$ROOT_DIR/element-web/apps/web/scripts/package.sh"
 
     # webpack.config.ts's own branding-commit diff is the same kind of mix as the two files above -
     # can't be excluded wholesale (the OG image URL default and VERSION string scheme genuinely are

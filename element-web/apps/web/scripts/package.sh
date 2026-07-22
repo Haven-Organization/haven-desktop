@@ -13,6 +13,14 @@ else
     version=`../../../scripts/compute-haven-version.sh || echo unknown`
 fi
 
+# webpack's own output.path (webapp/) has no `clean` option set, so nothing ever removes a
+# previous build's own content-hashed bundle directory before writing a new one - every build in
+# this checkout's history piles up in webapp/bundles/ forever, and the whole directory gets copied
+# into the tarball below wholesale. Confirmed 2026-07-22: 48 accumulated bundle dirs, ~1.9G, on a
+# tarball that should be ~160M. Wiping first keeps each build (and its tarball) containing only
+# its own output.
+rm -rf webapp
+
 VERSION=$version pnpm build
 
 # include the sample config in the tarball. Arguably this should be done by
