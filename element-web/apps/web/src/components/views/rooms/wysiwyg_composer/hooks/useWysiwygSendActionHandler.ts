@@ -58,6 +58,22 @@ export function useWysiwygSendActionHandler(
                         // TODO insert mention - see SendMessageComposer
                     } else if (payload.event) {
                         // TODO insert quote message - see SendMessageComposer
+                    } else if (payload.customEmoji) {
+                        // Haven: MSC2545 pack image - see SendMessageComposer.tsx's own identical
+                        // case and ComposerInsertPayload.ts's own doc on this field. Unlike that
+                        // plain composer (which renders a real inline <img> via its own
+                        // CustomEmojiPart text-model node), this editor's underlying
+                        // @vector-im/matrix-wysiwyg crate has no way to insert arbitrary inline
+                        // content - confirmed live 2026-07-22 that even repurposing its own
+                        // mention() API (meant for @user/#room pills, matrix.to links only) with an
+                        // https:// media URL silently no-ops, so a link isn't achievable either.
+                        // Emoji.tsx hides this room's custom packs entirely while the true rich-text
+                        // editor is active for exactly this reason (see its own doc) - this branch
+                        // is just a defensive fallback in case that's ever bypassed, matching what
+                        // plain-text-within-this-composer already does below for a real unicode
+                        // choice.
+                        const label = `:${payload.customEmoji.shortcode}:`;
+                        setSelection(composerContext.selection).then(() => composerFunctions.insertText(label));
                     } else if (payload.text) {
                         setSelection(composerContext.selection).then(() => composerFunctions.insertText(payload.text));
                     }

@@ -7,7 +7,7 @@ Please see LICENSE files in the repository root for full details.
 */
 
 import React, { type JSX, type RefObject, useMemo, type ReactNode } from "react";
-import { type IEventRelation } from "matrix-js-sdk/src/matrix";
+import { type IEventRelation, type Room } from "matrix-js-sdk/src/matrix";
 import LockOffIcon from "@vector-im/compound-design-tokens/assets/web/icons/lock-off";
 
 import { useWysiwygSendActionHandler } from "./hooks/useWysiwygSendActionHandler";
@@ -41,6 +41,13 @@ export interface SendWysiwygComposerProps {
     onSend: () => void;
     menuPosition: MenuProps;
     eventRelation?: IEventRelation;
+    /** Haven: threaded through to Emoji.tsx's own EmojiButton so it can show this room's own
+     *  MSC2545 custom emoji/sticker packs - see EmojiButton.tsx's own doc on why it needs a room.
+     *  The plain-composer path (SendMessageComposer.tsx/MessageComposerButtons.tsx) already had
+     *  this; the rich-text path never did, so custom packs silently came up empty (no categories,
+     *  "This room has no stickers") whenever the Rich Text Editor lab was on - confirmed live
+     *  2026-07-22. */
+    room?: Room;
 }
 
 // Default needed for React.lazy
@@ -48,6 +55,7 @@ export default function SendWysiwygComposer({
     isRichTextEnabled,
     e2eStatus,
     menuPosition,
+    room,
     ...props
 }: SendWysiwygComposerProps): JSX.Element {
     const Composer = isRichTextEnabled ? WysiwygComposer : PlainTextComposer;
@@ -75,7 +83,15 @@ export default function SendWysiwygComposer({
             <Composer
                 className="mx_SendWysiwygComposer"
                 leftComponent={leftIcon}
-                rightComponent={<Emoji menuPosition={menuPosition} />}
+                rightComponent={
+                    // Haven: disableCustomEmoji only applies to WysiwygComposer (true rich text) -
+                    // PlainTextComposer's own insertText is a raw innerHTML splice (see
+                    // useComposerFunctions.ts), which happens to render an inline <img> correctly
+                    // if the text ever contained one, unlike WysiwygComposer's rust-model-backed
+                    // insertText, which only ever inserts literal escaped text - see Emoji.tsx's
+                    // own doc.
+                    <Emoji menuPosition={menuPosition} room={room} disableCustomEmoji={isRichTextEnabled} />
+                }
                 {...props}
             >
                 {(ref, composerFunctions) => (

@@ -76,6 +76,18 @@ interface IProps {
      * (which can never be sent as m.reaction) and are hidden entirely in this mode.
      */
     mode?: "emoji" | "sticker";
+    /**
+     * Haven: hides this room's own custom emoji pack categories in "emoji" mode (no effect in
+     * "sticker" mode, which sends a chosen sticker directly - see EmojiButton.tsx's own
+     * onChooseSticker - and never touches composer text insertion at all). Set by EmojiButton.tsx
+     * when the caller (see wysiwyg_composer/components/Emoji.tsx's own doc) is composing in the
+     * true rich-text editor, whose underlying @vector-im/matrix-wysiwyg crate has no way to insert
+     * a custom emoji as anything but literal `:shortcode:` text (confirmed live 2026-07-22, including
+     * that repurposing its mention() pill API for this doesn't work either - see
+     * useWysiwygSendActionHandler.ts's own doc) - hiding the option entirely beats silently sending
+     * something that looks broken.
+     */
+    disableCustomEmoji?: boolean;
 }
 
 interface IState {
@@ -157,8 +169,9 @@ class EmojiPicker extends React.Component<IProps, IState> {
 
         const stickerMode = props.mode === "sticker";
         const packUsage: ImagePackUsage = stickerMode ? "sticker" : "emoticon";
+        const packRoom = !stickerMode && props.disableCustomEmoji ? undefined : props.room;
         const { categories: packCategoryConfig, dataByCategory: packDataByCategory } = buildPackCategories(
-            props.room,
+            packRoom,
             packUsage,
         );
 

@@ -32,11 +32,21 @@ interface IEmojiButtonProps {
      *  a thread, a sent sticker should land in that same thread, same as any other composer
      *  action. */
     relation?: IEventRelation;
+    /** Haven: forwarded to the Emoji-tab EmojiPicker's own identical prop - see its doc. Never
+     *  applied to the Sticker tab, which doesn't have the problem this exists for. */
+    disableCustomEmoji?: boolean;
 }
 
 type PickerTab = "emoji" | "sticker";
 
-export function EmojiButton({ addEmoji, menuPosition, className, room, relation }: IEmojiButtonProps): JSX.Element {
+export function EmojiButton({
+    addEmoji,
+    menuPosition,
+    className,
+    room,
+    relation,
+    disableCustomEmoji,
+}: IEmojiButtonProps): JSX.Element {
     const overflowMenuCloser = useContext(OverflowMenuContext);
     const [menuDisplayed, button, openMenu, closeMenu] = useContextMenu();
     // Haven: which of the composer-only Emoji/Stickers tabs is active - always starts on Emoji.
@@ -119,7 +129,14 @@ export function EmojiButton({ addEmoji, menuPosition, className, room, relation 
                         `mode` on an already-mounted instance would leave the old tab's categories
                         on screen - keying by activeTab forces a fresh mount instead. */}
                     {activeTab === "emoji" ? (
-                        <EmojiPicker key="emoji" onChoose={addEmoji} onFinished={onFinished} room={room} mode="emoji" />
+                        <EmojiPicker
+                            key="emoji"
+                            onChoose={addEmoji}
+                            onFinished={onFinished}
+                            room={room}
+                            mode="emoji"
+                            disableCustomEmoji={disableCustomEmoji}
+                        />
                     ) : (
                         <EmojiPicker
                             key="sticker"

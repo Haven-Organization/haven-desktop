@@ -608,6 +608,7 @@ export class MessageComposer extends React.Component<IProps, IState> {
                         menuPosition={menuPosition}
                         placeholder={this.renderPlaceholderText()}
                         eventRelation={this.props.relation}
+                        room={this.props.room}
                     />
                 );
             } else {
