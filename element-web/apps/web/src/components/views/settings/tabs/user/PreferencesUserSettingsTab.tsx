@@ -283,6 +283,14 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
                         </SettingsSubsection>
                     )}
 
+                    {/* Haven: the old room list has no equivalent Unreads filter to widen, so this
+                        only makes sense - and only shows - once the new one is actually active. */}
+                    {useNewRoomList && (
+                        <SettingsSubsection heading={_t("settings|preferences|room_list_heading")} formWrap>
+                            <SettingsFlag name="Haven.showAllUnreadRoomsInUnreadsFilter" level={SettingLevel.ACCOUNT} />
+                        </SettingsSubsection>
+                    )}
+
                     <SettingsSubsection heading={_t("common|spaces")} formWrap>
                         {this.renderGroup(PreferencesUserSettingsTab.SPACES_SETTINGS, SettingLevel.ACCOUNT)}
                     </SettingsSubsection>

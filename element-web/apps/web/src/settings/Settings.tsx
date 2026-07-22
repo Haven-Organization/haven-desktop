@@ -357,6 +357,9 @@ export interface Settings {
     "Haven.showSpacesBar": IBaseSetting<boolean>;
     // Haven: MSC4459 (image pack references) opt-out - see utils/imageSourcePacks.ts's own doc.
     "Haven.sendImagePackReferences": IBaseSetting<boolean>;
+    // Haven: widens the new room list's Unreads filter to include plain activity unreads - see
+    // UnreadFilter.ts's own doc.
+    "Haven.showAllUnreadRoomsInUnreadsFilter": IBaseSetting<boolean>;
     // Haven: temporary stopgap keeping the legacy (pre-MVVM-rewrite) room list alive as an opt-in
     // fallback now that upstream has deleted it outright - see LeftPanel.tsx's own doc.
     "Haven.useOldRoomList": IFeature;
@@ -1326,6 +1329,20 @@ export const SETTINGS: Settings = {
         // happen to re-render for unrelated reasons pick up the new value, producing a mixed
         // old/new-room-list DOM tree with mismatched CSS assumptions.
         controller: new ReloadOnChangeController(),
+    },
+    // Haven: widens the new room list's Unreads filter to match every room the room-list-v3 store's
+    // own bold/dot indicators already treat as unread (see UnreadFilter.ts's own doc and
+    // element-hq/element-web#32567) instead of only rooms with a real notification-count badge
+    // (mentions/keywords/all-messages-notify rooms like DMs) - stock Element's own original
+    // behavior. Off by default so a fresh install matches stock until a user opts in. Only ever
+    // shown in Preferences when the new room list is actually active - see
+    // PreferencesUserSettingsTab.tsx's own useNewRoomList check - since the old room list has no
+    // equivalent Unreads filter to widen.
+    "Haven.showAllUnreadRoomsInUnreadsFilter": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|preferences|unreads_filter_include_all"),
+        description: _td("settings|preferences|unreads_filter_include_all_description"),
+        default: false,
     },
     // Haven: MSC4459 (image pack references) opt-out - see utils/imageSourcePacks.ts's own doc.
     // Off by default; does not affect the receiving/"Find Pack" side, only whether this device's

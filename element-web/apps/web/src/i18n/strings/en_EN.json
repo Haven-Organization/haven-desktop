@@ -2927,6 +2927,8 @@
             "startup_window_behaviour_label": "Start-up and window behaviour",
             "surround_text": "Surround selected text when typing special characters",
             "time_heading": "Displaying time",
+            "unreads_filter_include_all": "Include all unread rooms in Unreads",
+            "unreads_filter_include_all_description": "When off, the Unreads filter only shows rooms with a real notification: mentions, keywords, and rooms set to notify on all messages, like DMs. When on, it also includes rooms with plain unread activity.",
             "user_timezone": "Set timezone"
         },
         "prompt_invite": "Prompt before sending invites to potentially invalid matrix IDs",
