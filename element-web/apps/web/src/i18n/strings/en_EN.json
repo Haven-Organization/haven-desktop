@@ -1391,7 +1391,8 @@
         "manage_title": "Manage integrations",
         "toggle_label": "Enable the integration manager",
         "use_im": "Use an integration manager to manage bots, widgets, and sticker packs.",
-        "use_im_default": "Use an integration manager <b>(%(serverName)s)</b> to manage bots, widgets, and sticker packs."
+        "use_im_default": "Use an integration manager <b>(%(serverName)s)</b> to manage bots, widgets, and sticker packs.",
+        "use_sticker_picker": "Use sticker picker"
     },
     "integrations": {
         "disabled_dialog_description": "Enable '%(manageIntegrations)s' in Settings to do this.",

@@ -686,10 +686,15 @@ export const SETTINGS: Settings = {
         default: true,
         invertedSettingName: "MessageComposerInput.dontSuggestEmoji",
     },
+    // Haven: moved out of Preferences and into Security & Privacy's "Manage integrations" section
+    // (see SetIntegrationManager.tsx) - stickers are integration-manager-provided content, same as
+    // this section's own sticker-pack explainer text already says, so that's a more sensible home
+    // for the toggle than Preferences > Composer. Off by default now too (was on), matching the
+    // rest of this section defaulting to opt-in.
     "MessageComposerInput.showStickersButton": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
-        displayName: _td("settings|show_stickers_button"),
-        default: true,
+        displayName: _td("integration_manager|use_sticker_picker"),
+        default: false,
         controller: new UIFeatureController(UIFeature.Widgets, false),
     },
     "MessageComposerInput.showPollsButton": {

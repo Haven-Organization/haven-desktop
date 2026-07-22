@@ -23,6 +23,7 @@ import { UIFeature } from "../../../settings/UIFeature";
 interface IState {
     currentManager: IntegrationManagerInstance | null;
     provisioningEnabled: boolean;
+    stickerPickerEnabled: boolean;
 }
 
 export default class SetIntegrationManager extends React.Component<EmptyObject, IState> {
@@ -34,6 +35,7 @@ export default class SetIntegrationManager extends React.Component<EmptyObject, 
         this.state = {
             currentManager,
             provisioningEnabled: SettingsStore.getValue("integrationProvisioning"),
+            stickerPickerEnabled: SettingsStore.getValue("MessageComposerInput.showStickersButton"),
         };
     }
 
@@ -46,6 +48,22 @@ export default class SetIntegrationManager extends React.Component<EmptyObject, 
             this.setState({ provisioningEnabled: current });
         });
         this.setState({ provisioningEnabled: !current });
+    };
+
+    // Haven: see MessageComposerInput.showStickersButton's own doc in Settings.tsx for why this
+    // toggle lives here rather than Preferences - it gates the "Stickers" option in the composer's
+    // "…" menu (see MessageComposerButtons.tsx's own showStickersButton).
+    private onStickerPickerToggled = (): void => {
+        const current = this.state.stickerPickerEnabled;
+        SettingsStore.setValue("MessageComposerInput.showStickersButton", null, SettingLevel.ACCOUNT, !current).catch(
+            (err) => {
+                logger.error("Error changing sticker picker setting");
+                logger.error(err);
+
+                this.setState({ stickerPickerEnabled: current });
+            },
+        );
+        this.setState({ stickerPickerEnabled: !current });
     };
 
     public render(): React.ReactNode {
@@ -91,6 +109,12 @@ export default class SetIntegrationManager extends React.Component<EmptyObject, 
                     label={_t("integration_manager|toggle_label")}
                     checked={this.state.provisioningEnabled}
                     onChange={this.onProvisioningToggled}
+                />
+                <SettingsToggleInput
+                    name="use_sticker_picker"
+                    label={_t("integration_manager|use_sticker_picker")}
+                    checked={this.state.stickerPickerEnabled}
+                    onChange={this.onStickerPickerToggled}
                 />
             </Form.Root>
         );
