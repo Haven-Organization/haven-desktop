@@ -21,7 +21,8 @@ import {
     RoomEvent,
 } from "matrix-js-sdk/src/matrix";
 import { M_POLL_START } from "matrix-js-sdk/src/@types/polls";
-import { KnownMembership } from "matrix-js-sdk/src/types";
+import { KnownMembership, type EncryptedFile, type MediaEventInfo } from "matrix-js-sdk/src/types";
+import { logger } from "matrix-js-sdk/src/logger";
 import { ReplyIcon, RestartIcon, EditIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 import {
     EventContentBodyView,
@@ -45,6 +46,7 @@ import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions"
 import { type ViewRoomPayload } from "../../../../element-web/apps/web/src/dispatcher/payloads/ViewRoomPayload";
 import { EventContentBodyViewModel } from "../../../../element-web/apps/web/src/viewmodels/message-body/EventContentBodyViewModel";
 import MessageEvent from "../../../../element-web/apps/web/src/components/views/messages/MessageEvent";
+import { decryptFile } from "../../../../element-web/apps/web/src/utils/DecryptFile";
 import RoomContext from "../../../../element-web/apps/web/src/contexts/RoomContext";
 import { SDKContextClass } from "../../../../element-web/apps/web/src/contexts/SDKContextClass";
 import {
@@ -963,8 +965,11 @@ export function SocialEventTile({
         [MSC4501_FORMATTED_BODY_KEY]?: string;
         url?: string;
         filename?: string;
-        info?: { mimetype?: string };
-        file?: { url: string; name: string; mimetype: string; size?: number };
+        info?: MediaEventInfo;
+        // The standard Matrix shape for an E2EE attachment - never has its own name/mimetype (those
+        // live on `info`/`filename` instead, same as an unencrypted content.url) - see the file
+        // attachment rendering section below for why this needs decrypting before it's usable at all.
+        file?: EncryptedFile;
         "software.haven.remove_header"?: boolean;
         [MSC4501_RELATES_TO_KEY]?: {
             rel_type?: string;
@@ -1232,6 +1237,40 @@ export function SocialEventTile({
         replyCrossPostBodyVm.setEventContent(replyCrossPostMockEvent, replyCrossPostOfContent ?? {});
     }, [replyCrossPostMockEvent, replyCrossPostOfContent, replyCrossPostBodyVm]);
 
+    // Haven: content.file (the standard shape for an E2EE attachment - url/key/iv/hashes, no
+    // readable src of its own) has no bytes to show until they're downloaded and decrypted
+    // client-side, exactly like the normal room timeline's own MImageBody/MVideoBody/MFileBody
+    // already do via MediaEventHelper/DecryptFile.ts. Previously the file-attachment rendering
+    // further down just ran mxcUrlToHttp on the *encrypted* mxc URL directly (same as for a real
+    // content.url), which only ever produces ciphertext bytes - confirmed live 2026-07-23 that an
+    // encrypted image posted from stock Element rendered correctly in the normal timeline but
+    // showed as plain "image.png" text here, never even attempting to load as an image.
+    // Necessarily async (and so, a hook - has to run before this component's early returns below,
+    // not alongside the rest of the file-attachment derivation further down where it'd otherwise
+    // belong), so decryptedFileUrl stays null (fileNode renders nothing) until it resolves.
+    const [decryptedFileUrl, setDecryptedFileUrl] = useState<string | null>(null);
+    useEffect(() => {
+        if (!content.file) {
+            setDecryptedFileUrl(null);
+            return;
+        }
+        let cancelled = false;
+        let objectUrl: string | null = null;
+        decryptFile(content.file, content.info)
+            .then((blob) => {
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setDecryptedFileUrl(objectUrl);
+            })
+            .catch((err) => {
+                logger.error("Failed to decrypt attachment for social post", err);
+            });
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [content.file, content.info]);
+
     const isLegacyMessage = event.getType() === "m.room.message";
     const isNativePost = isSocialPostEventType(event.getType());
     const isPollMessage = M_POLL_START.matches(event.getType());
@@ -1260,22 +1299,28 @@ export function SocialEventTile({
         Modal.createDialog(MessageEditHistoryDialog, { mxEvent: event });
     }
 
-    // File attachment rendering. Handles both the custom `content.file` shape used by
-    // our own posts/comments, and the standard m.room.message media shape
-    // (content.url + content.info.mimetype for msgtypes m.image/m.video/m.audio/m.file)
-    // used by ordinary messages sent by any Matrix client.
+    // File attachment rendering. Handles both content.file (the standard shape for an E2EE
+    // attachment - our own posts/comments use this in encrypted rooms exactly like any other
+    // Matrix client, via buildMediaMessageContent's own uploadFile call) and the standard
+    // unencrypted m.room.message media shape (content.url + content.info.mimetype for msgtypes
+    // m.image/m.video/m.audio/m.file).
     const fileUrl = content.file?.url ?? content.url;
     // Per the m.room.message media spec, `filename` holds the original file name and `body`
     // becomes a user-supplied caption when it differs from `filename`. Older clients that don't
-    // support captions omit `filename` and just put the file name straight in `body`.
-    const fileName = content.file?.name ?? content.filename ?? (content.url ? body : "");
+    // support captions omit `filename` and just put the file name straight in `body`. Checked
+    // against `fileUrl` (either shape), not just `content.url` - an encrypted attachment has just
+    // as much claim to "body is really just the filename" as an unencrypted one.
+    const fileName = content.filename ?? (fileUrl ? body : "");
     const fileMime =
-        content.file?.mimetype ??
         content.info?.mimetype ??
-        (content.url
+        (fileUrl
             ? { "m.image": "image/*", "m.video": "video/*", "m.audio": "audio/*" }[content.msgtype ?? ""] ?? ""
             : "");
-    const httpFileUrl = fileUrl ? client.mxcUrlToHttp(fileUrl) : null;
+
+    // decryptedFileUrl is populated by the hook further up (before this component's early returns
+    // - see its own doc there for why it can't live down here alongside the rest of this
+    // derivation, tempting as that placement would otherwise be).
+    const httpFileUrl = content.file ? decryptedFileUrl : fileUrl ? client.mxcUrlToHttp(fileUrl) : null;
 
     // Shared by the main post's own image, and the embedded repost/reply-cross-post cards' images
     // below - same stock lightbox (ImageView) either way, just pointed at whichever image/mxEvent/
@@ -1669,7 +1714,7 @@ export function SocialEventTile({
                 caption of its own (its body is only a permalink, per MSC4501 — not meant to be read
                 as commentary; see the "Reposted" label below instead) — unless it has a
                 real caption worth keeping (HTML or plain-text), see boostHasCaption above. */}
-            {displayBody && !suppressBoostBody && !(content.url && displayBody === fileName) && !isLocationMessage && !isPollMessage && (
+            {displayBody && !suppressBoostBody && !(fileUrl && displayBody === fileName) && !isLocationMessage && !isPollMessage && (
                 <div key={pillsGeneration} className="social_EventTile_body" onClick={handleBodyClick}>
                     <EventContentBodyView vm={eventContentBodyVm} as="div" />
                 </div>
