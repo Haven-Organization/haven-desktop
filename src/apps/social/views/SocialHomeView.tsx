@@ -1198,8 +1198,13 @@ function FeedPane({
         }
     }, [loadingMoreHistory, hasMoreHistory, onLoadMoreHistory]);
 
-    // Local thread navigation state
-    const [threadView, setThreadView] = useState<{ event: MatrixEvent; room: Room } | null>(null);
+    // Local thread navigation state. `highlight` plays a brief highlight-and-fade on the focused
+    // post's own tile (mirrors Element's own permalink highlight convention) - set only when this
+    // thread was opened by resolving a direct/external link (openThreadTarget below), never for
+    // regular in-app navigation (handleViewThread, the in-thread onFocusEvent re-focus).
+    const [threadView, setThreadView] = useState<{ event: MatrixEvent; room: Room; highlight?: boolean } | null>(
+        null,
+    );
     // Skips the very first render (closeThreadToken starts at 0, same as its initial value) so this
     // doesn't fire a spurious close on mount - only actual increments (real hash-driven resets)
     // should act.
@@ -1213,7 +1218,7 @@ function FeedPane({
     }, [closeThreadToken]);
 
     useEffect(() => {
-        if (openThreadTarget) setThreadView(openThreadTarget);
+        if (openThreadTarget) setThreadView({ ...openThreadTarget, highlight: true });
     }, [openThreadTarget]);
 
     // Feed scroll position, saved right before entering a thread and restored once back - see
@@ -1456,6 +1461,7 @@ function FeedPane({
                 room={threadView.room}
                 onBack={() => setThreadView(null)}
                 onFocusEvent={(e) => setThreadView({ event: e, room: threadView.room })}
+                highlightFocusedPost={!!threadView.highlight}
                 pillsGeneration={pillsGeneration}
                 onViewUser={onViewUser}
                 onOpenUserPanel={onOpenUserPanel}

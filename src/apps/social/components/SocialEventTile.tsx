@@ -119,6 +119,10 @@ interface Props {
      *  in a thread view to warrant the exact time up front rather than making it hover-only. Every
      *  timestamp gets the full date/time as a hover tooltip regardless of this prop. */
     forceFullTimestamp?: boolean;
+    /** Plays a brief background flash-fade (mirrors Element's own permalink highlight in the
+     *  normal room timeline) - set by SocialPostView when the focused post was arrived at via a
+     *  direct/external link rather than regular in-app navigation. */
+    isHighlighted?: boolean;
 }
 
 /** Returns the mx_Username_color{n} class for a Matrix user ID. */
@@ -785,6 +789,7 @@ export function SocialEventTile({
     onNavigateToProfile,
     pillsGeneration,
     forceFullTimestamp,
+    isHighlighted,
 }: Props): JSX.Element | null {
     const client = useMatrixClientContext();
 
@@ -1534,7 +1539,7 @@ export function SocialEventTile({
 
     return (
         <article
-            className={`social_EventTile${onViewThread ? " social_EventTile--clickable" : ""}`}
+            className={`social_EventTile${onViewThread ? " social_EventTile--clickable" : ""}${isHighlighted ? " social_EventTile--highlighted" : ""}`}
             onClick={handleArticleClick}
         >
             {/* Room name badge — top-left, X/Twitter community style. Plain click's onRoomClick

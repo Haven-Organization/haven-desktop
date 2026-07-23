@@ -247,6 +247,10 @@ export function SocialRoomView({
     const { attachment: pendingAttachment, setFile: setPendingFile, clear: clearAttachment } = usePendingAttachment();
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
     const [threadEvent, setThreadEvent] = useState<MatrixEvent | null>(null);
+    // True only while threadEvent was set by resolving a direct/external link (peekPendingFocusEvent
+    // below) - cleared on any regular in-app re-focus (onFocusEvent) so the highlight-and-fade only
+    // ever plays once, for the post the link actually pointed at.
+    const [highlightThreadEvent, setHighlightThreadEvent] = useState(false);
     // Same closeThreadToken pattern as FeedPane's own identical effect in SocialHomeView.tsx (see
     // its doc, and closeThreadToken's own doc on this component's Props) - skips the very first
     // render so mounting with a token that's already non-zero (this component gets a fresh mount
@@ -343,6 +347,7 @@ export function SocialRoomView({
         const event = peekPendingFocusEvent();
         if (!event || event.getRoomId() !== room.roomId) return;
         setThreadEvent(event);
+        setHighlightThreadEvent(true);
     }, [room]);
 
     // Auto-accept an invite that arrives while viewing this knock-access page directly with no
@@ -679,7 +684,11 @@ export function SocialRoomView({
                 event={threadEvent}
                 room={room}
                 onBack={() => setThreadEvent(null)}
-                onFocusEvent={setThreadEvent}
+                onFocusEvent={(e) => {
+                    setThreadEvent(e);
+                    setHighlightThreadEvent(false);
+                }}
+                highlightFocusedPost={highlightThreadEvent}
                 pillsGeneration={pillsGeneration}
                 onViewUser={onViewUser}
                 onOpenUserPanel={onOpenUserPanel}

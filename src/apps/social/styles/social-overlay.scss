@@ -1408,6 +1408,22 @@
 }
 
 // ---------------------------------------------------------------------------
+// Link-navigated-to post/reply (mirrors Element's own permalink highlight-and-
+// fade convention in the normal room timeline) — see SocialPostView's
+// highlightFocusedPost prop.
+// ---------------------------------------------------------------------------
+
+@keyframes social-event-tile-highlight-fade {
+    from {
+        background-color: var(--cpd-color-bg-info-subtle);
+    }
+}
+
+.social_EventTile--highlighted {
+    animation: social-event-tile-highlight-fade 2s ease-out;
+}
+
+// ---------------------------------------------------------------------------
 // Thread / Post detail view (SocialPostView)
 // ---------------------------------------------------------------------------
 

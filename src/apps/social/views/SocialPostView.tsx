@@ -136,6 +136,12 @@ interface Props {
      *  handleArticleClick), to go deeper/back up the chain without leaving the thread view. Thread
      *  relations never cross rooms, so every tile rendered here is always in `room`. */
     onFocusEvent?: (event: MatrixEvent) => void;
+    /** Plays a brief highlight-and-fade on the focused post's own tile (not ancestors/replies) -
+     *  set by callers when this view was opened by resolving a direct/external link to `event`,
+     *  mirroring Element's own permalink highlight convention in the normal room timeline. Left
+     *  false/omitted for regular in-app navigation (clicking a feed card, re-focusing via
+     *  onFocusEvent). */
+    highlightFocusedPost?: boolean;
 }
 
 export function SocialPostView({
@@ -148,6 +154,7 @@ export function SocialPostView({
     onNavigateToProfile,
     onRoomClick,
     onFocusEvent,
+    highlightFocusedPost,
 }: Props): JSX.Element {
     const client = useMatrixClientContext();
     const myUserId = client.getUserId() ?? "";
@@ -601,6 +608,7 @@ export function SocialPostView({
                         // Focused post: always shown in full - and doubles as the thread root's own
                         // full timestamp when there are no ancestors at all.
                         forceFullTimestamp
+                        isHighlighted={highlightFocusedPost}
                         {...tileProps}
                     />
                 </div>
