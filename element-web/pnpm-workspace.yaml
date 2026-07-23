@@ -25,13 +25,13 @@ catalog:
     "playwright-core": 1.61.1
     # Compound
     "@vector-im/compound-design-tokens": 10.2.1
-    "@vector-im/compound-web": 9.8.0
+    "@vector-im/compound-web": 9.9.0
     # i18n
     matrix-web-i18n: 3.6.0
     # fonts
-    "@fontsource/inter": 5.2.8
+    "@fontsource/inter": 5.3.0
     # vite
-    vite: 8.1.4
+    vite: 8.1.5
     vite-plugin-node-polyfills: 0.28.0
     vite-plugin-svgr: 5.2.0
     vitest: 4.1.10
@@ -83,7 +83,7 @@ allowBuilds:
     # Haven: needed alongside the bare "matrix-js-sdk: true" above under pnpm >=11.9 (which requires
     # an exact-URL key for git-hosted packages) while pnpm 11.5.2 (this repo's own pin) is satisfied
     # by the bare name alone - kept in addition to, not instead of, that line.
-    "matrix-js-sdk@https://codeload.github.com/matrix-org/matrix-js-sdk/tar.gz/b48b48ee691efb7497638241f78c205dd53292fc": true
+    "matrix-js-sdk@https://codeload.github.com/matrix-org/matrix-js-sdk/tar.gz/f455e4b1f03455e045ab4caba2c7bd8dc164f040": true
 
 patchedDependencies:
     # Workaround for missing types export
