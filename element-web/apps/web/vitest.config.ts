@@ -10,6 +10,15 @@ import svgr from "vite-plugin-svgr";
 import { resolve } from "node:path";
 
 export default defineProject({
+    server: {
+        fs: {
+            // Haven: without this, Vite's dev-server module loader (used to serve files under the
+            // happy-dom environment, unlike plain "node") refuses to serve src/apps/**/*.test.ts
+            // files at all ("Cannot find module /@fs/...") - they sit outside apps/web/'s own
+            // filesystem boundary, one level above the repo root this config's own __dirname is in.
+            allow: [resolve(__dirname, "../../..")],
+        },
+    },
     resolve: {
         alias: [
             { find: "test-utils-rtl", replacement: resolve(__dirname, "./test/test-utils/vitest-matrix-react") },
@@ -41,10 +50,23 @@ export default defineProject({
                 find: "../modules.js",
                 replacement: resolve(__dirname, "./__mocks__/empty.js"),
             },
+            // Haven: mirrors webpack.config.ts's own "legacy-room-list" alias, always resolved to
+            // the stub here regardless of HAVEN_INCLUDE_OLD_ROOM_LIST (a build-only env var) - the
+            // real ~40-file subsystem already has its own dedicated tests under
+            // test/unit-tests/legacy-room-list/, nothing outside those needs the real thing loaded.
+            { find: "legacy-room-list", replacement: resolve(__dirname, "./src/legacy-room-list-stub") },
         ],
     },
     test: {
-        include: ["src/**/*.test.{ts,tsx}"],
+        include: [
+            "src/**/*.test.{ts,tsx}",
+            // Haven: src/apps/{framework,social} lives at the outer repo root (a sibling of
+            // element-web/, not inside it). Picked up here rather than as its own vitest project so
+            // it reuses this project's setupFiles/aliases/plugins (test-utils, test-utils-rtl, the
+            // svgr/asset mocks below) instead of duplicating them. Mirrors webpack.config.ts's own
+            // path.resolve(__dirname, "../../..", "src", "apps").
+            "../../../src/apps/**/*.test.{ts,tsx}",
+        ],
         environment: "node",
         pool: "threads",
         globals: false,
