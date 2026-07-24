@@ -94,25 +94,27 @@ export class ResizerViewModel
 
         this.autoCollapse.onLeftPanelResized();
 
-        // Round to the nearest whole percent for storage, but always persist *something* - don't
-        // early-return and wait for a follow-up call to land on a clean integer. `newSize` is
-        // fractional whenever the drag lands at the panel's min/max pixel constraint (props
-        // minSize="200px"/maxSize="370px" below) - react-resizable-panels reports whatever
-        // fractional flex-grow value produces that clamped pixel width, not a clean percentage, and
-        // it stays fractional no matter how many times it's re-resized since the same constraint
-        // re-clamps it right back. A previous version of this function called
-        // `panelHandle?.resize()` and returned without persisting in that case, hoping a follow-up
-        // onLeftPanelResized call would arrive with a rounded integer - at a hard constraint, that
-        // call never comes, so dragging to the minimum silently never persisted anything at all: the
-        // panel visibly sat at 200px all session while the stored setting kept whatever value was
-        // last persisted before that drag - confirmed live 2026-07-21 (dragged to the 200px minimum,
-        // setting stayed frozen at an old 39% from an earlier resize) - so returning from an app
-        // (which remounts the panel fresh from the stored setting) visibly snapped the width back to
-        // that stale value. Rounding for storage doesn't even guarantee an integer *pixel* width
-        // anyway (percentage × container width is still usually fractional), so the original
-        // rounding's own goal wasn't reliably achieved either - not worth the risk of never
-        // persisting at all.
+        // Round to the nearest whole percent. `newSize` is fractional whenever the drag lands at
+        // the panel's min/max pixel constraint (props minSize="200px"/maxSize="370px" below) -
+        // react-resizable-panels reports whatever fractional flex-grow value produces that clamped
+        // pixel width, not a clean percentage, and it stays fractional no matter how many times
+        // it's re-resized since the same constraint re-clamps it right back.
         const roundedSize = Math.round(newSize);
+        if (!Number.isInteger(newSize)) {
+            // Snap the panel itself to that rounded percent too - a fractional width causes blurry
+            // sub-pixel rendering, and this is also what actually produces a clean integer on the
+            // *next* onLeftPanelResized call. Deliberately NOT returning after this, unlike a
+            // previous version of this function, which called panelHandle?.resize() and returned
+            // without persisting, hoping that clean follow-up call would do it - at a hard
+            // constraint, that follow-up call never comes (this same resize() call re-fires the
+            // identical fractional value right back), so dragging to the minimum silently never
+            // persisted anything at all: the panel visibly sat at 200px all session while the
+            // stored setting kept whatever value was last persisted before that drag - confirmed
+            // live 2026-07-21 (dragged to the 200px minimum, setting stayed frozen at an old 39%
+            // from an earlier resize) - so returning from an app (which remounts the panel fresh
+            // from the stored setting) visibly snapped the width back to that stale value.
+            this.panelHandle?.resize(`${roundedSize}%`);
+        }
 
         const isCollapsed = roundedSize === 0;
         // Store the size if the panel isn't collapsed.
