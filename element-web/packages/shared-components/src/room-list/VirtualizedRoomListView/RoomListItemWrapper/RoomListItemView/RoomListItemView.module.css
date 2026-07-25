@@ -67,7 +67,10 @@
 
 .container {
     flex: 1;
-    margin: 0 var(--cpd-space-3x);
+    /* Haven: right side kept tighter than the left so more of the room name/message preview can
+       show before truncating - the left side still needs its full margin to clear the selected
+       marker (.selected .container::before, positioned at left: 0 below). */
+    margin: 0 var(--cpd-space-1x) 0 var(--cpd-space-3x);
     padding: 0 var(--cpd-space-2x);
     border-radius: 8px;
     min-width: 0;
