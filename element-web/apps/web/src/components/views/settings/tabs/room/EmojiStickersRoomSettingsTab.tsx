@@ -29,6 +29,7 @@ import {
     packDisplayName,
 } from "../../../../../utils/ImagePacks";
 import { PackEditor, PackAvatar } from "../../emojistickers/PackEditor";
+import { consumePendingManagePackStateKey } from "../../../../../utils/pendingManagePack";
 
 interface Props {
     room: Room;
@@ -47,7 +48,12 @@ export default function EmojiStickersRoomSettingsTab({ room }: Props): JSX.Eleme
         useCallback(() => canManageImagePacks(room, myUserId), [room, myUserId]),
     );
 
-    const [openStateKey, setOpenStateKey] = useState<string | null>(null);
+    // Haven: consumes utils/pendingManagePack.ts's own hand-off - the emoji picker's manage gear
+    // queues a specific pack's own state_key here just before dispatching open_room_settings, so
+    // this tab opens straight into that pack's editor, the same as clicking "View" on it directly.
+    // A lazy initializer (not a mount effect) so it's captured before render, not racing a
+    // StrictMode double-invoke.
+    const [openStateKey, setOpenStateKey] = useState<string | null>(() => consumePendingManagePackStateKey());
     const [newPackName, setNewPackName] = useState("");
     const [busy, setBusy] = useState(false);
 

@@ -9,6 +9,7 @@ Please see LICENSE files in the repository root for full details.
 
 import React from "react";
 import classNames from "classnames";
+import SettingsIcon from "@vector-im/compound-design-tokens/assets/web/icons/settings";
 
 import { _t } from "../../../languageHandler";
 import { type CategoryKey, type ICategory } from "./Category";
@@ -19,6 +20,10 @@ import { MatrixClientPeg } from "../../../MatrixClientPeg";
 interface IProps {
     categories: ICategory[];
     onAnchorClick(id: CategoryKey): void;
+    /** Haven: renders one more button after every real category, opening the user's own Emoji &
+     *  Stickers settings (favorite packs, etc.) - not tied to scrolling anywhere, so it's handled
+     *  as its own prop rather than a fake entry in `categories`. */
+    onOpenSettings?: () => void;
 }
 
 class Header extends React.PureComponent<IProps> {
@@ -116,6 +121,18 @@ class Header extends React.PureComponent<IProps> {
                         </button>
                     );
                 })}
+                {this.props.onOpenSettings && (
+                    <button
+                        className="mx_EmojiPicker_anchor mx_EmojiPicker_anchor_settings"
+                        onClick={this.props.onOpenSettings}
+                        title={_t("emoji_picker|open_settings")}
+                        role="tab"
+                        aria-selected={false}
+                        tabIndex={-1}
+                    >
+                        <SettingsIcon width="16px" height="16px" />
+                    </button>
+                )}
             </nav>
         );
     }

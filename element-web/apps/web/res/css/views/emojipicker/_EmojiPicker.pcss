@@ -294,6 +294,56 @@ Please see LICENSE files in the repository root for full details.
     margin: 0;
 }
 
+/* Haven: a pack category's own name sits alongside its manage gear (see
+   .mx_EmojiPicker_category_manageBtn below) - flex + align-items: center keeps the two vertically
+   centered against each other regardless of any small metric mismatch between the icon's own
+   rendered box and the text's line-height (which is what made the gear look slightly low-slung
+   when this relied on inline vertical-align instead). Only the pack-name label itself needs this,
+   not the shared .mx_EmojiPicker_preview_name font rule above, so it's declared separately here
+   rather than folded into that same selector group. */
+.mx_EmojiPicker_category_label {
+    display: flex;
+    align-items: center;
+}
+
+/* Haven: the manage-pack gear inline in a pack category's own header - reset away the browser's
+   default <button> chrome (grey background, border, padding) entirely, and sit right next to the
+   name rather than stretching across the rest of the header's own width. */
+.mx_EmojiPicker_category_manageBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--cpd-color-icon-secondary);
+    cursor: pointer;
+
+    &:hover {
+        color: var(--cpd-color-icon-primary);
+    }
+}
+
+/* Haven: the "this room has no packs yet, create one" placeholder category's own body - a real
+   card (rounded, tinted background) rather than plain unstyled paragraph text sitting loose in the
+   grid area every other category fills with emoji. margin-bottom gives it room to breathe from
+   whatever comes right after it - the next category's own heading in emoji mode ("Smileys &
+   People", the first stock unicode category), or the footer's own top border in sticker mode
+   (where this can be the last/only thing in the scrollable body at all - see
+   EmojiPicker.tsx's own mode doc). */
+.mx_EmojiPicker_createPackCategory_body {
+    width: 304px;
+    box-sizing: border-box;
+    background-color: var(--cpd-color-bg-subtle-primary);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    text-align: center;
+    font: var(--cpd-font-body-sm-regular);
+    color: var(--cpd-color-text-secondary);
+}
+
 .mx_EmojiPicker_footer {
     border-top: 1px solid $message-action-bar-border-color;
     min-height: 72px;

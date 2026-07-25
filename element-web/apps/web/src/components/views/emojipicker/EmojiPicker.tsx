@@ -33,13 +33,17 @@ import {
     type ImagePackUsage,
     type RoomImagePack,
     getEmoticonPacks,
+    getRoomImagePacks,
     getPackAvatarMxc,
+    canManageImagePacks,
     imagesForUsage,
     packDisplayName,
 } from "../../../utils/ImagePacks";
 import dis from "../../../dispatcher/dispatcher";
 import { Action } from "../../../dispatcher/actions";
 import { UserTab } from "../dialogs/UserTab";
+import { RoomSettingsTab } from "../dialogs/RoomSettingsDialog-tab";
+import { setPendingManagePackStateKey } from "../../../utils/pendingManagePack";
 import {
     CATEGORY_HEADER_HEIGHT,
     EMOJI_HEIGHT,
@@ -47,6 +51,11 @@ import {
     STICKER_HEIGHT,
     STICKERS_PER_ROW,
 } from "./config";
+
+// Haven: fixed body height for the synthetic "create a pack" placeholder category (see
+// buildPackCategories) - it has no real emoji/sticker grid to size itself from, unlike every other
+// category, so categoryHeightForEmojiCount's row-count math doesn't apply to it.
+const CREATE_PACK_PLACEHOLDER_HEIGHT = 112;
 
 const ZERO_WIDTH_JOINER = "\u200D";
 
@@ -119,16 +128,32 @@ function makeFreeformEmoji(text: string): IEmoji {
  *  or the entire category list (sticker mode, where the stock unicode categories/Quick Reactions
  *  don't apply at all - see IProps.mode's own doc). Room packs sort before the user's favorited
  *  packs (a favorited pack that's also this room's own is only shown once, as a room pack, not
- *  duplicated) - both requirements straight from how this feature was specced. */
+ *  duplicated) - both requirements straight from how this feature was specced.
+ *
+ *  If `room` itself has no packs of its own at all (favorited packs from elsewhere don't count -
+ *  getRoomImagePacks, not getEmoticonPacks, deliberately checked unfiltered by usage: this is
+ *  about whether the room has *any* pack, not one usable for this specific usage) and the current
+ *  user could create one, an extra synthetic "create a pack" placeholder category is appended,
+ *  using the room's own avatar - mirrors Discord's own "your server has no stickers yet" nudge. */
 function buildPackCategories(
     room: Room | undefined,
     usage: ImagePackUsage,
-): { categories: Pick<ICategory, "id" | "name" | "emoji" | "iconUrl">[]; dataByCategory: Record<string, IEmoji[]> } {
+): {
+    categories: Pick<
+        ICategory,
+        "id" | "name" | "emoji" | "iconUrl" | "manageRoomId" | "manageStateKey" | "isCreatePlaceholder"
+    >[];
+    dataByCategory: Record<string, IEmoji[]>;
+} {
     if (!room) return { categories: [], dataByCategory: {} };
 
+    const userId = room.client.getSafeUserId();
     const packs: RoomImagePack[] = getEmoticonPacks(room, usage);
 
-    const categories: Pick<ICategory, "id" | "name" | "emoji" | "iconUrl">[] = [];
+    const categories: Pick<
+        ICategory,
+        "id" | "name" | "emoji" | "iconUrl" | "manageRoomId" | "manageStateKey" | "isCreatePlaceholder"
+    >[] = [];
     const dataByCategory: Record<string, IEmoji[]> = {};
     for (const pack of packs) {
         const id = `pack:${pack.roomId}:${pack.stateKey}`;
@@ -137,11 +162,35 @@ function buildPackCategories(
         // a favorited pack from a room other than the currently open one still resolves against its
         // own room, not this one, since it reads pack.roomId itself rather than assuming `room`.
         const iconUrl = getPackAvatarMxc(pack, room.client);
-        categories.push({ id, name, emoji: "🖼️", iconUrl });
+        // A favorited pack's own room may differ from `room` (the room this picker was opened
+        // for) - permission is always checked against the pack's actual source room.
+        const packRoom = room.client.getRoom(pack.roomId);
+        const manageRoomId = packRoom && canManageImagePacks(packRoom, userId) ? pack.roomId : undefined;
+        categories.push({
+            id,
+            name,
+            emoji: "🖼️",
+            iconUrl,
+            manageRoomId,
+            manageStateKey: manageRoomId ? pack.stateKey : undefined,
+        });
         dataByCategory[id] = imagesForUsage(pack, usage).map(({ shortcode, image }) =>
             makeCustomEmoji(shortcode, image.url, name, pack.roomId, pack.stateKey, image.info),
         );
     }
+
+    if (getRoomImagePacks(room).length === 0 && canManageImagePacks(room, userId)) {
+        const id = `pack-create:${room.roomId}`;
+        categories.push({
+            id,
+            name: room.name,
+            emoji: "🖼️",
+            iconUrl: room.getMxcAvatarUrl() ?? undefined,
+            isCreatePlaceholder: true,
+        });
+        dataByCategory[id] = [];
+    }
+
     return { categories, dataByCategory };
 }
 
@@ -364,15 +413,37 @@ class EmojiPicker extends React.Component<IProps, IState> {
         this.scrollElement?.querySelector(`[data-category-id="${category}"]`)?.scrollIntoView();
     };
 
-    // Haven: sticker mode has nothing else to fall back on (unlike emoji mode, which always has
-    // the stock unicode categories) - a room with no own sticker packs and no favorited ones would
-    // otherwise render a totally blank body. onFinished closes the picker, since the link is
-    // navigating away to Settings rather than picking anything.
-    private onOpenFavoritePacks = (): void => {
+    // Haven: opens the user's own Emoji & Stickers settings (favorite packs, etc.) - used by the
+    // rail's trailing settings button (always available) and, in sticker mode, by the "no packs at
+    // all" empty-state link (sticker mode has nothing else to fall back on, unlike emoji mode,
+    // which always has the stock unicode categories - a room with no own sticker packs and no
+    // favorited ones would otherwise render a totally blank body). onFinished closes the picker,
+    // since this is navigating away to Settings rather than picking anything.
+    private onOpenSettings = (): void => {
         this.props.onFinished();
         dis.dispatch({
             action: Action.ViewUserSettings,
             initialTabId: UserTab.EmojiStickers,
+        });
+    };
+
+    // Haven: opens Room Settings' own Emoji & Stickers tab for `roomId` - used by a manageable
+    // pack category's gear icon, and by the "this room has no packs yet" placeholder's create
+    // link. `stateKey`, when given (the gear's own case - there's no existing pack to open yet
+    // from the create-placeholder's link), queues that exact pack's own editor to open
+    // automatically once the tab mounts, the same as clicking "View" on it from that tab directly
+    // - see utils/pendingManagePack.ts.
+    private onManageClick = (roomId: string, stateKey?: string): void => {
+        this.props.onFinished();
+        // A pack's own state_key is very commonly "" (MSC2545 doesn't give it any meaning beyond
+        // being a slot - see ImagePacks.ts's own doc) - a truthy check here would silently skip
+        // queuing it for exactly that common case, indistinguishable from "no stateKey was passed
+        // at all" (the create-placeholder's own call site, which really does mean that).
+        if (stateKey !== undefined) setPendingManagePackStateKey(stateKey);
+        dis.dispatch({
+            action: "open_room_settings",
+            room_id: roomId,
+            initial_tab_id: RoomSettingsTab.EmojiStickers,
         });
     };
 
@@ -554,7 +625,11 @@ class EmojiPicker extends React.Component<IProps, IState> {
                             onKeyDown={onKeyDownHandler}
                             aria-label={_t("a11y|emoji_picker")}
                         >
-                            <Header categories={this.categories} onAnchorClick={this.scrollToCategory} />
+                            <Header
+                                categories={this.categories}
+                                onAnchorClick={this.scrollToCategory}
+                                onOpenSettings={this.onOpenSettings}
+                            />
                             <div className="mx_EmojiPicker_main">
                                 <Search
                                     query={this.state.filter}
@@ -578,10 +653,7 @@ class EmojiPicker extends React.Component<IProps, IState> {
                                             {},
                                             {
                                                 a: (sub) => (
-                                                    <AccessibleButton
-                                                        kind="link_inline"
-                                                        onClick={this.onOpenFavoritePacks}
-                                                    >
+                                                    <AccessibleButton kind="link_inline" onClick={this.onOpenSettings}>
                                                         {sub}
                                                     </AccessibleButton>
                                                 ),
@@ -600,6 +672,45 @@ class EmojiPicker extends React.Component<IProps, IState> {
                                         onScroll={this.onScroll}
                                     >
                                         {this.categories.map((category) => {
+                                            if (category.isCreatePlaceholder) {
+                                                const categoryElement = (
+                                                    <section
+                                                        key={category.id}
+                                                        id={`mx_EmojiPicker_category_${category.id}`}
+                                                        className="mx_EmojiPicker_category mx_EmojiPicker_createPackCategory"
+                                                        data-category-id={category.id}
+                                                        role="tabpanel"
+                                                        aria-label={category.name}
+                                                    >
+                                                        <h2 className="mx_EmojiPicker_category_label">
+                                                            {category.name}
+                                                        </h2>
+                                                        <div className="mx_EmojiPicker_createPackCategory_body">
+                                                            {_t(
+                                                                "emoji_picker|create_pack_prompt",
+                                                                {},
+                                                                {
+                                                                    a: (sub) => (
+                                                                        <AccessibleButton
+                                                                            kind="link_inline"
+                                                                            onClick={() =>
+                                                                                this.onManageClick(
+                                                                                    this.props.room!.roomId,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            {sub}
+                                                                        </AccessibleButton>
+                                                                    ),
+                                                                },
+                                                            )}
+                                                        </div>
+                                                    </section>
+                                                );
+                                                heightBefore += CREATE_PACK_PLACEHOLDER_HEIGHT;
+                                                return categoryElement;
+                                            }
+
                                             const emojis = this.memoizedDataByCategory[category.id];
                                             const categoryElement = (
                                                 <Category
@@ -618,6 +729,15 @@ class EmojiPicker extends React.Component<IProps, IState> {
                                                     selectedEmojis={this.props.selectedEmojis}
                                                     itemsPerRow={itemsPerRow}
                                                     itemHeight={itemHeight}
+                                                    onManageClick={
+                                                        category.manageRoomId
+                                                            ? () =>
+                                                                  this.onManageClick(
+                                                                      category.manageRoomId!,
+                                                                      category.manageStateKey,
+                                                                  )
+                                                            : undefined
+                                                    }
                                                 />
                                             );
                                             const height = EmojiPicker.categoryHeightForEmojiCount(

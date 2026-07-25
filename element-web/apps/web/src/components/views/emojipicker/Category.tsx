@@ -10,12 +10,14 @@ Please see LICENSE files in the repository root for full details.
 import React, { type JSX, type RefObject } from "react";
 import classNames from "classnames";
 import { type Emoji as IEmoji } from "@matrix-org/emojibase-bindings";
+import SettingsIcon from "@vector-im/compound-design-tokens/assets/web/icons/settings";
 
 import { CATEGORY_HEADER_HEIGHT, EMOJI_HEIGHT, EMOJIS_PER_ROW, STICKERS_PER_ROW } from "./config";
 import LazyRenderList from "../elements/LazyRenderList";
 import Emoji from "./Emoji";
 import { isCustomEmoji } from "./customEmoji";
 import { type ButtonEvent } from "../elements/AccessibleButton";
+import { _t } from "../../../languageHandler";
 
 const OVERFLOW_ROWS = 3;
 
@@ -33,6 +35,19 @@ export interface ICategory {
     /** Haven: an MSC2545 pack's own avatar (mxc://...) - shown in the rail instead of `emoji` when
      *  present, identifying this as a pack's own category rather than a real emojibase one. */
     iconUrl?: string;
+    /** Haven: the id of the room that owns this pack, set only when the current user has
+     *  permission to manage it (see utils/ImagePacks.ts's canManageImagePacks) - shows the manage
+     *  gear next to the category name and is where it opens Room Settings to. Undefined for every
+     *  stock emojibase category, and for a pack category the user can't manage. */
+    manageRoomId?: string;
+    /** Haven: this pack's own state_key within manageRoomId - set alongside manageRoomId so the
+     *  gear can open Room Settings with this exact pack's own editor already showing (see
+     *  utils/pendingManagePack.ts), the same as clicking "View" on it from that tab directly. */
+    manageStateKey?: string;
+    /** Haven: marks the synthetic "this room has no packs yet, create one" category
+     *  (buildPackCategories in EmojiPicker.tsx) - rendered as a message + link instead of a real
+     *  emoji/sticker grid. */
+    isCreatePlaceholder?: boolean;
     enabled: boolean;
     // Whether the category is currently visible
     visible: boolean;
@@ -63,6 +78,11 @@ interface IProps {
      *  really gets rendered. */
     itemsPerRow?: number;
     itemHeight?: number;
+    /** Haven: shows a gear icon next to the category name that calls onManageClick when clicked -
+     *  set by EmojiPicker.tsx only for a pack category (id `pack:...`) the current user has
+     *  permission to manage (see utils/ImagePacks.ts's canManageImagePacks). Stock emojibase
+     *  categories never pass this. */
+    onManageClick?: () => void;
 }
 
 function hexEncode(str: string): string {
@@ -136,7 +156,18 @@ class Category extends React.PureComponent<IProps> {
                 role="tabpanel"
                 aria-label={name}
             >
-                <h2 className="mx_EmojiPicker_category_label">{name}</h2>
+                <h2 className="mx_EmojiPicker_category_label">
+                    {name}
+                    {this.props.onManageClick && (
+                        <button
+                            className="mx_EmojiPicker_category_manageBtn"
+                            onClick={this.props.onManageClick}
+                            title={_t("emoji_picker|manage_pack")}
+                        >
+                            <SettingsIcon width="16px" height="16px" />
+                        </button>
+                    )}
+                </h2>
                 <LazyRenderList
                     className="mx_EmojiPicker_list"
                     itemHeight={itemHeight}
