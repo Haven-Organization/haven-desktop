@@ -868,7 +868,21 @@ class LoggedInView extends React.Component<IProps, IState> {
                                 {leftPanel}
                             </LeftResizablePanelView>
                             <SeparatorView className="mx_Separator" vm={resizerViewModel} />
-                            <Panel className="mx_LeftPanel_panel">{roomView}</Panel>
+                            {/* Haven: react-resizable-panels' own Panel hardcodes overflow: "auto"
+                                as an inline style (only a `style` prop, spread after its own
+                                defaults, can override it - a CSS rule can't beat an inline style).
+                                Content here already scrolls itself where it needs to (e.g.
+                                RoomView's own ScrollPanel, SpaceRoomView_landing's own
+                                overflow-y), so this being independently scrollable too just adds
+                                a second, redundant scroll ancestor - which is exactly what
+                                react-beautiful-dnd's own "unsupported nested scroll container"
+                                limitation breaks: with two scroll parents in the chain, its drop
+                                target/index math can come out wrong, which is what silently broke
+                                SpaceHierarchy's own room drag-to-reorder even after its purely
+                                visual position bug (a separate contain:strict issue) was fixed. */}
+                            <Panel className="mx_LeftPanel_panel" style={{ overflow: "hidden" }}>
+                                {roomView}
+                            </Panel>
                         </>
                     )}
                 </GroupView>

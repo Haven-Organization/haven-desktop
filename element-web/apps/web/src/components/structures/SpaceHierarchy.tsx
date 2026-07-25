@@ -22,6 +22,7 @@ import React, {
     useRef,
     useState,
 } from "react";
+import { createPortal, flushSync } from "react-dom";
 import {
     type Room,
     RoomEvent,
@@ -33,6 +34,7 @@ import {
     GuestAccess,
     HistoryVisibility,
     type HierarchyRoom,
+    type HierarchyRelation,
     JoinRule,
 } from "matrix-js-sdk/src/matrix";
 import { RoomHierarchy } from "matrix-js-sdk/src/room-hierarchy";
@@ -41,7 +43,17 @@ import { sortBy, uniqBy } from "lodash";
 import { logger } from "matrix-js-sdk/src/logger";
 import { KnownMembership, type SpaceChildEventContent } from "matrix-js-sdk/src/types";
 import { ChevronDownIcon, CheckIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import DragListIcon from "@vector-im/compound-design-tokens/assets/web/icons/drag-list";
 import { LinkedText } from "@element-hq/web-shared-components";
+import {
+    DragDropContext,
+    Draggable,
+    Droppable,
+    type DropResult,
+    type DragStart,
+    type DraggableProvidedDragHandleProps,
+    type DraggableProvidedDraggableProps,
+} from "react-beautiful-dnd";
 
 import defaultDispatcher from "../../dispatcher/dispatcher";
 import { _t } from "../../languageHandler";
@@ -56,6 +68,7 @@ import InfoTooltip from "../views/elements/InfoTooltip";
 import TextWithTooltip from "../views/elements/TextWithTooltip";
 import { useStateToggle } from "../../hooks/useStateToggle";
 import { getChildOrder } from "../../stores/spaces/SpaceStore";
+import { reorderLexicographically } from "../../utils/stringOrderField";
 import { topicToHtml } from "../../HtmlUtils";
 import { useDispatcher } from "../../hooks/useDispatcher";
 import { Action } from "../../dispatcher/actions";
@@ -92,19 +105,38 @@ interface ITileProps {
     onViewRoomClick(this: void): void;
     onJoinRoomClick(this: void): Promise<unknown>;
     onToggleClick?(this: void): void;
+    /** Haven: drag-to-reorder (see HierarchyLevel's own canReorder/getSortedChildEntries) - both
+     *  undefined when this room isn't currently draggable (only one room at this level, no
+     *  permission, or a search filter is active). dragHandleProps go on a dedicated handle
+     *  element, not the whole tile, so the existing click-to-view/toggle behaviour is untouched. */
+    dragHandleProps?: DraggableProvidedDragHandleProps | null;
+    draggableProps?: DraggableProvidedDraggableProps;
+    isDragging?: boolean;
+    /** Haven: true once this room has ever been dragged as part of a reorder - see SpaceHierarchy's
+     *  own dragStartedSubspaceIds state for why this can't just live in this component's own
+     *  local state (a dragged Tile gets portaled to <body> and back, which remounts it and would
+     *  otherwise reset a purely-local "stay collapsed" flag right as the drag ends). */
+    forceCollapsed?: boolean;
 }
 
-const Tile: React.FC<ITileProps> = ({
-    room,
-    suggested,
-    selected,
-    hasPermissions,
-    onToggleClick,
-    onViewRoomClick,
-    onJoinRoomClick,
-    numChildRooms,
-    children,
-}) => {
+const Tile = React.forwardRef<HTMLLIElement, ITileProps>(function Tile(
+    {
+        room,
+        suggested,
+        selected,
+        hasPermissions,
+        onToggleClick,
+        onViewRoomClick,
+        onJoinRoomClick,
+        numChildRooms,
+        children,
+        dragHandleProps,
+        draggableProps,
+        isDragging,
+        forceCollapsed,
+    },
+    ref,
+) {
     const cli = useContext(MatrixClientContext);
     const joinedRoom = useTypedEventEmitterState(cli, ClientEvent.Room, () => {
         const cliRoom = cli?.getRoom(room.room_id);
@@ -118,8 +150,38 @@ const Tile: React.FC<ITileProps> = ({
         room.aliases?.[0] ||
         (room.room_type === RoomType.Space ? _t("common|unnamed_space") : _t("common|unnamed_room"));
 
-    const [showChildren, toggleShowChildren] = useStateToggle(true);
-    const [onFocus, isActive, ref, nodeRef] = useRovingTabIndex();
+    const [showChildren, toggleShowChildren, setShowChildren] = useStateToggle(!forceCollapsed);
+    // Haven: collapse a subspace the moment it starts being dragged, and leave it collapsed
+    // after the drop - a dragged subspace's own clone showing its full expanded child list
+    // makes an unwieldy, oversized drag preview, and nothing about reordering the subspace
+    // itself needs its children visible either during or after the move. Covers both: the
+    // `!forceCollapsed` initializer above handles a *remounted* Tile starting out collapsed
+    // (portaling a Tile in and back out of <body> while dragging remounts it, which would
+    // otherwise silently reset a purely-local "stay collapsed" flag right as the drag ends);
+    // this effect handles collapsing an *already-mounted* Tile the moment dragging begins, or
+    // if forceCollapsed itself flips true without a remount in between.
+    useEffect(() => {
+        if (isDragging || forceCollapsed) setShowChildren(false);
+    }, [isDragging, forceCollapsed, setShowChildren]);
+    // Haven: react-beautiful-dnd measures a draggable's real DOM dimensions on the first
+    // mousemove that exceeds its lift threshold - not on this mousedown/touchstart itself - but
+    // it has no support for that size changing again once a drag is already underway (the same
+    // reason the effect above exists). Waiting for the isDragging-driven effect above is a whole
+    // render too late: by the time that state change commits, RBD has already measured the
+    // still-expanded box, which is exactly what threw off its cursor-offset and
+    // sibling-displacement math for larger, still-expanded subspaces. Collapsing here instead,
+    // synchronously via flushSync, guarantees the DOM already reflects the collapsed size well
+    // before that later mousemove fires.
+    const collapseBeforeLift = (): void => {
+        if (room.room_type === RoomType.Space) {
+            flushSync(() => setShowChildren(false));
+        }
+    };
+    // Haven: renamed from the destructured `ref` this hook returns - the forwardRef parameter
+    // above (also conventionally named `ref`) is a *different* DOM node (the outer <li>, for
+    // react-beautiful-dnd's own Draggable), not this one (the inner AccessibleButton, for roving
+    // tabindex focus management) - keeping both named `ref` would shadow one of them silently.
+    const [onFocus, isActive, rovingRef, nodeRef] = useRovingTabIndex();
     const [busy, setBusy] = useState(false);
     const checkboxLabelId = useId();
 
@@ -183,6 +245,15 @@ const Tile: React.FC<ITileProps> = ({
                     aria-labelledby={checkboxLabelId}
                     checked={!!selected}
                     tabIndex={-1}
+                    // Haven: a checkbox's own native `click` (which is what actually flips it)
+                    // fires and bubbles *before* its `change` event does - stopping propagation
+                    // only in onChange below is too late to stop that earlier click from also
+                    // reaching this whole tile's own onClick (a couple hundred lines down),
+                    // which toggles selection too since this is a permitted room. Without this,
+                    // clicking the checkbox toggles selection twice in a row (once via the
+                    // bubbled click, once via onChange calling onToggleClick itself) and nets out
+                    // to no visible change, while clicking anywhere else on the tile works fine.
+                    onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                         e.stopPropagation();
                         onToggleClick();
@@ -350,12 +421,28 @@ const Tile: React.FC<ITileProps> = ({
 
     return (
         <li
-            className="mx_SpaceHierarchy_roomTileWrapper"
+            className={classNames("mx_SpaceHierarchy_roomTileWrapper", {
+                mx_SpaceHierarchy_roomTileWrapper_reorderable: !!dragHandleProps,
+                mx_SpaceHierarchy_roomTileWrapper_dragging: isDragging,
+            })}
             role="treeitem"
             aria-selected={selected}
             aria-labelledby={checkboxLabelId}
             aria-expanded={children ? showChildren : undefined}
+            ref={ref}
+            {...draggableProps}
         >
+            {dragHandleProps && (
+                <div
+                    className="mx_SpaceHierarchy_dragHandle"
+                    {...dragHandleProps}
+                    onMouseDown={collapseBeforeLift}
+                    onTouchStart={collapseBeforeLift}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <DragListIcon width="16px" height="16px" />
+                </div>
+            )}
             <AccessibleButton
                 className={classNames("mx_SpaceHierarchy_roomTile", {
                     mx_SpaceHierarchy_subspace: room.room_type === RoomType.Space,
@@ -363,7 +450,7 @@ const Tile: React.FC<ITileProps> = ({
                 })}
                 onClick={shouldToggle ? onToggleClick : onPreviewClick}
                 onKeyDown={onKeyDown}
-                ref={ref}
+                ref={rovingRef}
                 onFocus={onFocus}
                 tabIndex={isActive ? 0 : -1}
             >
@@ -373,7 +460,8 @@ const Tile: React.FC<ITileProps> = ({
             {childSection}
         </li>
     );
-};
+});
+Tile.displayName = "Tile";
 
 export const showRoom = (cli: MatrixClient, hierarchy: RoomHierarchy, roomId: string, roomType?: RoomType): void => {
     const room = hierarchy.roomMap.get(roomId);
@@ -463,6 +551,15 @@ interface IHierarchyLevelProps {
     onViewRoomClick(this: void, roomId: string, roomType?: RoomType): void;
     onJoinRoomClick(this: void, roomId: string, parents: Set<string>): Promise<unknown>;
     onToggleClick?(this: void, parentId: string, childId: string): void;
+    /** Haven: whether drag-to-reorder is available at all right now - true only while no search
+     *  filter is active (a filtered list is sorted by relevance, not by the space's real order, so
+     *  dragging within it wouldn't mean anything). Permission is checked separately per-level via
+     *  this level's own hasPermissions, since a nested subspace needs its own check against itself. */
+    canReorder?: boolean;
+    /** Haven: room IDs of subspaces that have ever been dragged during this reorder session - see
+     *  SpaceHierarchy's own state of the same name for why this has to be threaded down rather
+     *  than living entirely inside Tile's own local state. */
+    dragStartedSubspaceIds?: Set<string>;
 }
 
 export const toLocalRoom = (cli: MatrixClient, room: HierarchyRoom, hierarchy: RoomHierarchy): HierarchyRoom => {
@@ -504,6 +601,29 @@ export const toLocalRoom = (cli: MatrixClient, room: HierarchyRoom, hierarchy: R
     return room;
 };
 
+// Haven: shared by HierarchyLevel's own render (below) and SpaceHierarchy's onDragEnd (drag-to-
+// reorder rooms on a space's homepage) so both stay in sync on ordering/dedup - the latter needs
+// the raw m.space.child event (for its own content.order/state_key) alongside the HierarchyRoom
+// the former renders, so a single list of {event, room} pairs serves both call sites.
+export const getSortedChildEntries = (
+    cli: MatrixClient,
+    root: HierarchyRoom,
+    hierarchy: RoomHierarchy,
+    roomSet: Set<HierarchyRoom>,
+): { event: HierarchyRelation; room: HierarchyRoom }[] => {
+    const entries = filterBoolean(
+        sortBy(root.children_state, (ev) => {
+            return getChildOrder(ev.content.order, ev.origin_server_ts, ev.state_key);
+        }).map((ev) => {
+            const hierarchyRoom = hierarchy.roomMap.get(ev.state_key);
+            if (!hierarchyRoom || !roomSet.has(hierarchyRoom)) return null;
+            // Find the most up-to-date info for this room, if it has been upgraded and we know about it.
+            return { event: ev, room: toLocalRoom(cli, hierarchyRoom, hierarchy) };
+        }),
+    );
+    return uniqBy(entries, (entry) => entry.room.room_id);
+};
+
 export const HierarchyLevel: React.FC<IHierarchyLevelProps> = ({
     root,
     roomSet,
@@ -513,73 +633,131 @@ export const HierarchyLevel: React.FC<IHierarchyLevelProps> = ({
     onViewRoomClick,
     onJoinRoomClick,
     onToggleClick,
+    canReorder,
+    dragStartedSubspaceIds,
 }) => {
     const cli = useContext(MatrixClientContext);
     const space = cli.getRoom(root.room_id);
     const hasPermissions = space?.currentState.maySendStateEvent(EventType.SpaceChild, cli.getSafeUserId());
 
-    const sortedChildren = filterBoolean(
-        sortBy(root.children_state, (ev) => {
-            return getChildOrder(ev.content.order, ev.origin_server_ts, ev.state_key);
-        }).map((ev) => {
-            const hierarchyRoom = hierarchy.roomMap.get(ev.state_key);
-            if (!hierarchyRoom || !roomSet.has(hierarchyRoom)) return null;
-            // Find the most up-to-date info for this room, if it has been upgraded and we know about it.
-            return toLocalRoom(cli, hierarchyRoom, hierarchy);
-        }),
-    );
+    const sortedEntries = getSortedChildEntries(cli, root, hierarchy, roomSet);
+    // Haven: drag-to-reorder rooms on a space's homepage - only worth offering when there's more
+    // than one room to reorder relative to, and only while the list reflects the space's real
+    // order (a search filter re-sorts by relevance, so dragging within it wouldn't mean anything).
+    const showDragHandles = canReorder && hasPermissions && sortedEntries.length > 1;
 
     const newParents = new Set(parents).add(root.room_id);
+    const tiles = sortedEntries.map(({ room }, index) => {
+        let tile: JSX.Element;
+        if (room.room_type !== RoomType.Space) {
+            tile = (
+                <Tile
+                    room={room}
+                    suggested={hierarchy.isSuggested(root.room_id, room.room_id)}
+                    selected={selectedMap?.get(root.room_id)?.has(room.room_id)}
+                    onViewRoomClick={() => onViewRoomClick(room.room_id, room.room_type as RoomType)}
+                    onJoinRoomClick={() => onJoinRoomClick(room.room_id, newParents)}
+                    hasPermissions={hasPermissions}
+                    onToggleClick={onToggleClick ? () => onToggleClick(root.room_id, room.room_id) : undefined}
+                />
+            );
+        } else {
+            if (newParents.has(room.room_id)) return null; // prevent cycles
+            tile = (
+                <Tile
+                    room={room}
+                    numChildRooms={
+                        room.children_state.filter((ev) => {
+                            const child = hierarchy.roomMap.get(ev.state_key);
+                            return child && roomSet.has(child) && !child.room_type;
+                        }).length
+                    }
+                    suggested={hierarchy.isSuggested(root.room_id, room.room_id)}
+                    selected={selectedMap?.get(root.room_id)?.has(room.room_id)}
+                    onViewRoomClick={() => onViewRoomClick(room.room_id, RoomType.Space)}
+                    onJoinRoomClick={() => onJoinRoomClick(room.room_id, newParents)}
+                    hasPermissions={hasPermissions}
+                    onToggleClick={onToggleClick ? () => onToggleClick(root.room_id, room.room_id) : undefined}
+                    forceCollapsed={dragStartedSubspaceIds?.has(room.room_id)}
+                >
+                    <HierarchyLevel
+                        root={room}
+                        roomSet={roomSet}
+                        hierarchy={hierarchy}
+                        parents={newParents}
+                        selectedMap={selectedMap}
+                        onViewRoomClick={onViewRoomClick}
+                        onJoinRoomClick={onJoinRoomClick}
+                        onToggleClick={onToggleClick}
+                        // Haven: deliberately not forwarding the parent's own canReorder - rooms
+                        // nested under a subspace shown inline here belong to that subspace, not
+                        // to the top-level space this whole tree is rooted at. Reordering them
+                        // needs to happen from that subspace's own homepage instead, so its own
+                        // m.space.child order gets written to the right room, not this one's.
+                    />
+                </Tile>
+            );
+        }
+
+        if (!showDragHandles) {
+            return React.cloneElement(tile, { key: room.room_id });
+        }
+
+        return (
+            <Draggable key={room.room_id} draggableId={`${root.room_id}:${room.room_id}`} index={index}>
+                {(provided, snapshot) => {
+                    const clone = React.cloneElement(tile, {
+                        ref: provided.innerRef,
+                        draggableProps: provided.draggableProps,
+                        dragHandleProps: provided.dragHandleProps,
+                        isDragging: snapshot.isDragging,
+                    });
+                    // Haven: react-beautiful-dnd positions the dragged clone with `position:
+                    // fixed` relative to the viewport - but RoomView_wrapper (an ancestor here,
+                    // since this renders inside a space's own room view) sets `contain: strict`
+                    // for render-performance reasons, which makes it a *containing block* for
+                    // fixed descendants too (the same effect a CSS transform has). Without a
+                    // portal the clone renders at the right fixed offset, but relative to that
+                    // ancestor's box instead of the viewport, landing far from the cursor. This is
+                    // react-beautiful-dnd's own documented fix for exactly this situation - portal
+                    // only while actually dragging, so the empty-slot placeholder still measures
+                    // and animates correctly in its original spot.
+                    // react-beautiful-dnd's own DraggableChildrenFn type predates portal support
+                    // and only allows a plain ReactElement<HTMLElement> return - a portal is a
+                    // valid renderable node at runtime regardless, so this cast just works around
+                    // the stale type rather than reflecting an actual type mismatch.
+                    return snapshot.isDragging
+                        ? (createPortal(clone, document.body) as unknown as ReactElement<HTMLElement>)
+                        : clone;
+                }}
+            </Draggable>
+        );
+    });
+
+    if (!showDragHandles) {
+        return <React.Fragment>{tiles}</React.Fragment>;
+    }
+
     return (
-        <React.Fragment>
-            {uniqBy(sortedChildren, "room_id").map((room) => {
-                if (room.room_type !== RoomType.Space) {
-                    return (
-                        <Tile
-                            key={room.room_id}
-                            room={room}
-                            suggested={hierarchy.isSuggested(root.room_id, room.room_id)}
-                            selected={selectedMap?.get(root.room_id)?.has(room.room_id)}
-                            onViewRoomClick={() => onViewRoomClick(room.room_id, room.room_type as RoomType)}
-                            onJoinRoomClick={() => onJoinRoomClick(room.room_id, newParents)}
-                            hasPermissions={hasPermissions}
-                            onToggleClick={onToggleClick ? () => onToggleClick(root.room_id, room.room_id) : undefined}
-                        />
-                    );
-                } else {
-                    if (newParents.has(room.room_id)) return null; // prevent cycles
-                    return (
-                        <Tile
-                            key={room.room_id}
-                            room={room}
-                            numChildRooms={
-                                room.children_state.filter((ev) => {
-                                    const child = hierarchy.roomMap.get(ev.state_key);
-                                    return child && roomSet.has(child) && !child.room_type;
-                                }).length
-                            }
-                            suggested={hierarchy.isSuggested(root.room_id, room.room_id)}
-                            selected={selectedMap?.get(root.room_id)?.has(room.room_id)}
-                            onViewRoomClick={() => onViewRoomClick(room.room_id, RoomType.Space)}
-                            onJoinRoomClick={() => onJoinRoomClick(room.room_id, newParents)}
-                            hasPermissions={hasPermissions}
-                            onToggleClick={onToggleClick ? () => onToggleClick(root.room_id, room.room_id) : undefined}
-                        >
-                            <HierarchyLevel
-                                root={room}
-                                roomSet={roomSet}
-                                hierarchy={hierarchy}
-                                parents={newParents}
-                                selectedMap={selectedMap}
-                                onViewRoomClick={onViewRoomClick}
-                                onJoinRoomClick={onJoinRoomClick}
-                                onToggleClick={onToggleClick}
-                            />
-                        </Tile>
-                    );
-                }
-            })}
-        </React.Fragment>
+        <Droppable droppableId={root.room_id}>
+            {(provided) => (
+                // Haven: this used to be `display: contents`, on the theory that a no-op wrapper
+                // would be safest since the real <ul> lives in SpaceHierarchy/Tile's own
+                // childSection. That backfired: `display: contents` makes an element generate no
+                // box of its own, so react-beautiful-dnd's own Droppable hit-testing (used to
+                // compute onDragEnd's `destination`, separate from the dragged clone's own visual
+                // position) had nothing to measure - every drop looked like it landed outside the
+                // Droppable, so reordering silently never took effect despite looking right
+                // visually. A plain block div (react-beautiful-dnd's own SpacePanel.tsx puts its
+                // Droppable ref directly on a real element for the same reason) fixes this - <li>s
+                // are already block-level, so one extra block wrapper around them doesn't change
+                // this list's layout at all.
+                <div ref={provided.innerRef} {...provided.droppableProps}>
+                    {tiles}
+                    {provided.placeholder}
+                </div>
+            )}
+        </Droppable>
     );
 };
 
@@ -779,6 +957,17 @@ const SpaceHierarchy: React.FC<IProps> = ({ space, initialText = "", showRoom, a
     const [query, setQuery] = useState(initialText);
 
     const [selected, setSelected] = useState(new Map<string, Set<string>>()); // Map<parentId, Set<childId>>
+    // Haven: onDragEnd mutates m.space.child events' own .content in place as a local echo (mirrors
+    // ManageButtons' own pattern below) rather than copying hierarchy's whole room tree, so this
+    // tick's only job is forcing a re-render to pick that mutation up - its value is never read.
+    const [, setReorderTick] = useState(0);
+    // Haven: room IDs of subspaces that have ever been dragged, kept here (not inside Tile's own
+    // local state) because a dragged Tile gets portaled to <body> and back while dragging - see
+    // SpaceHierarchy.tsx's own Draggable render prop comment - which remounts it and would wipe a
+    // purely-local "stay collapsed" flag right as the drag ends. This lives in a stable ancestor
+    // that never itself gets portaled, so it survives that remount and keeps a subspace collapsed
+    // both during and permanently after its own drag.
+    const [dragStartedSubspaceIds, setDragStartedSubspaceIds] = useState<Set<string>>(new Set());
 
     const { loading, rooms, hierarchy, loadMore, error: hierarchyError } = useRoomHierarchy(space);
 
@@ -843,8 +1032,56 @@ const SpaceHierarchy: React.FC<IProps> = ({ space, initialText = "", showRoom, a
         setSelected(new Map(selected.set(parentId, new Set(parentSet))));
     };
 
+    // Haven: fires the moment a drag lifts off, before onDragEnd - used only to permanently mark a
+    // dragged subspace as collapsed (see the Tile-level comment on forceCollapsed/showChildren for
+    // why this can't wait until onDragEnd, and why it isn't just local state on Tile itself).
+    const onDragStart = (start: DragStart): void => {
+        if (!hierarchy) return;
+        const root = hierarchy.roomMap.get(start.source.droppableId);
+        if (!root) return;
+        const entries = getSortedChildEntries(cli, root, hierarchy, filteredRoomSet);
+        const dragged = entries[start.source.index];
+        if (dragged?.room.room_type !== RoomType.Space) return;
+        setDragStartedSubspaceIds((prev) => new Set(prev).add(dragged.room.room_id));
+    };
+
+    // Haven: drag-to-reorder rooms on a space's homepage. Same-level moves only - result.destination
+    // is always inside the Droppable keyed to the dragged room's own parent, so a drop into a
+    // different droppableId is a no-op. Reorders write m.space.child's own real, spec-defined
+    // `order` field (see stringOrderField.ts's own doc for the fractional-indexing scheme), the
+    // same field the space's actual room order is read from elsewhere, so this isn't a Haven-only
+    // convention - unlike the emoji/sticker pack ordering gap noted in the pack-reorder-deferred
+    // memory, which has no such field to write to.
+    const onDragEnd = (result: DropResult): void => {
+        if (!hierarchy) return;
+        if (!result.destination) return;
+        if (result.destination.droppableId !== result.source.droppableId) return;
+        if (result.destination.index === result.source.index) return;
+
+        const root = hierarchy.roomMap.get(result.source.droppableId);
+        if (!root) return;
+
+        const entries = getSortedChildEntries(cli, root, hierarchy, filteredRoomSet);
+        const orders = entries.map((entry) => entry.event.content.order);
+        const changes = reorderLexicographically(orders, result.source.index, result.destination.index);
+
+        changes.forEach(({ index, order }) => {
+            const entry = entries[index];
+            if (!entry) return;
+            const content = { ...entry.event.content, order };
+            entry.event.content = content; // local echo, mirrors ManageButtons' own pattern below
+            cli.sendStateEvent(root.room_id, EventType.SpaceChild, content, entry.event.state_key).catch((e) => {
+                logger.error("Failed to reorder room in space", e);
+                setError("Failed to update some suggestions. Try again later");
+            });
+        });
+
+        setReorderTick((tick) => tick + 1);
+    };
+
     return (
-        <RovingTabIndexProvider onKeyDown={onKeyDown} handleHomeEnd handleUpDown>
+        <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
+            <RovingTabIndexProvider onKeyDown={onKeyDown} handleHomeEnd handleUpDown>
             {({ onKeyDownHandler }) => {
                 let content: JSX.Element;
                 if (!hierarchy || (loading && !rooms?.length)) {
@@ -874,6 +1111,8 @@ const SpaceHierarchy: React.FC<IProps> = ({ space, initialText = "", showRoom, a
                                     }
                                     await joinRoom(cli, roomContext.roomViewStore, hierarchy, roomId);
                                 }}
+                                canReorder={!query.trim()}
+                                dragStartedSubspaceIds={dragStartedSubspaceIds}
                             />
                         );
                     } else if (!hierarchy.canLoadMore) {
@@ -943,7 +1182,8 @@ const SpaceHierarchy: React.FC<IProps> = ({ space, initialText = "", showRoom, a
                     </>
                 );
             }}
-        </RovingTabIndexProvider>
+            </RovingTabIndexProvider>
+        </DragDropContext>
     );
 };
 
