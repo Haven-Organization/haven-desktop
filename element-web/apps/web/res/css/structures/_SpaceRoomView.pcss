@@ -9,7 +9,17 @@ Please see LICENSE files in the repository root for full details.
 .mx_SpaceRoomView {
     --innerWidth: 428px;
 
-    overflow-y: auto;
+    /* Haven: was overflow-y: auto - .mx_MainSplit > div:first-child below is the one that
+       actually scrolls (it's capped to max-height: 100% and has its own overflow-y: auto), so
+       this outer element being scrollable too just doubles up as a second, redundant scroll
+       ancestor. react-beautiful-dnd explicitly doesn't support nested scroll containers (see its
+       own "unsupported nested scroll container detected" dev warning) - with both scrollable, it
+       miscalculates a dragged item's fixed-position offset by a large, essentially arbitrary
+       amount, which is exactly what broke SpaceHierarchy's own room drag-to-reorder. Both axes
+       need to be non-auto/scroll explicitly - setting only overflow-y leaves overflow-x
+       resolving to "auto" per the CSS overflow spec (an axis left as "visible" auto-adjusts to
+       "auto" as soon as the other axis isn't "visible" either), which still counts as scrollable. */
+    overflow: hidden;
     flex: 1;
 
     .mx_MainSplit > div:first-child {
@@ -86,12 +96,54 @@ Please see LICENSE files in the repository root for full details.
         min-width: 0;
 
         .mx_SpaceRoomView_landing_header {
+            position: relative;
             display: flex;
             justify-content: space-between;
+            min-height: 128px;
+            overflow: hidden;
+
+            /* Haven: MSC4221 space banner - bleed out of the landing pane's own 80px/60px
+               padding (see .mx_MainSplit > div:first-child above) so the banner reaches the
+               true top/left/right edges of the scrollable pane like a typical profile banner,
+               rather than sitting inset within it. Only the bottom stays rounded since that
+               edge transitions into the padded content below rather than a pane edge. */
+            margin: -80px -60px 0;
+            width: calc(100% + 120px);
+            border-radius: 0 0 8px 8px;
 
             .mx_BaseAvatar {
                 width: 80px;
             }
+
+            /* Haven: MSC4221 space banner - mirrors _RoomHeader.pcss's own banner/bannerScrim
+               pair (absolutely-filled image + a semi-transparent scrim so the avatar sitting on
+               top of it stays legible over any banner image, light or dark). */
+            > *:not(.mx_SpaceRoomView_landing_banner):not(.mx_SpaceRoomView_landing_bannerScrim) {
+                position: relative;
+                z-index: 1;
+                align-self: center;
+                /* The header itself bleeds out to the pane's true edge above, but the avatar
+                   should stay where it always was - aligned with "Welcome to"/the space name
+                   below, which still sits at the pane's normal 60px padding. */
+                margin-left: 60px;
+            }
+        }
+
+        .mx_SpaceRoomView_landing_banner {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+        }
+
+        .mx_SpaceRoomView_landing_bannerScrim {
+            position: absolute;
+            inset: 0;
+            background-color: $background;
+            opacity: 0.4;
+            z-index: 0;
         }
 
         .mx_SpaceRoomView_landing_name {

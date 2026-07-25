@@ -6,11 +6,36 @@
  */
 
 .header {
+    position: relative;
+    overflow: hidden;
     min-height: 60px;
     padding: 0 var(--cpd-space-4x) 0 var(--cpd-space-3x);
 }
 
+/* Haven: MSC4221 space banner - mirrors RoomHeader's own banner/bannerScrim pair (absolutely-
+   filled image + a semi-transparent scrim so the title/icons sitting on top of it stay legible
+   over any banner image, light or dark). Everything else in the header gets position:relative +
+   a z-index below to stack above these two. */
+.banner {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+}
+
+.bannerScrim {
+    position: absolute;
+    inset: 0;
+    background-color: var(--cpd-color-bg-canvas-default);
+    opacity: 0.6;
+    z-index: 0;
+}
+
 .container {
+    position: relative;
+    z-index: 1;
     flex: 1;
     padding-bottom: var(--cpd-space-3x);
     min-width: 0;
@@ -27,4 +52,10 @@
         text-overflow: ellipsis;
         user-select: none; /* currently supported by Chrome, Edge, Opera and Firefox */
     }
+}
+
+.icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
 }

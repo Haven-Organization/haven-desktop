@@ -34,6 +34,8 @@ import defaultDispatcher from "../../../dispatcher/dispatcher";
 import { SettingsSection } from "./shared/SettingsSection.tsx";
 import { SetStatusViewModel } from "../../../viewmodels/status/SetStatusViewModel.ts";
 import SettingsStore from "../../../settings/SettingsStore.ts";
+import { PROFILE_BANNER_KEY } from "../../../../../../../src/apps/social/utils/useUserBanner";
+import { BannerSetting } from "../../../../../../../src/apps/social/components/BannerSetting";
 
 const SpinnerToast: React.FC<{ children?: ReactNode }> = ({ children }) => (
     <>
@@ -122,6 +124,12 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
     const [avatarError, setAvatarError] = useState<boolean>(false);
     const [maxUploadSize, setMaxUploadSize] = useState<number | undefined>();
     const [displayNameError, setDisplayNameError] = useState<boolean>(false);
+    // Haven: MSC4427 profile banner - unlike avatarURL/displayName above, OwnProfileStore doesn't
+    // track this (it's a custom extended-profile field, not part of the base profile API), so it
+    // has to be fetched directly. undefined means "still loading/unsupported", "" means "no
+    // banner set".
+    const [bannerMxc, setBannerMxc] = useState<string | undefined>(undefined);
+    const [canSetBanner, setCanSetBanner] = useState(false);
 
     const toastRack = useToastContext();
 
@@ -134,6 +142,23 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                 setMaxUploadSize(mediaConfig["m.upload.size"]);
             } catch (e) {
                 logger.warn("Failed to get media config", e);
+            }
+        })();
+    }, [client]);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                if (!(await client.doesServerSupportExtendedProfiles())) {
+                    setBannerMxc("");
+                    return;
+                }
+                setCanSetBanner(true);
+                const value = await client.getExtendedProfileProperty(client.getSafeUserId(), PROFILE_BANNER_KEY);
+                setBannerMxc(typeof value === "string" ? value : "");
+            } catch (e) {
+                // M_NOT_FOUND just means no banner set yet - still settable, just empty.
+                setBannerMxc("");
             }
         })();
     }, [client]);
@@ -171,6 +196,34 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                 setAvatarURL(uri);
             } catch {
                 setAvatarError(true);
+            } finally {
+                removeToast();
+            }
+        },
+        [toastRack, client],
+    );
+
+    const onBannerRemove = useCallback(async () => {
+        const removeToast = toastRack.displayToast(
+            <SpinnerToast>{_t("settings|general|avatar_remove_progress")}</SpinnerToast>,
+        );
+        try {
+            await client.deleteExtendedProfileProperty(PROFILE_BANNER_KEY);
+            setBannerMxc("");
+        } finally {
+            removeToast();
+        }
+    }, [toastRack, client]);
+
+    const onBannerChange = useCallback(
+        async (bannerFile: File) => {
+            const removeToast = toastRack.displayToast(
+                <SpinnerToast>{_t("settings|general|avatar_save_progress")}</SpinnerToast>,
+            );
+            try {
+                const { content_uri: uri } = await client.uploadContent(bannerFile);
+                await client.setExtendedProfileProperty(PROFILE_BANNER_KEY, uri);
+                setBannerMxc(uri);
             } finally {
                 removeToast();
             }
@@ -246,6 +299,18 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                         {userStatusEnabled && <SetStatusView vm={setStatusVM} />}
                     </Flex>
                 </div>
+
+                {bannerMxc !== undefined && (
+                    <BannerSetting
+                        banner={bannerMxc || undefined}
+                        heading="Profile Banner"
+                        accessibleName="Profile banner"
+                        disabled={!canSetBanner}
+                        onChange={onBannerChange}
+                        removeBanner={bannerMxc ? onBannerRemove : undefined}
+                    />
+                )}
+
                 {avatarError && (
                     <Alert title={_t("settings|general|avatar_upload_error_title")} type="critical">
                         {maxUploadSize === undefined

@@ -6,7 +6,9 @@
  */
 
 .roomListPrimaryFilters {
-    padding: 0 var(--cpd-space-4x) var(--cpd-space-5x) var(--cpd-space-3x);
+    /* Haven: a small gap so this row doesn't sit flush against the header above it - most visible
+       when the header has a space banner bleeding behind it (see RoomListHeaderView). */
+    padding: var(--cpd-space-2x) var(--cpd-space-4x) var(--cpd-space-5x) var(--cpd-space-3x);
 }
 
 /* Hide filters that are wrapping when collapsed */

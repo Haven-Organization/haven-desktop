@@ -5,7 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import { JoinRule, type MatrixClient, type Room, RoomEvent, RoomType } from "matrix-js-sdk/src/matrix";
+import { JoinRule, type MatrixClient, type Room, RoomEvent, RoomStateEvent, RoomType } from "matrix-js-sdk/src/matrix";
 import {
     BaseViewModel,
     type RoomListHeaderViewSnapshot,
@@ -41,6 +41,7 @@ import { createRoom, hasCreateRoomRights } from "./utils";
 import { ReleaseAnnouncementStore } from "../../stores/ReleaseAnnouncementStore";
 import { NotificationStateEvents, type NotificationState } from "../../stores/notifications/NotificationState";
 import { NotificationLevel } from "../../stores/notifications/NotificationLevel";
+import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../src/apps/social/utils/room-classifier";
 
 export interface Props {
     /**
@@ -118,10 +119,19 @@ export class RoomListHeaderViewModel
         );
         this.disposables.track(() => SettingsStore.unwatchSetting(settingsShowSpacesBarRef));
 
-        // Listen for space name changes
+        // Haven: MSC4221 - toggling this setting off/on hides/shows the active space's banner.
+        const settingsShowSpaceBannerRef = SettingsStore.watchSetting(
+            "Haven.showSpaceBannerInRoomListHeader",
+            null,
+            this.onShowSpaceBannerSettingChange,
+        );
+        this.disposables.track(() => SettingsStore.unwatchSetting(settingsShowSpaceBannerRef));
+
+        // Listen for space name and banner changes
         this.activeSpace = props.spaceStore.activeSpaceRoom;
         if (this.activeSpace) {
             this.disposables.trackListener(this.activeSpace, RoomEvent.Name, this.onSpaceNameChange);
+            this.disposables.trackListener(this.activeSpace, RoomStateEvent.Update, this.onSpaceBannerChange);
         }
 
         // Listen for section collapse state changes from RoomListViewModel
@@ -142,11 +152,13 @@ export class RoomListHeaderViewModel
         const activeSpace = this.props.spaceStore.activeSpaceRoom;
 
         this.activeSpace?.off(RoomEvent.Name, this.onSpaceNameChange);
+        this.activeSpace?.off(RoomStateEvent.Update, this.onSpaceBannerChange);
         this.activeSpace = activeSpace;
 
-        // Add new room listener if needed
+        // Add new room listeners if needed
         if (this.activeSpace) {
             this.disposables.trackListener(this.activeSpace, RoomEvent.Name, this.onSpaceNameChange);
+            this.disposables.trackListener(this.activeSpace, RoomStateEvent.Update, this.onSpaceBannerChange);
         }
 
         this.snapshot.merge({
@@ -222,6 +234,20 @@ export class RoomListHeaderViewModel
     };
 
     /**
+     * Haven: MSC4221 - handles the active space's banner state event changing.
+     */
+    private readonly onSpaceBannerChange = (): void => {
+        this.snapshot.merge({ bannerHttpUrl: computeBannerHttpUrl(this.activeSpace, this.props.matrixClient) });
+    };
+
+    /**
+     * Haven: MSC4221 - handles the "show space banner in room list header" setting being toggled.
+     */
+    private readonly onShowSpaceBannerSettingChange = (): void => {
+        this.snapshot.merge({ bannerHttpUrl: computeBannerHttpUrl(this.activeSpace, this.props.matrixClient) });
+    };
+
+    /**
      * Handles video rooms feature flag change events.
      */
     private readonly onVideoRoomsFeatureFlagChange = (): void => {
@@ -268,6 +294,14 @@ export class RoomListHeaderViewModel
         defaultDispatcher.dispatch<ViewRoomPayload>({
             action: Action.ViewRoom,
             room_id: this.activeSpace.roomId,
+            // Haven: explicit false, not omitted - see the matching comment in
+            // SpaceContextMenu.tsx's own openSpace for why: MatrixChat's ViewRoom handler falls
+            // back to whatever forceTimeline was last set to when re-viewing the same room, so
+            // after using "See room timeline (devtools)" on this space, this same "Space home"
+            // menu item (a separate implementation from SpaceContextMenu.tsx's - this one backs
+            // the newer room list's own space menu) would otherwise keep re-applying that
+            // leftover true and stay stuck on the timeline.
+            forceTimeline: false,
             metricsTrigger: undefined,
         });
     };
@@ -393,7 +427,23 @@ function computeHeaderSpaceState(spaceStore: SpaceStore, matrixClient: MatrixCli
         areSectionsEnabled,
         showSpaceSwitcher: !SettingsStore.getValue("Haven.showSpacesBar"),
         spaceSwitcherItems: computeSpaceSwitcherItems(spaceStore),
+        activeSpaceId: spaceStore.activeSpace,
+        bannerHttpUrl: computeBannerHttpUrl(activeSpace, matrixClient),
     };
+}
+
+/**
+ * Haven: MSC4221 - resolves the active space's banner as an http(s) URL, or null if it has none
+ * (or the active "space" is actually a meta-space, which can't have a banner). Mirrors
+ * useRoomBanner.ts's own read logic, duplicated here rather than reused since that's a hook and
+ * this view model isn't a component.
+ * @param activeSpace - The active space's Room, or null for a meta-space.
+ * @param matrixClient - The Matrix client instance.
+ */
+function computeBannerHttpUrl(activeSpace: Room | null, matrixClient: MatrixClient): string | null {
+    if (!SettingsStore.getValue("Haven.showSpaceBannerInRoomListHeader")) return null;
+    const mxc = activeSpace?.currentState.getStateEvents(ROOM_BANNER_EVENT_TYPE as any, "")?.getContent()?.url;
+    return mxc ? matrixClient.mxcUrlToHttp(mxc) : null;
 }
 
 /**

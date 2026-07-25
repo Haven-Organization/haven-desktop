@@ -25,9 +25,20 @@ interface Props {
     onChange?: (f: File) => void;
     /** Called when the user chooses to remove the banner. Only shown when a banner is set. */
     removeBanner?: () => void;
+    /** Heading/label text — defaults to the room-banner wording since that was this component's
+     *  original (and still primary) use, but callers like UserProfileSettings.tsx pass their own. */
+    heading?: string;
+    accessibleName?: string;
 }
 
-export function BannerSetting({ banner, disabled, onChange, removeBanner }: Props): JSX.Element {
+export function BannerSetting({
+    banner,
+    disabled,
+    onChange,
+    removeBanner,
+    heading = "Room Banner",
+    accessibleName = "Room banner",
+}: Props): JSX.Element {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -53,7 +64,7 @@ export function BannerSetting({ banner, disabled, onChange, removeBanner }: Prop
     );
 
     const content = (
-        <div className="social_BannerSetting_display" role="group" aria-label="Room banner">
+        <div className="social_BannerSetting_display" role="group" aria-label={accessibleName}>
             {bannerUrl ? (
                 <img className="social_BannerSetting_image" src={bannerUrl} alt="" />
             ) : (
@@ -63,7 +74,7 @@ export function BannerSetting({ banner, disabled, onChange, removeBanner }: Prop
                 <div
                     className={`social_BannerSetting_editButton${menuOpen ? " social_BannerSetting_editButton--active" : ""}`}
                     role="button"
-                    aria-label="Edit room banner"
+                    aria-label={`Edit ${accessibleName.toLowerCase()}`}
                     tabIndex={0}
                     aria-haspopup="menu"
                 >
@@ -75,7 +86,7 @@ export function BannerSetting({ banner, disabled, onChange, removeBanner }: Prop
 
     return (
         <div className="social_BannerSetting">
-            <div className="social_BannerSetting_heading">Room Banner</div>
+            <div className="social_BannerSetting_heading">{heading}</div>
             {disabled ? (
                 content
             ) : (

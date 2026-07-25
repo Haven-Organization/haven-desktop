@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { type JSX, useCallback, useContext, useEffect, useState } from "react";
+import React, { type JSX, useCallback, useContext, useState } from "react";
 import { Text, Button, IconButton, Menu, MenuItem, Tooltip } from "@vector-im/compound-web";
 import VideoCallIcon from "@vector-im/compound-design-tokens/assets/web/icons/video-call-solid";
 import VoiceCallIcon from "@vector-im/compound-design-tokens/assets/web/icons/voice-call-solid";
@@ -18,7 +18,7 @@ import NotificationsIcon from "@vector-im/compound-design-tokens/assets/web/icon
 import VerifiedIcon from "@vector-im/compound-design-tokens/assets/web/icons/verified";
 import ErrorIcon from "@vector-im/compound-design-tokens/assets/web/icons/error-solid";
 import PublicIcon from "@vector-im/compound-design-tokens/assets/web/icons/public";
-import { HistoryVisibility, JoinRule, RoomStateEvent, type Room } from "matrix-js-sdk/src/matrix";
+import { HistoryVisibility, JoinRule, type Room } from "matrix-js-sdk/src/matrix";
 import { type ViewRoomOpts } from "@matrix-org/react-sdk-module-api/lib/lifecycles/RoomViewLifecycle";
 import { Flex, Box, StatusTextView } from "@element-hq/web-shared-components";
 import { CallType } from "matrix-js-sdk/src/webrtc/call";
@@ -26,13 +26,14 @@ import { HistoryIcon, UserProfileSolidIcon } from "@vector-im/compound-design-to
 
 import { useRoomName } from "../../../../hooks/useRoomName.ts";
 import { useTopic } from "../../../../hooks/room/useTopic.ts";
+import { topicToHtml } from "../../../../HtmlUtils";
 import { RightPanelPhases } from "../../../../stores/right-panel/RightPanelStorePhases.ts";
 import { useRoomMemberCount, useRoomMembers } from "../../../../hooks/useRoomMembers.ts";
 import { _t } from "../../../../languageHandler";
 import { getPlatformCallTypeProps, useRoomCall } from "../../../../hooks/room/useRoomCall";
 import { useRoomThreadNotifications } from "../../../../hooks/room/useRoomThreadNotifications.ts";
 import { useGlobalNotificationState } from "../../../../hooks/useGlobalNotificationState.ts";
-import { useFeatureEnabled } from "../../../../hooks/useSettings.ts";
+import { useFeatureEnabled, useSettingValue } from "../../../../hooks/useSettings.ts";
 import { useEncryptionStatus } from "../../../../hooks/useEncryptionStatus.ts";
 import { E2EStatus } from "../../../../utils/ShieldUtils.ts";
 import FacePile from "../../elements/FacePile.tsx";
@@ -56,29 +57,9 @@ import { ToggleableIcon } from "./toggle/ToggleableIcon.tsx";
 import { CurrentRightPanelPhaseContextProvider } from "../../../../contexts/CurrentRightPanelPhaseContext.tsx";
 import { LocalRoom } from "../../../../models/LocalRoom.ts";
 import { useIsEncrypted } from "../../../../hooks/useIsEncrypted.ts";
-import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../../../src/apps/social/utils/room-classifier";
+import { useRoomBanner } from "../../../../../../../../src/apps/social/utils/useRoomBanner";
 import { useUserStatus } from "../../../../hooks/useUserStatus.ts";
 import { SDKContext } from "../../../../contexts/SDKContext.ts";
-
-function useRoomBannerHttpUrl(room: Room | LocalRoom): string | null {
-    const client = useContext(SDKContext).client!;
-    const readBannerMxc = (): string | null =>
-        room instanceof LocalRoom
-            ? null
-            : (room.currentState.getStateEvents(ROOM_BANNER_EVENT_TYPE as any, "")?.getContent()?.url ?? null);
-    const [bannerMxc, setBannerMxc] = useState<string | null>(readBannerMxc);
-    useEffect(() => {
-        if (room instanceof LocalRoom) return;
-        const onUpdate = (): void => setBannerMxc(readBannerMxc());
-        room.on(RoomStateEvent.Update, onUpdate);
-        return () => {
-            room.off(RoomStateEvent.Update, onUpdate);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [room]);
-
-    return bannerMxc ? client.mxcUrlToHttp(bannerMxc) : null;
-}
 
 function RoomHeaderButtons({
     room,
@@ -466,7 +447,9 @@ export default function RoomHeader({
     oobData?: IOOBData;
 }): JSX.Element {
     const sdkContext = useContext(SDKContext);
-    const bannerHttpUrl = useRoomBannerHttpUrl(room);
+    const showRoomBanner = useSettingValue("Haven.showRoomBannerInTimelineHeader");
+    const roomBannerHttpUrl = useRoomBanner(sdkContext.client!, room);
+    const bannerHttpUrl = showRoomBanner ? roomBannerHttpUrl : null;
     const roomName = useRoomName(room);
     const topic = useTopic(room instanceof LocalRoom ? undefined : room);
     const topicText = topic?.text;
@@ -577,7 +560,14 @@ export default function RoomHeader({
                                 title={topicText}
                                 className="mx_RoomHeader_topic mx_RoomHeader_truncated mx_lineClamp"
                             >
-                                {topicText}
+                                {/* Haven: was the raw topicText - some bridges (see
+                                    bridgedTopicHtml.ts's own doc) set the plain topic field
+                                    directly to a string containing real markup rather than using
+                                    MSC3765's separate text/html representation, so the raw tags
+                                    (e.g. literal "<br>") showed up as visible text instead of
+                                    being rendered. topicToHtml is the same sanitizing renderer
+                                    SpaceHierarchy's own topic display already uses. */}
+                                {topicToHtml(topic?.text, topic?.html)}
                             </Text>
                         )}
                     </Box>

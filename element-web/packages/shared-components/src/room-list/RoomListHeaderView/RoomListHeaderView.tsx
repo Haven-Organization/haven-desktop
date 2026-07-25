@@ -79,6 +79,16 @@ export interface RoomListHeaderViewSnapshot {
      * showSpaceSwitcher is true.
      */
     spaceSwitcherItems: SpaceSwitcherItem[];
+    /**
+     * Haven: the currently active space (or meta-space) id, used to render its icon next to the
+     * title via renderSpaceIcon - always populated (a meta-space id when no real space is active).
+     */
+    activeSpaceId: string;
+    /**
+     * Haven: MSC4221 banner for the active space, as an http(s) URL ready for an <img src>, or null
+     * when unset or when the active "space" is actually a meta-space (which can't have a banner).
+     */
+    bannerHttpUrl: string | null;
 }
 
 /**
@@ -184,6 +194,8 @@ export function RoomListHeaderView({ vm, renderSpaceIcon }: Readonly<RoomListHea
         canCreateRoom,
         canCreateVideoRoom,
         showSpaceSwitcher,
+        activeSpaceId,
+        bannerHttpUrl,
     } = useViewModel(vm);
     const canOnlyStartChat = !areSectionsEnabled && !canCreateRoom && !canCreateVideoRoom;
 
@@ -195,10 +207,25 @@ export function RoomListHeaderView({ vm, renderSpaceIcon }: Readonly<RoomListHea
             align="end"
             data-testid="room-list-header"
         >
+            {bannerHttpUrl && (
+                <>
+                    <img src={bannerHttpUrl} className={styles.banner} alt="" aria-hidden />
+                    <div className={styles.bannerScrim} aria-hidden />
+                </>
+            )}
             <Flex className={styles.container} justify="space-between" align="center" gap="var(--cpd-space-3x)">
                 <Flex className={styles.title} align="center" gap="var(--cpd-space-1x)">
+                    {/* Haven: the space icon here is only shown when the spaces bar itself is
+                        hidden (showSpaceSwitcher) - the spaces bar already shows every space's
+                        icon, so showing it again here too would be redundant in the default
+                        (spaces bar visible) state. */}
                     {showSpaceSwitcher && renderSpaceIcon ? (
-                        <SpaceSwitcherMenu vm={vm} title={title} renderSpaceIcon={renderSpaceIcon} />
+                        <>
+                            <span className={styles.icon} aria-hidden>
+                                {renderSpaceIcon(activeSpaceId)}
+                            </span>
+                            <SpaceSwitcherMenu vm={vm} title={title} renderSpaceIcon={renderSpaceIcon} />
+                        </>
                     ) : (
                         <H1 size="sm" title={title}>
                             {title}

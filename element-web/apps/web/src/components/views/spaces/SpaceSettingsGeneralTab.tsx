@@ -20,6 +20,8 @@ import { getTopic } from "../../../hooks/room/useTopic";
 import SettingsTab from "../settings/tabs/SettingsTab";
 import { SettingsSection } from "../settings/shared/SettingsSection";
 import { SettingsSubsection } from "../settings/shared/SettingsSubsection";
+import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../../src/apps/social/utils/room-classifier";
+import { BannerSetting } from "../../../../../../../src/apps/social/components/BannerSetting";
 
 interface IProps {
     matrixClient: MatrixClient;
@@ -45,10 +47,22 @@ const SpaceSettingsGeneralTab: React.FC<IProps> = ({ matrixClient: cli, space })
     const canSetTopic = space.currentState.maySendStateEvent(EventType.RoomTopic, userId);
     const topicChanged = topic !== currentTopic;
 
+    // Haven: MSC4221 space banner - same event type/pattern RoomProfileSettings.tsx already uses
+    // for a regular room's own banner, since a space is a room.
+    const currentBannerUrl: string | null =
+        space.currentState.getStateEvents(ROOM_BANNER_EVENT_TYPE as any, "")?.getContent()?.url ?? null;
+    const [newBanner, setNewBanner] = useState<File | null | undefined>(null); // undefined means to remove banner
+    const canSetBanner = space.currentState.maySendStateEvent(ROOM_BANNER_EVENT_TYPE as any, userId);
+    const bannerChanged = newBanner !== null;
+    // What BannerSetting should actually display right now: a freshly-picked file, the
+    // already-saved banner, or nothing at all once removal is pending.
+    const effectiveBanner = newBanner === undefined ? undefined : (newBanner ?? currentBannerUrl ?? undefined);
+
     const onCancel = (): void => {
         setNewAvatar(null);
         setName(space.name);
         setTopic(currentTopic);
+        setNewBanner(null);
     };
 
     const onSave = async (): Promise<void> => {
@@ -75,6 +89,24 @@ const SpaceSettingsGeneralTab: React.FC<IProps> = ({ matrixClient: cli, space })
         if (topicChanged) {
             const htmlTopic = htmlSerializeFromMdIfNeeded(topic, { forceHTML: false });
             promises.push(cli.setRoomTopic(space.roomId, topic, htmlTopic));
+        }
+
+        if (bannerChanged) {
+            if (newBanner) {
+                promises.push(
+                    (async (): Promise<void> => {
+                        const { content_uri: url } = await cli.uploadContent(newBanner);
+                        await cli.sendStateEvent(
+                            space.roomId,
+                            ROOM_BANNER_EVENT_TYPE as any,
+                            { url, info: { mimetype: newBanner.type } },
+                            "",
+                        );
+                    })(),
+                );
+            } else {
+                promises.push(cli.sendStateEvent(space.roomId, ROOM_BANNER_EVENT_TYPE as any, {}, ""));
+            }
         }
 
         const results = await Promise.allSettled(promises);
@@ -106,9 +138,18 @@ const SpaceSettingsGeneralTab: React.FC<IProps> = ({ matrixClient: cli, space })
                         setTopic={setTopic}
                     />
 
+                    <BannerSetting
+                        banner={effectiveBanner}
+                        heading="Space Banner"
+                        accessibleName="Space banner"
+                        disabled={busy || !canSetBanner}
+                        onChange={setNewBanner}
+                        removeBanner={effectiveBanner ? () => setNewBanner(undefined) : undefined}
+                    />
+
                     <AccessibleButton
                         onClick={onCancel}
-                        disabled={busy || !(avatarChanged || nameChanged || topicChanged)}
+                        disabled={busy || !(avatarChanged || nameChanged || topicChanged || bannerChanged)}
                         kind="link"
                     >
                         {_t("action|cancel")}

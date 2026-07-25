@@ -76,6 +76,7 @@ import SpacePillButton from "./SpacePillButton.tsx";
 import { useRoomName } from "../../hooks/useRoomName.ts";
 import MultiInviter from "../../utils/MultiInviter.ts";
 import { SDKContext } from "../../contexts/SDKContext.ts";
+import { useRoomBanner } from "../../../../../../src/apps/social/utils/useRoomBanner";
 
 interface IProps {
     space: Room;
@@ -215,6 +216,9 @@ const SpaceLanding: React.FC<{ space: Room }> = ({ space }) => {
     const myMembership = useMyRoomMembership(space);
     const userId = sdkContext.client!.getSafeUserId();
     const name = useRoomName(space);
+    // Haven: MSC4221 space banner, shown behind the avatar at the top of the space's own homepage
+    // - same event/hook RoomHeader.tsx's own room banner already uses, since a space is a room.
+    const bannerHttpUrl = useRoomBanner(sdkContext.client!, space);
 
     const storeIsShowingSpaceMembers = useCallback(
         () =>
@@ -271,6 +275,15 @@ const SpaceLanding: React.FC<{ space: Room }> = ({ space }) => {
     return (
         <div className="mx_SpaceRoomView_landing">
             <div className="mx_SpaceRoomView_landing_header">
+                {/* Haven: MSC4221 space banner - mirrors RoomHeader.tsx's own
+                    banner/bannerScrim pair (see _SpaceRoomView.pcss), sitting behind the avatar
+                    rather than the whole homepage since that's what was asked for. */}
+                {bannerHttpUrl && (
+                    <>
+                        <img src={bannerHttpUrl} className="mx_SpaceRoomView_landing_banner" alt="" aria-hidden />
+                        <div className="mx_SpaceRoomView_landing_bannerScrim" aria-hidden />
+                    </>
+                )}
                 <RoomAvatar room={space} size="80px" viewAvatarOnClick={true} type="square" />
             </div>
             <div className="mx_SpaceRoomView_landing_name">

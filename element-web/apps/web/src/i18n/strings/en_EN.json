@@ -982,7 +982,10 @@
     },
     "emoji_picker": {
         "cancel_search_label": "Cancel search",
+        "create_pack_prompt": "This room has no emoji or sticker packs yet. <a>Create New Pack</a>",
+        "manage_pack": "Manage pack",
         "no_stickers_in_room": "This room has no stickers. Add stickers from other rooms in <a>Favorite Packs</a>.",
+        "open_settings": "Emoji & Stickers settings",
         "react_with_text": "React with \"%(text)s\""
     },
     "empty_room": "Empty room",
@@ -2565,6 +2568,7 @@
         "all_rooms_home_description": "All rooms you're in will appear in Home.",
         "always_show_message_timestamps": "Always show message timestamps",
         "appearance": {
+            "banners_heading": "Banners",
             "bundled_emoji_font": "Use bundled emoji font",
             "compact_layout": "Show compact text and messages",
             "compact_layout_description": "Modern layout must be selected to use this feature.",
@@ -2586,6 +2590,8 @@
             "layout_bubbles": "Message bubbles",
             "layout_irc": "IRC (experimental)",
             "match_system_theme": "Match system theme",
+            "room_banner_timeline_header": "Show room banners in timeline header",
+            "space_banner_room_list_header": "Show space banners in room list header",
             "timeline_image_size": "Image size in the timeline"
         },
         "automatic_language_detection_syntax_highlight": "Enable automatic language detection for syntax highlighting",
@@ -2603,7 +2609,7 @@
             "dialog_title": "<strong>Settings:</strong> Emoji & Stickers",
             "favorite_packs": "Favorite Packs",
             "favorite_packs_description": "Choose which rooms' emoji and sticker packs you want to use everywhere, not just in the room they belong to.",
-            "no_packs": "You haven't joined any rooms with emoji or sticker packs yet.",
+            "no_packs": "You haven't joined any rooms with emoji or sticker packs yet. Look for rooms with packs to join, or if you're a moderator in a room you're already in, you can create a pack for it from that room's own settings.",
             "send_image_pack_references": "Send pack information with emoji & stickers",
             "send_image_pack_references_description": "Lets recipients find and add the pack a custom emoji or sticker came from. Does not affect your own ability to find packs from others.",
             "title": "Emoji & Stickers"

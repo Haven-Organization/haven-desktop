@@ -111,6 +111,10 @@ export default class AppearanceUserSettingsTab extends React.Component<EmptyObje
                     <FontScalingPanel />
                     {this.renderAdvancedSection()}
                     <ImageSizePanel />
+                    <SettingsSubsection heading={_t("settings|appearance|banners_heading")} formWrap>
+                        <SettingsFlag name="Haven.showRoomBannerInTimelineHeader" level={SettingLevel.ACCOUNT} />
+                        <SettingsFlag name="Haven.showSpaceBannerInRoomListHeader" level={SettingLevel.ACCOUNT} />
+                    </SettingsSubsection>
                 </SettingsSection>
             </SettingsTab>
         );

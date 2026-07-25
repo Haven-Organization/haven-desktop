@@ -18,4 +18,6 @@ export const defaultSnapshot: RoomListHeaderViewSnapshot = {
     areSectionsEnabled: true,
     showSpaceSwitcher: false,
     spaceSwitcherItems: [],
+    activeSpaceId: "!space:example.org",
+    bannerHttpUrl: null,
 };

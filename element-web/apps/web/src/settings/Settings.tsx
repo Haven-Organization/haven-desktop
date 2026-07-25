@@ -363,6 +363,10 @@ export interface Settings {
     // Haven: temporary stopgap keeping the legacy (pre-MVVM-rewrite) room list alive as an opt-in
     // fallback now that upstream has deleted it outright - see LeftPanel.tsx's own doc.
     "Haven.useOldRoomList": IFeature;
+    // Haven: MSC4221 banners - see RoomHeader.tsx's own useRoomBanner call.
+    "Haven.showRoomBannerInTimelineHeader": IBaseSetting<boolean>;
+    // Haven: MSC4221 banners - see RoomListHeaderViewModel.ts's own computeBannerHttpUrl.
+    "Haven.showSpaceBannerInRoomListHeader": IBaseSetting<boolean>;
     "developerMode": IBaseSetting<boolean>;
     "debug_scroll_panel": IBaseSetting<boolean>;
     "debug_timeline_panel": IBaseSetting<boolean>;
@@ -1334,6 +1338,18 @@ export const SETTINGS: Settings = {
         // happen to re-render for unrelated reasons pick up the new value, producing a mixed
         // old/new-room-list DOM tree with mismatched CSS assumptions.
         controller: new ReloadOnChangeController(),
+    },
+    // Haven: MSC4221 banners - see RoomHeader.tsx's own useRoomBanner call.
+    "Haven.showRoomBannerInTimelineHeader": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|appearance|room_banner_timeline_header"),
+        default: true,
+    },
+    // Haven: MSC4221 banners - see RoomListHeaderViewModel.ts's own computeBannerHttpUrl.
+    "Haven.showSpaceBannerInRoomListHeader": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|appearance|space_banner_room_list_header"),
+        default: true,
     },
     // Haven: widens the new room list's Unreads filter to match every room the room-list-v3 store's
     // own bold/dot indicators already treat as unread (see UnreadFilter.ts's own doc and
