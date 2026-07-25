@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import { type ListIteratee, type Many, sortBy } from "lodash";
+import { sortBy } from "lodash";
 import {
     EventType,
     RoomType,
@@ -102,13 +102,24 @@ const validOrder = (order?: string): string | undefined => {
     }
 };
 
-// For sorting space children using a validated `order`, `origin_server_ts`, `room_id`
-export const getChildOrder = (
-    order: string | undefined,
-    ts: number,
-    roomId: string,
-): Array<Many<ListIteratee<unknown>>> => {
-    return [validOrder(order) ?? NaN, ts, roomId]; // NaN has lodash sort it at the end in asc
+// For sorting space children using a validated `order`, `origin_server_ts`, `room_id`.
+//
+// Haven: originally returned `[validOrder(order) ?? NaN, ts, roomId]`, relying on a single
+// lodash `sortBy` iteratee to compare that tuple element-by-element like a Python tuple - it
+// doesn't. lodash's `compareAscending` falls through to JS's own `<`/`>` on two arrays, which
+// coerces both to strings first (`Array.prototype.toString`), so e.g. an unordered child (whose
+// key stringifies to "NaN,...") could sort *before* an ordered one starting with "O" or later,
+// since "N" < "O" - the exact opposite of the intended "orders sort first" rule. Returning one
+// pre-composed string instead makes plain lexicographic comparison do the right thing regardless
+// of how the caller sorts. "\0" is a safe separator since validOrder() only allows *printable*
+// ASCII (0x20-0x7e) - it can never appear inside `order` itself, and always sorts below it.
+const ORDER_KEY_SEP = "\0";
+export const getChildOrder = (order: string | undefined, ts: number, roomId: string): string => {
+    const validated = validOrder(order);
+    const tsKey = String(ts).padStart(15, "0");
+    return validated !== undefined
+        ? `0${validated}${ORDER_KEY_SEP}${tsKey}${ORDER_KEY_SEP}${roomId}`
+        : `1${tsKey}${ORDER_KEY_SEP}${roomId}`;
 };
 
 type SpaceStoreActions =
@@ -282,6 +293,14 @@ export default class SpaceStore extends AsyncStoreWithClient<EmptyObject> {
                     action: Action.ViewRoom,
                     room_id: roomId,
                     context_switch: true,
+                    // Haven: explicit false, not omitted - see the matching comment in
+                    // SpaceContextMenu.tsx's own openSpace for why: MatrixChat's ViewRoom handler
+                    // falls back to whatever forceTimeline was last set to when re-viewing the
+                    // same room, so switching into a space (or back to one) after having used
+                    // "See room timeline (devtools)" on it would otherwise silently keep forcing
+                    // the timeline instead of landing on the room/space this switch actually asks
+                    // for.
+                    forceTimeline: false,
                     metricsTrigger: "WebSpaceContextSwitch",
                 });
             } else if (cliSpace) {
@@ -289,6 +308,7 @@ export default class SpaceStore extends AsyncStoreWithClient<EmptyObject> {
                     action: Action.ViewRoom,
                     room_id: space,
                     context_switch: true,
+                    forceTimeline: false,
                     metricsTrigger: "WebSpaceContextSwitch",
                 });
             } else if (ModuleApi.instance.extras.spacePanelItems.has(space)) {

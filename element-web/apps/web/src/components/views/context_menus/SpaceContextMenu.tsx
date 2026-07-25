@@ -223,6 +223,14 @@ const SpaceContextMenu: React.FC<IProps> = ({ space, hideHeader, onFinished, ...
         defaultDispatcher.dispatch<ViewRoomPayload>({
             action: Action.ViewRoom,
             room_id: space.roomId,
+            // Haven: explicit false, not omitted - MatrixChat's own ViewRoom handler falls back to
+            // whatever forceTimeline was last set to when re-viewing the same room
+            // (`roomInfo.forceTimeline ?? this.state.forceTimeline`), so leaving this out doesn't
+            // mean "default" here, it means "inherit a stale true from elsewhere". Concretely: use
+            // "See room timeline (devtools)" below (which explicitly sets true) and then this same
+            // "Space home" option no longer worked, since MatrixChat kept re-applying that leftover
+            // true and stayed on the timeline.
+            forceTimeline: false,
             metricsTrigger: undefined, // other
         });
         onFinished();
