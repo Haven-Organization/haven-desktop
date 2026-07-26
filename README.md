@@ -30,7 +30,7 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 ## Improvements to Element
 
 - [Custom emoji and sticker packs](https://github.com/element-hq/element-meta/issues/339) (including [emoji reactions](https://github.com/matrix-org/matrix-spec-proposals/pull/4027))
-- [Room banners](https://github.com/matrix-org/matrix-spec-proposals/pull/4221) that display in the top bar and the right panel
+- [Profile banners](https://github.com/matrix-org/matrix-spec-proposals/pull/4427). [Room & Space banners](https://github.com/matrix-org/matrix-spec-proposals/pull/4221) that display in the top bar. the right panel, and on space homepages.
 - You can finally [disable the spaces bar 🎉](https://github.com/element-hq/element-web/issues/18898)
 - [Freeform text reactions](https://github.com/element-hq/element-web/issues/19409)
 - You can set a [custom notification sound](https://github.com/element-hq/element-web/issues/9687) globally instead of just per-room
@@ -103,6 +103,7 @@ too.
 - [MSC4027](https://github.com/matrix-org/matrix-spec-proposals/pull/4027): Custom emoji in reactions.
 - [MSC4221](https://github.com/matrix-org/matrix-spec-proposals/pull/4221): Room banners, used for
   profile and group banner images (and shown in the room header bar for any room that sets one).
+- [MSC4427](https://github.com/matrix-org/matrix-spec-proposals/pull/4427): Custom banners for user profiles
 - [MSC4459](https://github.com/matrix-org/matrix-spec-proposals/pull/4459): Image pack references for advertising and finding what room a custom emoji/sticker came from.
 - [MSC4503](https://github.com/matrix-org/matrix-spec-proposals/pull/4503): External handles,
   used to link a non-Matrix identity (e.g. a Fediverse account) to your profile.
