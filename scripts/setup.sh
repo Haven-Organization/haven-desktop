@@ -178,6 +178,155 @@ if old in content:
     with open(path, "w") as f:
         f.write(content)
 PYEOF
+
+    # webpack.config.ts's ".svg?react" loader rule at BRANDING_COMMIT^ is the old, pre-upstream-sync
+    # shape: a single `test: /\.svg$/` rule matched by `issuer` alone, chaining `@svgr/webpack`
+    # (with `namedExport: "Icon"`) into `file-loader`. A later upstream sync replaced this with two
+    # separate `resourceQuery`-gated rules (one `@svgr/webpack`-only rule for `?react`, one
+    # `file-loader`-only rule for everything else) with no `namedExport` at all - every `?react`
+    # import in this codebase (see src/@types/svg.d.ts's own `declare module "*.svg?react"`) expects
+    # the *default* export to be the component. The old chained-loader shape's `namedExport: "Icon"`
+    # makes `@svgr/webpack` put the component on a named `Icon` export instead and let `file-loader`
+    # (next in the chain) supply the *default* export - a bare asset URL string. Both configurations
+    # compile without error, but production mode's module-concatenation optimizer non-deterministically
+    # decides which binding satisfies a plain default import for a module exporting both, so a plain
+    # `import Icon from "foo.svg?react"` (this codebase's only usage pattern) sometimes gets the real
+    # component and sometimes gets the raw URL string, crashing with `createElement(urlString)` at
+    # runtime. Confirmed 2026-07-25 building "glowers element": Settings > Appearance crashed outright
+    # (ImageSizePanel's two icons) while the identical source built without HAVEN_NO_BRANDING did not -
+    # same source and same rule *text*, just reverted-vs-current webpack.config.ts. Patched back to the
+    # current (correct) two-rule shape here, the same way as the resolve.alias fix above; a no-op if
+    # this block doesn't run or the old text isn't found (e.g. this rule changes again upstream).
+    python3 - "$ROOT_DIR/element-web/apps/web/webpack.config.ts" <<'PYEOF'
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    content = f.read()
+
+old = (
+    "                {\n"
+    "                    test: /\\.svg$/,\n"
+    "                    issuer: /\\.(js|ts|jsx|tsx|html)$/,\n"
+    "                    use: [\n"
+    "                        {\n"
+    '                            loader: "@svgr/webpack",\n'
+    "                            options: {\n"
+    '                                namedExport: "Icon",\n'
+    "                                svgProps: {\n"
+    '                                    "role": "presentation",\n'
+    '                                    "aria-hidden": true,\n'
+    "                                },\n"
+    "                                // props set on the svg will override defaults\n"
+    '                                expandProps: "end",\n'
+    "                                svgoConfig: {\n"
+    "                                    plugins: [\n"
+    "                                        {\n"
+    '                                            name: "preset-default",\n'
+    "                                            params: {\n"
+    "                                                overrides: {\n"
+    "                                                    removeViewBox: false,\n"
+    "                                                },\n"
+    "                                            },\n"
+    "                                        },\n"
+    "                                        // generates a viewbox if missing\n"
+    '                                        { name: "removeDimensions" },\n'
+    "                                        // https://github.com/facebook/docusaurus/issues/8297\n"
+    '                                        { name: "prefixIds" },\n'
+    "                                    ],\n"
+    "                                },\n"
+    "                                /**\n"
+    "                                 * Forwards the React ref to the root SVG element\n"
+    "                                 * Useful when using things like `asChild` in\n"
+    "                                 * radix-ui\n"
+    "                                 */\n"
+    "                                ref: true,\n"
+    "                                esModule: false,\n"
+    '                                name: "[name].[hash:7].[ext]",\n'
+    "                                outputPath: getAssetOutputPath,\n"
+    "                                publicPath: function (url: string, resourcePath: string) {\n"
+    "                                    const outputPath = getAssetOutputPath(url, resourcePath);\n"
+    "                                    return toPublicPath(outputPath);\n"
+    "                                },\n"
+    "                            },\n"
+    "                        },\n"
+    "                        {\n"
+    '                            loader: "file-loader",\n'
+    "                            options: {\n"
+    "                                esModule: false,\n"
+    '                                name: "[name].[hash:7].[ext]",\n'
+    "                                outputPath: getAssetOutputPath,\n"
+    "                                publicPath: function (url: string, resourcePath: string) {\n"
+    "                                    const outputPath = getAssetOutputPath(url, resourcePath);\n"
+    "                                    return toPublicPath(outputPath);\n"
+    "                                },\n"
+    "                            },\n"
+    "                        },\n"
+    "                    ],\n"
+    "                },\n"
+)
+new = (
+    "                {\n"
+    "                    test: /\\.svg$/,\n"
+    "                    issuer: /\\.(js|ts|jsx|tsx|html)$/,\n"
+    "                    resourceQuery: /react/,\n"
+    '                    loader: "@svgr/webpack",\n'
+    "                    options: {\n"
+    "                        svgProps: {\n"
+    '                            "role": "presentation",\n'
+    '                            "aria-hidden": true,\n'
+    "                        },\n"
+    "                        // props set on the svg will override defaults\n"
+    '                        expandProps: "end",\n'
+    "                        svgoConfig: {\n"
+    "                            plugins: [\n"
+    "                                {\n"
+    '                                    name: "preset-default",\n'
+    "                                    params: {\n"
+    "                                        overrides: {\n"
+    "                                            removeViewBox: false,\n"
+    "                                        },\n"
+    "                                    },\n"
+    "                                },\n"
+    "                                // generates a viewbox if missing\n"
+    '                                { name: "removeDimensions" },\n'
+    "                                // https://github.com/facebook/docusaurus/issues/8297\n"
+    '                                { name: "prefixIds" },\n'
+    "                            ],\n"
+    "                        },\n"
+    "                        /**\n"
+    "                         * Forwards the React ref to the root SVG element\n"
+    "                         * Useful when using things like `asChild` in\n"
+    "                         * radix-ui\n"
+    "                         */\n"
+    "                        ref: true,\n"
+    "                        esModule: false,\n"
+    "                    },\n"
+    "                },\n"
+    "                {\n"
+    "                    test: /\\.svg$/,\n"
+    "                    issuer: /\\.(js|ts|jsx|tsx|html)$/,\n"
+    "                    resourceQuery: { not: [/raw/, /react/] },\n"
+    '                    loader: "file-loader",\n'
+    "                    options: {\n"
+    "                        esModule: false,\n"
+    '                        name: "[name].[hash:7].[ext]",\n'
+    "                        outputPath: getAssetOutputPath,\n"
+    "                        publicPath: function (url: string, resourcePath: string) {\n"
+    "                            const outputPath = getAssetOutputPath(url, resourcePath);\n"
+    "                            return toPublicPath(outputPath);\n"
+    "                        },\n"
+    "                    },\n"
+    "                },\n"
+)
+
+if old in content:
+    content = content.replace(old, new, 1)
+    with open(path, "w") as f:
+        f.write(content)
+else:
+    print("WARNING: old .svg?react webpack rule text not found - skipping SVG loader fix, check if it needs updating", file=sys.stderr)
+PYEOF
 fi
 
 if [ -n "${HAVEN_LOGIN_BACKGROUND:-}" ]; then
