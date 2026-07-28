@@ -773,7 +773,7 @@ function RepliedToProfileIndicator({
 // Main component
 // ---------------------------------------------------------------------------
 
-export function SocialEventTile({
+export const SocialEventTile = React.memo(function SocialEventTile({
     event,
     room,
     isLiked,
@@ -2019,7 +2019,7 @@ export function SocialEventTile({
 
         </article>
     );
-}
+});
 
 // Some bridges set "software.haven.remove_header": true on a repost/cross-posted-reply event to
 // signal that its own body/formatted_body already opens with a preamble line describing the

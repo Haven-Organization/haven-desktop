@@ -1350,6 +1350,38 @@ function FeedPane({
         [client],
     );
 
+    // Stable per-post onLike/onReply closures for itemContent below, keyed by event id (reply) or
+    // event id + myLikeEventId (like, since which specific reaction to undo is baked into the
+    // closure). Without this, itemContent's own inline closures would get a brand new function
+    // identity every single FeedPane render (e.g. the coalesced Room.timeline refresh that fires
+    // every ~150ms while history is backfilling in - see the setRooms effect above), which defeats
+    // SocialEventTile's own React.memo for every currently-mounted tile regardless of whether its
+    // actual content changed - given overscan={1600} below keeps a large number of tiles mounted at
+    // once, that forced a full re-render storm of expensive tiles (media, pills, reaction state) on
+    // every such refresh, and was the dominant cause of "scrolling the feed feels slow".
+    const likeHandlerCache = useRef(new Map<string, () => Promise<void>>());
+    const replyHandlerCache = useRef(new Map<string, (body: string, file?: File) => Promise<void>>());
+    const { likeHandlers, replyHandlers } = useMemo(() => {
+        const nextLikeByCompositeKey = new Map<string, () => Promise<void>>();
+        const nextLikeById = new Map<string, () => Promise<void>>();
+        const nextReplyById = new Map<string, (body: string, file?: File) => Promise<void>>();
+        for (const { event, room, myLikeEventId } of posts) {
+            const id = event.getId()!;
+            const compositeKey = `${id}:${myLikeEventId ?? ""}`;
+            const likeFn =
+                likeHandlerCache.current.get(compositeKey) ?? (() => handleLike(room.roomId, id, myLikeEventId));
+            nextLikeByCompositeKey.set(compositeKey, likeFn);
+            nextLikeById.set(id, likeFn);
+            const replyFn =
+                replyHandlerCache.current.get(id) ??
+                ((body: string, file?: File) => handleReply(room.roomId, id, body, file));
+            nextReplyById.set(id, replyFn);
+        }
+        likeHandlerCache.current = nextLikeByCompositeKey;
+        replyHandlerCache.current = nextReplyById;
+        return { likeHandlers: nextLikeById, replyHandlers: nextReplyById };
+    }, [posts, handleLike, handleReply]);
+
     const handleFeedPost = useCallback(
         async (e?: React.SyntheticEvent): Promise<void> => {
             e?.preventDefault();
@@ -1620,8 +1652,8 @@ function FeedPane({
                                 onOpenUserPanel={onOpenUserPanel}
                                 onNavigateToProfile={onNavigateToProfile}
                                 onViewThread={handleViewThread}
-                                onLike={() => handleLike(room.roomId, event.getId()!, myLikeEventId)}
-                                onReply={(body, file) => handleReply(room.roomId, event.getId()!, body, file)}
+                                onLike={likeHandlers.get(event.getId()!)}
+                                onReply={replyHandlers.get(event.getId()!)}
                             />
                         </div>
                     )}
