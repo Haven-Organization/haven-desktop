@@ -506,12 +506,23 @@ export default class LegacyRoomList extends React.PureComponent<IProps, IState> 
     };
 
     private onRoomViewStoreUpdate = (): void => {
+        const newRoomId = SDKContextClass.instance.roomViewStore.getRoomId() ?? undefined;
+        // Haven: if the Alt+Up/Down cursor has since moved past this room (another keypress
+        // landed and re-debounced before this room's own load finished - see onAction below),
+        // this is a stale, late-arriving load for a room the user already navigated away from.
+        // Applying it here would flicker the highlight backward onto that stale room until the
+        // real target's own load lands a moment later and corrects it - that flicker is exactly
+        // what this guard prevents. The real one is still coming (dispatchViewRoomDebounced only
+        // settles on the last keypress), so just ignore this one and wait for it.
+        if (this.pendingRoomId !== undefined && this.pendingRoomId !== newRoomId) {
+            return;
+        }
         // The real room load this component was waiting for (whether from
         // dispatchViewRoomDebounced above, or a direct click elsewhere) has now landed - any
         // pending Alt+Up/Down cursor position is moot from here on.
         this.pendingRoomId = undefined;
         this.setState({
-            currentRoomId: SDKContextClass.instance.roomViewStore.getRoomId() ?? undefined,
+            currentRoomId: newRoomId,
         });
     };
 
@@ -526,7 +537,16 @@ export default class LegacyRoomList extends React.PureComponent<IProps, IState> 
      * cursor lagged a full room-load behind each keypress.
      */
     private onAction = (payload: ActionPayload): void => {
-        if (payload.action === Action.ViewRoomDelta) {
+        if (payload.action === Action.ViewRoom && (payload as ViewRoomPayload).room_id) {
+            // Haven: keep pendingRoomId in sync with the latest real navigation intent regardless
+            // of source (a direct click here, not just dispatchViewRoomDebounced's own dispatch,
+            // which already sets this synchronously via the ViewRoomDelta branch below before
+            // this ever fires) - otherwise a click landing while an Alt+Up/Down debounce is still
+            // in flight would get its own onRoomViewStoreUpdate wrongly suppressed by that
+            // method's stale-load guard, since pendingRoomId would still point at the keyboard
+            // cursor's target.
+            this.pendingRoomId = (payload as ViewRoomPayload).room_id;
+        } else if (payload.action === Action.ViewRoomDelta) {
             const viewRoomDeltaPayload = payload as ViewRoomDeltaPayload;
             // Continue from wherever the cursor last landed (even if that room hasn't actually
             // loaded yet), not necessarily the real loaded room - otherwise repeated presses

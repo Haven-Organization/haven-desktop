@@ -22,6 +22,7 @@ import { Action } from "../../dispatcher/actions";
 import dispatcher from "../../dispatcher/dispatcher";
 import { type ViewRoomDeltaPayload } from "../../dispatcher/payloads/ViewRoomDeltaPayload";
 import { type ViewRoomPayload } from "../../dispatcher/payloads/ViewRoomPayload";
+import { type ActiveRoomChangedPayload } from "../../dispatcher/payloads/ActiveRoomChangedPayload";
 import { type RoomListSectionsCollapseStateChangedPayload } from "../../dispatcher/payloads/RoomListSectionsCollapseStateChangedPayload";
 import type SpaceStore from "../../stores/spaces/SpaceStore";
 import RoomListStoreV3, {
@@ -559,6 +560,18 @@ export class RoomListViewModel
 
     private onDispatch = async (payload: any): Promise<void> => {
         if (payload.action === Action.ActiveRoomChanged) {
+            // Haven: if the Alt+Up/Down cursor has since moved past this room (another keypress
+            // landed and re-debounced before this room's own load finished - see
+            // handleViewRoomDelta), this is a stale, late-arriving load for a room the user
+            // already navigated away from. Applying it here would flicker the highlight backward
+            // onto that stale room until the real target's own load lands a moment later and
+            // corrects it - that flicker is exactly what this guard prevents. The real one is
+            // still coming (dispatchViewRoomDebounced only settles on the last keypress), so just
+            // ignore this one and wait for it.
+            const { newRoomId } = payload as ActiveRoomChangedPayload;
+            if (this.pendingRoomId !== undefined && this.pendingRoomId !== newRoomId) {
+                return;
+            }
             // The real room load this view model was waiting for (whether from
             // dispatchViewRoomDebounced below, or a direct click elsewhere) has now landed - any
             // pending Alt+Up/Down cursor position is moot from here on.
@@ -578,8 +591,17 @@ export class RoomListViewModel
             // Handle keyboard navigation shortcuts (Alt+ArrowUp/Down)
             // This was previously handled by useRoomListNavigation hook
             this.handleViewRoomDelta(payload as ViewRoomDeltaPayload);
-        } else if (payload.action === Action.ViewRoom && payload.show_room_tile && payload.room_id) {
-            await this.scrollRoomIntoView(payload.room_id);
+        } else if (payload.action === Action.ViewRoom && payload.room_id) {
+            // Haven: keep pendingRoomId in sync with the latest real navigation intent regardless
+            // of source (a direct click here, not just dispatchViewRoomDebounced's own dispatch,
+            // which already sets this synchronously via handleViewRoomDelta before this ever
+            // fires) - otherwise a click landing while an Alt+Up/Down debounce is still in flight
+            // would get its own ActiveRoomChanged wrongly suppressed by the stale-load guard
+            // above, since pendingRoomId would still point at the keyboard cursor's target.
+            this.pendingRoomId = payload.room_id;
+            if (payload.show_room_tile) {
+                await this.scrollRoomIntoView(payload.room_id);
+            }
         } else if (payload.action === Action.RoomListCollapseAllSections) {
             this.onCollapseAllSections(false);
         } else if (payload.action === Action.RoomListExpandAllSections) {
@@ -825,7 +847,13 @@ export class RoomListViewModel
     ): Promise<void> {
         // Determine the room ID to use for calculations
         // Use override if provided (e.g., during space changes), otherwise fall back to RoomViewStore
-        const roomId = roomIdOverride ?? this.props.roomViewStore.getRoomId();
+        // Haven: ...but prefer an in-flight Alt+Up/Down target over RoomViewStore's real (and, until
+        // the debounced load lands, stale) active room. Without this, any unrelated room list refresh
+        // landing mid-navigation (a new message arriving anywhere, an unread count changing, a resort -
+        // none of which know or care about the keyboard cursor) would recompute activeRoomIndex from
+        // the old real room and flicker the highlight backward onto it, undoing the instant per-keypress
+        // update below until the real target's own load eventually lands and corrects it again.
+        const roomId = roomIdOverride ?? this.pendingRoomId ?? this.props.roomViewStore.getRoomId();
 
         // Apply sticky room logic to keep selected room at same position within its section
         const stickySections = this.applyStickyRoom(isRoomChange, roomId);
