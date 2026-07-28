@@ -8,12 +8,15 @@
 
 import React, { type JSX, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import PinIcon from "@vector-im/compound-design-tokens/assets/web/icons/pin-solid";
-import { Button } from "@vector-im/compound-web";
+import OverflowHorizontalIcon from "@vector-im/compound-design-tokens/assets/web/icons/overflow-horizontal";
+import VisibilityOffIcon from "@vector-im/compound-design-tokens/assets/web/icons/visibility-off";
+import { Button, IconButton, Menu, MenuItem } from "@vector-im/compound-web";
 import { type MatrixEvent, type Room } from "matrix-js-sdk/src/matrix";
 import classNames from "classnames";
 import { EventPreviewView, useCreateAutoDisposedViewModel } from "@element-hq/web-shared-components";
 
 import { usePinnedEvents, useSortedFetchedPinnedEvents } from "../../../hooks/usePinnedEvents";
+import { useSettingValue } from "../../../hooks/useSettings";
 import { _t } from "../../../languageHandler";
 import { RightPanelPhases } from "../../../stores/right-panel/RightPanelStorePhases";
 import { useEventEmitter } from "../../../hooks/useEventEmitter";
@@ -27,6 +30,8 @@ import PosthogTrackers from "../../../PosthogTrackers.ts";
 import { SDKContext } from "../../../contexts/SDKContext.ts";
 import MatrixClientContext from "../../../contexts/MatrixClientContext";
 import { EventPreviewViewModel } from "../../../viewmodels/room/timeline/event-tile/EventPreviewViewModel";
+import SettingsStore from "../../../settings/SettingsStore";
+import { SettingLevel } from "../../../settings/SettingLevel";
 
 /**
  * The props for the {@link PinnedMessageBanner} component.
@@ -60,11 +65,14 @@ export function PinnedMessageBanner({ room, permalinkCreator }: PinnedMessageBan
     const isLastMessage = currentEventIndex === eventCount - 1;
 
     const pinnedEvent = pinnedEvents[currentEventIndex];
-    useNotifyTimeline(pinnedEvent);
+    const showBanner = useSettingValue("showPinnedMessagesBanner");
+    // Treated the same as "no pinned event" when the setting is off, so the timeline resizes the
+    // same way it already does whenever the banner's presence toggles.
+    useNotifyTimeline(showBanner ? pinnedEvent : null);
 
     const id = useId();
 
-    if (!pinnedEvent) return null;
+    if (!pinnedEvent || !showBanner) return null;
 
     const shouldUseMessageEvent = pinnedEvent.isRedacted() || pinnedEvent.isDecryptionFailure();
 
@@ -137,7 +145,7 @@ export function PinnedMessageBanner({ room, permalinkCreator }: PinnedMessageBan
                     )}
                 </div>
             </button>
-            {!isSinglePinnedEvent && <BannerButton room={room} />}
+            <BannerActions room={room} showViewAllButton={!isSinglePinnedEvent} />
         </div>
     );
 }
@@ -254,19 +262,26 @@ function Indicator({ active, hidden }: IndicatorProps): JSX.Element {
 }
 
 /**
- * The props for the {@link BannerButton} component.
+ * The props for the {@link BannerActions} component.
  */
-interface BannerButtonProps {
+interface BannerActionsProps {
     /**
      * The room where the banner is displayed
      */
     room: Room;
+    /**
+     * Whether the View all/Close list button should be shown - false when there's only a single
+     * pinned message, since there's nothing to view a list of. The "..." menu is still always
+     * shown regardless (see BannerOptionsMenu), so hiding the banner stays available either way.
+     */
+    showViewAllButton: boolean;
 }
 
 /**
- * A button that allows the user to view or close the list of pinned messages.
+ * The banner's own action buttons: View all/Close list (when there's more than one pinned
+ * message) and the "..." menu (always).
  */
-function BannerButton({ room }: BannerButtonProps): JSX.Element {
+function BannerActions({ room, showViewAllButton }: BannerActionsProps): JSX.Element {
     const sdkContext = useContext(SDKContext);
 
     const getRightPanelPhase = useCallback(
@@ -282,19 +297,55 @@ function BannerButton({ room }: BannerButtonProps): JSX.Element {
     const isPinnedMessagesPhase = currentPhase === RightPanelPhases.PinnedMessages;
 
     return (
-        <Button
-            className="mx_PinnedMessageBanner_actions"
-            kind="tertiary"
-            onClick={() => {
-                if (isPinnedMessagesPhase) PosthogTrackers.trackInteraction("PinnedMessageBannerCloseListButton");
-                else PosthogTrackers.trackInteraction("PinnedMessageBannerViewAllButton");
+        <div className="mx_PinnedMessageBanner_actionsGroup">
+            {showViewAllButton && (
+                <Button
+                    className="mx_PinnedMessageBanner_actions"
+                    kind="tertiary"
+                    onClick={() => {
+                        if (isPinnedMessagesPhase)
+                            PosthogTrackers.trackInteraction("PinnedMessageBannerCloseListButton");
+                        else PosthogTrackers.trackInteraction("PinnedMessageBannerViewAllButton");
 
-                sdkContext.rightPanelStore.showOrHidePhase(RightPanelPhases.PinnedMessages);
-            }}
+                        sdkContext.rightPanelStore.showOrHidePhase(RightPanelPhases.PinnedMessages);
+                    }}
+                >
+                    {isPinnedMessagesPhase
+                        ? _t("room|pinned_message_banner|button_close_list")
+                        : _t("room|pinned_message_banner|button_view_all")}
+                </Button>
+            )}
+            <BannerOptionsMenu />
+        </div>
+    );
+}
+
+/**
+ * The "..." menu next to the banner's View all/Close list button - currently offers only a way to
+ * hide the banner entirely (flips the showPinnedMessagesBanner setting off).
+ */
+function BannerOptionsMenu(): JSX.Element {
+    const [open, setOpen] = useState(false);
+
+    const onHideBanner = useCallback(() => {
+        SettingsStore.setValue("showPinnedMessagesBanner", null, SettingLevel.ACCOUNT, false);
+    }, []);
+
+    return (
+        <Menu
+            open={open}
+            onOpenChange={setOpen}
+            showTitle={false}
+            title={_t("room|pinned_message_banner|menu")}
+            side="right"
+            align="start"
+            trigger={
+                <IconButton size="24px" aria-label={_t("room|pinned_message_banner|menu")}>
+                    <OverflowHorizontalIcon />
+                </IconButton>
+            }
         >
-            {isPinnedMessagesPhase
-                ? _t("room|pinned_message_banner|button_close_list")
-                : _t("room|pinned_message_banner|button_view_all")}
-        </Button>
+            <MenuItem Icon={VisibilityOffIcon} label={_t("room|pinned_message_banner|hide_banner")} onSelect={onHideBanner} />
+        </Menu>
     );
 }

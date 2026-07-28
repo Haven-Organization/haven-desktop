@@ -252,6 +252,7 @@ export interface Settings {
     "showAvatarChanges": IBaseSetting<boolean>;
     "showDisplaynameChanges": IBaseSetting<boolean>;
     "showReadReceipts": IBaseSetting<boolean>;
+    "showPinnedMessagesBanner": IBaseSetting<boolean>;
     "showTwelveHourTimestamps": IBaseSetting<boolean>;
     "alwaysShowTimestamps": IBaseSetting<boolean>;
     "userTimezone": IBaseSetting<string>;
@@ -829,6 +830,11 @@ export const SETTINGS: Settings = {
         displayName: _td("settings|show_read_receipts"),
         default: true,
         invertedSettingName: "hideReadReceipts",
+    },
+    "showPinnedMessagesBanner": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|preferences|show_pinned_messages_banner"),
+        default: true,
     },
     "showTwelveHourTimestamps": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,

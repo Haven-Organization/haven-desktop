@@ -2147,6 +2147,8 @@
             "description": "Pinned messages",
             "go_to_newest_message": "View the pinned message in the timeline and the newest pinned message here",
             "go_to_next_message": "View the pinned message in the timeline and the next oldest pinned message here",
+            "hide_banner": "Hide banner",
+            "menu": "Pinned messages banner options",
             "title": "<bold>%(index)s of %(length)s</bold> Pinned messages"
         },
         "read_topic": "Click to read topic",
@@ -2931,6 +2933,7 @@
             "room_directory_heading": "Room directory",
             "room_list_heading": "Room list",
             "show_avatars_pills": "Show avatars in user, room and event mentions",
+            "show_pinned_messages_banner": "Show pinned messages banner",
             "show_polls_button": "Show polls button",
             "startup_window_behaviour_label": "Start-up and window behaviour",
             "surround_text": "Surround selected text when typing special characters",

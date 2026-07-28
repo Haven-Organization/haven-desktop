@@ -157,6 +157,7 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
         "TextualBody.enableBigEmoji",
         "scrollToBottomOnMessageSent",
         "useOnlyCurrentProfiles",
+        "showPinnedMessagesBanner",
     ];
 
     private static ROOM_DIRECTORY_SETTINGS: BooleanSettingKey[] = ["SpotlightSearch.showNsfwPublicRooms"];
