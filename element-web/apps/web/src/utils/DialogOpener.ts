@@ -69,6 +69,7 @@ export class DialogOpener {
                     matrixClient: this.matrixClient,
                     event: payload.event,
                     permalinkCreator: payload.permalinkCreator,
+                    initialOmitBody: payload.initialOmitBody,
                 });
                 break;
             case Action.OpenReportEventDialog:

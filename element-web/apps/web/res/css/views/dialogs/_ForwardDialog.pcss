@@ -46,6 +46,26 @@ Please see LICENSE files in the repository root for full details.
         }
     }
 
+    > .mx_ForwardDialog_attachmentOptions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+        margin-top: 12px;
+
+        .mx_ForwardDialog_attachmentOption {
+            display: flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid $input-border-color;
+            background-color: $spacePanel-bg-color;
+
+            &_disabled {
+                opacity: 0.5;
+            }
+        }
+    }
+
     > hr {
         width: 100%;
         border: none;

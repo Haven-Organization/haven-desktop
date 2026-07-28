@@ -285,11 +285,15 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
         this.closeMenu();
     };
 
-    private onForwardClick = (forwardableEvent: MatrixEvent) => (): void => {
+    private onForwardClick = (forwardableEvent: MatrixEvent) => (ev: ButtonEvent): void => {
+        // Haven: Shift+clicking Forward pre-unchecks the Body toggle in ForwardDialog, so only
+        // the attachment is selected by default.
+        const shiftHeld = "shiftKey" in ev && ev.shiftKey;
         dis.dispatch<OpenForwardDialogPayload>({
             action: Action.OpenForwardDialog,
             event: forwardableEvent,
             permalinkCreator: this.props.permalinkCreator ?? null,
+            initialOmitBody: shiftHeld,
         });
         this.closeMenu();
     };

@@ -17,4 +17,6 @@ export interface OpenForwardDialogPayload extends ActionPayload {
 
     event: MatrixEvent;
     permalinkCreator: RoomPermalinkCreator | null;
+    // Haven: set when the dialog should pre-uncheck the Body attachment-toggle (Shift+click).
+    initialOmitBody?: boolean;
 }

@@ -21,6 +21,7 @@ import {
     M_TIMESTAMP,
     M_BEACON,
     type TimelineEvents,
+    MsgType,
 } from "matrix-js-sdk/src/matrix";
 import { KnownMembership } from "matrix-js-sdk/src/types";
 import { CheckCircleIcon, CircleIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
@@ -63,6 +64,7 @@ import { CommandPartCreator } from "../../../editor/parts";
 import SettingsStore from "../../../settings/SettingsStore";
 import { parseEvent } from "../../../editor/deserialize";
 import EditorModel from "../../../editor/model";
+import StyledCheckbox from "../elements/StyledCheckbox";
 
 const AVATAR_SIZE = 30;
 
@@ -74,6 +76,9 @@ interface IProps {
     // in case the event is a reply (even though the user can't get at the link)
     permalinkCreator: RoomPermalinkCreator;
     onFinished(this: void): void;
+    // Haven: set via Shift+clicking the Forward action on an eligible event (see
+    // MessageContextMenu.tsx's onForwardClick) to pre-uncheck the Body toggle below.
+    initialOmitBody?: boolean;
 }
 
 interface IEntryProps<K extends keyof TimelineEvents> {
@@ -244,36 +249,128 @@ const transformEvent = (event: MatrixEvent, cli: MatrixClient): { type: string; 
     return { type, content };
 };
 
-const ForwardDialog: React.FC<IProps> = ({ matrixClient: cli, event, permalinkCreator, onFinished }) => {
+const ATTACHMENT_MSGTYPES = [MsgType.Image, MsgType.File, MsgType.Audio, MsgType.Video];
+
+function attachmentLabel(msgtype?: string): string {
+    switch (msgtype) {
+        case MsgType.Image:
+            return _t("common|image");
+        case MsgType.Video:
+            return _t("common|video");
+        case MsgType.Audio:
+            return _t("common|audio");
+        default:
+            return _t("common|file");
+    }
+}
+
+const ForwardDialog: React.FC<IProps> = ({
+    matrixClient: cli,
+    event,
+    permalinkCreator,
+    onFinished,
+    initialOmitBody,
+}) => {
     const userId = cli.getSafeUserId();
-    const [profileInfo, setProfileInfo] = useState<any>({});
+    // Haven: seed from the already-hydrated User object (present as soon as the client has
+    // synced) instead of starting blank, so the preview shows the real name/avatar on its very
+    // first render. This matters because mockEvent below is memoized on profileInfo - without a
+    // synchronous seed, the async getProfileInfo() below would almost always resolve mid-render,
+    // forcing mockEvent to be rebuilt and (see the mockEvent comment) restarting an in-flight
+    // image load's spinner right as it was about to finish.
+    const [profileInfo, setProfileInfo] = useState<{ displayname?: string; avatar_url?: string }>(() => {
+        const user = cli.getUser(userId);
+        return user ? { displayname: user.displayName, avatar_url: user.avatarUrl } : {};
+    });
     useEffect(() => {
-        cli.getProfileInfo(userId).then((info) => setProfileInfo(info));
+        cli.getProfileInfo(userId).then((info) => {
+            // Bail out (via returning the same object reference) when the fetched profile matches
+            // what's already showing, so an inevitably-resolving fetch doesn't itself become a
+            // second rebuild trigger for mockEvent in the common case where nothing changed.
+            setProfileInfo((prev) =>
+                prev.displayname === info.displayname && prev.avatar_url === info.avatar_url ? prev : info,
+            );
+        });
     }, [cli, userId]);
 
-    const { type, content } = transformEvent(event, cli);
+    // Haven: memoized so its identity is stable across re-renders (e.g. the profileInfo fetch
+    // below resolving mid-load). ImageBodyViewModel treats a new mxEvent reference as a brand new
+    // image and resets its loaded state - since the underlying <img> src string doesn't actually
+    // change, the browser never re-fires its load event, and the preview's spinner would get
+    // stuck forever waiting for a load signal that's never coming again.
+    const { type, content } = useMemo(() => transformEvent(event, cli), [event, cli]);
 
-    // For the message preview we fake the sender as ourselves
-    const mockEvent = new MatrixEvent({
-        type: "m.room.message",
-        sender: userId,
-        content,
-        unsigned: {
-            age: 97,
-        },
-        event_id: "$9999999999999999999999999999999999999999999",
-        room_id: event.getRoomId(),
-        origin_server_ts: event.getTs(),
-    });
-    mockEvent.sender = {
-        name: profileInfo.displayname || userId,
-        rawDisplayName: profileInfo.displayname,
-        userId,
-        getAvatarUrl: (..._) => {
-            return avatarUrlForUser({ avatarUrl: profileInfo.avatar_url }, AVATAR_SIZE, AVATAR_SIZE, "crop");
-        },
-        getMxcAvatarUrl: () => profileInfo.avatar_url,
-    } as RoomMember;
+    // Haven: an attachment event only has a genuine caption - as opposed to body just holding
+    // the filename, per the convention MessageEvent.tsx's own hasCaption check relies on - when
+    // it carries a separate filename field that differs from body. Only then is there anything
+    // meaningful to toggle between forwarding the file, the caption, or both.
+    const msgtype = content.msgtype as string | undefined;
+    const hasCaption = !!content.filename && content.filename !== content.body;
+    const showAttachmentToggle = !!msgtype && ATTACHMENT_MSGTYPES.includes(msgtype as MsgType) && hasCaption;
+
+    const [includeBody, setIncludeBody] = useState(!(showAttachmentToggle && initialOmitBody));
+    const [includeAttachment, setIncludeAttachment] = useState(true);
+
+    const onToggleBody = (): void => {
+        if (includeBody) {
+            setIncludeBody(false);
+            setIncludeAttachment(true);
+        } else {
+            setIncludeBody(true);
+        }
+    };
+    const onToggleAttachment = (): void => {
+        if (includeAttachment) {
+            setIncludeAttachment(false);
+            setIncludeBody(true);
+        } else {
+            setIncludeAttachment(true);
+        }
+    };
+
+    const { type: effectiveType, content: effectiveContent } = useMemo((): { type: string; content: IContent } => {
+        if (!showAttachmentToggle || (includeBody && includeAttachment)) {
+            return { type, content };
+        }
+        if (!includeAttachment) {
+            // Body-only: drop the attachment and become a plain text message.
+            const { msgtype: _msgtype, url, file, info, filename, thumbnail_url, thumbnail_file, ...rest } =
+                content as IContent & { thumbnail_url?: unknown; thumbnail_file?: unknown };
+            return { type, content: { ...rest, msgtype: MsgType.Text } };
+        }
+        // Attachment-only: drop the caption, but body must still hold something for legacy
+        // clients that don't understand the filename field, so reuse the filename as the body.
+        const { formatted_body, format, filename, ...rest } = content;
+        return { type, content: { ...rest, body: filename ?? content.body } };
+    }, [type, content, showAttachmentToggle, includeBody, includeAttachment]);
+
+    // For the message preview we fake the sender as ourselves. Memoized for the same reason as
+    // transformEvent above - the identity must stay stable while effectiveContent/profileInfo are
+    // unchanged, since EventTile's shouldComponentUpdate shallow-compares mxEvent by reference and
+    // won't re-render (so a mutated .sender would never be picked up) if it doesn't change.
+    const mockEvent = useMemo(() => {
+        const mxEvent = new MatrixEvent({
+            type: "m.room.message",
+            sender: userId,
+            content: effectiveContent,
+            unsigned: {
+                age: 97,
+            },
+            event_id: "$9999999999999999999999999999999999999999999",
+            room_id: event.getRoomId(),
+            origin_server_ts: event.getTs(),
+        });
+        mxEvent.sender = {
+            name: profileInfo.displayname || userId,
+            rawDisplayName: profileInfo.displayname,
+            userId,
+            getAvatarUrl: (..._) => {
+                return avatarUrlForUser({ avatarUrl: profileInfo.avatar_url }, AVATAR_SIZE, AVATAR_SIZE, "crop");
+            },
+            getMxcAvatarUrl: () => profileInfo.avatar_url,
+        } as RoomMember;
+        return mxEvent;
+    }, [effectiveContent, event, userId, profileInfo]);
 
     const [query, setQuery] = useState("");
     const lcQuery = query.toLowerCase();
@@ -348,6 +445,32 @@ const ForwardDialog: React.FC<IProps> = ({ matrixClient: cli, event, permalinkCr
                     inhibitInteraction
                 />
             </div>
+            {showAttachmentToggle && (
+                <div className="mx_ForwardDialog_attachmentOptions">
+                    <div
+                        className={classnames("mx_ForwardDialog_attachmentOption", {
+                            mx_ForwardDialog_attachmentOption_disabled: !includeAttachment,
+                        })}
+                    >
+                        <StyledCheckbox checked={includeBody} disabled={!includeAttachment} onChange={onToggleBody}>
+                            {_t("forward|body_label")}
+                        </StyledCheckbox>
+                    </div>
+                    <div
+                        className={classnames("mx_ForwardDialog_attachmentOption", {
+                            mx_ForwardDialog_attachmentOption_disabled: !includeBody,
+                        })}
+                    >
+                        <StyledCheckbox
+                            checked={includeAttachment}
+                            disabled={!includeBody}
+                            onChange={onToggleAttachment}
+                        >
+                            {attachmentLabel(msgtype)}
+                        </StyledCheckbox>
+                    </div>
+                </div>
+            )}
             <hr />
             <RovingTabIndexProvider
                 handleUpDown
@@ -399,8 +522,8 @@ const ForwardDialog: React.FC<IProps> = ({ matrixClient: cli, event, permalinkCr
                                                     <Entry
                                                         key={room.roomId}
                                                         room={room}
-                                                        type={type}
-                                                        content={content}
+                                                        type={effectiveType}
+                                                        content={effectiveContent}
                                                         matrixClient={cli}
                                                         onFinished={onFinished}
                                                     />
