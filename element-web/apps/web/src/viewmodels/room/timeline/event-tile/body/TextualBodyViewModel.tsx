@@ -6,7 +6,7 @@
  */
 
 import React, { type MouseEvent } from "react";
-import { MatrixEventEvent, MsgType, type MatrixEvent } from "matrix-js-sdk/src/matrix";
+import { MatrixEventEvent, MsgType, User, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import {
     BaseViewModel,
     LINKIFIED_DATA_ATTRIBUTE,
@@ -21,8 +21,10 @@ import Modal from "../../../../../Modal";
 import dis from "../../../../../dispatcher/dispatcher";
 import { _t } from "../../../../../languageHandler";
 import { IntegrationManagers } from "../../../../../integrations/IntegrationManagers";
-import { tryTransformPermalinkToLocalHref } from "../../../../../utils/permalinks/Permalinks";
+import { parsePermalink, tryTransformPermalinkToLocalHref } from "../../../../../utils/permalinks/Permalinks";
 import { Action } from "../../../../../dispatcher/actions";
+import { type ViewUserPayload } from "../../../../../dispatcher/payloads/ViewUserPayload";
+import { MatrixClientPeg } from "../../../../../MatrixClientPeg";
 import QuestionDialog from "../../../../../components/views/dialogs/QuestionDialog";
 import MessageEditHistoryDialog from "../../../../../components/views/dialogs/MessageEditHistoryDialog";
 import { type TimelineRenderingType } from "../../../../../contexts/RoomContext";
@@ -293,6 +295,32 @@ export class TextualBodyViewModel
 
         if (tryRouteSocialPermalink(event, target.href)) {
             event.preventDefault();
+            return;
+        }
+
+        // Haven: a bare user permalink (an @mention with no room/event of its own - e.g. one
+        // embedded raw inside a repost/quote card's own formatted_body, which never went through
+        // the normal Linkify pill wiring that would otherwise have caught this click before it got
+        // here - see the LINKIFIED_DATA_ATTRIBUTE check above) used to fall all the way through to
+        // the generic local-href handling below, which for a bare user permalink resolves to
+        // stock Element's own dedicated, separate "User View" page (#/user/<id> - see
+        // tryTransformPermalinkToLocalHref's own userId branch). Navigating there abandons whatever
+        // room this message is actually in - exactly the "clicking a pill kicks me out of the
+        // room" behaviour reported. Route it the same way an already-resolved Pill component
+        // handles the identical click instead (see usePermalink.ts): dispatch Action.ViewUser with
+        // a real member of the room this message lives in when one can be found, so the handler
+        // for that action (RoomView.tsx, or SocialHomeView.tsx while browsing Social) opens the
+        // member card right where the click happened rather than navigating anywhere.
+        const permalink = parsePermalink(target.href);
+        if (permalink?.userId && !permalink.roomIdOrAlias && !permalink.eventId) {
+            event.preventDefault();
+            const roomId = this.props.mxEvent.getRoomId();
+            const room = roomId ? MatrixClientPeg.safeGet().getRoom(roomId) : null;
+            const member = room?.getMember(permalink.userId) ?? new User(permalink.userId);
+            dis.dispatch<ViewUserPayload>({
+                action: Action.ViewUser,
+                member,
+            });
             return;
         }
 
