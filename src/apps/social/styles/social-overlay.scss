@@ -583,16 +583,58 @@
 
     &_header {
         display: flex;
-        align-items: center;
+        // Was center - top-aligned instead so the display name lines up with the avatar's own top
+        // edge rather than sitting in its vertical middle, regardless of &_sender's own height
+        // (two rows now: display name and, below it, the MXID - see &_senderMxid).
+        align-items: flex-start;
         gap: var(--cpd-space-3x);
         margin-bottom: var(--cpd-space-3x);
     }
 
     &_sender {
         flex: 1;
+        // Without this, a long MXID (see &_senderMxid) would grow this flex:1 item past the header
+        // row's own available width instead of being clipped by &_senderMxid's own ellipsis -
+        // flex items default to min-width: auto (their content's natural size acts as a floor on
+        // how far they can shrink), not 0.
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    &_senderNameRow {
         display: flex;
         align-items: center;
         gap: var(--cpd-space-1x);
+        max-width: 100%;
+    }
+
+    // The sender's own MXID (e.g. @user:server), shown beneath their display name - same clickable
+    // behaviour as the name itself (both call the same onClick), just visually secondary. Clipped
+    // with an ellipsis rather than wrapping or overflowing, since server names can run long.
+    &_senderMxid {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font: var(--cpd-font-body-sm-regular);
+        color: $tertiary-content;
+        cursor: pointer;
+        text-align: left;
+
+        .cpd-theme-dark & {
+            color: $secondary-content;
+        }
+
+        &:hover {
+            text-decoration: underline;
+        }
     }
 
     &_timestamp {
@@ -602,6 +644,17 @@
         .cpd-theme-dark & {
             color: $secondary-content;
         }
+    }
+
+    // Only rendered for the thread view's own focused post (SocialEventTile's own `isFocused`
+    // prop) - every other tile keeps the timestamp in its usual top-right spot, in the header
+    // above. Sits left-aligned between the post's own content (body/media/reactions - whatever
+    // of those is last) and &_actions' own top border below, rather than up top.
+    &_timestampBottom {
+        display: flex;
+        justify-content: flex-start;
+        margin-top: var(--cpd-space-2x);
+        margin-bottom: var(--cpd-space-2x);
     }
 
     &_editedMarker {
@@ -1424,6 +1477,73 @@
 }
 
 // ---------------------------------------------------------------------------
+// Flat/thread-view event tile (SocialPostView) — every tile in a thread view
+// (ancestors, focused post, direct replies) uses this instead of the normal
+// bordered card: no border, no rounded corners, no own background, going
+// edge-to-edge of the scroll container. SocialPostView's own containers draw
+// the connecting line (ancestors) or divider borders (replies) between tiles
+// instead - see SocialEventTile's own `flat` prop doc and SocialPostView.tsx's
+// header comment for the full design rationale. Every other render site
+// (Feed, room view, profile) never sets this and keeps the normal card.
+// ---------------------------------------------------------------------------
+
+.social_EventTile--flat {
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: var(--cpd-space-4x) var(--cpd-space-6x);
+
+    // Every piece of post content below the header (body text, media, repost/quote cards, URL
+    // previews, reply-to lines, reaction pills, the action-button row) normally starts flush with
+    // the tile's own left padding edge - the same x position as the avatar, and so also the same x
+    // position as .social_PostView_ancestors'/&_focusedWrap's connecting line further down. That's
+    // invisible on a normal card tile (nothing behind it to clash with), but in a flat thread-view
+    // tile it made the line cut straight through the action icons and body text of every ancestor
+    // instead of staying in the empty gutter behind the avatars - not what the X/Twitter reference
+    // this is modelled on does: there, everything but the avatar itself is indented into a column
+    // starting where the sender name does, leaving the avatar's own column (and the line running
+    // through it) completely clear for the post's full height. Matching that here: push every such
+    // block right by the avatar's width (40px) plus the header's own avatar-to-name flex gap
+    // (--cpd-space-3x), so it lines up with the sender name below/beside it and clears the line
+    // regardless of ancestor depth. A custom property (not a flat margin-left) so &--focused below
+    // can zero it back out for the one tile that has no line running behind THIS content - see its
+    // own comment, and &_roomLabel's own rule further down for the one exception to that.
+    --flat-indent: calc(40px + var(--cpd-space-3x));
+
+    > .social_EventTile_replyTo,
+    > .social_EventTile_body,
+    > .social_EventTile_repostCard,
+    > .social_EventTile_mediaWrap,
+    > .social_EventTile_attachment,
+    > .social_EventTile_urlPreview,
+    > .social_EventTile_reactionsWrap,
+    > .social_EventTile_actions {
+        margin-left: var(--flat-indent);
+    }
+
+    // The room name label sits ABOVE the header/avatar row, in a room whose posts span multiple
+    // people (e.g. a group room) - always indented to the same column as the sender name below it,
+    // using a fixed offset rather than --flat-indent above: unlike body/actions/etc (which sit
+    // BELOW the avatar and are genuinely clear of any line once &--focused zeroes their own
+    // indent), the room label's own position, ABOVE the avatar, is exactly where &_focusedWrap
+    // --connected's own incoming stub still runs even on the one tile that gets zeroed - zeroing
+    // this too would put the label right back in the line's path instead of clearing it.
+    > .social_EventTile_roomLabel {
+        margin-left: calc(40px + var(--cpd-space-3x));
+    }
+
+    // The focused post (SocialEventTile's own `isFocused` prop) never has a connecting line running
+    // behind its own BELOW-avatar content - SocialPostView's stub line (see &_focusedWrap
+    // --connected) reaches only into its avatar's own vertical center, well above where body/
+    // actions start - so unlike every ancestor/reply tile, nothing there needs clearing and it can
+    // use the tile's full width, matching how the X/Twitter reference treats the selected post. The
+    // room label (see its own rule above) is a deliberate exception, not covered by this.
+    &.social_EventTile--focused {
+        --flat-indent: 0px;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Thread / Post detail view (SocialPostView)
 // ---------------------------------------------------------------------------
 
@@ -1439,33 +1559,74 @@
         flex-shrink: 0;
     }
 
-    // Ancestor chain + focused post, in DOM order root-first, ending at the focused post (which
-    // keeps the .social_PostView_mainPost class below for its own bottom border/spacing) — see
+    // Ancestor chain + focused post, in DOM order root-first, ending at the focused post - see
     // SocialPostView.tsx's own header comment for why the focused post isn't always the root.
+    // Every tile here is flat (see .social_EventTile--flat above) and touches the next directly -
+    // contrast between consecutive posts comes from the connecting line below, not a border,
+    // deliberately the opposite of &_replies further down (border, no line) - see this file's own
+    // header comment for why.
     &_thread {
-        position: relative;
-        padding: 0 var(--cpd-space-6x);
-        border-bottom: 1px solid $quinary-content;
         // Without this, being a flex item in .social_PostView's own column flex layout makes this
         // shrinkable by default - the flex algorithm was compressing a tall ancestor chain to fit
         // the container's height instead of letting it overflow and scroll, which is what made the
         // thread root (and any other ancestor) unreachable by scrolling up: the container's own
         // scrollHeight never actually exceeded its clientHeight, so there was nothing to scroll to.
         flex-shrink: 0;
+    }
 
-        // One continuous line behind every tile in the group, from the very top to the very
-        // bottom - each tile's own opaque card background covers the part of the line that would
-        // otherwise show through it, leaving the line visible only in the gaps between tiles. That
-        // makes it read as connecting consecutive posts without needing a separate line segment
-        // per gap. Positioned to line up with the avatar's own horizontal center: this container's
-        // own left padding (--cpd-space-6x) + the card's own left padding (--cpd-space-4x, see
-        // .social_EventTile) + half the 40px avatar.
+    // Wraps just the ancestor tiles (root..the focused post's own immediate parent) - never
+    // rendered at all when the focused post is the root, since there's nothing to connect.
+    &_ancestors {
+        position: relative;
+
+        // One continuous line from the first ancestor's own avatar center down to the last
+        // ancestor's tile bottom, positioned to line up with the avatar's own horizontal center:
+        // the flat tile's own left padding (--cpd-space-6x, see .social_EventTile--flat) + half the
+        // 40px avatar. Starts at that same padding + half the avatar height DOWN from this
+        // wrapper's own top - not the wrapper's bare top edge (0) - so it begins exactly at the
+        // first (root) avatar's own center instead of bleeding up into the empty gap above it and
+        // visibly touching the back bar's own border above the whole thread. Sits behind every tile
+        // (z-index: 0 vs. &_threadItem's own z-index: 1), so each tile's own avatar image naturally
+        // paints over the segment of line passing behind it - no opaque tile background needed to
+        // hide it, unlike a card-styled tile. Stops exactly at this wrapper's own bottom edge, i.e.
+        // flush against the top of &_focusedWrap right below (tiles touch directly, no gap) -
+        // &_focusedWrap--connected's own short stub picks up from there and carries the line the
+        // rest of the way into the focused avatar, rather than this one line running the full way
+        // through the focused tile itself (see that rule's own comment for why it stops short
+        // instead of continuing to the tile's own bottom, which used to visibly run the line into
+        // the border above the replies list).
+        &::before {
+            content: "";
+            position: absolute;
+            top: calc(var(--cpd-space-4x) + 20px);
+            bottom: 0;
+            left: calc(var(--cpd-space-6x) + 20px);
+            width: 2px;
+            background: $quinary-content;
+            z-index: 0;
+        }
+    }
+
+    // Wraps just the focused post's own tile.
+    &_focusedWrap {
+        position: relative;
+
+        // Only present when there's an ancestor chain above (&_ancestors rendered) - a short stub
+        // continuing that same line down from this tile's own top edge (flush against &_ancestors'
+        // own bottom edge above) to the focused avatar's own vertical center - this tile's own top
+        // padding (--cpd-space-4x, see .social_EventTile--flat) + half the 40px avatar - and no
+        // further. Twitter's own reference this is modelled on never runs the line past the
+        // selected avatar into the content below it (unlike a mid-chain ancestor, which needs the
+        // line to keep going down to the next avatar) - stopping here instead of at this tile's own
+        // bottom (like every ancestor gets from &_ancestors above) is what let the focused tile's
+        // own content go back to full width instead of staying indented to clear a line that no
+        // longer runs behind it - see .social_EventTile--flat's own &--focused override.
         &--connected::before {
             content: "";
             position: absolute;
             top: 0;
-            bottom: 0;
-            left: calc(var(--cpd-space-6x) + var(--cpd-space-4x) + 20px);
+            height: calc(var(--cpd-space-4x) + 20px);
+            left: calc(var(--cpd-space-6x) + 20px);
             width: 2px;
             background: $quinary-content;
             z-index: 0;
@@ -1475,94 +1636,79 @@
     &_threadItem {
         position: relative;
         z-index: 1;
-        padding: var(--cpd-space-4x) 0;
-    }
-
-    &_mainPost {
-        padding-bottom: var(--cpd-space-4x);
-    }
-
-    &_replyCompose {
-        padding: var(--cpd-space-4x) var(--cpd-space-6x);
-        border-bottom: 1px solid $quinary-content;
-        display: flex;
-        flex-direction: column;
-        gap: var(--cpd-space-3x);
-    }
-
-    &_replyInput {
-        width: 100%;
-        padding: var(--cpd-space-2x) var(--cpd-space-3x);
-        border: 1px solid $quinary-content;
-        border-radius: 8px;
-        background: $system;
-        color: $primary-content;
-        font: var(--cpd-font-body-md-regular);
-        resize: none;
-        box-sizing: border-box;
-
-        &:focus {
-            outline: none;
-            border-color: $accent;
-        }
-    }
-
-    &_replyFooter {
-        display: flex;
-        justify-content: flex-end;
     }
 
     &_replies {
-        padding: var(--cpd-space-4x) var(--cpd-space-6x);
         display: flex;
         flex-direction: column;
-        gap: var(--cpd-space-3x);
         // See &_thread's own flex-shrink: 0 above for why - same fix, same reason.
         flex-shrink: 0;
+        // The last reply's own bottom edge otherwise just trails off into empty scroll-container
+        // space with nothing marking it as the end of the list - every other boundary in this view
+        // (between replies, above the first one) already reads clearly via &_replyItem's own
+        // top border.
+        border-bottom: 1px solid $quinary-content;
     }
 
-    &_repliesHeader {
-        font: var(--cpd-font-body-md-semibold);
-        color: $primary-content;
-        margin: 0 0 var(--cpd-space-2x);
+    // Each direct reply's own divider - a plain top border, not a connecting line, right up
+    // against the next reply (and against the focused post above the first one), no gap. See
+    // &_thread's own --connected::before above for the deliberately opposite treatment there. This
+    // border sits on the outer item, above BOTH tiles when a reply has its own &_replyOfReply
+    // riding along beneath it - not repeated between the two, which are connected by a line
+    // instead (see below).
+    &_replyItem {
+        border-top: 1px solid $quinary-content;
     }
 
-    // A maximal run of consecutive replies (in the flat, timestamp-ordered list SocialPostView.tsx
-    // renders - see its own header comment on why replies are never nested/indented) where each one
-    // is actually a direct reply to the one immediately before it, not just adjacent by coincidence
-    // of timestamp - see replyGroups in SocialPostView.tsx. Unconnected replies (including every
-    // singleton "group" of one) still render through this same wrapper for one consistent code
-    // path, but only a --connected group actually draws anything extra.
-    //
-    // Same "continuous line behind opaque tiles, visible only in the gaps" technique as &_thread's
-    // own --connected above, just using this container's own flex gap as that gap directly instead
-    // of &_threadItem's padding - &_replies (this rule's own parent) has no extra horizontal padding
-    // of its own to account for here, unlike &_thread's container, which is why the left offset
-    // below is one --cpd-space-4x short of that rule's.
-    &_replyGroup {
-        display: flex;
-        flex-direction: column;
-        gap: var(--cpd-space-3x);
+    // Wraps a direct reply's own tile ONLY when it has a &_replyOfReply riding along beneath it
+    // (ThreadNode's own `replyOfReply` field) - draws the line connecting the two avatars, same
+    // geometry as &_ancestors' own line above: starts at this tile's own avatar center (the flat
+    // tile's own left padding, --cpd-space-6x, plus half the 40px avatar; down from --cpd-space-4x,
+    // its own top padding, plus half the avatar again) and runs to this wrapper's own bottom edge -
+    // flush against &_replyOfReply's own top edge right below, whose own stub (mirroring
+    // &_focusedWrap--connected's) carries it the rest of the way into the nested tile's avatar.
+    &_replyMain--connected {
+        position: relative;
 
-        &--connected {
-            position: relative;
-
-            &::before {
-                content: "";
-                position: absolute;
-                top: 0;
-                bottom: 0;
-                left: calc(var(--cpd-space-4x) + 20px);
-                width: 2px;
-                background: $quinary-content;
-                z-index: 0;
-            }
+        &::before {
+            content: "";
+            position: absolute;
+            top: calc(var(--cpd-space-4x) + 20px);
+            bottom: 0;
+            left: calc(var(--cpd-space-6x) + 20px);
+            width: 2px;
+            background: $quinary-content;
+            z-index: 0;
         }
     }
 
-    &_replyGroupItem {
+    // The focused post's own author's first reply to the reply right above it (see &_replyMain
+    // --connected's own comment) - a short stub picking up that line from this wrapper's own top
+    // edge down to this tile's own avatar center, and no further, exactly like
+    // &_focusedWrap--connected's identical stub. No border here (unlike between top-level direct
+    // replies) - the line is the only thing marking this as connected to the reply above rather
+    // than a sibling of it.
+    &_replyOfReply {
         position: relative;
-        z-index: 1;
+
+        &::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            height: calc(var(--cpd-space-4x) + 20px);
+            left: calc(var(--cpd-space-6x) + 20px);
+            width: 2px;
+            background: $quinary-content;
+            z-index: 0;
+        }
+    }
+
+    // "No replies yet" - the plain shared .social_ContentEmpty (also used by Feed/Groups' own
+    // empty states) otherwise sits flush against this view's own left edge, the same x position as
+    // every tile's avatar/the ancestor-chain line above it - nudge it over to the same column as
+    // everything else here (avatar width + the header's own avatar-to-name gap) instead.
+    .social_ContentEmpty {
+        padding-left: calc(40px + var(--cpd-space-3x) + var(--cpd-space-6x));
     }
 }
 

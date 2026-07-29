@@ -477,14 +477,10 @@ export function SocialRoomView({
     const isOwnProfile = !!profileOwnerUserId && profileOwnerUserId === myUserId;
     const canEdit = room.currentState.maySendStateEvent("m.room.name", myUserId);
 
-    // Whether to hide room name in post tiles (own-profile posts)
-    const getHideRoomName = useCallback(
-        (event: MatrixEvent): boolean => {
-            if (!profileOwnerUserId) return false;
-            return event.getSender() === profileOwnerUserId;
-        },
-        [profileOwnerUserId],
-    );
+    // Whether to hide the room-name badge in post tiles - this room's own name is already shown by
+    // this page's own header, so it's redundant on every post here, not just the profile owner's
+    // own (any reply/repost by someone else still lands in this same, already-named room).
+    const hideRoomName = !!profileOwnerUserId;
 
     const handleFollowToggle = useCallback(async () => {
         // An invite-only or knock-access room becomes permanently unjoinable once its last member
@@ -1000,7 +996,7 @@ export function SocialRoomView({
                                 isLiked={!!myLikeEventId}
                                 isReposted={!!myRepostEventId}
                                 replyCount={replyCount}
-                                hideRoomName={getHideRoomName(event)}
+                                hideRoomName={hideRoomName}
                                 pillsGeneration={pillsGeneration}
                                 onViewUser={onViewUser}
                                 onOpenUserPanel={onOpenUserPanel}

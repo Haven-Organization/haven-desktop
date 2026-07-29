@@ -1,24 +1,32 @@
 /*
  * Social Overlay — SocialPostView
  *
- * Thread view, Soapbox/poa.st-style connected threading (see chat history for the design spec this
- * was built from — https://poa.st/@graf/posts/AVdMiKH4fFLnbhx28G was the reference example).
+ * Thread view, X/Twitter-style connected threading.
  *
  * A post opened here ("the focused post") is not necessarily the thread's true root — Haven's own
  * m.thread relation (see sendComment in social-actions.ts) always points at the *immediate* parent,
  * not the root, so a reply-of-a-reply's own event_id chain has to be walked all the way up to find
  * it. What's shown:
  *
- * - The thread root, always at the very top, same prominent styling whether or not it's also the
- *   focused post.
- * - Every ancestor between the root and the focused post (when the focused post isn't the root),
- *   connected top-to-bottom by a vertical line, ending at the focused post.
- * - The focused post itself — same prominent styling as the root, so there's no visual difference
- *   suggesting it *is* the root when it isn't; scrolling up still reveals the real ancestor chain.
- * - Below it, every reply at every depth, flattened into one plain list, oldest first — no nested
- *   indentation or connecting line between them, since each reply's own "reply to X's post" header
- *   line (RepliedToIndicator) already shows who it's replying to. Clicking a reply re-focuses the
- *   thread view on it instead of expanding it in place.
+ * - Every ancestor between the root and the focused post (root first), each a plain flat row with
+ *   no border of its own, connected top-to-bottom by one continuous line down the avatar column.
+ *   That line runs into the focused post's own avatar (a short stub reaching its vertical center,
+ *   not past it - see .social_PostView_focusedWrap--connected) rather than all the way down
+ *   through the focused tile's own content, which is what used to visibly run the line into the
+ *   border above the replies list. Nothing renders here at all when the focused post IS the root -
+ *   there's no ancestor chain to show, just the focused post followed by its replies.
+ * - The focused post itself, also flat/borderless - the *only* tile in the whole view that ever
+ *   shows the full date/time instead of the usual relative one, regardless of whether it's also
+ *   the root (no more "root and focused both look focused" - see forceFullTimestamp below). Also
+ *   the only tile with no click-to-open-thread cursor/hover on its own body (it's already what's
+ *   shown) and no content indent (nothing to clear - see SocialEventTile's own isFocused doc).
+ * - Below it, only this post's own *direct* replies, oldest first - never replies-of-replies.
+ *   Going deeper is always a click away (re-focuses the thread view on that reply, per
+ *   onFocusEvent below) rather than shown inline. Unlike the ancestor chain above, replies are
+ *   never connected by a line - each one gets a plain top border instead, right up against the
+ *   next (and against the focused post above the first one), no gap. That border/touching
+ *   contrast with the ancestor chain's borderless/line-connected look is deliberate, matching
+ *   this file's own X/Twitter reference layout, not an oversight.
  */
 
 import React, {
@@ -50,6 +58,13 @@ interface ThreadNode {
     myRepostEventId: string | undefined;
     /** Count of direct replies to this node (shown on its own Reply button). */
     replyCount: number;
+    /** The focused post's own author's first (oldest) reply to *this* node, if any - only ever
+     *  populated on a top-level direct-reply node, never recursively on this field's own value (no
+     *  further chaining), matching Twitter's own "the person whose post you're viewing replied to a
+     *  reply" treatment: shown directly beneath the reply it targets, connected by a line down the
+     *  avatar column rather than the plain top border every other direct reply gets - see
+     *  &_replyMain--connected/&_replyOfReply's own CSS. */
+    replyOfReply?: ThreadNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,7 +236,7 @@ export function SocialPostView({
     // Thread genuinely does contain the whole nested tree once fully paginated - it just usually
     // isn't yet, which is what left most replies invisible (thread.length said 19, thread.events had
     // only 2-11 actually loaded). ensureThread's own call sites elsewhere in this component (inside
-    // getDirectReplies, itself called from the allReplies useMemo below) already guarantee this
+    // getDirectReplies, itself called from the directReplies useMemo below) already guarantee this
     // Thread exists by the time this effect runs. A hard iteration cap guards against spinning
     // forever if thread.length and the true paginatable event count ever permanently disagree (e.g.
     // some replies redacted/inaccessible).
@@ -421,63 +436,26 @@ export function SocialPostView({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tick, replyCountForNode, event, room, focusedEventId, myUserId]);
 
-    // Every reply at every depth below the focused post, flattened into one plain list, oldest
-    // first - no nested indentation, per this file's own header comment. Each node still carries
-    // its own direct-reply count (its own Reply button badge), just not a separately-rendered
-    // nested child - the "reply to X's post" line on the reply itself already shows the chain.
-    const allReplies: ThreadNode[] = useMemo(() => {
-        const seen = new Set<string>([focusedEventId]);
-        const result: ThreadNode[] = [];
-        const queue: MatrixEvent[] = [event];
-        while (queue.length > 0) {
-            const parent = queue.shift()!;
-            for (const node of getDirectReplies(parent)) {
-                const id = node.event.getId()!;
-                if (seen.has(id)) continue;
-                seen.add(id);
-                result.push({ ...node, replyCount: getDirectReplies(node.event).length });
-                queue.push(node.event);
-            }
-        }
-        // The room's own live timeline order - used below as a tiebreaker when getTs() is equal
-        // (e.g. a bridge backfilling several replies with one shared batch timestamp - see
-        // SocialHomeView's aggregatePosts for the same fix and fuller explanation). BFS traversal
-        // order above doesn't reflect true chronological order on its own, so this can't just fall
-        // back to `result`'s own existing order the way the other sort sites do.
-        const timelineIndex = new Map<string, number>();
-        room.getLiveTimeline()
-            .getEvents()
-            .forEach((e, i) => {
-                const id = e.getId();
-                if (id) timelineIndex.set(id, i);
-            });
-        return result.sort((a, b) => {
-            const tsDiff = a.event.getTs() - b.event.getTs();
-            if (tsDiff !== 0) return tsDiff;
-            return (timelineIndex.get(a.event.getId()!) ?? 0) - (timelineIndex.get(b.event.getId()!) ?? 0);
+    // Only this post's own direct replies, oldest first (getDirectReplies already sorts that way) -
+    // never replies-of-replies, per this file's own header comment - with one deliberate exception:
+    // if the focused post's own author has replied to a given reply, their first (oldest) such
+    // reply rides along as that node's own `replyOfReply` (see ThreadNode's own doc for why - one
+    // level only, never recursively chased further).
+    const directReplies: ThreadNode[] = useMemo(() => {
+        const focusedAuthorId = event.getSender();
+        return getDirectReplies(event).map((node) => {
+            const children = getDirectReplies(node.event);
+            const replyOfReplyNode = children.find((child) => child.event.getSender() === focusedAuthorId);
+            return {
+                ...node,
+                replyCount: children.length,
+                replyOfReply: replyOfReplyNode
+                    ? { ...replyOfReplyNode, replyCount: getDirectReplies(replyOfReplyNode.event).length }
+                    : undefined,
+            };
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tick, getDirectReplies, event, focusedEventId, room]);
-
-    // allReplies is flattened and re-sorted by timestamp (see its own comment) - two consecutive
-    // entries are only actually a reply chain (not just adjacent by coincidence of when they arrived)
-    // when the later one's immediate parent is genuinely the earlier one's own event id. Grouping
-    // those maximal runs here is what lets the JSX below give them the same connected-line treatment
-    // as the ancestor chain above the focused post, without drawing a connection between two replies
-    // that just happen to be next to each other in time.
-    const replyGroups: ThreadNode[][] = useMemo(() => {
-        const groups: ThreadNode[][] = [];
-        for (const node of allReplies) {
-            const prevGroup = groups[groups.length - 1];
-            const prev = prevGroup?.[prevGroup.length - 1];
-            if (prev && immediateParentId(node.event) === prev.event.getId()) {
-                prevGroup.push(node);
-            } else {
-                groups.push([node]);
-            }
-        }
-        return groups;
-    }, [allReplies]);
+    }, [tick, getDirectReplies, event]);
 
     const handleLikeFor = useCallback(
         async (targetEventId: string, targetLikeEventId: string | undefined) => {
@@ -519,13 +497,10 @@ export function SocialPostView({
         [client, room.roomId, refresh],
     );
 
-    const hideRoomNameFor = useCallback(
-        (e: MatrixEvent): boolean => {
-            const owner = getProfileOwnerUserId(room);
-            return !!owner && e.getSender() === owner;
-        },
-        [room],
-    );
+    // This room's own name is already shown by its own header (SocialRoomView, or wherever else
+    // this thread view was opened from) - redundant on every post here, not just the profile
+    // owner's own, since a reply/repost by someone else still lands in this same room.
+    const hideRoomName = !!getProfileOwnerUserId(room);
 
     // Every tile shown here (ancestors, focused post, 1st/2nd-level replies) is always in `room` -
     // thread relations never cross rooms - so any click SocialEventTile routes through onViewThread
@@ -555,100 +530,136 @@ export function SocialPostView({
                 </button>
             </div>
 
-            {/* Ancestor chain + focused post — connected by one continuous line running behind
-                every tile in this group (see .social_PostView_thread's CSS), ending at the focused
-                post. Only rendered as a connected group when there's at least one ancestor. */}
-            <div className={`social_PostView_thread${ancestors.length > 0 ? " social_PostView_thread--connected" : ""}`}>
-                {ancestors.map((ancestor, i) => {
-                    const ancestorId = ancestor.getId()!;
-                    const likeState = ancestorLikeState.get(ancestorId);
-                    return (
-                        <div className="social_PostView_threadItem" key={ancestorId}>
-                            <SocialEventTile
-                                event={ancestor}
-                                room={room}
-                                isLiked={!!likeState?.myLikeEventId}
-                                isReposted={!!likeState?.myRepostEventId}
-                                replyCount={replyCountForNode(ancestor)}
-                                hideRoomName={hideRoomNameFor(ancestor)}
-                                onLike={() => handleLikeFor(ancestorId, likeState?.myLikeEventId)}
-                                onReply={(body, file) => handleReplyTo(ancestorId, body, file)}
-                                // Thread root: the oldest ancestor (ancestors are root-first - see
-                                // findThreadAncestors), i.e. i === 0.
-                                forceFullTimestamp={i === 0}
-                                {...tileProps}
-                            />
-                        </div>
-                    );
-                })}
-                <div className="social_PostView_threadItem social_PostView_mainPost" ref={focusedTileRef}>
-                    <SocialEventTile
-                        // Unlike every other SocialEventTile render site (ancestors' own wrapping
-                        // div above, replies list below, home feed, room view), this one sits in a
-                        // fixed, unkeyed position rather than inside a .map() over a list - so when
-                        // this view re-focuses on a different post (e.g. clicking through from a
-                        // reply up to the thread root), React was reusing the very same component
-                        // instance instead of remounting it, since neither the event prop nor its
-                        // position in the tree looked "new" to React. SocialEventTile's own reaction
-                        // state only initializes once per mount (see its own comment on `reactions`)
-                        // and has no effect that resets it on an event *identity* change, only on a
-                        // Relations object coming into existence for the first time - so the old
-                        // post's reactions (a real reaction on a totally different event) kept
-                        // showing on whatever post got focused next. Keying by event id forces a
-                        // fresh mount whenever the focused post is actually a different event.
-                        key={focusedEventId}
-                        event={event}
-                        room={room}
-                        isLiked={!!myLikeEventId}
-                        isReposted={!!myRepostEventId}
-                        replyCount={replyCount}
-                        hideRoomName={hideRoomNameFor(event)}
-                        onLike={() => handleLikeFor(focusedEventId, myLikeEventId)}
-                        onReply={(body, file) => handleReplyTo(focusedEventId, body, file)}
-                        // Focused post: always shown in full - and doubles as the thread root's own
-                        // full timestamp when there are no ancestors at all.
-                        forceFullTimestamp
-                        isHighlighted={highlightFocusedPost}
-                        {...tileProps}
-                    />
-                </div>
-            </div>
-
-            {/* Every reply at every depth, flattened - no nesting/indentation between them, see
-                this file's own header comment. */}
-            <div className="social_PostView_replies">
-                <h3 className="social_PostView_repliesHeader">
-                    {replyCount} {replyCount === 1 ? "reply" : "replies"}
-                </h3>
-                {allReplies.length === 0 ? (
-                    <div className="social_ContentEmpty">
-                        <p>No replies yet. Be the first!</p>
-                    </div>
-                ) : (
-                    replyGroups.map((group) => (
-                        <div
-                            className={`social_PostView_replyGroup${group.length > 1 ? " social_PostView_replyGroup--connected" : ""}`}
-                            key={group[0].event.getId()}
-                        >
-                            {group.map((node) => (
-                                <div className="social_PostView_replyGroupItem" key={node.event.getId()}>
+            {/* Ancestor chain + focused post. &_ancestors draws one continuous line down the avatar
+                column behind just the ancestor tiles; &_focusedWrap--connected picks up from there
+                with a short stub reaching into the focused avatar's own center (see both rules'
+                own CSS comments for why they're split rather than one line spanning the whole
+                group). Only rendered as a connected group when there's at least one ancestor -
+                nothing here at all when the focused post is the thread root. */}
+            <div className="social_PostView_thread">
+                {ancestors.length > 0 && (
+                    <div className="social_PostView_ancestors">
+                        {ancestors.map((ancestor) => {
+                            const ancestorId = ancestor.getId()!;
+                            const likeState = ancestorLikeState.get(ancestorId);
+                            return (
+                                <div className="social_PostView_threadItem" key={ancestorId}>
                                     <SocialEventTile
-                                        event={node.event}
+                                        event={ancestor}
                                         room={room}
-                                        isLiked={!!node.myLikeEventId}
-                                        isReposted={!!node.myRepostEventId}
-                                        replyCount={node.replyCount}
-                                        hideRoomName={true}
-                                        onReply={(body, file) => handleReplyTo(node.event.getId()!, body, file)}
-                                        onLike={() => handleLikeFor(node.event.getId()!, node.myLikeEventId)}
+                                        isLiked={!!likeState?.myLikeEventId}
+                                        isReposted={!!likeState?.myRepostEventId}
+                                        replyCount={replyCountForNode(ancestor)}
+                                        hideRoomName={hideRoomName}
+                                        onLike={() => handleLikeFor(ancestorId, likeState?.myLikeEventId)}
+                                        onReply={(body, file) => handleReplyTo(ancestorId, body, file)}
+                                        flat
                                         {...tileProps}
                                     />
                                 </div>
-                            ))}
-                        </div>
-                    ))
+                            );
+                        })}
+                    </div>
                 )}
+                <div
+                    className={`social_PostView_focusedWrap${ancestors.length > 0 ? " social_PostView_focusedWrap--connected" : ""}`}
+                >
+                    <div className="social_PostView_threadItem" ref={focusedTileRef}>
+                        <SocialEventTile
+                            // Unlike every other SocialEventTile render site (ancestors' own wrapping
+                            // div above, replies list below, home feed, room view), this one sits in a
+                            // fixed, unkeyed position rather than inside a .map() over a list - so when
+                            // this view re-focuses on a different post (e.g. clicking through from a
+                            // reply up to the thread root), React was reusing the very same component
+                            // instance instead of remounting it, since neither the event prop nor its
+                            // position in the tree looked "new" to React. SocialEventTile's own reaction
+                            // state only initializes once per mount (see its own comment on `reactions`)
+                            // and has no effect that resets it on an event *identity* change, only on a
+                            // Relations object coming into existence for the first time - so the old
+                            // post's reactions (a real reaction on a totally different event) kept
+                            // showing on whatever post got focused next. Keying by event id forces a
+                            // fresh mount whenever the focused post is actually a different event.
+                            key={focusedEventId}
+                            event={event}
+                            room={room}
+                            isLiked={!!myLikeEventId}
+                            isReposted={!!myRepostEventId}
+                            replyCount={replyCount}
+                            hideRoomName={hideRoomName}
+                            onLike={() => handleLikeFor(focusedEventId, myLikeEventId)}
+                            onReply={(body, file) => handleReplyTo(focusedEventId, body, file)}
+                            // The only tile in this whole view that ever shows the full date/time - not
+                            // ancestors, not even the thread root when it isn't also the focused post.
+                            forceFullTimestamp
+                            isHighlighted={highlightFocusedPost}
+                            flat
+                            isFocused
+                            {...tileProps}
+                        />
+                    </div>
+                </div>
             </div>
+
+            {/* This post's own direct replies only, oldest first - never replies-of-replies, see
+                this file's own header comment - EXCEPT the one case a reply's own `replyOfReply`
+                covers (the focused post's own author replying back to that reply): that one rides
+                directly beneath it, connected by a line rather than a border, exactly like Twitter's
+                own treatment of the same situation. Every other boundary here (between direct
+                replies, and above the first one) is a plain top border, not a connecting line. */}
+            {directReplies.length === 0 ? (
+                <div className="social_ContentEmpty">
+                    <p>No replies yet. Be the first!</p>
+                </div>
+            ) : (
+                <div className="social_PostView_replies">
+                    {directReplies.map((node) => {
+                        const replyOfReply = node.replyOfReply;
+                        const mainTile = (
+                            <div className="social_PostView_threadItem">
+                                <SocialEventTile
+                                    event={node.event}
+                                    room={room}
+                                    isLiked={!!node.myLikeEventId}
+                                    isReposted={!!node.myRepostEventId}
+                                    replyCount={node.replyCount}
+                                    hideRoomName={true}
+                                    onReply={(body, file) => handleReplyTo(node.event.getId()!, body, file)}
+                                    onLike={() => handleLikeFor(node.event.getId()!, node.myLikeEventId)}
+                                    flat
+                                    {...tileProps}
+                                />
+                            </div>
+                        );
+                        return (
+                            <div className="social_PostView_replyItem" key={node.event.getId()}>
+                                {replyOfReply ? (
+                                    <div className="social_PostView_replyMain--connected">{mainTile}</div>
+                                ) : (
+                                    mainTile
+                                )}
+                                {replyOfReply && (
+                                    <div className="social_PostView_replyOfReply">
+                                        <div className="social_PostView_threadItem">
+                                            <SocialEventTile
+                                                event={replyOfReply.event}
+                                                room={room}
+                                                isLiked={!!replyOfReply.myLikeEventId}
+                                                isReposted={!!replyOfReply.myRepostEventId}
+                                                replyCount={replyOfReply.replyCount}
+                                                hideRoomName={true}
+                                                onReply={(body, file) => handleReplyTo(replyOfReply.event.getId()!, body, file)}
+                                                onLike={() => handleLikeFor(replyOfReply.event.getId()!, replyOfReply.myLikeEventId)}
+                                                flat
+                                                {...tileProps}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

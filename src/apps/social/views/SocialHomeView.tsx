@@ -272,12 +272,16 @@ function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilte
     });
 }
 
-/** True when the post is in a profile room and the sender is the profile owner. Uses the room's
- *  true owner (see getProfileOwnerUserId), not just m.room.create's creator, since a bridge-
- *  provisioned profile room's creator isn't always the actual owner. */
-function isProfilePostByOwner(event: MatrixEvent, room: Room): boolean {
-    const owner = getProfileOwnerUserId(room);
-    return !!owner && event.getSender() === owner;
+/** True when `room` has a resolvable profile owner at all (any post in it hides its own room-name
+ *  badge - see this function's own call site - since a profile room's own name is already shown
+ *  by whatever screen got the viewer here, regardless of which of that profile owner's
+ *  followers/replies actually sent this particular post). Uses the room's true owner (see
+ *  getProfileOwnerUserId), not just m.room.create's creator, since a bridge-provisioned profile
+ *  room's creator isn't always the actual owner. Distinct from the imported isProfileRoom (a room-
+ *  *type* check) - this one resolves an actual owner id, the same test the room-name-hiding logic
+ *  always used even before it stopped caring who specifically sent a given post. */
+function hasProfileOwner(room: Room): boolean {
+    return !!getProfileOwnerUserId(room);
 }
 
 // ---------------------------------------------------------------------------
@@ -717,6 +721,23 @@ export function SocialHomeView(): JSX.Element {
                 );
             }
             return;
+        }
+
+        // A pill for a member of whatever room is currently open (nav.roomId - set whether
+        // SocialRoomView is showing an ordinary chat room, a profile, or a group) - stay right
+        // where the viewer already is and open the member-info panel scoped to THIS room, exactly
+        // like RoomView.tsx's own Action.ViewUser handler does for a pill clicked in a stock
+        // (non-Social) room, instead of falling through to handleViewUser's cross-app "go to their
+        // Social profile" navigation below - that one abandons the room the pill was actually
+        // clicked in (jumping to the mentioned user's own profile room, or nowhere at all if they
+        // don't have one), which is only the right call for a pill whose member isn't from the room
+        // being viewed at all (e.g. an aggregated Feed post pulled in from elsewhere).
+        if (roomId && roomId === nav.roomId) {
+            const targetRoom = client.getRoom(roomId);
+            if (targetRoom) {
+                handleOpenUserPanel(member.userId, targetRoom);
+                return;
+            }
         }
 
         handleViewUser(member.userId);
@@ -1645,7 +1666,7 @@ function FeedPane({
                                 isLiked={!!myLikeEventId}
                                 isReposted={!!myRepostEventId}
                                 replyCount={replyCount}
-                                hideRoomName={isProfilePostByOwner(event, room)}
+                                hideRoomName={hasProfileOwner(room)}
                                 pillsGeneration={pillsGeneration}
                                 onRoomClick={onViewRoom}
                                 onViewUser={onViewUser}

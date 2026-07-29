@@ -115,14 +115,33 @@ interface Props {
      */
     pillsGeneration?: number;
     /** Shows the full date/time instead of the usual shortened relative one (e.g. "2h", "Jul 8") -
-     *  used by SocialPostView for the focused post and the thread root, which are singular enough
-     *  in a thread view to warrant the exact time up front rather than making it hover-only. Every
-     *  timestamp gets the full date/time as a hover tooltip regardless of this prop. */
+     *  set by SocialPostView on the focused post only (never an ancestor, even the thread root),
+     *  which is singular enough in a thread view to warrant the exact time up front rather than
+     *  making it hover-only. Every timestamp gets the full date/time as a hover tooltip regardless
+     *  of this prop. */
     forceFullTimestamp?: boolean;
     /** Plays a brief background flash-fade (mirrors Element's own permalink highlight in the
      *  normal room timeline) - set by SocialPostView when the focused post was arrived at via a
      *  direct/external link rather than regular in-app navigation. */
     isHighlighted?: boolean;
+    /** Strips the card look (border, rounded corners, own background) down to a plain edge-to-edge
+     *  row - set by SocialPostView for every tile in a thread view (ancestors, focused post,
+     *  replies), which draws its own connecting lines/dividers between tiles instead (see
+     *  SocialPostView.tsx). Every other render site (Feed, room view, profile) leaves this unset
+     *  and keeps the normal bordered card. */
+    flat?: boolean;
+    /** Marks this as THE post the whole thread view is centered on (never an ancestor or reply) -
+     *  set by SocialPostView on the focused post's own tile only, same one that gets
+     *  forceFullTimestamp. Two effects: (1) suppresses the normal onViewThread-driven
+     *  click-to-open-this-post cursor/hover/click on the tile's own body, since it's already what's
+     *  being viewed - inner elements that link to a *different* post (an in-reply-to line, an
+     *  embedded repost/quote card) stay fully clickable, unaffected by this; (2) cancels `flat`'s
+     *  own content indent (see .social_EventTile--flat) - the focused tile has no full-height
+     *  connecting line running behind its content, only a short stub reaching into its own avatar
+     *  (see SocialPostView's &_focusedWrap--connected), so nothing needs clearing and it can use
+     *  the tile's full width, matching how the X/Twitter reference this design is modelled on
+     *  treats the selected post. */
+    isFocused?: boolean;
 }
 
 /** Returns the mx_Username_color{n} class for a Matrix user ID. */
@@ -790,6 +809,8 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     pillsGeneration,
     forceFullTimestamp,
     isHighlighted,
+    flat,
+    isFocused,
 }: Props): JSX.Element | null {
     const client = useMatrixClientContext();
 
@@ -1427,9 +1448,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     const firstUrl = !fileUrl && !isBoost ? extractFirstUrl(body) : null;
 
     // Clicking the article navigates to the thread view, unless the click
-    // originated from an interactive element (button, link, input).
+    // originated from an interactive element (button, link, input), or this
+    // tile IS the thread view's own focused post already (isFocused) - nothing to navigate to.
     function handleArticleClick(e: React.MouseEvent): void {
-        if (!onViewThread) return;
+        if (!onViewThread || isFocused) return;
         const target = e.target as HTMLElement;
         if (target.closest("button, a, input, textarea, [role='button']")) return;
         // Scoped to THIS article specifically - checking merely "is there any selection anywhere on
@@ -1468,6 +1490,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             return;
         }
         onViewThread?.(event, room);
+    }
+
+    // Shared by both the display name and the MXID shown beneath it - the MXID is meant to act
+    // exactly like the name (same target, same navigation), just visually secondary.
+    function handleSenderClick(e: React.MouseEvent): void {
+        e.stopPropagation();
+        onViewUser?.(event.getSender() ?? "");
     }
 
     // Matrix permalinks (matrix.to links to a room/user/event) in the formatted body should
@@ -1537,9 +1566,37 @@ export const SocialEventTile = React.memo(function SocialEventTile({
         }
     }
 
+    // Built once and placed in one of two spots below depending on `isFocused`: its usual place in
+    // the header (top-right, every other tile) or, for the thread view's own focused post, moved
+    // down between the post's own content and the line dividing it from the action bar instead
+    // (see &_timestampBottom's own CSS comment).
+    const timestampNode = eventId ? (
+        <a
+            href={new RoomPermalinkCreator(room).forEvent(eventId)}
+            className="social_EventTile_timestampLink"
+            onClick={handleTimestampClick}
+        >
+            <time
+                className="social_EventTile_timestamp"
+                dateTime={new Date(ts).toISOString()}
+                title={fullTs}
+            >
+                {displayTs}
+            </time>
+        </a>
+    ) : (
+        <time
+            className="social_EventTile_timestamp"
+            dateTime={new Date(ts).toISOString()}
+            title={fullTs}
+        >
+            {displayTs}
+        </time>
+    );
+
     return (
         <article
-            className={`social_EventTile${onViewThread ? " social_EventTile--clickable" : ""}${isHighlighted ? " social_EventTile--highlighted" : ""}`}
+            className={`social_EventTile${onViewThread && !isFocused ? " social_EventTile--clickable" : ""}${isHighlighted ? " social_EventTile--highlighted" : ""}${flat ? " social_EventTile--flat" : ""}${isFocused ? " social_EventTile--focused" : ""}`}
             onClick={handleArticleClick}
         >
             {/* Room name badge — top-left, X/Twitter community style. Plain click's onRoomClick
@@ -1601,14 +1658,27 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     )}
                 </button>
                 <div className="social_EventTile_sender">
+                    <div className="social_EventTile_senderNameRow">
+                        <button
+                            className={`social_EventTile_senderName ${colorClassForId(event.getSender() ?? "")}`}
+                            onClick={handleSenderClick}
+                            title={event.getSender() ?? undefined}
+                        >
+                            {senderDisplayName}
+                        </button>
+                        <ExternalHandleIcon externalHandle={liveSenderProfile?.externalHandle} />
+                    </div>
+                    {/* MXID, e.g. @user:server - acts exactly like the display name above (same
+                        onClick), just visually secondary. Ellipsis-clipped via its own CSS rather
+                        than shown in full, since a long server name would otherwise push the
+                        edited-marker/timestamp/menu button further right or wrap the header. */}
                     <button
-                        className={`social_EventTile_senderName ${colorClassForId(event.getSender() ?? "")}`}
-                        onClick={(e) => { e.stopPropagation(); onViewUser?.(event.getSender() ?? ""); }}
+                        className="social_EventTile_senderMxid"
+                        onClick={handleSenderClick}
                         title={event.getSender() ?? undefined}
                     >
-                        {senderDisplayName}
+                        {event.getSender()}
                     </button>
-                    <ExternalHandleIcon externalHandle={liveSenderProfile?.externalHandle} />
                 </div>
                 {isEdited && (
                     <button
@@ -1620,29 +1690,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         Edited
                     </button>
                 )}
-                {eventId ? (
-                    <a
-                        href={new RoomPermalinkCreator(room).forEvent(eventId)}
-                        className="social_EventTile_timestampLink"
-                        onClick={handleTimestampClick}
-                    >
-                        <time
-                            className="social_EventTile_timestamp"
-                            dateTime={new Date(ts).toISOString()}
-                            title={fullTs}
-                        >
-                            {displayTs}
-                        </time>
-                    </a>
-                ) : (
-                    <time
-                        className="social_EventTile_timestamp"
-                        dateTime={new Date(ts).toISOString()}
-                        title={fullTs}
-                    >
-                        {displayTs}
-                    </time>
-                )}
+                {/* Every tile but the thread view's own focused post shows its timestamp here, top-
+                    right - that one moves it down next to the action bar instead, see
+                    &_timestampBottom further down. */}
+                {!isFocused && timestampNode}
 
                 {/* "..." menu — the exact same MessageContextMenu used for messages in the stock
                     room timeline, so every option it offers (view source, pin, forward, etc.)
@@ -1669,8 +1720,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 </div>
             </div>
 
-            {/* "In reply to" indicator (when m.in_reply_to is present) */}
-            {inReplyToId && (
+            {/* "In reply to" indicator (when m.in_reply_to is present) - skipped in a thread view
+                (`flat`, see that prop's own doc): every tile there already sits directly beneath
+                whatever it's replying to (an ancestor above it, the focused post, or another reply
+                connected by a line - see SocialPostView.tsx's own header comment), so a text line
+                pointing at the same thing is redundant there in a way it isn't on the Feed/a room
+                view/a profile, where a reply can show up with nothing else around it for context. */}
+            {inReplyToId && !flat && (
                 <RepliedToIndicator
                     eventId={inReplyToId}
                     room={room}
@@ -1681,8 +1737,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
 
             {/* "Replied to" indicator for a cross-posted reply (rel_type: m.social.reply) — this
                 event's own body is the reply's own real text (rendered normally below, unaffected)
-                — the quoted original it's replying to renders in its own card further down. */}
-            {replyCrossPostOf && (
+                — the quoted original it's replying to renders in its own card further down
+                regardless of `flat` (only this text line is redundant in a thread view, not the
+                quoted content itself - see the plain in-reply-to case just above for why). */}
+            {replyCrossPostOf && !flat && (
                 <RepliedToProfileIndicator
                     eventId={replyCrossPostOf.event_id}
                     roomId={replyCrossPostOf.room_id}
@@ -1960,7 +2018,12 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             {/* Rich URL preview when no file is attached */}
             {!isBoost && firstUrl && <UrlPreview url={firstUrl} ts={ts} />}
 
-            <div onClick={(e) => e.stopPropagation()}>
+            {/* Order swapped for the thread view's own focused post - timestamp above the reaction
+                shelf there, instead of below it like every other tile (see timestampNode's own
+                comment above for why that tile alone gets a second, relocated timestamp at all). */}
+            {isFocused && <div className="social_EventTile_timestampBottom">{timestampNode}</div>}
+
+            <div className="social_EventTile_reactionsWrap" onClick={(e) => e.stopPropagation()}>
                 <SocialReactionsRow
                     client={client}
                     mxEvent={event}
@@ -2016,7 +2079,6 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     disabled={likeBusy || !onLike}
                 />
             </div>
-
         </article>
     );
 });
