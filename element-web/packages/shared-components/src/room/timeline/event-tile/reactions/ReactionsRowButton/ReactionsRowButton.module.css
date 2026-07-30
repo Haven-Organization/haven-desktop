@@ -42,6 +42,10 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    /* Haven: some Twemoji COLR glyphs (e.g. 😂) paint further left than their own advance width,
+       so with zero left padding this box's `overflow: hidden` clipped their left edge. A little
+       breathing room is enough - matching the right padding made it visibly lopsided. */
+    padding-left: 2px;
     padding-right: var(--cpd-space-1x);
 }
 
