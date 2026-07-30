@@ -77,6 +77,7 @@ import { ResizerViewModel } from "../../viewmodels/structures/ResizerViewModel.t
 // haven apps-framework patch
 import { getAppByHomeAction } from "../../../../../../src/apps/framework/registry";
 import { UserMenuPortalContext } from "../../../../../../src/apps/framework/UserMenuPortalContext";
+import { installJKMenuNavigation, uninstallJKMenuNavigation } from "../../../../../../src/apps/framework/jkMenuNavigation";
 
 // We need to fetch each pinned message individually (if we don't already have it)
 // so each pinned message may trigger a request. Limit the number per room for sanity.
@@ -173,6 +174,8 @@ class LoggedInView extends React.Component<IProps, IState> {
 
     public componentDidMount(): void {
         document.addEventListener("keydown", this.onNativeKeyDown, false);
+        // haven apps-framework patch
+        installJKMenuNavigation();
         this.context.legacyCallHandler.addListener(LegacyCallHandlerEvent.CallState, this.onCallState);
 
         this.updateServerNoticeEvents();
@@ -264,6 +267,8 @@ class LoggedInView extends React.Component<IProps, IState> {
 
     public componentWillUnmount(): void {
         document.removeEventListener("keydown", this.onNativeKeyDown, false);
+        // haven apps-framework patch
+        uninstallJKMenuNavigation();
         this.context.legacyCallHandler.removeListener(LegacyCallHandlerEvent.CallState, this.onCallState);
         this._matrixClient.removeListener(ClientEvent.AccountData, this.onAccountData);
         this._matrixClient.removeListener(ClientEvent.Sync, this.onSync);

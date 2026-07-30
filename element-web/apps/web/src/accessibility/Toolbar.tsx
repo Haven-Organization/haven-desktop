@@ -8,7 +8,7 @@ Please see LICENSE files in the repository root for full details.
 
 import React, { type Ref, type JSX } from "react";
 
-import { RovingTabIndexProvider } from "./RovingTabIndex";
+import { jkArrowEquivalent, RovingTabIndexProvider } from "./RovingTabIndex";
 import { getKeyBindingsManager } from "../KeyBindingsManager";
 import { KeyBindingAction } from "./KeyboardShortcuts";
 
@@ -29,16 +29,16 @@ const Toolbar = ({ children, ref, ...props }: IProps): JSX.Element => {
 
         // HOME and END are handled by RovingTabIndexProvider
         const action = getKeyBindingsManager().getAccessibilityAction(ev);
-        switch (action) {
-            case KeyBindingAction.ArrowUp:
-            case KeyBindingAction.ArrowDown:
-                if (target.hasAttribute("aria-haspopup")) {
-                    target.click();
-                }
-                break;
-
-            default:
-                handled = false;
+        // Haven: J/K stand in for Down/Up here too, so a toolbar button with a submenu (e.g.
+        // aria-haspopup) opens the same way whichever key moved focus onto it.
+        const isVerticalArrow =
+            action === KeyBindingAction.ArrowUp || action === KeyBindingAction.ArrowDown || !!jkArrowEquivalent(ev);
+        if (isVerticalArrow) {
+            if (target.hasAttribute("aria-haspopup")) {
+                target.click();
+            }
+        } else {
+            handled = false;
         }
 
         if (handled) {

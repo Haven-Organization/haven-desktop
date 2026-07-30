@@ -37,6 +37,27 @@ export type { IAction, IState } from "@element-hq/web-shared-components";
  * https://developer.mozilla.org/en-US/docs/Web/Accessibility/Keyboard-navigable_JavaScript_widgets#Technique_1_Roving_tabindex
  */
 
+// Haven: lets J/K stand in for Down/Up when navigating a roving-tabindex group (menus, the spaces
+// bar, settings tabs, context menu items, etc). Requires no modifiers - any modifier held means
+// it's some other shortcut, not item navigation. Safe to resolve unconditionally here even when the
+// event target is a real text input (e.g. a filter box inside a dialog's roving group): the shared
+// RovingTabIndexProvider itself discards any non-Tab action once it determines the target is an
+// editable field (see its own checkInputableElement gating), regardless of what this returns.
+interface KeyModifiersLike {
+    key: string;
+    ctrlKey: boolean;
+    altKey: boolean;
+    metaKey: boolean;
+    shiftKey: boolean;
+}
+
+export function jkArrowEquivalent(ev: KeyModifiersLike): "ArrowUp" | "ArrowDown" | undefined {
+    if (ev.ctrlKey || ev.altKey || ev.metaKey || ev.shiftKey) return undefined;
+    if (ev.key === "j") return "ArrowDown";
+    if (ev.key === "k") return "ArrowUp";
+    return undefined;
+}
+
 const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined => {
     switch (getKeyBindingsManager().getAccessibilityAction(ev)) {
         case KeyBindingAction.Home:
@@ -54,7 +75,14 @@ const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined =
         case KeyBindingAction.Tab:
             return RovingAction.Tab;
         default:
-            return undefined;
+            switch (jkArrowEquivalent(ev)) {
+                case "ArrowUp":
+                    return RovingAction.ArrowUp;
+                case "ArrowDown":
+                    return RovingAction.ArrowDown;
+                default:
+                    return undefined;
+            }
     }
 };
 

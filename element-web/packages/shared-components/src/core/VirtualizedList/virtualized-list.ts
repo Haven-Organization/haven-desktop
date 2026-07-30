@@ -20,6 +20,10 @@ export const Key = {
     PAGE_DOWN: "PageDown",
     ENTER: "Enter",
     SPACE: "Space",
+    // Haven: vim-style row navigation, kept as a physical-key `code` (not `key`) match same as the
+    // arrow keys above, so it's layout-independent and unaffected by Shift's letter-casing.
+    KEY_J: "KeyJ",
+    KEY_K: "KeyK",
 } as const;
 
 /**
@@ -315,10 +319,10 @@ export function useVirtualizedList<Item, Context>(
                 return;
             }
 
-            if (e.code === Key.ARROW_UP && currentIndex !== undefined) {
+            if ((e.code === Key.ARROW_UP || e.code === Key.KEY_K) && currentIndex !== undefined) {
                 scrollToItem(currentIndex - 1, false);
                 handled = true;
-            } else if (e.code === Key.ARROW_DOWN && currentIndex !== undefined) {
+            } else if ((e.code === Key.ARROW_DOWN || e.code === Key.KEY_J) && currentIndex !== undefined) {
                 scrollToItem(currentIndex + 1, true);
                 handled = true;
             } else if (e.code === Key.HOME) {
