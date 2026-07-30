@@ -15,6 +15,8 @@ import {
     type RovingTabIndexProviderProps,
 } from "@element-hq/web-shared-components";
 
+import { checkInputableElement } from "@element-hq/web-shared-components";
+
 import { getKeyBindingsManager } from "../KeyBindingsManager";
 import { KeyBindingAction } from "./KeyboardShortcuts";
 
@@ -39,10 +41,10 @@ export type { IAction, IState } from "@element-hq/web-shared-components";
 
 // Haven: lets J/K stand in for Down/Up when navigating a roving-tabindex group (menus, the spaces
 // bar, settings tabs, context menu items, etc). Requires no modifiers - any modifier held means
-// it's some other shortcut, not item navigation. Safe to resolve unconditionally here even when the
-// event target is a real text input (e.g. a filter box inside a dialog's roving group): the shared
-// RovingTabIndexProvider itself discards any non-Tab action once it determines the target is an
-// editable field (see its own checkInputableElement gating), regardless of what this returns.
+// it's some other shortcut, not item navigation. Deliberately does NOT gate on the event target
+// being a text input here - unlike real arrow keys, j/k are literal characters someone may need to
+// type, so that check has to happen at each call site with access to the actual target (see
+// getWebRovingAction below), not inside this target-agnostic helper.
 interface KeyModifiersLike {
     key: string;
     ctrlKey: boolean;
@@ -74,7 +76,14 @@ const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined =
             return RovingAction.ArrowDown;
         case KeyBindingAction.Tab:
             return RovingAction.Tab;
-        default:
+        default: {
+            // Haven: never treat J/K as arrows while the target is a real text input. Most roving
+            // groups already skip arrow handling entirely for text inputs, but ones that opt into
+            // `handleInputFields` (ForwardDialog's room search, EmojiPicker's search) deliberately
+            // keep real arrow keys working while typing - j/k have to be excluded from that on
+            // their own, since unlike arrow keys they're letters someone may need to type (e.g.
+            // searching for a room or emoji whose name contains one).
+            if (checkInputableElement(ev.target as HTMLElement)) return undefined;
             switch (jkArrowEquivalent(ev)) {
                 case "ArrowUp":
                     return RovingAction.ArrowUp;
@@ -83,6 +92,7 @@ const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined =
                 default:
                     return undefined;
             }
+        }
     }
 };
 
