@@ -12,6 +12,12 @@ import socialIcon from "./assets/social-icon.png";
 // from the callback rather than against socialApp.Component's broader ComponentType field type.
 const Component = lazy(() => import("./views/SocialHomeView").then((m) => ({ default: m.SocialHomeView })));
 
+// Same reasoning as Component above - only loads once the user settings dialog's Apps tab is
+// actually opened and this app's own Settings button clicked (see AppsUserSettingsTab.tsx).
+const SettingsComponent = lazy(() =>
+    import("./views/SocialSettingsTab").then((m) => ({ default: m.SocialSettingsTab })),
+);
+
 export const socialApp: HavenApp = {
     id: "social",
     name: "Social",
@@ -19,4 +25,5 @@ export const socialApp: HavenApp = {
     image: socialIcon,
     homeAction: SOCIAL_HOME_ACTION,
     Component,
+    SettingsComponent,
 };

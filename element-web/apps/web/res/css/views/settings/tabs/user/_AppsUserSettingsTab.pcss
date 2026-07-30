@@ -1,0 +1,50 @@
+/*
+ * Haven apps framework — user settings "Apps" tab.
+ */
+
+.mx_AppsUserSettingsTab_backBar {
+    margin-bottom: var(--cpd-space-3x);
+}
+
+.mx_AppsUserSettingsTab_appList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-2x);
+    /* See _EmojiStickersUserSettingsTab.pcss's own identical rule on .._packList for why. */
+    justify-self: stretch;
+    min-width: 0;
+}
+
+.mx_AppsUserSettingsTab_appRow {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-2x);
+    border-radius: 8px;
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
+    min-width: 0;
+}
+
+.mx_AppsUserSettingsTab_appRowLabel {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    gap: var(--cpd-space-3x);
+}
+
+.mx_AppsUserSettingsTab_avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.mx_AppsUserSettingsTab_appName {
+    font-weight: var(--cpd-font-weight-semibold);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+}

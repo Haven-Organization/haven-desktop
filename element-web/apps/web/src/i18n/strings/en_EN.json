@@ -1595,6 +1595,7 @@
         "group_moderation": "Moderation",
         "group_profile": "Profile",
         "group_rooms": "Rooms",
+        "group_social": "Social",
         "group_spaces": "Spaces",
         "group_themes": "Themes",
         "group_threads": "Threads",
@@ -2599,6 +2600,10 @@
             "space_banner_room_list_header": "Show space banners in room list header",
             "timeline_image_size": "Image size in the timeline"
         },
+        "apps": {
+            "dialog_title": "<strong>Settings:</strong> Apps",
+            "title": "Apps"
+        },
         "automatic_language_detection_syntax_highlight": "Enable automatic language detection for syntax highlighting",
         "autoplay_gifs": "Autoplay GIFs",
         "autoplay_videos": "Autoplay videos",
@@ -3110,6 +3115,10 @@
             "metaspaces_video_rooms_description_invite_extension": "In conferences you can invite people outside of matrix.",
             "spaces_explainer": "Spaces are ways to group rooms and people. Alongside the spaces you're in, you can use some pre-built ones too.",
             "title": "Sidebar"
+        },
+        "social": {
+            "cross_post_replies": "Cross-post replies to your profile",
+            "cross_post_replies_description": "When off, your replies in groups and other profiles will not be shown on your profile"
         },
         "start_automatically": {
             "disabled": "No",

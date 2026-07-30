@@ -32,6 +32,7 @@ import { getKeyBindingsManager } from "../../../KeyBindingsManager";
 import { KeyBindingAction } from "../../../accessibility/KeyboardShortcuts";
 import { privateShouldBeEncrypted } from "../../../utils/rooms";
 import SettingsStore from "../../../settings/SettingsStore";
+import { SettingLevel } from "../../../settings/SettingLevel";
 import { UIFeature } from "../../../settings/UIFeature";
 
 interface IProps {
@@ -117,6 +118,15 @@ interface IState {
      * roomCreateOptions's own doc for how this becomes an actual power level.
      */
     allowAnyonePost: boolean;
+    /**
+     * Haven: live-mirrors the account-wide "Social.crossPostReplies" setting (Settings > Apps >
+     * Social's own identical toggle) - only shown when entityNoun === "profile" (see render()).
+     * Unlike allowAnyonePost above, this isn't part of the room being created at all - it's a
+     * direct, immediate read/write of that same account setting (see onCrossPostRepliesChange),
+     * surfaced here too since cross-posting is meaningless until a profile room exists to
+     * cross-post *into*, which is exactly the moment this dialog is open for.
+     */
+    crossPostReplies: boolean;
 }
 
 export default class CreateRoomDialog extends React.Component<IProps, IState> {
@@ -160,6 +170,10 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
             // Haven: off by default - a newly created profile/group starts curated (only
             // explicitly-permitted members can post) until the owner opens it up.
             allowAnyonePost: false,
+            // Haven: the account setting's own current value, not a fixed default - this toggle
+            // reads/writes the same real setting Settings > Apps > Social's own identical one
+            // does, so it needs to reflect whatever that's already set to, not always start on.
+            crossPostReplies: SettingsStore.getValue("Social.crossPostReplies"),
         };
     }
 
@@ -312,6 +326,18 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
 
     private onAllowAnyonePostChange: ChangeEventHandler<HTMLInputElement> = (evt): void => {
         this.setState({ allowAnyonePost: evt.target.checked });
+    };
+
+    // Haven: writes the real account setting immediately on toggle, same as a plain SettingsFlag
+    // would (see EmojiStickersUserSettingsTab.tsx's own identical-shape usage) - not staged into
+    // roomCreateOptions/IOpts and applied only on submit like every other toggle in this dialog,
+    // since this one isn't actually a property of the room being created at all. Cancelling this
+    // dialog after toggling it still leaves the setting changed, same as toggling it in Settings
+    // and then closing that dialog without an explicit "Cancel" of its own would.
+    private onCrossPostRepliesChange: ChangeEventHandler<HTMLInputElement> = (evt): void => {
+        const checked = evt.target.checked;
+        SettingsStore.setValue("Social.crossPostReplies", null, SettingLevel.ACCOUNT, checked);
+        this.setState({ crossPostReplies: checked });
     };
 
     private validateRoomName = withValidation({
@@ -500,6 +526,23 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         }
 
         const isProfile = this.props.entityNoun === "profile";
+
+        // Haven: only meaningful once a profile room exists to cross-post replies into, so this
+        // never shows for the stock New Room flow or Social's own Create Group flow (see
+        // IState.crossPostReplies's own doc) - group-authored replies aren't the setting this
+        // controls anyway (see SocialSettingsTab.tsx's own identical toggle/description).
+        let crossPostRepliesSection: JSX.Element | undefined;
+        if (isProfile) {
+            crossPostRepliesSection = (
+                <SettingsToggleInput
+                    name="cross-post-replies"
+                    label={_t("settings|social|cross_post_replies")}
+                    onChange={this.onCrossPostRepliesChange}
+                    checked={this.state.crossPostReplies}
+                    helpMessage={_t("settings|social|cross_post_replies_description")}
+                />
+            );
+        }
         let federateLabel = _t(
             isProfile ? "create_room|unfederated_label_default_off_profile" : "create_room|unfederated_label_default_off",
         );
@@ -594,6 +637,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                         {visibilitySection}
                         {allowAnyonePostSection}
                         {spamWarningSection}
+                        {crossPostRepliesSection}
                         {e2eeSection}
                         {e2eeStateSection}
                         {aliasField}

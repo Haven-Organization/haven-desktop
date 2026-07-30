@@ -99,6 +99,11 @@ export enum LabGroup {
     Experimental,
     Developer,
     Ui,
+    // Haven: Social app - deliberately last, so its labs (currently just MSC4501) sort to the
+    // bottom of the Labs tab rather than the top (see LabsUserSettingsTab.tsx's own sortBy on
+    // this enum's numeric value) - a Social-specific setting isn't the first thing every user
+    // should see in a tab meant to cover the whole app.
+    Social,
 }
 
 export enum Features {
@@ -119,6 +124,7 @@ export const labGroupNames: Record<LabGroup, TranslationKey> = {
     [LabGroup.Experimental]: _td("labs|group_experimental"),
     [LabGroup.Developer]: _td("labs|group_developer"),
     [LabGroup.Ui]: _td("labs|group_ui"),
+    [LabGroup.Social]: _td("labs|group_social"),
 };
 
 export type SettingValueType = JsonDocument | JsonValue | Record<string, unknown> | Record<string, unknown>[];
@@ -368,6 +374,8 @@ export interface Settings {
     "Haven.showRoomBannerInTimelineHeader": IBaseSetting<boolean>;
     // Haven: MSC4221 banners - see RoomListHeaderViewModel.ts's own computeBannerHttpUrl.
     "Haven.showSpaceBannerInRoomListHeader": IBaseSetting<boolean>;
+    // Haven: Social app - see social-actions.ts's own sendComment/crossPostReply.
+    "Social.crossPostReplies": IBaseSetting<boolean>;
     "developerMode": IBaseSetting<boolean>;
     "debug_scroll_panel": IBaseSetting<boolean>;
     "debug_timeline_panel": IBaseSetting<boolean>;
@@ -472,7 +480,7 @@ export const SETTINGS: Settings = {
     },
     "feature_msc4501_native_post_type": {
         isFeature: true,
-        labsGroup: LabGroup.Messaging,
+        labsGroup: LabGroup.Social,
         displayName: _td("labs|msc4501_native_post_type"),
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
         supportedLevelsAreOrdered: true,
@@ -1379,6 +1387,14 @@ export const SETTINGS: Settings = {
         displayName: _td("settings|emoji_stickers|send_image_pack_references"),
         description: _td("settings|emoji_stickers|send_image_pack_references_description"),
         default: false,
+    },
+    // Haven: Social app - see social-actions.ts's own sendComment/crossPostReply. On by default
+    // (matches the behavior this setting was added to make optional).
+    "Social.crossPostReplies": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|social|cross_post_replies"),
+        description: _td("settings|social|cross_post_replies_description"),
+        default: true,
     },
     "developerMode": {
         displayName: _td("devtools|developer_mode"),

@@ -418,12 +418,15 @@ export async function sendComment(
 
     // Best-effort cross-post into the replier's own profile feed, per MSC4501's "Cross-posting a
     // reply to your profile" — never blocks or fails the real in-thread reply above, which has
-    // already sent successfully by this point regardless of what happens here.
-    try {
-        await crossPostReply(client, roomId, parentEventId, body, file ? undefined : formattedBody);
-    } catch (err: unknown) {
-        // eslint-disable-next-line no-console
-        console.error("crossPostReply failed (feed visibility only - the real reply already sent)", err);
+    // already sent successfully by this point regardless of what happens here. Opt-out via
+    // Settings|Apps|Social ("Cross-post replies to your profile") - see SocialSettingsTab.tsx.
+    if (SettingsStore.getValue("Social.crossPostReplies")) {
+        try {
+            await crossPostReply(client, roomId, parentEventId, body, file ? undefined : formattedBody);
+        } catch (err: unknown) {
+            // eslint-disable-next-line no-console
+            console.error("crossPostReply failed (feed visibility only - the real reply already sent)", err);
+        }
     }
 }
 

@@ -51,6 +51,10 @@ import { useSettingValue } from "../../../hooks/useSettings";
 import { NoChange, useEventEmitterAsyncState, type AsyncStateCallbackResult } from "../../../hooks/useEventEmitter";
 import { EncryptionUserSettingsTab, type State } from "../settings/tabs/user/EncryptionUserSettingsTab";
 import EmojiStickersUserSettingsTab from "../settings/tabs/user/EmojiStickersUserSettingsTab";
+// haven apps-framework patch
+import AppsUserSettingsTab from "../settings/tabs/user/AppsUserSettingsTab";
+import { AppsGridIcon } from "../../../../../../../src/apps/framework/icons/AppsGridIcon";
+import { getEnabledApps } from "../../../../../../../src/apps/framework/registry";
 
 interface IProps {
     initialTabId?: UserTab;
@@ -91,6 +95,8 @@ function titleForTabID(tabId: UserTab): React.ReactNode {
             return _t("settings|encryption|dialog_title", undefined, subs);
         case UserTab.EmojiStickers:
             return _t("settings|emoji_stickers|dialog_title", undefined, subs);
+        case UserTab.Apps:
+            return _t("settings|apps|dialog_title", undefined, subs);
         case UserTab.Labs:
             return _t("settings|labs|dialog_title", undefined, subs);
         case UserTab.Mjolnir:
@@ -252,6 +258,26 @@ export default function UserSettingsDialog(props: IProps): JSX.Element {
                 ),
             );
         }
+
+        // haven apps-framework patch: hidden entirely (not just its own "Settings" buttons - see
+        // AppsUserSettingsTab.tsx) when every app is disabled via the "haven.apps" config block,
+        // rather than showing an empty list nobody can do anything with. Always sits directly
+        // above Help & About, regardless of whether Labs/Mjolnir above are shown.
+        if (getEnabledApps().length > 0) {
+            tabs.push(
+                new Tab(
+                    UserTab.Apps,
+                    _td("settings|apps|title"),
+                    <AppsGridIcon />,
+                    <AppsUserSettingsTab />,
+                    // Not one of PosthogScreenTracker's own known screen names (see
+                    // SessionManager's own identical omission above) - left untracked rather than
+                    // repurposing an unrelated existing screen name.
+                    undefined,
+                ),
+            );
+        }
+
         tabs.push(
             new Tab(
                 UserTab.Help,

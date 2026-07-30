@@ -24,4 +24,14 @@ export interface HavenApp {
     homeAction: string;
     /** Root view rendered full-width in place of the room list + room view while active. */
     Component: ComponentType<Record<string, never>>;
+    /**
+     * Optional settings page for this app, rendered inside the user settings dialog's "Apps" tab
+     * (see AppsUserSettingsTab.tsx) when its own "Settings" button is clicked - apps with nothing
+     * to configure can leave this unset, which just omits that button for them rather than linking
+     * to an empty page. Renders directly inside AppsUserSettingsTab's own <SettingsSection> (whose
+     * heading already reads "Apps: <app name>") - should contain its own <SettingsSubsection>(s)
+     * only, no <SettingsTab>/<SettingsSection> or heading naming the app again (see
+     * SocialSettingsTab.tsx for the reference shape).
+     */
+    SettingsComponent?: ComponentType<Record<string, never>>;
 }
