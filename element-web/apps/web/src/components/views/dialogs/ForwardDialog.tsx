@@ -409,7 +409,20 @@ const ForwardDialog: React.FC<IProps> = ({
         const action = getKeyBindingsManager().getAccessibilityAction(ev);
         switch (action) {
             case KeyBindingAction.Enter: {
-                state.activeNode?.querySelector<HTMLButtonElement>(".mx_ForwardList_sendButton")?.click();
+                const activeNode = state.activeNode;
+                // Haven: once Enter has sent a room's forward, a second Enter should navigate there
+                // instead of re-clicking the now-disabled send button (a dead click). Reading the
+                // button's own `disabled`/class state isn't reliable for this: that only reflects
+                // whatever React has committed so far, and two Enters fired back to back can both be
+                // handled before React ever re-renders in between. This flag is a plain synchronous
+                // DOM mutation instead - set the instant the first Enter is handled, so it's visible
+                // to a second Enter immediately, independent of any render timing.
+                if (activeNode?.dataset.havenForwardSent) {
+                    activeNode.querySelector<HTMLButtonElement>(".mx_ForwardList_roomButton")?.click();
+                } else {
+                    if (activeNode) activeNode.dataset.havenForwardSent = "1";
+                    activeNode?.querySelector<HTMLButtonElement>(".mx_ForwardList_sendButton")?.click();
+                }
                 break;
             }
 
