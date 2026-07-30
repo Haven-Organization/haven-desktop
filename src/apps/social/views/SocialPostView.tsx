@@ -605,12 +605,9 @@ export function SocialPostView({
                 covers (the focused post's own author replying back to that reply): that one rides
                 directly beneath it, connected by a line rather than a border, exactly like Twitter's
                 own treatment of the same situation. Every other boundary here (between direct
-                replies, and above the first one) is a plain top border, not a connecting line. */}
-            {directReplies.length === 0 ? (
-                <div className="social_ContentEmpty">
-                    <p>No replies yet. Be the first!</p>
-                </div>
-            ) : (
+                replies, and above the first one) is a plain top border, not a connecting line.
+                Nothing renders here at all when there are none - no empty-state placeholder. */}
+            {directReplies.length > 0 && (
                 <div className="social_PostView_replies">
                     {directReplies.map((node) => {
                         const replyOfReply = node.replyOfReply;

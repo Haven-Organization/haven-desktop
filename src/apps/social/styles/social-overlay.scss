@@ -1702,14 +1702,6 @@
             z-index: 0;
         }
     }
-
-    // "No replies yet" - the plain shared .social_ContentEmpty (also used by Feed/Groups' own
-    // empty states) otherwise sits flush against this view's own left edge, the same x position as
-    // every tile's avatar/the ancestor-chain line above it - nudge it over to the same column as
-    // everything else here (avatar width + the header's own avatar-to-name gap) instead.
-    .social_ContentEmpty {
-        padding-left: calc(40px + var(--cpd-space-3x) + var(--cpd-space-6x));
-    }
 }
 
 // ---------------------------------------------------------------------------
