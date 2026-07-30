@@ -20,6 +20,8 @@ import {
     type KeyboardShortcutSetting,
     MAC_ONLY_SHORTCUTS,
 } from "./KeyboardShortcuts";
+// haven apps-framework patch
+import { resolveShortcut, RESERVED_KEYS } from "../../../../../src/apps/framework/customKeyboardShortcuts";
 
 /**
  * This function gets the keyboard shortcuts that should be presented in the UI
@@ -117,11 +119,32 @@ export const getKeyboardShortcutsForUI = (): IKeyboardShortcuts => {
     }, {} as IKeyboardShortcuts);
 };
 
+/** Haven: the user's own saved override for `name` (see customKeyboardShortcuts.ts), if any,
+ *  otherwise its stock default - this is what both gets displayed in Settings and (via
+ *  KeyBindingsDefaults.ts's own identical resolveShortcut call) actually matched against real
+ *  keydown events. */
 export const getKeyboardShortcutValue = (name: KeyBindingAction): KeyCombo | undefined => {
-    return getKeyboardShortcutsForUI()[name]?.default;
+    return resolveShortcut(name, getKeyboardShortcutsForUI()[name]?.default);
 };
 
 export const getKeyboardShortcutDisplayName = (name: KeyBindingAction): string | undefined => {
     const keyboardShortcutDisplayName = getKeyboardShortcutsForUI()[name]?.displayName;
     return keyboardShortcutDisplayName && _t(keyboardShortcutDisplayName);
+};
+
+/** Haven: whether `name`'s own stock default is eligible to be customized at all (see
+ *  KeyboardUserSettingsTab.tsx's own rendering of this) - deliberately checked against the raw,
+ *  un-overridden default (not getKeyboardShortcutValue's resolved value above) since eligibility
+ *  is a fixed property of what a shortcut originally is, not whatever it's currently been changed
+ *  to. Per the feature's own rules: only shortcuts that already use some modifier key, and whose
+ *  key isn't Enter/Escape/Tab, can be customized - matches every default-with-modifier already in
+ *  KEYBOARD_SHORTCUTS/getUIOnlyShortcuts (letter/symbol/arrow/function-key shortcuts held down
+ *  with Ctrl/Alt/Shift/Cmd), while leaving plain single-key bindings (bare Escape, bare arrow
+ *  keys, bare Enter, etc.) alone entirely - those have nothing to disambiguate a custom
+ *  replacement from normal typing/navigation. */
+export const isShortcutCustomizable = (name: KeyBindingAction): boolean => {
+    const combo = getKeyboardShortcutsForUI()[name]?.default;
+    if (!combo) return false;
+    if (RESERVED_KEYS.has(combo.key)) return false;
+    return !!(combo.ctrlOrCmdKey || combo.ctrlKey || combo.altKey || combo.shiftKey || combo.metaKey);
 };

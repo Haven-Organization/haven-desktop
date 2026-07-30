@@ -27,6 +27,7 @@ import SystemFontController from "./controllers/SystemFontController";
 import { SettingLevel } from "./SettingLevel";
 import type SettingController from "./controllers/SettingController";
 import { IS_MAC } from "../Keyboard";
+import { type KeyCombo } from "../KeyBindingsManager";
 import UIFeatureController from "./controllers/UIFeatureController";
 import { UIFeature } from "./UIFeature";
 import { Layout } from "./enums/Layout";
@@ -376,6 +377,10 @@ export interface Settings {
     "Haven.showSpaceBannerInRoomListHeader": IBaseSetting<boolean>;
     // Haven: Social app - see social-actions.ts's own sendComment/crossPostReply.
     "Social.crossPostReplies": IBaseSetting<boolean>;
+    // Haven: user-customized keyboard shortcuts, keyed by KeyBindingAction's own string value -
+    // see customKeyboardShortcuts.ts's own doc for why the key type is loosened to `string` here
+    // rather than importing KeyBindingAction itself (would create a circular import).
+    "Haven.customKeyboardShortcuts": IBaseSetting<Record<string, KeyCombo>>;
     "developerMode": IBaseSetting<boolean>;
     "debug_scroll_panel": IBaseSetting<boolean>;
     "debug_timeline_panel": IBaseSetting<boolean>;
@@ -1395,6 +1400,12 @@ export const SETTINGS: Settings = {
         displayName: _td("settings|social|cross_post_replies"),
         description: _td("settings|social|cross_post_replies_description"),
         default: true,
+    },
+    // Haven: see customKeyboardShortcuts.ts's own doc. No displayName/description - never shown
+    // as a plain toggle, only read/written through that module's own accessors.
+    "Haven.customKeyboardShortcuts": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        default: {},
     },
     "developerMode": {
         displayName: _td("devtools|developer_mode"),

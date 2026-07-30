@@ -574,3 +574,58 @@
     text-overflow: ellipsis;
     max-width: 100%;
 }
+
+// ---------------------------------------------------------------------------
+// Customizable keyboard shortcuts (Settings > Keyboard) — see
+// KeyboardUserSettingsTab.tsx/RecordKeyboardShortcutDialog.tsx
+// ---------------------------------------------------------------------------
+
+// Wraps a customizable row's own .mx_KeyboardShortcut (see KeyboardShortcut.tsx) - a plain button
+// with no border/background of its own, so it reads as "this exact chip is clickable" rather than
+// looking like a whole separate button bolted onto the row.
+.haven_KeyboardShortcut_editable {
+    display: inline-flex;
+    background: none;
+    border: none;
+    padding: 0;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+        background: var(--cpd-color-bg-subtle-secondary);
+    }
+}
+
+.haven_RecordShortcutDialog_current {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    margin-bottom: var(--cpd-space-4x);
+    color: var(--cpd-color-text-secondary);
+}
+
+// The box the user actually presses keys into - a fixed height regardless of which of the three
+// states below (empty placeholder / live modifiers-only preview / captured combo) is showing, so
+// the Save/Cancel buttons underneath don't jump around as the user experiments with combos.
+.haven_RecordShortcutDialog_capture {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+    margin: var(--cpd-space-4x) 0;
+    padding: var(--cpd-space-4x);
+    border: 2px dashed var(--cpd-color-border-interactive-secondary);
+    border-radius: 8px;
+}
+
+.haven_RecordShortcutDialog_placeholder {
+    color: var(--cpd-color-text-secondary);
+}
+
+.haven_RecordShortcutDialog_error {
+    color: var(--cpd-color-text-critical-primary);
+    font: var(--cpd-font-body-sm-regular);
+    margin-top: calc(-1 * var(--cpd-space-2x));
+    margin-bottom: var(--cpd-space-4x);
+}

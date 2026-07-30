@@ -13,10 +13,19 @@ import SdkConfig from "./SdkConfig";
 import { type IKeyBindingsProvider, type KeyBinding } from "./KeyBindingsManager";
 import { CATEGORIES, CategoryName, KeyBindingAction } from "./accessibility/KeyboardShortcuts";
 import { getKeyboardShortcuts } from "./accessibility/KeyboardShortcutUtils";
+// haven apps-framework patch
+import { resolveShortcut } from "../../../../src/apps/framework/customKeyboardShortcuts";
 
 export const getBindingsByCategory = (category: CategoryName): KeyBinding[] => {
     return CATEGORIES[category].settingNames.reduce<KeyBinding[]>((bindings, action) => {
-        const keyCombo = getKeyboardShortcuts()[action]?.default;
+        // Haven: layers the user's own saved override (if any) on top of the real stock default -
+        // see customKeyboardShortcuts.ts's own doc. Deliberately NOT getKeyboardShortcutValue
+        // (KeyboardShortcutUtils.ts's UI-facing accessor) - that one reads from
+        // getKeyboardShortcutsForUI(), which also includes UI-only entries (SendMessage, NewLine,
+        // etc.) that must never be consumed here per this function's own pre-existing contract
+        // (see KeyboardShortcutUtils.ts's own getUIOnlyShortcuts doc) - only the override lookup
+        // itself is shared between the two, not the underlying default source.
+        const keyCombo = resolveShortcut(action, getKeyboardShortcuts()[action]?.default);
         if (keyCombo) {
             bindings.push({ action, keyCombo });
         }
