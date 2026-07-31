@@ -1348,6 +1348,23 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // derivation, tempting as that placement would otherwise be).
     const httpFileUrl = content.file ? decryptedFileUrl : fileUrl ? client.mxcUrlToHttp(fileUrl) : null;
 
+    // Haven: reserves the image/video's own aspect ratio via CSS before the actual media has
+    // loaded, so the feed's height for this item is already correct on first paint instead of
+    // growing once the file loads - that growth is what pushes the whole timeline (and the user's
+    // scroll position within it) around mid-scroll. FeedPane's own overscan comment in
+    // SocialHomeView.tsx documents the same root cause from Virtuoso's side (it currently just
+    // widens the safety margin rather than fixing the shift outright). Matrix media events carry
+    // their own w/h in content.info per the m.image/m.video spec (ImageInfo/VideoInfo both extend
+    // ThumbnailInfo - only FileInfo/AudioInfo don't, hence the cast). Left unset (not defaulted to
+    // some guessed ratio) when either dimension is missing or non-positive - a wrong reservation
+    // can look worse than none, and the existing max-height/object-fit CSS already caps a
+    // too-tall image regardless of whether this is set.
+    const mediaInfo = content.info as { w?: number; h?: number } | undefined;
+    const mediaAspectRatioStyle: React.CSSProperties | undefined =
+        mediaInfo?.w && mediaInfo?.h && mediaInfo.w > 0 && mediaInfo.h > 0
+            ? { aspectRatio: `${mediaInfo.w} / ${mediaInfo.h}` }
+            : undefined;
+
     // Shared by the main post's own image, and the embedded repost/reply-cross-post cards' images
     // below - same stock lightbox (ImageView) either way, just pointed at whichever image/mxEvent/
     // ref is actually being clicked.
@@ -1416,6 +1433,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         alt={fileName}
                         className="social_EventTile_image"
                         onClick={handleImageClick}
+                        style={mediaAspectRatioStyle}
                     />
                 </div>
             );
@@ -1423,7 +1441,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             fileNode = (
                 <div className="social_EventTile_mediaWrap" onClick={(e) => e.stopPropagation()}>
                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                    <video src={httpFileUrl} controls className="social_EventTile_video" />
+                    <video src={httpFileUrl} controls className="social_EventTile_video" style={mediaAspectRatioStyle} />
                 </div>
             );
         } else {
@@ -1828,12 +1846,17 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     body?: string;
                     url?: string;
                     filename?: string;
-                    info?: { mimetype?: string };
+                    info?: { mimetype?: string; w?: number; h?: number };
                     file?: { url: string; name: string; mimetype: string };
                 };
                 const repostedFileUrl = repostedMedia.file?.url ?? repostedMedia.url;
                 const repostedHttpUrl = repostedFileUrl ? client.mxcUrlToHttp(repostedFileUrl) : null;
                 const repostedMime = repostedMedia.file?.mimetype ?? repostedMedia.info?.mimetype ?? "";
+                // Haven: see mediaAspectRatioStyle's own doc above for why this is here.
+                const repostedAspectRatioStyle: React.CSSProperties | undefined =
+                    repostedMedia.info?.w && repostedMedia.info?.h && repostedMedia.info.w > 0 && repostedMedia.info.h > 0
+                        ? { aspectRatio: `${repostedMedia.info.w} / ${repostedMedia.info.h}` }
+                        : undefined;
                 // Clicking the card navigates to the reposted post itself (same target
                 // BoostedIndicator's own link above already uses for a boost) rather than
                 // swallowing the click entirely - only genuinely interactive children (the media
@@ -1909,6 +1932,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                                 repostImgRef,
                                             )
                                         }
+                                        style={repostedAspectRatioStyle}
                                     />
                                 </div>
                             ) : repostedMime.startsWith("video/") ? (
@@ -1918,6 +1942,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                         src={repostedHttpUrl}
                                         controls
                                         className="social_EventTile_repostCard_video"
+                                        style={repostedAspectRatioStyle}
                                     />
                                 </div>
                             ) : null)}
@@ -1933,12 +1958,17 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     body?: string;
                     url?: string;
                     filename?: string;
-                    info?: { mimetype?: string };
+                    info?: { mimetype?: string; w?: number; h?: number };
                     file?: { url: string; name: string; mimetype: string };
                 };
                 const quotedFileUrl = quotedMedia.file?.url ?? quotedMedia.url;
                 const quotedHttpUrl = quotedFileUrl ? client.mxcUrlToHttp(quotedFileUrl) : null;
                 const quotedMime = quotedMedia.file?.mimetype ?? quotedMedia.info?.mimetype ?? "";
+                // Haven: see mediaAspectRatioStyle's own doc above for why this is here.
+                const quotedAspectRatioStyle: React.CSSProperties | undefined =
+                    quotedMedia.info?.w && quotedMedia.info?.h && quotedMedia.info.w > 0 && quotedMedia.info.h > 0
+                        ? { aspectRatio: `${quotedMedia.info.w} / ${quotedMedia.info.h}` }
+                        : undefined;
                 const handleQuotedCardClick = (e: React.MouseEvent): void => {
                     if (!onViewThread) return;
                     // See handleRepostCardClick's own comment above for why this can't require
@@ -1996,12 +2026,18 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                                 quotedImgRef,
                                             )
                                         }
+                                        style={quotedAspectRatioStyle}
                                     />
                                 </div>
                             ) : quotedMime.startsWith("video/") ? (
                                 <div className="social_EventTile_repostCard_media" onClick={(e) => e.stopPropagation()}>
                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                                    <video src={quotedHttpUrl} controls className="social_EventTile_repostCard_video" />
+                                    <video
+                                        src={quotedHttpUrl}
+                                        controls
+                                        className="social_EventTile_repostCard_video"
+                                        style={quotedAspectRatioStyle}
+                                    />
                                 </div>
                             ) : null)}
                     </div>
