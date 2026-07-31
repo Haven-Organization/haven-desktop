@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { type Dispatch } from "react";
+import React from "react";
 import { DATA_BY_CATEGORY, getEmojiFromUnicode, type Emoji as IEmoji } from "@matrix-org/emojibase-bindings";
 import classNames from "classnames";
 import { AutoHideScrollbar } from "@element-hq/web-shared-components";
@@ -21,10 +21,10 @@ import Preview from "./Preview";
 import QuickReactions from "./QuickReactions";
 import Category, { type CategoryKey, type ICategory } from "./Category";
 import {
-    type IAction as RovingAction,
+    checkInputableElement,
     type IState as RovingState,
+    jkArrowEquivalent,
     RovingGridIndexProvider,
-    RovingStateActionType,
 } from "../../../accessibility/RovingTabIndex";
 import { Key } from "../../../Keyboard";
 import AccessibleButton, { type ButtonEvent } from "../elements/AccessibleButton";
@@ -205,6 +205,11 @@ class EmojiPicker extends React.Component<IProps, IState> {
     private readonly categories: ICategory[];
 
     private scrollElement: HTMLDivElement | null = null;
+    // Haven: scoped root for focusFirstItem's own query below, rather than a bare
+    // document.querySelector - this component can be mounted more than once at a time (a reaction
+    // picker open alongside the composer's own emoji/sticker picker), and only this instance's own
+    // first item should ever be focused.
+    private readonly rootRef = React.createRef<HTMLElement>();
 
     public constructor(props: IProps) {
         super(props);
@@ -337,24 +342,68 @@ class EmojiPicker extends React.Component<IProps, IState> {
         return node instanceof HTMLElement ? node : undefined;
     };
 
-    private onKeyDown = (ev: React.KeyboardEvent, state: RovingState, dispatch: Dispatch<RovingAction>): void => {
-        if (state.activeNode && [Key.ARROW_DOWN, Key.ARROW_RIGHT, Key.ARROW_LEFT, Key.ARROW_UP].includes(ev.key)) {
-            // If highlight is not shown yet, show it and reset to first emoji
+    private onKeyDown = (ev: React.KeyboardEvent, state: RovingState): void => {
+        // Haven: this handler runs before RovingGridIndexProvider's own checkInputableElement
+        // gating (it's invoked as that provider's own `onKeyDown` prop, which always fires first -
+        // see the shared onGridKeyDown implementation), so the h/j/k/l check below needs its own
+        // text-input guard rather than relying on the provider to skip it for us. Real arrow keys
+        // don't need this - they're never something someone would be typing into the search box.
+        const isVimKey = !checkInputableElement(ev.target as HTMLElement) && !!jkArrowEquivalent(ev);
+        const isArrowKey = [Key.ARROW_DOWN, Key.ARROW_RIGHT, Key.ARROW_LEFT, Key.ARROW_UP].includes(ev.key) || isVimKey;
+        if (state.activeNode && isArrowKey) {
+            // Haven: this used to also dispatch a SetFocus to state.nodes[0] here, forcing the
+            // roving group's active node back to the very first item on the very first arrow press
+            // of a session (showHighlight starts false and only flips true here or on typing a
+            // filter). That desynced the roving state from real DOM focus whenever the user had
+            // already focused a different item first (e.g. by clicking a custom pack emoji), since
+            // it never called .focus() on the reset target - so the *next* arrow press computed
+            // navigation from the wrong node while focus visibly stayed put, then jumped somewhere
+            // unrelated once a target finally resolved. This was reported as "pressing up from the
+            // top of a custom pack keeps moving back down". Just reveal the highlight ring around
+            // whatever's already active instead of moving anything.
             if (!this.state.showHighlight) {
                 this.setState({ showHighlight: true });
-                // Reset to first emoji when showing highlight for the first time (or after it was hidden)
-                if (state.nodes.length > 0) {
-                    dispatch({
-                        type: RovingStateActionType.SetFocus,
-                        payload: { node: state.nodes[0] },
-                    });
-                }
                 ev.preventDefault();
                 ev.stopPropagation();
                 return;
             }
         }
+
+        // Haven: Tab from the sticker picker's search box jumps straight to the first sticker
+        // instead of following the browser's native tab order (which would otherwise leave the
+        // picker or land on the "clear search" button) - lets someone open the picker, glance at
+        // the search box, and get straight into HJKL/arrow-key navigation with a single Tab press.
+        // Scoped to sticker mode only (that's the specific ask - the emoji picker's own search box
+        // keeps its native Tab order) and to a plain forward Tab from the search input specifically
+        // (not Shift+Tab, and not from somewhere already inside the grid, where native Tab
+        // behaviour is already fine).
+        if (
+            this.props.mode === "sticker" &&
+            ev.key === Key.TAB &&
+            !ev.shiftKey &&
+            ev.target instanceof HTMLInputElement &&
+            this.focusFirstItem()
+        ) {
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
     };
+
+    // Haven: see the Tab-handling block in onKeyDown above for why this exists. Queries the DOM
+    // directly for the first roving item rather than going through the roving-tabindex reducer
+    // state (not reachable from here - RovingGridIndexProvider only exposes it inside its own
+    // render-prop scope) - every registered item already renders with a stable, unique id
+    // (mx_EmojiPicker_item_<hexcode>), so the first one in DOM order is reliably "the first item"
+    // without needing that state. Not virtualized (categories render their real DOM nodes up
+    // front, just visibility-tracked for the header highlight - see updateVisibility), so this is
+    // always available synchronously, with no need to wait for anything to mount lazily. Returns
+    // whether an item was actually found/focused, so the caller can leave native Tab behaviour
+    // alone (e.g. an empty picker with no packs at all) rather than swallowing the key for nothing.
+    private focusFirstItem(): boolean {
+        const firstItem = this.rootRef.current?.querySelector<HTMLElement>('[id^="mx_EmojiPicker_item_"]');
+        firstItem?.focus();
+        return !!firstItem;
+    }
 
     private readonly shouldMoveFocus = (): boolean => {
         return document.activeElement !== document.querySelector(".mx_EmojiPicker_search input");
@@ -624,6 +673,7 @@ class EmojiPicker extends React.Component<IProps, IState> {
                             data-testid="mx_EmojiPicker"
                             onKeyDown={onKeyDownHandler}
                             aria-label={_t("a11y|emoji_picker")}
+                            ref={this.rootRef as React.RefObject<HTMLElement>}
                         >
                             <Header
                                 categories={this.categories}

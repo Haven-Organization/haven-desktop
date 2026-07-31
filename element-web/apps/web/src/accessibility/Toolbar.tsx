@@ -30,9 +30,15 @@ const Toolbar = ({ children, ref, ...props }: IProps): JSX.Element => {
         // HOME and END are handled by RovingTabIndexProvider
         const action = getKeyBindingsManager().getAccessibilityAction(ev);
         // Haven: J/K stand in for Down/Up here too, so a toolbar button with a submenu (e.g.
-        // aria-haspopup) opens the same way whichever key moved focus onto it.
+        // aria-haspopup) opens the same way whichever key moved focus onto it. Checked against the
+        // vim-equivalent explicitly rather than truthiness, since jkArrowEquivalent also covers H/L
+        // now (ArrowLeft/ArrowRight), which aren't the vertical case this click is about.
+        const vimEquivalent = jkArrowEquivalent(ev);
         const isVerticalArrow =
-            action === KeyBindingAction.ArrowUp || action === KeyBindingAction.ArrowDown || !!jkArrowEquivalent(ev);
+            action === KeyBindingAction.ArrowUp ||
+            action === KeyBindingAction.ArrowDown ||
+            vimEquivalent === "ArrowUp" ||
+            vimEquivalent === "ArrowDown";
         if (isVerticalArrow) {
             if (target.hasAttribute("aria-haspopup")) {
                 target.click();

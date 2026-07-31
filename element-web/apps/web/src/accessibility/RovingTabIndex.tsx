@@ -39,12 +39,13 @@ export type { IAction, IState } from "@element-hq/web-shared-components";
  * https://developer.mozilla.org/en-US/docs/Web/Accessibility/Keyboard-navigable_JavaScript_widgets#Technique_1_Roving_tabindex
  */
 
-// Haven: lets J/K stand in for Down/Up when navigating a roving-tabindex group (menus, the spaces
-// bar, settings tabs, context menu items, etc). Requires no modifiers - any modifier held means
-// it's some other shortcut, not item navigation. Deliberately does NOT gate on the event target
-// being a text input here - unlike real arrow keys, j/k are literal characters someone may need to
-// type, so that check has to happen at each call site with access to the actual target (see
-// getWebRovingAction below), not inside this target-agnostic helper.
+// Haven: lets H/J/K/L stand in for Left/Down/Up/Right when navigating a roving-tabindex group
+// (menus, the spaces bar, settings tabs, context menu items, grids like the emoji/sticker picker,
+// etc). Requires no modifiers - any modifier held means it's some other shortcut, not item
+// navigation. Deliberately does NOT gate on the event target being a text input here - unlike real
+// arrow keys, h/j/k/l are literal characters someone may need to type, so that check has to happen
+// at each call site with access to the actual target (see getWebRovingAction below), not inside
+// this target-agnostic helper.
 interface KeyModifiersLike {
     key: string;
     ctrlKey: boolean;
@@ -53,10 +54,14 @@ interface KeyModifiersLike {
     shiftKey: boolean;
 }
 
-export function jkArrowEquivalent(ev: KeyModifiersLike): "ArrowUp" | "ArrowDown" | undefined {
+export function jkArrowEquivalent(
+    ev: KeyModifiersLike,
+): "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | undefined {
     if (ev.ctrlKey || ev.altKey || ev.metaKey || ev.shiftKey) return undefined;
     if (ev.key === "j") return "ArrowDown";
     if (ev.key === "k") return "ArrowUp";
+    if (ev.key === "h") return "ArrowLeft";
+    if (ev.key === "l") return "ArrowRight";
     return undefined;
 }
 
@@ -77,18 +82,22 @@ const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined =
         case KeyBindingAction.Tab:
             return RovingAction.Tab;
         default: {
-            // Haven: never treat J/K as arrows while the target is a real text input. Most roving
-            // groups already skip arrow handling entirely for text inputs, but ones that opt into
-            // `handleInputFields` (ForwardDialog's room search, EmojiPicker's search) deliberately
-            // keep real arrow keys working while typing - j/k have to be excluded from that on
-            // their own, since unlike arrow keys they're letters someone may need to type (e.g.
-            // searching for a room or emoji whose name contains one).
+            // Haven: never treat H/J/K/L as arrows while the target is a real text input. Most
+            // roving groups already skip arrow handling entirely for text inputs, but ones that
+            // opt into `handleInputFields` (ForwardDialog's room search, EmojiPicker's search)
+            // deliberately keep real arrow keys working while typing - h/j/k/l have to be excluded
+            // from that on their own, since unlike arrow keys they're letters someone may need to
+            // type (e.g. searching for a room or emoji whose name contains one).
             if (checkInputableElement(ev.target as HTMLElement)) return undefined;
             switch (jkArrowEquivalent(ev)) {
                 case "ArrowUp":
                     return RovingAction.ArrowUp;
                 case "ArrowDown":
                     return RovingAction.ArrowDown;
+                case "ArrowLeft":
+                    return RovingAction.ArrowLeft;
+                case "ArrowRight":
+                    return RovingAction.ArrowRight;
                 default:
                     return undefined;
             }
