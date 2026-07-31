@@ -110,6 +110,9 @@ interface IState {
     me?: RoomMember;
     isMenuOpen: boolean;
     isStickerPickerOpen: boolean;
+    /** Haven: forwarded to EmojiButton (via MessageComposerButtons) as its own identical
+     *  openStickerTabRequestId prop - see that prop's doc for why this is a counter, not a bool. */
+    openStickerTabRequestId: number;
     showStickersButton: boolean;
     showPollsButton: boolean;
     isWysiwygLabEnabled: boolean;
@@ -160,6 +163,7 @@ export class MessageComposer extends React.Component<IProps, IState> {
             recordingTimeLeftSeconds: undefined, // when set to a number, shows a toast
             isMenuOpen: false,
             isStickerPickerOpen: false,
+            openStickerTabRequestId: 0,
             showStickersButton: SettingsStore.getValue("MessageComposerInput.showStickersButton"),
             showPollsButton: SettingsStore.getValue("MessageComposerInput.showPollsButton"),
             isWysiwygLabEnabled: isWysiwygLabEnabled,
@@ -517,8 +521,16 @@ export class MessageComposer extends React.Component<IProps, IState> {
         });
     };
 
-    private toggleStickerPickerOpen = (): void => {
-        this.setStickerPickerOpen(!this.state.isStickerPickerOpen);
+    // Haven: bumps openStickerTabRequestId - see its own doc in IState. Replaces this composer's
+    // old toggleStickerPickerOpen (removed - was the only caller of setStickerPickerOpen besides
+    // the legacy stickers button itself, which still calls setStickerPickerOpen directly and is
+    // untouched). The "Send a Sticker" keyboard shortcut (KeyBindingAction.ShowStickerPicker, see
+    // SendMessageComposer.tsx) now opens the new EmojiButton-hosted sticker picker instead of the
+    // old widget-based Stickerpicker.tsx, which the shortcut used to open and which is disabled by
+    // default (MessageComposerInput.showStickersButton) - previously making the shortcut a no-op
+    // for anyone on default settings.
+    private requestStickerPickerViaKeyboard = (): void => {
+        this.setState((state) => ({ openStickerTabRequestId: state.openStickerTabRequestId + 1 }));
     };
 
     private toggleButtonMenu = (): void => {
@@ -622,7 +634,7 @@ export class MessageComposer extends React.Component<IProps, IState> {
                         replyToEvent={this.props.replyToEvent}
                         onChange={this.onChange}
                         disabled={this.state.haveRecording}
-                        toggleStickerPickerOpen={this.toggleStickerPickerOpen}
+                        openStickerPickerViaKeyboard={this.requestStickerPickerViaKeyboard}
                         urlPreviewVm={this.props.urlPreviewVm}
                     />
                 );
@@ -726,6 +738,7 @@ export class MessageComposer extends React.Component<IProps, IState> {
                                     haveRecording={this.state.haveRecording}
                                     isMenuOpen={this.state.isMenuOpen}
                                     isStickerPickerOpen={this.state.isStickerPickerOpen}
+                                    openStickerTabRequestId={this.state.openStickerTabRequestId}
                                     menuPosition={menuPosition}
                                     relation={this.props.relation}
                                     onRecordStartEndClick={this.onRecordStartEndClick}

@@ -61,6 +61,8 @@ interface IProps {
     toggleButtonMenu: () => void;
     isRichTextEnabled: boolean;
     onComposerModeClick: () => void;
+    /** Haven: forwarded straight through to EmojiButton's own identical prop - see its doc. */
+    openStickerTabRequestId?: number;
 }
 
 const MessageComposerButtons: React.FC<IProps> = (props: IProps) => {
@@ -179,6 +181,7 @@ function emojiButton(props: IProps, room?: Room): ReactElement {
             className="mx_MessageComposer_button"
             room={room}
             relation={props.relation}
+            openStickerTabRequestId={props.openStickerTabRequestId}
         />
     );
 }

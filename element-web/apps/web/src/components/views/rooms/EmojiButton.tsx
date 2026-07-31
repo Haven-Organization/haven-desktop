@@ -7,7 +7,7 @@ Please see LICENSE files in the repository root for full details.
 */
 
 import classNames from "classnames";
-import React, { type JSX, useCallback, useContext, useState } from "react";
+import React, { type JSX, useCallback, useContext, useEffect, useState } from "react";
 import { ReactionIcon, StickerIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { type Room, type IEventRelation, type IContent, THREAD_RELATION_TYPE, EventType } from "matrix-js-sdk/src/matrix";
 
@@ -38,6 +38,19 @@ interface IEmojiButtonProps {
     /** Haven: forwarded to the Emoji-tab EmojiPicker's own identical prop - see its doc. Never
      *  applied to the Sticker tab, which doesn't have the problem this exists for. */
     disableCustomEmoji?: boolean;
+    /**
+     * Haven: bumped by SendMessageComposer.tsx's own KeyBindingAction.ShowStickerPicker handling
+     * (via MessageComposer.tsx/MessageComposerButtons.tsx) each time the "Send a Sticker" keyboard
+     * shortcut fires - opens this popup straight to the Stickers tab (search box focused, same as a
+     * normal mouse-opened Stickers tab - see EmojiPicker.tsx's own onKeyDown for how Tab from there
+     * jumps to the first sticker). A plain increasing counter rather than a boolean so pressing the
+     * shortcut again while already open (e.g. after switching back to the Emoji tab) still
+     * re-triggers the effect below - a boolean toggled true would only fire once until it next went
+     * false, which happens on close, not on every press. 0/undefined means "never requested" and
+     * deliberately does nothing on mount (falsy), so this never fires from a stale default before
+     * any real keyboard invocation has happened.
+     */
+    openStickerTabRequestId?: number;
 }
 
 type PickerTab = "emoji" | "sticker";
@@ -49,6 +62,7 @@ export function EmojiButton({
     room,
     relation,
     disableCustomEmoji,
+    openStickerTabRequestId,
 }: IEmojiButtonProps): JSX.Element {
     const overflowMenuCloser = useContext(OverflowMenuContext);
     const [menuDisplayed, button, openMenu, closeMenu] = useContextMenu();
@@ -63,6 +77,12 @@ export function EmojiButton({
     // be reactions - see EmojiPicker's IProps.mode doc), which is why this tab switcher lives here
     // rather than inside EmojiPicker itself.
     const [activeTab, setActiveTab] = useState<PickerTab>("emoji");
+
+    useEffect(() => {
+        if (!openStickerTabRequestId) return;
+        setActiveTab("sticker");
+        openMenu();
+    }, [openStickerTabRequestId, openMenu]);
 
     const onFinished = useCallback((): void => {
         closeMenu();

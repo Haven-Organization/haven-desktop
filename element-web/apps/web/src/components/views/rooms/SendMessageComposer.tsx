@@ -153,7 +153,9 @@ interface ISendMessageComposerProps extends MatrixClientProps {
     replyToEvent?: MatrixEvent;
     disabled?: boolean;
     onChange?(model: EditorModel): void;
-    toggleStickerPickerOpen: () => void;
+    /** Haven: bumps MessageComposer's own openStickerTabRequestId counter - see its doc there and
+     *  EmojiButton's own identical prop for the full chain this feeds into. */
+    openStickerPickerViaKeyboard: () => void;
     urlPreviewVm: MessageComposerUrlPreviewViewModel;
 }
 
@@ -234,10 +236,13 @@ export class SendMessageComposer extends React.Component<ISendMessageComposerPro
                 break;
             }
             case KeyBindingAction.ShowStickerPicker: {
-                if (!SettingsStore.getValue("MessageComposerInput.showStickersButton")) {
-                    return; // Do nothing if there is no Stickers button
-                }
-                this.props.toggleStickerPickerOpen();
+                // Haven: used to check MessageComposerInput.showStickersButton and toggle the old
+                // widget-based Stickerpicker.tsx - that setting is off by default (see its own doc
+                // in Settings.tsx), which made this shortcut a silent no-op for anyone on default
+                // settings. Opens the new EmojiButton-hosted sticker picker instead, which has
+                // nothing to do with that setting (it's not a widget, just this room's own MSC2545
+                // packs), so there's no equivalent guard to check here anymore.
+                this.props.openStickerPickerViaKeyboard();
                 event.preventDefault();
                 break;
             }
