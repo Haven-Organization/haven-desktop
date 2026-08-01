@@ -236,7 +236,11 @@ class EmojiPicker extends React.Component<IProps, IState> {
             // sticker packs, nothing else.
             this.recentlyUsed = [];
             this.freeformRecentUnicodes = new Set();
-            this.memoizedDataByCategory = packDataByCategory;
+            // Haven: must be a separate object from packDataByCategory below, not the same
+            // reference - onChangeFilter overwrites memoizedDataByCategory[cat.id] in place with
+            // filtered results as the user types, and packDataByCategory needs to stay pristine as
+            // the un-filtered source it resets from (see this class's own field doc above).
+            this.memoizedDataByCategory = { ...packDataByCategory };
             this.packDataByCategory = packDataByCategory;
             this.categories = packCategoryConfig.map((config, i) => ({
                 ...config,

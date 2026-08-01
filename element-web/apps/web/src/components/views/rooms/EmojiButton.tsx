@@ -17,6 +17,8 @@ import EmojiPicker from "../emojipicker/EmojiPicker";
 import { type CustomEmojiChoice } from "../emojipicker/customEmoji";
 import { CollapsibleButton, OverflowMenuContext } from "./CollapsibleButton";
 import { doMaybeLocalRoomAction } from "../../../utils/local-room";
+import { getKeyBindingsManager } from "../../../KeyBindingsManager";
+import { KeyBindingAction } from "../../../accessibility/KeyboardShortcuts";
 import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacks } from "../../../utils/imageSourcePacks";
 import { useScopedRoomContext } from "../../../contexts/ScopedRoomContext";
 import { addReplyToMessageContent } from "../../../utils/Reply";
@@ -45,12 +47,14 @@ interface IEmojiButtonProps {
      * (via MessageComposer.tsx/MessageComposerButtons.tsx) each time the "Send a Sticker" keyboard
      * shortcut fires - opens this popup straight to the Stickers tab (search box focused, same as a
      * normal mouse-opened Stickers tab - see EmojiPicker.tsx's own onKeyDown for how Tab from there
-     * jumps to the first sticker). A plain increasing counter rather than a boolean so pressing the
-     * shortcut again while already open (e.g. after switching back to the Emoji tab) still
-     * re-triggers the effect below - a boolean toggled true would only fire once until it next went
-     * false, which happens on close, not on every press. 0/undefined means "never requested" and
-     * deliberately does nothing on mount (falsy), so this never fires from a stale default before
-     * any real keyboard invocation has happened.
+     * jumps to the first sticker). If the Stickers tab is already open, this closes it instead,
+     * so repeatedly pressing the shortcut toggles it open and closed (see the effect below). A
+     * plain increasing counter rather than a boolean so pressing the shortcut again while already
+     * open on the Emoji tab still re-triggers the effect below to switch back to Stickers rather
+     * than closing - a boolean toggled true would only fire once until it next went false, which
+     * happens on close, not on every press. 0/undefined means "never requested" and deliberately
+     * does nothing on mount (falsy), so this never fires from a stale default before any real
+     * keyboard invocation has happened.
      */
     openStickerTabRequestId?: number;
 }
@@ -82,14 +86,23 @@ export function EmojiButton({
 
     useEffect(() => {
         if (!openStickerTabRequestId) return;
+        if (menuDisplayed && activeTab === "sticker") {
+            // Haven: the picker's already open and showing Stickers - toggle it closed instead of
+            // just re-opening to the same tab, so repeatedly pressing the shortcut opens and closes
+            // it. onFinished (not closeMenu directly) so this also returns focus to the composer,
+            // same as any other way of closing this popup.
+            onFinished();
+            return;
+        }
         setActiveTab("sticker");
         openMenu();
-        // openMenu (useContextMenu's `open`) gets a new identity every render, not just when
-        // openStickerTabRequestId itself changes - including it here would re-fire this effect (and
-        // so re-force the Stickers tab back open) on any unrelated re-render of this component while
-        // openStickerTabRequestId is still sitting at its last-bumped value, fighting a manual
-        // switch back to the Emoji tab the moment anything else (e.g. typing in the composer)
-        // triggers a re-render.
+        // menuDisplayed/activeTab/openMenu/onFinished all get a new identity or value on every
+        // render, not just when openStickerTabRequestId itself changes - including them here would
+        // re-fire this effect (and so re-force/re-close the Stickers tab) on any unrelated re-render
+        // of this component while openStickerTabRequestId is still sitting at its last-bumped value,
+        // fighting a manual switch back to the Emoji tab the moment anything else (e.g. typing in the
+        // composer) triggers a re-render. The values read above are still always this render's
+        // latest by the time the effect actually runs.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [openStickerTabRequestId]);
 
@@ -111,6 +124,28 @@ export function EmojiButton({
             context: timelineRenderingType,
         });
     }, [closeMenu, overflowMenuCloser, timelineRenderingType]);
+
+    // Haven: the openStickerTabRequestId effect above only sees a *fresh* keyboard shortcut press -
+    // once the popup is open, real DOM focus (and so the keydown itself) is inside this popup's own
+    // portal-rendered subtree (the search box, autofocused), never the composer's own div that
+    // SendMessageComposer's onKeyDown listens on. Without this, pressing the shortcut again while
+    // the popup is open and focused did nothing at all, since the event never reached the code that
+    // bumps openStickerTabRequestId in the first place. Listening for the same action here, scoped
+    // to just this popup, closes it on a second press regardless of which control inside currently
+    // has focus - matching the same "Send a Sticker" shortcut as the composer's own handling.
+    const onPickerKeyDown = useCallback(
+        (ev: React.KeyboardEvent): void => {
+            if (
+                activeTab === "sticker" &&
+                getKeyBindingsManager().getMessageComposerAction(ev) === KeyBindingAction.ShowStickerPicker
+            ) {
+                onFinished();
+                ev.preventDefault();
+                ev.stopPropagation();
+            }
+        },
+        [activeTab, onFinished],
+    );
 
     // Haven: sends the chosen pack image directly as a real m.sticker event - bypasses the stock
     // integration-manager widget pipeline (Stickerpicker.tsx) entirely, since every entry shown in
@@ -185,7 +220,7 @@ export function EmojiButton({
 
         contextMenu = (
             <ContextMenu {...position} onFinished={onFinished} managed={false} focusLock>
-                <div className="mx_EmojiButton_picker">
+                <div className="mx_EmojiButton_picker" onKeyDown={onPickerKeyDown}>
                     <div className="mx_EmojiButton_tabs" role="tablist">
                         <button
                             role="tab"
