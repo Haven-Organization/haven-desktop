@@ -227,7 +227,7 @@ class LoggedInView extends React.Component<IProps, IState> {
 
     private getResizerViewModel(): ResizerViewModel {
         if (!this.resizerViewModel) {
-            this.resizerViewModel = new ResizerViewModel();
+            this.resizerViewModel = new ResizerViewModel(this.context.callStore);
         }
         return this.resizerViewModel;
     }
@@ -278,7 +278,7 @@ class LoggedInView extends React.Component<IProps, IState> {
         SettingsStore.unwatchSetting(this.compactLayoutWatcherRef);
         SettingsStore.unwatchSetting(this.backgroundImageWatcherRef);
         this.timezoneProfileUpdateRef?.forEach((s) => SettingsStore.unwatchSetting(s));
-        this.resizerViewModel?.dispose();
+        this.disposeResizerViewModel();
         this.resizer?.detach();
     }
 

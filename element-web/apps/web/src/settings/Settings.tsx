@@ -54,7 +54,11 @@ import InviteRulesConfigController from "./controllers/InviteRulesConfigControll
 import { type ComputedInviteConfig } from "../@types/invite-rules.ts";
 import BlockInvitesConfigController from "./controllers/BlockInvitesConfigController.ts";
 import RequiresSettingsController from "./controllers/RequiresSettingsController.ts";
-import { type ReorderableSection, type CustomSectionsData } from "../stores/room-list-v3/section.ts";
+import {
+    type ReorderableSection,
+    type CustomSectionsData,
+    type SectionExpansionState,
+} from "../stores/room-list-v3/section.ts";
 import { type NotificationSound } from "../Notifier.ts";
 import VideoRoomsBetaImage from "../../res/img/betas/video_rooms.png";
 
@@ -402,6 +406,7 @@ export interface Settings {
     "Developer.elementCallUrl": IBaseSetting<string>;
     "RoomList.CustomSectionData": IBaseSetting<CustomSectionsData>;
     "RoomList.OrderedCustomSections": IBaseSetting<ReorderableSection[]>;
+    "RoomList.SectionExpansionState": IBaseSetting<SectionExpansionState>;
     "RoomList.showSections": IBaseSetting<boolean>;
 }
 
@@ -1465,6 +1470,14 @@ export const SETTINGS: Settings = {
     "RoomList.OrderedCustomSections": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         default: [],
+    },
+    /**
+     * Managed by the {@link RoomListSectionHeaderViewModel}
+     * Store the expanded/collapsed state of the room list sections, per space and per section tag
+     */
+    "RoomList.SectionExpansionState": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
+        default: {},
     },
     [UIFeature.RoomHistorySettings]: {
         supportedLevels: LEVELS_UI_FEATURE,

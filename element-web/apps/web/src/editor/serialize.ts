@@ -199,9 +199,9 @@ export function textSerialize(model: EditorModel): string {
             case Type.RoomPill:
                 // Here we use the resourceId for compatibility with non-rich text clients
                 // See https://github.com/vector-im/element-web/issues/16660
-                return text + `${part.resourceId}`;
+                return text + part.resourceId;
             case Type.UserPill:
-                return text + `${part.text}`;
+                return text + part.text;
             case Type.CustomEmoji:
                 // Plain-text fallback body - shows the shortcode, same as any other client with no
                 // image-pack support of its own would see (part.text is already ":shortcode:").
