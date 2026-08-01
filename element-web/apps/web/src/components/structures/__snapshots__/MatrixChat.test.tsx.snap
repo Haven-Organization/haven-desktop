@@ -436,8 +436,8 @@ exports[`<MatrixChat /> > with a soft-logged-out session > should show the soft-
             class="mx_AuthHeaderLogo"
           >
             <img
-              alt="Element"
-              src="themes/element/img/logos/element-logo.svg"
+              alt="Haven"
+              src="vector-icons/144.png"
             />
           </aside>
           <div
@@ -545,21 +545,7 @@ exports[`<MatrixChat /> > with a soft-logged-out session > should show the soft-
       role="contentinfo"
     >
       <a
-        href="https://element.io/blog"
-        rel="noreferrer noopener"
-        target="_blank"
-      >
-        Blog
-      </a>
-      <a
-        href="https://mastodon.matrix.org/@Element"
-        rel="noreferrer noopener"
-        target="_blank"
-      >
-        Mastodon
-      </a>
-      <a
-        href="https://github.com/element-hq/element-web"
+        href="https://github.com/Haven-Organization/haven-desktop"
         rel="noreferrer noopener"
         target="_blank"
       >

@@ -162,21 +162,7 @@ exports[`CompleteSecurity > Allows verifying with another device if one is avail
       role="contentinfo"
     >
       <a
-        href="https://element.io/blog"
-        rel="noreferrer noopener"
-        target="_blank"
-      >
-        Blog
-      </a>
-      <a
-        href="https://mastodon.matrix.org/@Element"
-        rel="noreferrer noopener"
-        target="_blank"
-      >
-        Mastodon
-      </a>
-      <a
-        href="https://github.com/element-hq/element-web"
+        href="https://github.com/Haven-Organization/haven-desktop"
         rel="noreferrer noopener"
         target="_blank"
       >
@@ -345,21 +331,7 @@ exports[`CompleteSecurity > Allows verifying with recovery key if one is availab
       role="contentinfo"
     >
       <a
-        href="https://element.io/blog"
-        rel="noreferrer noopener"
-        target="_blank"
-      >
-        Blog
-      </a>
-      <a
-        href="https://mastodon.matrix.org/@Element"
-        rel="noreferrer noopener"
-        target="_blank"
-      >
-        Mastodon
-      </a>
-      <a
-        href="https://github.com/element-hq/element-web"
+        href="https://github.com/Haven-Organization/haven-desktop"
         rel="noreferrer noopener"
         target="_blank"
       >

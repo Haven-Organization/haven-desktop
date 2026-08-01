@@ -229,6 +229,7 @@ describe("RoomListSectionHeaderViewModel", () => {
         it("initializes isMessagePreviewEnabled from this section's own entry", () => {
             jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
                 if (setting === "RoomList.showMessagePreviewBySection") return { "m.favourite": true };
+                if (setting === "RoomList.SectionExpansionState") return {};
                 return null;
             });
 
@@ -245,6 +246,7 @@ describe("RoomListSectionHeaderViewModel", () => {
         it("toggles only this section's own entry, preserving others", () => {
             jest.spyOn(SettingsStore, "getValue").mockImplementation((setting) => {
                 if (setting === "RoomList.showMessagePreviewBySection") return { "m.lowpriority": true };
+                if (setting === "RoomList.SectionExpansionState") return {};
                 return null;
             });
             const setValueSpy = jest.spyOn(SettingsStore, "setValue").mockImplementation(jest.fn());
