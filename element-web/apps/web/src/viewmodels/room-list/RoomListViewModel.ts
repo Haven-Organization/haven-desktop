@@ -45,6 +45,7 @@ import { tagRoom } from "../../utils/room/tagRoom";
 import { getSectionTagForRoom } from "../../utils/room/getSectionTagForRoom";
 import SettingsStore from "../../settings/SettingsStore";
 import { type RoomViewStore } from "../../stores/RoomViewStore.tsx";
+import RightPanelStore from "../../stores/right-panel/RightPanelStore";
 
 /**
  * Tracks the position of the active room within a specific section.
@@ -686,6 +687,11 @@ export class RoomListViewModel
         this.snapshot.merge({
             roomListState: { ...this.snapshot.current.roomListState, activeRoomIndex: this.getActiveRoomIndex(newRoom.roomId) },
         });
+        // Haven: keeps RightPanelStore's own notion of "the current room" in sync with the cursor,
+        // not just the debounced real load - see its own doc on why this exists (the "Toggle right
+        // panel" shortcut otherwise silently acts on whatever room was active before Alt+Up/Down,
+        // for this entire ~200ms debounce window).
+        RightPanelStore.instance.updateViewedRoomIdForNavigationCursor(newRoom.roomId);
 
         this.dispatchViewRoomDebounced(newRoom.roomId);
     }

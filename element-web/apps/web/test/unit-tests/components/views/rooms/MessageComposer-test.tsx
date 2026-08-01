@@ -41,6 +41,10 @@ import { SDKContext } from "../../../../../src/contexts/SDKContext.ts";
 import { SDKContextClass } from "../../../../../src/contexts/SDKContextClass.ts";
 
 const openStickerPicker = async (): Promise<void> => {
+    // Haven: MessageComposerInput.showStickersButton (this old widget-based sticker button) now
+    // defaults to off - see its own doc in Settings.tsx - so it has to be turned on explicitly here
+    // rather than assuming it's already showing.
+    await SettingsStore.setValue("MessageComposerInput.showStickersButton", null, SettingLevel.DEVICE, true);
     await userEvent.click(screen.getByLabelText("More options"));
     await userEvent.click(screen.getByLabelText("Sticker"));
 };

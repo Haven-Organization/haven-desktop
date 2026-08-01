@@ -61,7 +61,9 @@ describe("RovingTabIndex adapter", () => {
         render(<RovingTabIndexProvider>{() => null}</RovingTabIndexProvider>);
 
         const getAction = getInjectedGetAction();
-        expect(getAction({ key: "irrelevant" } as React.KeyboardEvent)).toBe(expectedRovingAction);
+        expect(
+            getAction({ key: "irrelevant", target: document.createElement("div") } as unknown as React.KeyboardEvent),
+        ).toBe(expectedRovingAction);
     });
 
     it("returns undefined when there is no matching accessibility action", () => {
@@ -72,7 +74,62 @@ describe("RovingTabIndex adapter", () => {
         render(<RovingTabIndexProvider>{() => null}</RovingTabIndexProvider>);
 
         const getAction = getInjectedGetAction();
-        expect(getAction({ key: "x" } as React.KeyboardEvent)).toBeUndefined();
+        expect(
+            getAction({ key: "x", target: document.createElement("div") } as unknown as React.KeyboardEvent),
+        ).toBeUndefined();
+    });
+
+    describe("H/J/K/L vim-style navigation (Haven)", () => {
+        function mkEvent(key: string, target: HTMLElement, extra: Partial<React.KeyboardEvent> = {}): React.KeyboardEvent {
+            return {
+                key,
+                ctrlKey: false,
+                altKey: false,
+                shiftKey: false,
+                metaKey: false,
+                target,
+                ...extra,
+            } as React.KeyboardEvent;
+        }
+
+        beforeEach(() => {
+            const manager = new KeyBindingsManagerModule.KeyBindingsManager();
+            jest.spyOn(KeyBindingsManagerModule, "getKeyBindingsManager").mockReturnValue(manager);
+            // no real KeyBindingAction matches, so getWebRovingAction falls through to h/j/k/l
+            jest.spyOn(manager, "getAccessibilityAction").mockReturnValue(undefined);
+        });
+
+        it.each([
+            ["j", RovingAction.ArrowDown],
+            ["k", RovingAction.ArrowUp],
+            ["h", RovingAction.ArrowLeft],
+            ["l", RovingAction.ArrowRight],
+        ])("maps plain '%s' to %s", (key, expectedRovingAction) => {
+            render(<RovingTabIndexProvider>{() => null}</RovingTabIndexProvider>);
+            const getAction = getInjectedGetAction();
+
+            const target = document.createElement("div");
+            expect(getAction(mkEvent(key, target))).toBe(expectedRovingAction);
+        });
+
+        it("does not navigate when a modifier is held alongside j/k/h/l", () => {
+            render(<RovingTabIndexProvider>{() => null}</RovingTabIndexProvider>);
+            const getAction = getInjectedGetAction();
+
+            const target = document.createElement("div");
+            expect(getAction(mkEvent("j", target, { ctrlKey: true }))).toBeUndefined();
+            expect(getAction(mkEvent("k", target, { altKey: true }))).toBeUndefined();
+            expect(getAction(mkEvent("h", target, { shiftKey: true }))).toBeUndefined();
+            expect(getAction(mkEvent("l", target, { metaKey: true }))).toBeUndefined();
+        });
+
+        it("does not navigate when the target is a real text input", () => {
+            render(<RovingTabIndexProvider>{() => null}</RovingTabIndexProvider>);
+            const getAction = getInjectedGetAction();
+
+            const input = document.createElement("input");
+            expect(getAction(mkEvent("j", input))).toBeUndefined();
+        });
     });
 
     it("forwards provider props to shared-components", () => {

@@ -177,10 +177,16 @@ describe("RightPanelStore", () => {
     });
 
     describe("togglePanel", () => {
-        it("does nothing if the room has no phase to open to", () => {
+        it("opens to Room Info if the room has no phase to open to yet (Haven)", () => {
+            // Haven: this used to silently do nothing here - a room whose right panel had never
+            // been opened before (no byRoom entry yet) had nothing for togglePanel to flip, so the
+            // "Toggle right panel" keyboard shortcut was a dead no-op the very first time it was
+            // pressed in any given room. Falls back to the same Room Info default the mouse-driven
+            // header button already lands on for this exact scenario (see setCard's own tests).
             expect(store.isOpenForRoom("!1:example.org")).toEqual(false);
             store.togglePanel("!1:example.org");
-            expect(store.isOpenForRoom("!1:example.org")).toEqual(false);
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(true);
+            expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.RoomSummary);
         });
         it("works if a room is specified", () => {
             store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!1:example.org");

@@ -306,6 +306,55 @@ describe.each<ListTestVariant>([flatVariant, groupedVariant])("$name", (variant)
             expectTabIndex(items[1], "-1");
         });
 
+        it("should handle KeyJ as an ArrowDown equivalent (Haven vim-style navigation)", () => {
+            renderListWithHeight();
+            const container = screen.getByRole("grid");
+
+            fireEvent.focus(container);
+            navigateToFirstItem(container);
+            fireEvent.keyDown(container, { code: "KeyJ" });
+
+            // KeyJ should skip the non-focusable item at index 1 and go to index 2,
+            // exactly like ArrowDown does above.
+            const items = container.querySelectorAll(".mx_item");
+            expectTabIndex(items[2], "0");
+            expectTabIndex(items[0], "-1");
+            expectTabIndex(items[1], "-1");
+        });
+
+        it("should handle KeyK as an ArrowUp equivalent (Haven vim-style navigation)", () => {
+            renderListWithHeight();
+            const container = screen.getByRole("grid");
+
+            // First focus and navigate down past separator
+            fireEvent.focus(container);
+            navigateToFirstItem(container);
+            fireEvent.keyDown(container, { code: "ArrowDown" });
+
+            // Then navigate back up with KeyK
+            fireEvent.keyDown(container, { code: "KeyK" });
+
+            const items = container.querySelectorAll(".mx_item");
+            expectTabIndex(items[0], "0");
+            expectTabIndex(items[1], "-1");
+        });
+
+        it("should not handle KeyJ/KeyK when modifier keys are pressed", () => {
+            renderListWithHeight();
+            const container = screen.getByRole("grid");
+
+            fireEvent.focus(container);
+            navigateToFirstItem(container);
+
+            const initialItems = container.querySelectorAll(".mx_item");
+            expectTabIndex(initialItems[0], "0");
+
+            fireEvent.keyDown(container, { code: "KeyJ", ctrlKey: true });
+
+            const items = container.querySelectorAll(".mx_item");
+            expectTabIndex(items[0], "0"); // Should still be on first item
+        });
+
         it("should handle Home key navigation", () => {
             renderListWithHeight();
             const container = screen.getByRole("grid");

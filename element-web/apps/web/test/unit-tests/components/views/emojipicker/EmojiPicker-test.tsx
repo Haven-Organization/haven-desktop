@@ -7,11 +7,12 @@ Please see LICENSE files in the repository root for full details.
 */
 
 import React, { createRef } from "react";
-import { render, waitFor, act } from "jest-matrix-react";
+import { render, waitFor, act, fireEvent } from "jest-matrix-react";
 import userEvent from "@testing-library/user-event";
+import { type MatrixEvent } from "matrix-js-sdk/src/matrix";
 
 import EmojiPicker from "../../../../../src/components/views/emojipicker/EmojiPicker";
-import { stubClient } from "../../../../test-utils";
+import { stubClient, mkStubRoom } from "../../../../test-utils";
 import SettingsStore from "../../../../../src/settings/SettingsStore";
 import { SettingLevel } from "../../../../../src/settings/SettingLevel.ts";
 
@@ -488,6 +489,75 @@ describe("EmojiPicker", function () {
             await waitFor(() => {
                 expect(peopleTab).toHaveFocus();
             });
+        });
+    });
+
+    describe("Tab-to-first-item jump (Haven)", () => {
+        function mkRoomWithStickerPack(): ReturnType<typeof mkStubRoom> {
+            const client = stubClient();
+            const room = mkStubRoom("!room:example.com", "Test room", client);
+            const packEvent = {
+                getContent: () => ({
+                    pack: { display_name: "Test pack" },
+                    images: { happy: { url: "mxc://example.com/happy", usage: ["sticker"] } },
+                }),
+                getStateKey: () => "pack1",
+            } as unknown as MatrixEvent;
+            (room.currentState.getStateEvents as jest.Mock).mockImplementation((_type: string, key?: string) =>
+                key === undefined ? [packEvent] : null,
+            );
+            return room;
+        }
+
+        it("Tab from the search box jumps straight to the first sticker (sticker mode)", () => {
+            const room = mkRoomWithStickerPack();
+            const { container } = render(
+                <EmojiPicker mode="sticker" room={room} onChoose={jest.fn()} onFinished={jest.fn()} />,
+            );
+
+            const searchInput = container.querySelector(".mx_EmojiPicker_search input") as HTMLInputElement;
+            const firstItem = container.querySelector<HTMLElement>('[id^="mx_EmojiPicker_item_"]');
+            expect(firstItem).toBeTruthy();
+
+            fireEvent.keyDown(searchInput, { key: "Tab" });
+
+            expect(document.activeElement).toBe(firstItem);
+        });
+
+        it("Tab from the search box jumps straight to the first emoji (emoji mode)", () => {
+            const { container } = render(<EmojiPicker mode="emoji" onChoose={jest.fn()} onFinished={jest.fn()} />);
+
+            const searchInput = container.querySelector(".mx_EmojiPicker_search input") as HTMLInputElement;
+            const firstItem = container.querySelector<HTMLElement>('[id^="mx_EmojiPicker_item_"]');
+            expect(firstItem).toBeTruthy();
+
+            fireEvent.keyDown(searchInput, { key: "Tab" });
+
+            expect(document.activeElement).toBe(firstItem);
+        });
+
+        it("moves real DOM focus off the search input, so hjkl navigation works right after Tab", () => {
+            const { container } = render(<EmojiPicker mode="emoji" onChoose={jest.fn()} onFinished={jest.fn()} />);
+
+            const searchInput = container.querySelector(".mx_EmojiPicker_search input") as HTMLInputElement;
+            fireEvent.keyDown(searchInput, { key: "Tab" });
+
+            expect(document.activeElement).not.toBe(searchInput);
+        });
+
+        it("does not intercept Shift+Tab from the search box", () => {
+            const room = mkRoomWithStickerPack();
+            const { container } = render(
+                <EmojiPicker mode="sticker" room={room} onChoose={jest.fn()} onFinished={jest.fn()} />,
+            );
+
+            const searchInput = container.querySelector(".mx_EmojiPicker_search input") as HTMLInputElement;
+            const firstItem = container.querySelector<HTMLElement>('[id^="mx_EmojiPicker_item_"]');
+            expect(firstItem).toBeTruthy();
+
+            fireEvent.keyDown(searchInput, { key: "Tab", shiftKey: true });
+
+            expect(document.activeElement).not.toBe(firstItem);
         });
     });
 });

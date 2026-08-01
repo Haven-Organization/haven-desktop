@@ -21,6 +21,8 @@ import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacks } from "../../../utils/im
 import { useScopedRoomContext } from "../../../contexts/ScopedRoomContext";
 import { addReplyToMessageContent } from "../../../utils/Reply";
 import dis from "../../../dispatcher/dispatcher";
+import { Action } from "../../../dispatcher/actions";
+import { type FocusComposerPayload } from "../../../dispatcher/payloads/FocusComposerPayload";
 
 interface IEmojiButtonProps {
     addEmoji: (unicode: string, custom?: CustomEmojiChoice) => boolean;
@@ -82,12 +84,33 @@ export function EmojiButton({
         if (!openStickerTabRequestId) return;
         setActiveTab("sticker");
         openMenu();
-    }, [openStickerTabRequestId, openMenu]);
+        // openMenu (useContextMenu's `open`) gets a new identity every render, not just when
+        // openStickerTabRequestId itself changes - including it here would re-fire this effect (and
+        // so re-force the Stickers tab back open) on any unrelated re-render of this component while
+        // openStickerTabRequestId is still sitting at its last-bumped value, fighting a manual
+        // switch back to the Emoji tab the moment anything else (e.g. typing in the composer)
+        // triggers a re-render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [openStickerTabRequestId]);
 
     const onFinished = useCallback((): void => {
         closeMenu();
         overflowMenuCloser?.();
-    }, [closeMenu, overflowMenuCloser]);
+        // Haven: without this, closing the popup (Escape, click-outside, or switching away without
+        // picking anything) leaves real DOM focus wherever FocusLock's own `returnFocus` puts it -
+        // this button itself, not the composer - since only actually choosing an emoji/sticker
+        // re-focuses the composer as a side effect of inserting it (see addEmoji's own
+        // Action.ComposerInsert dispatch). Left alone, that stranded focus on this button was silently
+        // eating the next "Send a Sticker" keyboard shortcut press: SendMessageComposer's own
+        // onKeyDown only fires for keydowns bubbling through its own composer div, which this button
+        // sits outside of. Dispatching this (matching ReactionPicker.tsx's own identical pattern)
+        // always lands focus back in the composer on close, regardless of how the popup was opened
+        // or closed.
+        dis.dispatch<FocusComposerPayload>({
+            action: Action.FocusAComposer,
+            context: timelineRenderingType,
+        });
+    }, [closeMenu, overflowMenuCloser, timelineRenderingType]);
 
     // Haven: sends the chosen pack image directly as a real m.sticker event - bypasses the stock
     // integration-manager widget pipeline (Stickerpicker.tsx) entirely, since every entry shown in

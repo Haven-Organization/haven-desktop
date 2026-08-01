@@ -49,6 +49,11 @@ const config: Config = {
         "^vitest$": "<rootDir>/__mocks__/empty.js",
         "jest-mock-vitest-adapter": "<rootDir>/test/setup/adapter.ts",
         "test-utils-rtl": "<rootDir>/test/test-utils/jest-matrix-react.tsx",
+        // Haven: mirrors vitest.config.ts's own "legacy-room-list" alias, always resolved to the
+        // stub here regardless of HAVEN_INCLUDE_OLD_ROOM_LIST (a build-only env var) - the real
+        // ~40-file subsystem already has its own dedicated tests under
+        // test/unit-tests/legacy-room-list/, nothing outside those needs the real thing loaded.
+        "^legacy-room-list$": "<rootDir>/src/legacy-room-list-stub",
     },
     transformIgnorePatterns: [
         `${path.join(__dirname, "../..")}/node_modules/.pnpm/(?!(matrix-js-sdk|htmlparser2|mime|uuid|p-retry|is-network-error|react-merge-refs|is-ip|ip-regex|super-regex|function-timeout|time-span|convert-hrtime|clone-regexp|is-regexp|matrix-web-i18n|await-lock|@element-hq/web-shared-components|react-virtuoso|lodash|domutils|domhandler|domelementtype|dom-serializer|entities)).+$`,

@@ -33,6 +33,7 @@ import { CHATS_TAG, CUSTOM_SECTION_TAG_PREFIX } from "../../../src/stores/room-l
 import { MetaSpace } from "../../../src/stores/spaces";
 import { RoomNotificationStateStore } from "../../../src/stores/notifications/RoomNotificationStateStore";
 import { type RoomNotificationState } from "../../../src/stores/notifications/RoomNotificationState";
+import RightPanelStore from "../../../src/stores/right-panel/RightPanelStore";
 
 jest.mock("../../../src/utils/room/tagRoom", () => ({
     tagRoom: jest.fn(),
@@ -855,6 +856,33 @@ describe("RoomListViewModel", () => {
                     action: Action.ViewRoom,
                 }),
             );
+        });
+
+        it("keeps RightPanelStore targeting the cursor's room during the debounce window (Haven)", async () => {
+            RightPanelStore.instance.reset();
+            viewModel = new RoomListViewModel({
+                client: matrixClient,
+                spaceStore: SDKContextClass.instance.spaceStore,
+                roomViewStore: SDKContextClass.instance.roomViewStore,
+            });
+
+            jest.spyOn(SDKContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!room1:server");
+
+            dispatcher.dispatch({
+                action: Action.ViewRoomDelta,
+                delta: 1,
+                unread: false,
+            });
+
+            await flushPromises();
+
+            // The real room load (dispatchViewRoomDebounced) is still ~200ms away at this point -
+            // toggling the right panel right now should still target room2 (where the cursor
+            // actually moved to), not room1 (the room that was active before Alt+Down was pressed).
+            RightPanelStore.instance.togglePanel(null);
+
+            expect(RightPanelStore.instance.isOpenForRoom("!room2:server")).toEqual(true);
+            expect(RightPanelStore.instance.isOpenForRoom("!room1:server")).toEqual(false);
         });
     });
 

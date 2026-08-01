@@ -2,22 +2,24 @@
   <img src="assets/banner.png" alt="Haven" width="400">
 </p>
 
-<img src="assets/screenshot-social-profile.png" alt="A Social profile page in Haven, showing a Fediverse account bridged into Matrix" width="250">
+<p align="center">
+  <img src="screenshots/screenshot_feed.png" alt="The Social feed in Haven, showing posts from followed Fediverse and Matrix accounts" width="280">
+  <img src="screenshots/screenshot_profile.png" alt="A Social profile page in Haven, showing a Fediverse account bridged into Matrix" width="280">
+</p>
 
 Try Haven at: https://app.haven.software
 
 Haven is a fork of [Element Web](https://github.com/element-hq/element-web) built around four goals:
 
 - **Social.** A Matrix-native profile, feed, and group experience, closer to a normal social
-  network than a chat client. Part of the goal here is standardizing social media event types on
-  Matrix itself, not just building a one-off client feature: see
+  network than a chat client. Standardizing social media event types on
+  Matrix, not just building a one-off client feature: see
   [MSC4501](https://github.com/matrix-org/matrix-spec-proposals/pull/4501), the spec proposal this
   is built on.
 - **A more fun Element.** Prioritizing features the community wants rather than companies and governments.
 - **Faster fixes.** Bugs and rough edges get patched here without waiting on the upstream release cycle.
 - **Apps.** Element's own room list, spaces, and messaging stay intact. Haven adds a pluggable
-  apps layer on top of them, and Social is the first app built on that layer, not a one-off
-  bolt-on. More apps are meant to follow the same pattern.
+  apps layer on top of them, and Social is the first app built on that layer. More apps are meant to follow the same pattern.
 
 ## Social Features
 
@@ -29,14 +31,16 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 
 ## Improvements to Element
 
-- [Custom emoji and sticker packs](https://github.com/element-hq/element-meta/issues/339) (including [emoji reactions](https://github.com/matrix-org/matrix-spec-proposals/pull/4027))
+- [Custom emoji and sticker packs](https://github.com/element-hq/element-meta/issues/339) (including [emoji reactions](https://github.com/matrix-org/matrix-spec-proposals/pull/4027) and [pack references](https://github.com/matrix-org/matrix-spec-proposals/pull/4459))
 - [Profile banners](https://github.com/matrix-org/matrix-spec-proposals/pull/4427). [Room & Space banners](https://github.com/matrix-org/matrix-spec-proposals/pull/4221) that display in the top bar. the right panel, and on space homepages.
-- You can finally [disable the spaces bar 🎉](https://github.com/element-hq/element-web/issues/18898)
+- [Disable the spaces bar](https://github.com/element-hq/element-web/issues/18898)
 - [Freeform text reactions](https://github.com/element-hq/element-web/issues/19409)
-- You can set a [custom notification sound](https://github.com/element-hq/element-web/issues/9687) globally instead of just per-room
+- Set a [custom notification sound](https://github.com/element-hq/element-web/issues/9687) globally instead of just per-room
 - Speed up alt+(up|down) room navigation by not loading each room as you navigate.
-- Fixed room list tooltips and avatars unnecessarily doing extra work for rows that are off
-  screen, which was slowing down large room lists.
+- Customizable keyboard shortcuts
+- Vim-like (H/J/K/L) navigation in lists and emoji/sticker picker
+- Old room list re-added as an option
+- Optimized room list rendering for large lists
 
 ## Got an empty Feed?
 

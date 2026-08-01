@@ -73,6 +73,33 @@ export default class RightPanelStore extends ReadyWatchingStore {
         this.viewedRoomId = null;
     }
 
+    /**
+     * Haven: called by RoomListViewModel.handleViewRoomDelta the instant Alt+Up/Down moves the
+     * keyboard cursor to a new room - synchronously, well before that room's real load lands and
+     * fires Action.ActiveRoomChanged (which is debounced by ~200ms so rapid Alt+Up/Down doesn't
+     * load every room passed over - see dispatchViewRoomDebounced's own doc). Without this,
+     * viewedRoomId stayed pointed at whichever room was active before the cursor moved for that
+     * entire window, so pressing the "Toggle right panel" shortcut right after Alt+Up/Down (a very
+     * natural thing to do - the highlight itself already looks like it moved) silently
+     * opened/closed the panel for the wrong, no-longer-visible room instead of the one the user was
+     * actually looking at. Deliberately much lighter than handleViewedRoomChange (no
+     * loadCacheFromSettings/history filtering/settings persistence) - this only needs togglePanel
+     * and the isOpen/currentCard getters to resolve the right room in the meantime; the real
+     * Action.ActiveRoomChanged still lands afterward and does the full handling once the room
+     * actually loads.
+     *
+     * Deliberately does NOT emit UPDATE_EVENT - this fires on every single Alt+Up/Down keypress,
+     * including ones the debounce is specifically absorbing (the cursor racing past several rooms
+     * before settling). Emitting here would make an already-open right panel flicker through each
+     * passed-over room's own state on every keypress, fighting the very debounce that's deliberately
+     * keeping the main timeline pane from doing the same. Silently updating just viewedRoomId is
+     * enough for togglePanel to target the right room if pressed next; the real
+     * Action.ActiveRoomChanged (see handleViewedRoomChange) still emits once the room actually loads.
+     */
+    public updateViewedRoomIdForNavigationCursor(roomId: string): void {
+        this.viewedRoomId = roomId;
+    }
+
     protected async onReady(): Promise<any> {
         this.viewedRoomId = SDKContextClass.instance.roomViewStore.getRoomId();
         this.matrixClient?.on(CryptoEvent.VerificationRequestReceived, this.onVerificationRequestUpdate);
@@ -231,7 +258,17 @@ export default class RightPanelStore extends ReadyWatchingStore {
 
     public togglePanel(roomId: string | null): void {
         const rId = roomId ?? this.viewedRoomId ?? "";
-        if (!this.byRoom[rId]) return;
+        if (!this.byRoom[rId]) {
+            // Haven: previously silently no-op'd here - a room whose right panel has never been
+            // shown before (no persisted RightPanel.phases state yet, e.g. the very first time
+            // someone presses the "toggle right panel" shortcut in a given room) has no byRoom[rId]
+            // entry at all, so there was nothing to flip. Missing state is implicitly "closed", so
+            // toggling it should open it fresh with the same default (Room Info) the mouse-driven
+            // "Room info" header button already falls back to for this exact scenario - see
+            // setCard's own `|| !this.byRoom[rId]` branch, which this reuses rather than duplicating.
+            this.setCard({ phase: RightPanelPhases.RoomSummary }, true, rId);
+            return;
+        }
 
         this.byRoom[rId].isOpen = !this.byRoom[rId].isOpen;
         this.emitAndUpdateSettings();

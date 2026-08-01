@@ -406,6 +406,15 @@ describe("<SendMessageComposer/>", () => {
 
             expect(defaultDispatcher.dispatch).not.toHaveBeenCalledWith({ action: `effects.confetti` });
         });
+
+        it("opens the sticker picker via keyboard on the ShowStickerPicker shortcut (Haven)", () => {
+            const openStickerPickerViaKeyboard = jest.fn();
+            const { container } = getComponent({ openStickerPickerViaKeyboard });
+
+            fireEvent.keyDown(container.querySelector(".mx_SendMessageComposer")!, { key: ";", ctrlKey: true });
+
+            expect(openStickerPickerViaKeyboard).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe("isQuickReaction", () => {

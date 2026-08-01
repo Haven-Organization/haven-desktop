@@ -24,6 +24,8 @@ import { MatrixClientPeg } from "../../../../../src/MatrixClientPeg";
 import ForwardDialog from "../../../../../src/components/views/dialogs/ForwardDialog";
 import DMRoomMap from "../../../../../src/utils/DMRoomMap";
 import { RoomPermalinkCreator } from "../../../../../src/utils/permalinks/Permalinks";
+import defaultDispatcher from "../../../../../src/dispatcher/dispatcher";
+import { Action } from "../../../../../src/dispatcher/actions";
 import {
     getMockClientWithEventEmitter,
     makeBeaconEvent,
@@ -64,6 +66,7 @@ describe("ForwardDialog", () => {
         isGuest: jest.fn().mockReturnValue(false),
         getVisibleRooms: jest.fn().mockReturnValue([]),
         getRoom: jest.fn(),
+        getUser: jest.fn().mockReturnValue(null),
         getAccountData: jest.fn().mockReturnValue(accountDataEvent),
         getPushActionsForEvent: jest.fn(),
         mxcUrlToHttp: jest.fn().mockReturnValue(""),
@@ -165,6 +168,34 @@ describe("ForwardDialog", () => {
             "msgtype": "m.text",
             "m.mentions": {},
         });
+    });
+
+    it("navigates to the room on a second Enter, instead of re-clicking the now-disabled send button (Haven)", async () => {
+        // Doesn't call through to the real dispatcher - actually dispatching ViewRoom would cascade
+        // into RoomViewStore/CallStore, which need a much fuller mock client than this suite's own
+        // mockClient provides. Only the dispatch call itself is under test here.
+        const dispatchSpy = jest.spyOn(defaultDispatcher, "dispatch").mockImplementation(() => {});
+        const { container } = mountForwardDialog();
+
+        const searchBox = getByTestId(container, "searchbox-input");
+        searchBox.focus();
+        await waitFor(() =>
+            expect(container.querySelectorAll(".mx_ForwardList_entry")[0]).toHaveClass("mx_ForwardList_entry_active"),
+        );
+
+        await userEvent.keyboard("[Enter]");
+        expect(mockClient.sendEvent).toHaveBeenCalledTimes(1);
+
+        await userEvent.keyboard("[Enter]");
+
+        // Still only sent once - the second Enter navigated instead of re-sending.
+        expect(mockClient.sendEvent).toHaveBeenCalledTimes(1);
+        expect(dispatchSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                action: Action.ViewRoom,
+                room_id: "a",
+            }),
+        );
     });
 
     it("tracks message sending progress across multiple rooms", async () => {

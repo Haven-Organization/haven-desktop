@@ -369,37 +369,45 @@ class EmojiPicker extends React.Component<IProps, IState> {
             }
         }
 
-        // Haven: Tab from the sticker picker's search box jumps straight to the first sticker
-        // instead of following the browser's native tab order (which would otherwise leave the
-        // picker or land on the "clear search" button) - lets someone open the picker, glance at
-        // the search box, and get straight into HJKL/arrow-key navigation with a single Tab press.
-        // Scoped to sticker mode only (that's the specific ask - the emoji picker's own search box
-        // keeps its native Tab order) and to a plain forward Tab from the search input specifically
-        // (not Shift+Tab, and not from somewhere already inside the grid, where native Tab
-        // behaviour is already fine).
+        // Haven: Tab from the search box moves real DOM focus straight into the grid instead of
+        // following the browser's native tab order (which would otherwise leave the picker entirely,
+        // or land on the "clear search" button without moving real focus into the grid at all) -
+        // lets someone open the picker, glance at the search box, and get straight into
+        // HJKL/arrow-key navigation with a single Tab press. Applies in both modes - moving real DOM
+        // focus off the search input is what actually gates h/j/k/l (see getWebRovingAction's own
+        // checkInputableElement check), not just visual appearance. Focuses whatever the roving
+        // group's own activeNode already is (which defaults to the first item on mount, and tracks
+        // wherever arrow-key navigation has since moved virtual focus to - see the showHighlight
+        // block above) rather than always the literal first item, so this doesn't fight normal
+        // roving-tabindex Tab behaviour once the user has already navigated with arrow keys. Scoped
+        // to a plain forward Tab from the search input specifically (not Shift+Tab, and not from
+        // somewhere already inside the grid, where native Tab behaviour is already fine).
         if (
-            this.props.mode === "sticker" &&
             ev.key === Key.TAB &&
             !ev.shiftKey &&
             ev.target instanceof HTMLInputElement &&
-            this.focusFirstItem()
+            this.focusActiveOrFirstItem(state)
         ) {
             ev.preventDefault();
             ev.stopPropagation();
         }
     };
 
-    // Haven: see the Tab-handling block in onKeyDown above for why this exists. Queries the DOM
-    // directly for the first roving item rather than going through the roving-tabindex reducer
-    // state (not reachable from here - RovingGridIndexProvider only exposes it inside its own
-    // render-prop scope) - every registered item already renders with a stable, unique id
+    // Haven: see the Tab-handling block in onKeyDown above for why this exists. Falls back to
+    // querying the DOM directly for the first roving item (rather than state.activeNode) only for
+    // the edge case where no item has registered an activeNode yet at all (e.g. an empty picker with
+    // no packs) - every registered item already renders with a stable, unique id
     // (mx_EmojiPicker_item_<hexcode>), so the first one in DOM order is reliably "the first item"
-    // without needing that state. Not virtualized (categories render their real DOM nodes up
-    // front, just visibility-tracked for the header highlight - see updateVisibility), so this is
-    // always available synchronously, with no need to wait for anything to mount lazily. Returns
-    // whether an item was actually found/focused, so the caller can leave native Tab behaviour
-    // alone (e.g. an empty picker with no packs at all) rather than swallowing the key for nothing.
-    private focusFirstItem(): boolean {
+    // without needing roving-tabindex state for it. Not virtualized (categories render their real DOM
+    // nodes up front, just visibility-tracked for the header highlight - see updateVisibility), so
+    // this is always available synchronously, with no need to wait for anything to mount lazily.
+    // Returns whether an item was actually found/focused, so the caller can leave native Tab
+    // behaviour alone rather than swallowing the key for nothing.
+    private focusActiveOrFirstItem(state: RovingState): boolean {
+        if (state.activeNode) {
+            state.activeNode.focus();
+            return true;
+        }
         const firstItem = this.rootRef.current?.querySelector<HTMLElement>('[id^="mx_EmojiPicker_item_"]');
         firstItem?.focus();
         return !!firstItem;
