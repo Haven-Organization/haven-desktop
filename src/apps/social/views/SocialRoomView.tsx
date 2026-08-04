@@ -247,6 +247,16 @@ export function SocialRoomView({
     const { attachment: pendingAttachment, setFile: setPendingFile, clear: clearAttachment } = usePendingAttachment();
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
     const [threadEvent, setThreadEvent] = useState<MatrixEvent | null>(null);
+    // The room threadEvent actually lives in - almost always just `room` (this view's own room),
+    // except when threadEvent was reached via a repost/quoted-post card's onViewThread(event, room)
+    // (see SocialEventTile.tsx's resolveAndOpenPost), which can legitimately resolve to a
+    // *different* room than whatever room this view currently represents. SocialPostView's own
+    // reply-fetching (client.relations, room.getThread, paginateEventTimeline) is entirely scoped
+    // to whatever `room` it's given - passing this view's own `room` instead of the post's real
+    // room silently found zero replies for a cross-room repost/reply card click, even though the
+    // post itself displayed fine (its reply count comes from the event's own bundled aggregation,
+    // independent of which Room instance is used to look up its Thread).
+    const [threadRoom, setThreadRoom] = useState<Room>(room);
     // True only while threadEvent was set by resolving a direct/external link (peekPendingFocusEvent
     // below) - cleared on any regular in-app re-focus (onFocusEvent) so the highlight-and-fade only
     // ever plays once, for the post the link actually pointed at.
@@ -278,12 +288,14 @@ export function SocialRoomView({
     // same component.
     useEffect(() => {
         const eventId = threadEvent?.getId();
-        onNewScreen(`social/room/${room.roomId}${eventId ? `/${eventId}` : ""}`);
+        // threadRoom.roomId, not room.roomId - a cross-room repost/reply card click needs the
+        // URL to actually point at the post's real room, not whatever room this view represents.
+        onNewScreen(`social/room/${eventId ? threadRoom.roomId : room.roomId}${eventId ? `/${eventId}` : ""}`);
         // Marks this history entry as "this room's own dedicated page" - see
         // socialHistoryOrigin.ts's own doc for why a thread viewed here needs to be distinguished
         // from the same post viewed via FeedPane's own thread panel (identical hash otherwise).
         stampSocialOrigin("room");
-    }, [room.roomId, threadEvent]);
+    }, [room.roomId, threadEvent, threadRoom]);
 
     // Slash command autocomplete (see SlashCommandAutocomplete.tsx) - selection tracks the
     // textarea's own cursor position, kept in sync via onChange/onSelect/onClick/onKeyUp since a
@@ -325,7 +337,8 @@ export function SocialRoomView({
 
     useEffect(() => {
         setThreadEvent(null);
-    }, [room.roomId]);
+        setThreadRoom(room);
+    }, [room]);
 
     // Hand-off from SocialHomeView's own pendingViewPost consumption (see permalinkRouting.ts) - a
     // matrix.to/matrix: link to a specific post in this room, clicked from outside Social entirely,
@@ -347,6 +360,7 @@ export function SocialRoomView({
         const event = peekPendingFocusEvent();
         if (!event || event.getRoomId() !== room.roomId) return;
         setThreadEvent(event);
+        setThreadRoom(room);
         setHighlightThreadEvent(true);
     }, [room]);
 
@@ -678,7 +692,7 @@ export function SocialRoomView({
         return (
             <SocialPostView
                 event={threadEvent}
-                room={room}
+                room={threadRoom}
                 onBack={() => setThreadEvent(null)}
                 onFocusEvent={(e) => {
                     setThreadEvent(e);
@@ -1002,7 +1016,10 @@ export function SocialRoomView({
                                 onOpenUserPanel={onOpenUserPanel}
                                 onNavigateToProfile={onNavigateToProfile}
                                 onRoomClick={onRoomClick}
-                                onViewThread={(e) => setThreadEvent(e)}
+                                onViewThread={(e, r) => {
+                                    setThreadEvent(e);
+                                    setThreadRoom(r);
+                                }}
                                 onLike={() => handleLike(event.getId()!, myLikeEventId)}
                                 onReply={(body, file) => handleReply(event.getId()!, body, file)}
                             />
