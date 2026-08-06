@@ -69,10 +69,14 @@ function reinsertQuoteMarkers(parsed: commonmark.Node): void {
  * emits a literal "\n" before/after a tag purely to pretty-print the raw HTML - invisible once
  * collapsed between two block-level boxes (that's what makes it a no-op for a real <blockquote>),
  * but <font> is inline by default, so that same "\n" lands inside Element's message body, which
- * preserves whitespace (white-space: pre-wrap) - showing up as a genuine extra blank line. None of
- * these newlines carry meaning (an intentional line break is always a "<br />" from the softbreak
- * option below, never a raw "\n"), so stripping every literal "\n" from the rendered output is safe
- * and removes the extra line at the source instead of just hiding it visually.
+ * preserves whitespace (white-space: pre-wrap) - showing up as a genuine extra blank line. An
+ * intentional line break within a blockquote is always a "<br />" from the softbreak option below,
+ * never a raw "\n", so it's safe to strip the "\n"s cr() puts immediately next to our own <font>
+ * tags specifically. Stripping *every* "\n" in the rendered output (as a prior version of this
+ * function did) went too far: commonmark's code_block renderer emits a fenced code block's real,
+ * meaningful internal line breaks as literal "\n" inside <pre><code>, and a blanket strip silently
+ * collapsed those too - see the bug this fixed, where pasting multi-line JSON into a ``` fence sent
+ * as a single line.
  */
 export function toGreentextHTML(message: string): string {
     const parser = new commonmark.Parser();
@@ -85,5 +89,8 @@ export function toGreentextHTML(message: string): string {
         this.tag(entering ? "font" : "/font", entering ? [["color", GREENTEXT_COLOR]] : undefined);
         this.cr();
     };
-    return renderer.render(parsed).replace(/\n/g, "");
+    return renderer
+        .render(parsed)
+        .replace(/\n(<\/?font\b)/g, "$1")
+        .replace(/(<\/?font\b[^>]*>)\n/g, "$1");
 }
