@@ -80,6 +80,7 @@ import { consumePendingViewUserId, peekPendingViewUserId } from "../utils/pendin
 import { consumePendingViewPost } from "../utils/pendingViewPost";
 import { clearPendingFocusEvent, setPendingFocusEvent } from "../utils/pendingFocusEvent";
 import { peekPendingSocialSection, clearPendingSocialSection } from "../utils/pendingSocialSection";
+import { saveLastSocialViewState, peekLastSocialViewState } from "../utils/lastSocialViewState";
 import { consumePendingPostModal } from "../utils/pendingPostModal";
 import {
     isGroupRoom,
@@ -140,9 +141,9 @@ function loadSidebarWidth(): number {
     return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, stored));
 }
 
-type SocialSection = "feed" | "groups" | "profile";
+export type SocialSection = "feed" | "groups" | "profile";
 
-interface SocialNav {
+export interface SocialNav {
     section: SocialSection;
     roomId?: string;
     /** Set when viewing a user whose linked profile room can't be resolved to a real Room object —
@@ -314,11 +315,57 @@ export function SocialHomeView(): JSX.Element {
     // Lazy initializer (not a plain { section: "feed" }): a "social/groups" or "social/profile"
     // deep link (see permalinkRouting.ts's tryRouteSocialHashScreen) sets this before dispatching
     // SOCIAL_HOME_ACTION to mount this component in the first place - see pendingSocialSection.ts
-    // for why the initializer (not a mount effect) is what has to read it.
+    // for why the initializer (not a mount effect) is what has to read it. Falls back to wherever
+    // Social was last left (see lastSocialViewState.ts's own doc) rather than always defaulting to
+    // Feed - covers the plain "click Home/a Space, then click Social again" round trip, which has
+    // no deep link of its own to carry a destination.
     const [nav, setNav] = useState<SocialNav>(() => {
         const section = peekPendingSocialSection();
-        return section ? { section } : { section: "feed" };
+        if (section) return { section };
+        return peekLastSocialViewState()?.nav ?? { section: "feed" };
     });
+    // Seeded once, alongside nav above - only meaningful when nav itself was restored from
+    // lastSocialViewState (a deep link has no scroll position of its own to restore). Consumed by
+    // the contentIdentity restore effect further down, which nulls this out once applied so later,
+    // genuinely new navigations within this same mount still reset to the top as usual.
+    const [pendingScrollRestore] = useState<number | null>(() => {
+        if (peekPendingSocialSection()) return null;
+        return peekLastSocialViewState()?.scrollTop ?? null;
+    });
+    const pendingScrollRestoreRef = useRef(pendingScrollRestore);
+
+    // Captures wherever the user ends up in Social - which page (nav) and its scroll offset -
+    // right as they leave it entirely (this whole component unmounting), for the initializers
+    // above to restore on the next visit. Reads nav via a ref (not the nav variable directly)
+    // since this effect's cleanup must see whatever nav most recently was, not whatever it was on
+    // the render this effect itself was set up on - an empty dep array means this only ever sets up
+    // once, so a plain closure over `nav` here would stay stuck on its very first value forever.
+    const navRef = useRef(nav);
+    navRef.current = nav;
+    // Tracked continuously via a scroll listener rather than read from contentRef.current.scrollTop
+    // directly inside the unmount cleanup below - confirmed live (2026-08) that by the time this
+    // effect's cleanup actually runs, it reads back 0 even immediately after manually confirming
+    // the real scrollTop was, say, 800: this is a plain (passive) useEffect, so its cleanup is
+    // deferred until after React has already committed and painted whatever replaced this whole
+    // component (the new page navigated to), by which point .social_Content has already been
+    // detached from the document - a detached element's scrollTop reads as 0 regardless of what it
+    // was before removal. Keeping our own independently-updated copy sidesteps that entirely.
+    const lastKnownScrollTopRef = useRef(0);
+    useEffect(() => {
+        const el = contentRef.current;
+        if (!el) return;
+        lastKnownScrollTopRef.current = el.scrollTop;
+        const onScroll = (): void => {
+            lastKnownScrollTopRef.current = el.scrollTop;
+        };
+        el.addEventListener("scroll", onScroll, { passive: true });
+        return () => el.removeEventListener("scroll", onScroll);
+    }, [contentRef]);
+    useEffect(() => {
+        return () => {
+            saveLastSocialViewState(navRef.current, lastKnownScrollTopRef.current);
+        };
+    }, []);
 
     // Clears the bridge read above - see pendingSocialSection.ts for why this is safe to do from a
     // plain mount effect (unlike consuming it directly in the initializer) despite StrictMode
@@ -853,6 +900,13 @@ export function SocialHomeView(): JSX.Element {
     }, []);
 
     let mainContent: JSX.Element;
+    // Whether whatever's about to render into mainContent handles restoring pendingScrollRestore
+    // itself (SocialRoomView/FeedPane, seeded via their own initialScrollRestore prop below - see
+    // that prop's own doc for why they need to own it rather than the effect further down doing
+    // it from outside). Every other branch (GroupsPane, ProfilePane, the various placeholder/
+    // preview views) has no equivalent live-sync-refresh mechanism of its own to ride, so the
+    // effect further down applies a plain one-shot restore for those instead.
+    const restoreHandledByChild = !!nav.roomId || (nav.section === "feed" && !nav.viewUserId && !nav.roomPreview);
 
     // See resolvingPendingUser's own doc - still-default nav (no roomId/viewUserId/roomPreview yet)
     // while a pending "View Profile" click's own resolution is still in flight shows a neutral
@@ -903,6 +957,7 @@ export function SocialHomeView(): JSX.Element {
                 scrollContainerRef={contentRef}
                 onRoomClick={viewRoom}
                 closeThreadToken={closeThreadToken}
+                initialScrollRestore={pendingScrollRestore ?? undefined}
             />
         ) : (
             <div className="social_ContentEmpty">Room not found.</div>
@@ -927,6 +982,7 @@ export function SocialHomeView(): JSX.Element {
                 onNavigateToProfile={navigateToProfile}
                 closeThreadToken={closeThreadToken}
                 openThreadTarget={openThreadTarget}
+                initialScrollRestore={pendingScrollRestore ?? undefined}
             />
         );
     } else if (nav.section === "groups") {
@@ -971,8 +1027,20 @@ export function SocialHomeView(): JSX.Element {
             ? `room:${nav.roomId}`
             : `section:${nav.section}`;
     useLayoutEffect(() => {
-        if (contentRef.current) contentRef.current.scrollTop = 0;
-    }, [contentIdentity]);
+        const el = contentRef.current;
+        if (!el) return;
+        // SocialRoomView/FeedPane own restoring pendingScrollRestore themselves (via their own
+        // initialScrollRestore prop, seeded from the same source) - this effect only resets to 0
+        // for a genuinely new navigation there, same as always, and otherwise leaves scrollTop
+        // alone entirely rather than fighting whichever of those two's own restore is in flight.
+        if (restoreHandledByChild) {
+            if (pendingScrollRestoreRef.current === null) el.scrollTop = 0;
+            return;
+        }
+        const target = pendingScrollRestoreRef.current;
+        pendingScrollRestoreRef.current = null;
+        el.scrollTop = target ?? 0;
+    }, [contentIdentity, restoreHandledByChild]);
 
     return (
         <MainSplit panel={rightPanel} defaultSize={420} analyticsRoomType="user_profile">
@@ -1138,6 +1206,7 @@ function FeedPane({
     onNavigateToProfile,
     closeThreadToken,
     openThreadTarget,
+    initialScrollRestore,
 }: {
     rooms: Room[];
     myUserId: string;
@@ -1166,6 +1235,11 @@ function FeedPane({
      *  that was previously viewed here, in this exact thread panel, rather than the dedicated room
      *  page - see socialHistoryOrigin.ts) - reopens that post's thread here to match. */
     openThreadTarget: { event: MatrixEvent; room: Room } | null;
+    /** Seeds savedFeedScrollTop below - same purpose and reasoning as SocialRoomView's own
+     *  identical prop (see its doc): a fresh mount restoring a cross-navigation scroll position
+     *  needs to ride the SAME mechanism this component already uses to survive its own scroll
+     *  save/restore, not a separate attempt from the parent. */
+    initialScrollRestore?: number;
 }): JSX.Element {
     const posts = useMemo(() => aggregatePosts(rooms, myUserId, filter), [rooms, myUserId, filter]);
 
@@ -1245,8 +1319,10 @@ function FeedPane({
     // Feed scroll position, saved right before entering a thread and restored once back - see
     // scrollContainerRef's own doc for why the same .social_Content DOM node survives the trip
     // (only its children get swapped), making a plain ref (not React state - no need to re-render
-    // when this changes) enough to carry it across.
-    const savedFeedScrollTop = useRef<number | null>(null);
+    // when this changes) enough to carry it across. Seeded from initialScrollRestore (not always
+    // null) so a fresh mount restoring a cross-navigation scroll position rides this exact
+    // mechanism on its first pass too - see that prop's own doc.
+    const savedFeedScrollTop = useRef<number | null>(initialScrollRestore ?? null);
     const handleViewThread = useCallback(
         (event: MatrixEvent, room: Room) => {
             savedFeedScrollTop.current = scrollContainerRef.current?.scrollTop ?? null;
@@ -1258,10 +1334,40 @@ function FeedPane({
     // the returned-to feed, avoiding a visible flash of "scrolled to top" first.
     useLayoutEffect(() => {
         if (threadView !== null) return;
-        if (savedFeedScrollTop.current !== null && scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTop = savedFeedScrollTop.current;
+        const target = savedFeedScrollTop.current;
+        if (target === null) return;
+        // Falls back to querying .social_Content directly when the ref isn't populated yet - see
+        // SocialRoomView's own identical fallback and its doc for why (confirmed live on the
+        // initialScrollRestore-seeded path specifically, both dev and a real production build).
+        const el = scrollContainerRef.current ?? document.querySelector<HTMLElement>(".social_Content");
+        if (!el) return;
+        el.scrollTop = target;
+        if (Math.abs(el.scrollTop - target) < 2) {
             savedFeedScrollTop.current = null;
+            return;
         }
+        // Not enough yet to reach the saved offset on the very first attempt - the feed's own
+        // Virtuoso list fully unmounts while a thread is open (this whole early-return replaces
+        // it) and remounts fresh once back, and Virtuoso's own initial layout/measurement pass
+        // resets this same scroll parent's scrollTop back to 0 shortly after this effect runs,
+        // in a later pass of its own - confirmed live: this assignment alone visibly "took" for a
+        // moment and then silently reverted. Keep reasserting the target across a few animation
+        // frames until Virtuoso's own settling is done and it actually sticks, same technique (and
+        // same reasoning) as the cross-unmount restore below.
+        let attempts = 0;
+        const retry = (): void => {
+            attempts++;
+            const node = scrollContainerRef.current ?? document.querySelector<HTMLElement>(".social_Content");
+            if (node) {
+                node.scrollTop = target;
+                if (Math.abs(node.scrollTop - target) < 2 || attempts > 30) {
+                    savedFeedScrollTop.current = null;
+                    return;
+                }
+            }
+            requestAnimationFrame(retry);
+        };
+        requestAnimationFrame(retry);
     }, [threadView, scrollContainerRef]);
 
     // Same URL-bar sync as SocialRoomView's own identical effect (see its comment) - a post viewed

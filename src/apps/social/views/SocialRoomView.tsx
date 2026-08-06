@@ -122,6 +122,17 @@ interface Props {
      *  threadView - would keep showing whatever thread was open instead of returning to the plain
      *  profile feed. */
     closeThreadToken?: number;
+    /** Seeds preRefreshScrollTop below so this room's scroll position, if this view is mounting
+     *  fresh as a restore of wherever the user was before leaving Social entirely (see
+     *  lastSocialViewState.ts / SocialHomeView.tsx's own `pendingScrollRestore`), rides along on
+     *  the SAME "preserve scroll across a live-sync-triggered rebuild" mechanism this component
+     *  already needs anyway - rather than a separate restore attempt from the parent fighting that
+     *  mechanism from outside. Confirmed live (2026-08): an active room's own Room.timeline events
+     *  landing shortly after a fresh mount repeatedly re-capture-and-restore scrollTop via that
+     *  existing effect regardless of what anything outside this component does to it in between -
+     *  seeding the same ref this component already trusts is the only restore that reliably
+     *  survives that, since every subsequent live-sync refresh naturally preserves it forward too. */
+    initialScrollRestore?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +215,7 @@ export function SocialRoomView({
     onRoomClick,
     scrollContainerRef,
     closeThreadToken,
+    initialScrollRestore,
 }: Props): JSX.Element {
     const client = useMatrixClientContext();
     const myUserId = client.getUserId() ?? "";
@@ -257,6 +269,22 @@ export function SocialRoomView({
     // post itself displayed fine (its reply count comes from the event's own bundled aggregation,
     // independent of which Room instance is used to look up its Thread).
     const [threadRoom, setThreadRoom] = useState<Room>(room);
+    // Mirrors FeedPane's own identical savedFeedScrollTop in SocialHomeView.tsx - this view's own
+    // scrollContainerRef (.social_Content, passed down from SocialHomeView) never unmounts across
+    // the room-feed <-> thread-view transition below (only this component's own returned JSX
+    // swaps), so its scrollTop can be saved right before opening a thread and restored once back,
+    // rather than resetting to the top the way remounting a whole new view would.
+    const savedRoomScrollTop = useRef<number | null>(null);
+    // useLayoutEffect (not useEffect) so the restored position applies before the browser paints
+    // the returned-to feed, avoiding a visible flash of "scrolled to top" first - same reasoning as
+    // FeedPane's own identical effect.
+    useLayoutEffect(() => {
+        if (threadEvent !== null) return;
+        if (savedRoomScrollTop.current !== null && scrollContainerRef?.current) {
+            scrollContainerRef.current.scrollTop = savedRoomScrollTop.current;
+            savedRoomScrollTop.current = null;
+        }
+    }, [threadEvent, scrollContainerRef]);
     // True only while threadEvent was set by resolving a direct/external link (peekPendingFocusEvent
     // below) - cleared on any regular in-app re-focus (onFocusEvent) so the highlight-and-fade only
     // ever plays once, for the post the link actually pointed at.
@@ -395,10 +423,35 @@ export function SocialRoomView({
     // Snapshot/restore scrollTop around every refresh so a transient shrink never loses it -
     // useLayoutEffect (not useEffect) so the restore applies before the browser paints the
     // shrunk-then-regrown content, avoiding a visible flash back to the top first.
-    const preRefreshScrollTop = useRef<number | null>(null);
+    //
+    // Seeded from initialScrollRestore (not always null) so a fresh mount restoring a
+    // cross-navigation scroll position (see that prop's own doc) rides this exact mechanism on
+    // its very first pass, rather than a separate attempt from the parent that this same effect
+    // would otherwise fight and win against on every subsequent live-sync refresh.
+    const preRefreshScrollTop = useRef<number | null>(initialScrollRestore ?? null);
     useLayoutEffect(() => {
-        if (preRefreshScrollTop.current !== null && scrollContainerRef?.current) {
-            scrollContainerRef.current.scrollTop = preRefreshScrollTop.current;
+        const target = preRefreshScrollTop.current;
+        if (target === null) return;
+        // Falls back to querying .social_Content directly when scrollContainerRef.current isn't
+        // populated yet - confirmed live (2026-08, both dev and a real production build, so not a
+        // StrictMode artifact) that on this specific "fresh mount restoring a saved cross-
+        // navigation position" path, this effect can run at least once while the prop ref is still
+        // null even though the real, singleton .social_Content DOM node already exists in the
+        // document at that exact moment (root cause not fully pinned down - some effect-ordering
+        // subtlety between this component mounting and its ancestor's own ref attachment finishing
+        // - but the DOM node itself is reliably there, so querying for it directly sidesteps
+        // whatever that timing gap actually is). Not needed for the transient-shrink-preservation
+        // case this same ref/effect also serves, since scrollContainerRef is always already
+        // populated well before any real `Room.timeline` refresh can happen post-mount.
+        const el = scrollContainerRef?.current ?? document.querySelector<HTMLElement>(".social_Content");
+        if (!el) return;
+        el.scrollTop = target;
+        // Only actually consumes it once the assignment stuck - this room's own events may still
+        // be loading in on a fresh mount (not enough scrollable height yet to reach `target`),
+        // and there's no separate retry loop here: the next `allEvents` change (guaranteed soon,
+        // as more of this room's history loads in) gives this same effect another pass at it,
+        // same as it already does for the transient-shrink case this mechanism exists for.
+        if (Math.abs(el.scrollTop - target) < 2) {
             preRefreshScrollTop.current = null;
         }
     }, [allEvents, scrollContainerRef]);
@@ -1017,6 +1070,7 @@ export function SocialRoomView({
                                 onNavigateToProfile={onNavigateToProfile}
                                 onRoomClick={onRoomClick}
                                 onViewThread={(e, r) => {
+                                    savedRoomScrollTop.current = scrollContainerRef?.current?.scrollTop ?? null;
                                     setThreadEvent(e);
                                     setThreadRoom(r);
                                 }}
