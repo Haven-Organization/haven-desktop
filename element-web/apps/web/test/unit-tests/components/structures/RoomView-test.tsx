@@ -9,6 +9,7 @@ Please see LICENSE files in the repository root for full details.
 import React, { createRef, type RefObject } from "react";
 import { mocked, type MockedObject } from "jest-mock";
 import {
+    ConditionKind,
     EventTimeline,
     EventType,
     type IEvent,
@@ -16,6 +17,7 @@ import {
     type MatrixClient,
     MatrixError,
     MatrixEvent,
+    PushRuleActionName,
     Room,
     RoomEvent,
     RoomMember,
@@ -42,6 +44,7 @@ import {
     unmockPlatformPeg,
     untilDispatch,
 } from "../../../test-utils";
+import { DEFAULT_PUSH_RULES, makePushRule } from "../../../test-utils/pushRules";
 import { MatrixClientPeg } from "../../../../src/MatrixClientPeg";
 import { Action } from "../../../../src/dispatcher/actions";
 import defaultDispatcher from "../../../../src/dispatcher/dispatcher";
@@ -1178,6 +1181,60 @@ describe("RoomView", () => {
             true,
         );
         expect(stores.rightPanelStore.showOrHidePhase).toHaveBeenCalledWith("MemberList");
+    });
+
+    describe("chat effects", () => {
+        const fireworksEvent = (): MatrixEvent =>
+            mkEvent({
+                event: true,
+                room: room.roomId,
+                user: "@other:example.org",
+                type: "m.room.message",
+                content: {
+                    body: "sends fireworks 🎆",
+                    msgtype: "m.emote",
+                },
+            });
+
+        it("fires for a non-muted room even when the message doesn't bump the notification badge", async () => {
+            // Regression test: a room whose notification settings (a global default like
+            // "messages in group chats: off", or "Mentions & Keywords only") mean an ordinary
+            // message never bumps the notification count used to be enough to silently suppress
+            // chat effects entirely, even though the user is looking right at the room the
+            // message landed in and isn't muted. See handleEffects's own comment for the full
+            // reasoning.
+            room.getUnreadNotificationCount = jest.fn().mockReturnValue(0);
+            room.getRoomUnreadNotificationCount = jest.fn().mockReturnValue(0);
+
+            const instance = await getRoomViewInstance();
+            const dispatchSpy = jest.spyOn(defaultDispatcher, "dispatch");
+
+            (instance as unknown as { handleEffects: (ev: MatrixEvent) => void }).handleEffects(fireworksEvent());
+
+            expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ action: "effects.fireworks" }));
+        });
+
+        it("does not fire for a muted room", async () => {
+            cli.pushRules = {
+                global: {
+                    ...DEFAULT_PUSH_RULES.global,
+                    override: [
+                        ...(DEFAULT_PUSH_RULES.global!.override ?? []),
+                        makePushRule(room.roomId, {
+                            actions: [PushRuleActionName.DontNotify],
+                            conditions: [{ kind: ConditionKind.EventMatch, key: "room_id", pattern: room.roomId }],
+                        }),
+                    ],
+                },
+            };
+
+            const instance = await getRoomViewInstance();
+            const dispatchSpy = jest.spyOn(defaultDispatcher, "dispatch");
+
+            (instance as unknown as { handleEffects: (ev: MatrixEvent) => void }).handleEffects(fireworksEvent());
+
+            expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ action: "effects.fireworks" }));
+        });
     });
 
     describe("when there is a RoomView", () => {

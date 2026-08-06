@@ -145,6 +145,14 @@ import { EventPresentationContextProvider } from "../../utils/EventPresentationC
 
 const DEBUG = false;
 const PREVENT_MULTIPLE_JITSI_WITHIN = 30_000;
+// Haven: MatrixEventEvent.Decrypted fires for every event in the room whenever its decryption
+// completes, with no liveness flag of its own (unlike Room.timeline's data.liveEvent) - onEventDecrypted
+// uses this as a freshness cutoff so chat effects don't fire for old encrypted history that
+// happens to finish decrypting while scrolling/backfilling. Generous enough to cover realistic
+// megolm key-retrieval latency for a genuinely new message (including over federation) without
+// letting real history in - see handleEffects's own doc for why the isUnread-based gate this
+// replaced was wrong for a different reason.
+const EFFECTS_DECRYPTION_FRESHNESS_MS = 10_000;
 let debuglog = function (msg: string): void {};
 
 const BROWSER_SUPPORTS_SANDBOX = "sandbox" in document.createElement("iframe");
@@ -1414,13 +1422,27 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
         if (!this.state.room || !this.state.matrixClientIsReady) return; // not ready at all
         if (ev.getRoomId() !== this.state.room.roomId) return; // not for us
         if (ev.isDecryptionFailure()) return;
+        // Haven: see EFFECTS_DECRYPTION_FRESHNESS_MS's own doc - this listener has no liveness
+        // signal of its own, so age is the only thing standing between "a message that just
+        // arrived and took a moment to decrypt" and "old history scrolled into view".
+        if (Date.now() - ev.getTs() > EFFECTS_DECRYPTION_FRESHNESS_MS) return;
         this.handleEffects(ev);
     };
 
     private handleEffects = (ev: MatrixEvent): void => {
         if (!this.state.room) return;
         const notifState = this.context.roomNotificationStateStore.getRoomState(this.state.room);
-        if (!notifState.isUnread) return;
+        // Haven: was `if (!notifState.isUnread) return`, which conflates "did this bump the
+        // room's notification badge" with "should a cosmetic effect play" - isUnread requires the
+        // room's notification level to be above Activity, which for a message like a plain
+        // "sends fireworks 🎆" m.emote depends entirely on the room's push-rule/notification
+        // settings (Mentions & Keywords only, or even just a global default of "messages in group
+        // chats: off") - none of which have anything to do with whether the user is right now
+        // looking at the room a firework just landed in. Muting is still worth honoring for
+        // something this attention-grabbing (an explicit "don't bother me here" signal), unlike a
+        // notification-count threshold that plenty of normal, non-muted rooms never cross for
+        // ordinary messages.
+        if (notifState.muted) return;
 
         CHAT_EFFECTS.forEach((effect) => {
             if (containsEmoji(ev.getContent(), effect.emojis) || ev.getContent().msgtype === effect.msgType) {
