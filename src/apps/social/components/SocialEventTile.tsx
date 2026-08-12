@@ -1439,9 +1439,19 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             );
         } else if (fileMime.startsWith("video/")) {
             fileNode = (
-                <div className="social_EventTile_mediaWrap" onClick={(e) => e.stopPropagation()}>
+                <div className="social_EventTile_mediaWrap">
+                    {/* stopPropagation lives on the <video> itself, not this wrapper - a narrow/
+                        portrait video (object-fit: contain within a wider column) leaves real dead
+                        space inside the wrapper's own box that isn't actually the player, and that
+                        space should still open the thread like the rest of the card does. */}
                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                    <video src={httpFileUrl} controls className="social_EventTile_video" style={mediaAspectRatioStyle} />
+                    <video
+                        src={httpFileUrl}
+                        controls
+                        className="social_EventTile_video"
+                        style={mediaAspectRatioStyle}
+                        onClick={(e) => e.stopPropagation()}
+                    />
                 </div>
             );
         } else {
@@ -1936,13 +1946,16 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                     />
                                 </div>
                             ) : repostedMime.startsWith("video/") ? (
-                                <div className="social_EventTile_repostCard_media" onClick={(e) => e.stopPropagation()}>
+                                <div className="social_EventTile_repostCard_media">
+                                    {/* stopPropagation lives on the <video> itself - see the plain
+                                        post's own identical comment above for why. */}
                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                                     <video
                                         src={repostedHttpUrl}
                                         controls
                                         className="social_EventTile_repostCard_video"
                                         style={repostedAspectRatioStyle}
+                                        onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>
                             ) : null)}
@@ -2030,13 +2043,16 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                     />
                                 </div>
                             ) : quotedMime.startsWith("video/") ? (
-                                <div className="social_EventTile_repostCard_media" onClick={(e) => e.stopPropagation()}>
+                                <div className="social_EventTile_repostCard_media">
+                                    {/* stopPropagation lives on the <video> itself - see the plain
+                                        post's own identical comment above for why. */}
                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                                     <video
                                         src={quotedHttpUrl}
                                         controls
                                         className="social_EventTile_repostCard_video"
                                         style={quotedAspectRatioStyle}
+                                        onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>
                             ) : null)}
