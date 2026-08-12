@@ -1,0 +1,101 @@
+diff --git a/dist/components/Tooltip/Tooltip.cjs b/dist/components/Tooltip/Tooltip.cjs
+index 2a94492d6b2ace9b3c6453993a921783b87deb66..902879dbeb2d9e2be96a2ff748032f05ced5f344 100644
+--- a/dist/components/Tooltip/Tooltip.cjs
++++ b/dist/components/Tooltip/Tooltip.cjs
+@@ -51,14 +51,19 @@ function Caption() {
+ */
+ function TooltipContent({ children }) {
+ 	const { context: floatingContext, open, arrowRef, purpose, ...rest } = require_TooltipContext.useTooltipContext();
+-	if (!open && purpose !== "label") return null;
++	if (!open && purpose === "label") return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
++		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, require_Tooltip_module.default.invisible),
++		style: { position: "absolute" },
++		children
++	});
++	if (!open) return null;
+ 	const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+ 	return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_floating_ui_react.FloatingPortal, { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+ 		ref: rest.refs.setFloating,
+ 		style: rest.floatingStyles,
+ 		...rest.tooltipProps,
+ 		...rest.getFloatingProps(),
+-		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, { [require_Tooltip_module.default.invisible]: purpose === "label" && !open || escaped }),
++		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, { [require_Tooltip_module.default.invisible]: escaped }),
+ 		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_floating_ui_react.FloatingArrow, {
+ 			ref: arrowRef,
+ 			context: floatingContext,
+diff --git a/dist/components/Tooltip/Tooltip.js b/dist/components/Tooltip/Tooltip.js
+index c06634842361e4c1d112a2685e8dbf16b509febe..7f0f1359fb378ea50d222f2f5c95815537140a64 100644
+--- a/dist/components/Tooltip/Tooltip.js
++++ b/dist/components/Tooltip/Tooltip.js
+@@ -48,14 +48,19 @@ function Caption() {
+ */
+ function TooltipContent({ children }) {
+ 	const { context: floatingContext, open, arrowRef, purpose, ...rest } = useTooltipContext();
+-	if (!open && purpose !== "label") return null;
++	if (!open && purpose === "label") return /* @__PURE__ */ jsx("span", {
++		className: classNames(Tooltip_module_default.tooltip, Tooltip_module_default.invisible),
++		style: { position: "absolute" },
++		children
++	});
++	if (!open) return null;
+ 	const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+ 	return /* @__PURE__ */ jsx(FloatingPortal, { children: /* @__PURE__ */ jsxs("div", {
+ 		ref: rest.refs.setFloating,
+ 		style: rest.floatingStyles,
+ 		...rest.tooltipProps,
+ 		...rest.getFloatingProps(),
+-		className: classNames(Tooltip_module_default.tooltip, { [Tooltip_module_default.invisible]: purpose === "label" && !open || escaped }),
++		className: classNames(Tooltip_module_default.tooltip, { [Tooltip_module_default.invisible]: escaped }),
+ 		children: [/* @__PURE__ */ jsx(FloatingArrow, {
+ 			ref: arrowRef,
+ 			context: floatingContext,
+diff --git a/src/components/Tooltip/Tooltip.tsx b/src/components/Tooltip/Tooltip.tsx
+index 09805ea8fd565aa852bdb52fcc4b1223baaa48a1..4635d35f7babbe5d3c04ea74f8660d04b374001f 100644
+--- a/src/components/Tooltip/Tooltip.tsx
++++ b/src/components/Tooltip/Tooltip.tsx
+@@ -124,8 +124,33 @@ function TooltipContent({
+     ...rest
+   } = useTooltipContext();
+ 
+-  // Label tooltips are kept in the DOM even when not visually open
+-  if (!open && purpose !== "label") return null;
++  // Label tooltips need a stable, always-present element for aria-labelledby to keep resolving
++  // even while closed - but that doesn't require the full floating-positioned apparatus. Render a
++  // plain, non-floating copy while closed instead of the real FloatingPortal/refs.setFloating-
++  // connected node: floating-ui's `whileElementsMounted: autoUpdate` (see useTooltip.ts) only
++  // starts once BOTH the reference and floating elements are mounted, so never attaching
++  // `refs.setFloating` here means autoUpdate's own scroll/resize-driven position recalculation
++  // never runs for a tooltip nobody is looking at. Previously this rendered the real floating node
++  // (just visually clipped) unconditionally for every label tooltip for as long as it stayed
++  // mounted, each one independently recomputing its position on every scroll - cheap for one
++  // tooltip, expensive once dozens are mounted at once (e.g. a feed of many posts, each with
++  // several icon-only action buttons).
++  if (!open && purpose === "label") {
++    // position: absolute takes this out of normal document flow, same as the real FloatingPortal
++    // node effectively was (portaled to document.body, so never a layout sibling of its own
++    // trigger). Without this, this placeholder - clipped to zero *visible* area but not zero
++    // *layout* area - was still a real flex sibling wherever the tooltip's trigger sits, inflating
++    // any flex row it's in by its own text content's width (found 2026-08-11: room list hover
++    // menu buttons, each wrapped in a label tooltip via IconButton's `tooltip` prop, were
++    // overflowing their row and squeezing the room name down to zero width).
++    return (
++      <span className={classNames(styles.tooltip, styles.invisible)} style={{ position: "absolute" }}>
++        {children}
++      </span>
++    );
++  }
++
++  if (!open) return null;
+ 
+   // Hide the tooltip if it has escaped its boundary (when `boundary` prop is set)
+   const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+@@ -138,7 +163,7 @@ function TooltipContent({
+         {...rest.tooltipProps}
+         {...rest.getFloatingProps()}
+         className={classNames(styles.tooltip, {
+-          [styles.invisible]: (purpose === "label" && !open) || escaped,
++          [styles.invisible]: escaped,
+         })}
+       >
+         <FloatingArrow
