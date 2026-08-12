@@ -625,6 +625,7 @@ export function SocialHomeView(): JSX.Element {
                 // before, so it isn't immediately wiped out by that same clear.
                 viewRoom(room.roomId);
                 setPendingFocusEvent(event);
+                setFocusEventToken((t) => t + 1);
             });
             return true;
         }
@@ -666,6 +667,11 @@ export function SocialHomeView(): JSX.Element {
     // props. Bumped (not booleaned) so two consecutive resets each still register as a change even
     // if nothing else about the props differs.
     const [closeThreadToken, setCloseThreadToken] = useState(0);
+
+    // Bumped every time consumePendingPost below sets a new pendingFocusEvent - see
+    // focusEventToken's own doc on SocialRoomView's Props for why `room` alone isn't a reliable
+    // enough dependency for that component's own consuming effect to react to.
+    const [focusEventToken, setFocusEventToken] = useState(0);
 
     // Set once a pendingFeedThread resolves (see below) - passed down to FeedPane so it can reopen
     // its own thread panel for this exact post, the same way clicking it there would. A plain object
@@ -957,6 +963,7 @@ export function SocialHomeView(): JSX.Element {
                 scrollContainerRef={contentRef}
                 onRoomClick={viewRoom}
                 closeThreadToken={closeThreadToken}
+                focusEventToken={focusEventToken}
                 initialScrollRestore={pendingScrollRestore ?? undefined}
             />
         ) : (

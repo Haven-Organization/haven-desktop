@@ -122,6 +122,16 @@ interface Props {
      *  threadView - would keep showing whatever thread was open instead of returning to the plain
      *  profile feed. */
     closeThreadToken?: number;
+    /** Bumped by SocialHomeView every time it sets a new pendingFocusEvent (see permalinkRouting.ts
+     *  -> consumePendingPost) - added to the pendingFocusEvent effect's own dependency array below
+     *  so a second click on the exact same post's matrix.to link still opens it. Without this: if
+     *  nav.roomId already pointed at this same room (e.g. restored via lastSocialViewState.ts from
+     *  wherever the user was before leaving Social entirely - the same room this new link also
+     *  targets), this component was already mounted by the time the newly-resolved event landed, so
+     *  its `[room]`-only effect below never re-ran to pick it up - `room` itself (the same Room
+     *  instance from client.getRoom) hadn't changed, only pendingFocusEvent's own module-level
+     *  value had, which by itself isn't something React can react to. */
+    focusEventToken?: number;
     /** Seeds preRefreshScrollTop below so this room's scroll position, if this view is mounting
      *  fresh as a restore of wherever the user was before leaving Social entirely (see
      *  lastSocialViewState.ts / SocialHomeView.tsx's own `pendingScrollRestore`), rides along on
@@ -215,6 +225,7 @@ export function SocialRoomView({
     onRoomClick,
     scrollContainerRef,
     closeThreadToken,
+    focusEventToken,
     initialScrollRestore,
 }: Props): JSX.Element {
     const client = useMatrixClientContext();
@@ -390,7 +401,9 @@ export function SocialRoomView({
         setThreadEvent(event);
         setThreadRoom(room);
         setHighlightThreadEvent(true);
-    }, [room]);
+        // focusEventToken is intentionally in the deps below even though it's otherwise unused in
+        // this body - see its own doc on Props for why `[room]` alone isn't enough.
+    }, [room, focusEventToken]);
 
     // Auto-accept an invite that arrives while viewing this knock-access page directly with no
     // specific post in mind (e.g. clicked through to this profile/group from a user's name/avatar,
