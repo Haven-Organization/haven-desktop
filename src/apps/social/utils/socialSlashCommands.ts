@@ -47,8 +47,13 @@ export type SlashCommandResult =
  * is the more faithful match for what Social's composer actually is. Respects
  * MessageComposerInput.useMarkdown the same way stock does - if the user has turned markdown off
  * globally, Social's own posts shouldn't start markdown-ifying either.
+ *
+ * Exported (not just used internally by processSlashCommand) so social-actions.ts's
+ * buildMediaMessageContent can run a media post's caption through the same conversion - captions
+ * never go through processSlashCommand itself (a media caption isn't a command), but still need
+ * markdown/greentext formatting like any other post body.
  */
-function applyMarkdownAndEmote(message: string): { body: string; formattedBody?: string; isEmote: boolean } {
+export function applyMarkdownAndEmote(message: string): { body: string; formattedBody?: string; isEmote: boolean } {
     let isEmote = false;
     if (message.startsWith(EMOTE_PREFIX)) {
         isEmote = true;

@@ -25,6 +25,7 @@ import {
 } from "./room-classifier";
 import { markPendingLeave } from "./pendingRoomLeave";
 import { resolveThreadRootId } from "./thread-relations";
+import { applyMarkdownAndEmote } from "./socialSlashCommands";
 
 /** Dispatched whenever the user's MSC4501 profile_room_id link is set or cleared, so any mounted
  *  component with its own cached copy (e.g. useProfileRoomLink) knows to re-fetch it — needed
@@ -298,14 +299,27 @@ export async function buildMediaMessageContent(
     caption: string,
 ): Promise<Record<string, unknown>> {
     const filename = file.name || "attachment";
+    const trimmedCaption = caption.trim();
     const info: Record<string, unknown> = { size: file.size };
     if (file.type) info.mimetype = file.type;
     const content: Record<string, unknown> = {
-        body: caption.trim() || filename,
+        body: trimmedCaption || filename,
         filename,
         msgtype: "m.file",
         info,
     };
+    // A caption is a real post body like any other - it should get the same markdown/greentext
+    // treatment a text-only post gets (see applyMarkdownAndEmote's own doc for why this is exported
+    // from socialSlashCommands.ts rather than defined here). Skipped entirely for an empty caption
+    // (body falls back to the filename above, which was never meant to be markdown-processed).
+    if (trimmedCaption) {
+        const formatted = applyMarkdownAndEmote(trimmedCaption);
+        content.body = formatted.body;
+        if (formatted.formattedBody) {
+            content.format = "org.matrix.custom.html";
+            content.formatted_body = formatted.formattedBody;
+        }
+    }
 
     try {
         if (file.type.startsWith("image/")) {

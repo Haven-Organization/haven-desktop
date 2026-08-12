@@ -10,6 +10,7 @@ import React, { type JSX, useCallback } from "react";
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import { sendPost } from "../utils/social-actions";
+import { processSlashCommand } from "../utils/socialSlashCommands";
 import { PostComposerDialog } from "./PostComposerDialog";
 
 interface Props {
@@ -28,7 +29,18 @@ interface Props {
 export function PostDialog({ client, onFinished, initialBody, initialRoomId, initialFile }: Props): JSX.Element {
     const handleSubmit = useCallback(
         async (body: string, targetRoomId: string, file?: File): Promise<void> => {
-            await sendPost(client, targetRoomId, body, undefined, file);
+            // Same media-skips-slash-commands reasoning as the inline composers (SocialHomeView.tsx/
+            // SocialRoomView.tsx) - a caption isn't a command, but buildMediaMessageContent still runs
+            // it through markdown/greentext formatting on its own.
+            if (file) {
+                await sendPost(client, targetRoomId, body, undefined, file);
+                return;
+            }
+            const result = await processSlashCommand(client, targetRoomId, body);
+            if (!result.handled) {
+                await sendPost(client, targetRoomId, result.body, result.formattedBody, undefined, result.isEmote);
+            }
+            // handled (ran as a command, or declined/errored) - nothing left to post.
         },
         [client],
     );
