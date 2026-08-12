@@ -458,13 +458,29 @@ export function SocialRoomView({
         // populated well before any real `Room.timeline` refresh can happen post-mount.
         const el = scrollContainerRef?.current ?? document.querySelector<HTMLElement>(".social_Content");
         if (!el) return;
-        el.scrollTop = target;
-        // Only actually consumes it once the assignment stuck - this room's own events may still
-        // be loading in on a fresh mount (not enough scrollable height yet to reach `target`),
-        // and there's no separate retry loop here: the next `allEvents` change (guaranteed soon,
-        // as more of this room's history loads in) gives this same effect another pass at it,
-        // same as it already does for the transient-shrink case this mechanism exists for.
-        if (Math.abs(el.scrollTop - target) < 2) {
+        // Only reapply `target` when the browser's own post-render value has actually dropped
+        // below it - i.e. a genuine clamp happened because content transiently shrank. Previously
+        // this assigned unconditionally on every `allEvents` change, which fixed the original
+        // shrink-clamp case but introduced a new bug (found 2026-08-11): `refresh()` below
+        // captures scrollTop synchronously the instant a live Room.timeline/localEchoUpdated event
+        // fires, but this effect doesn't actually run until after React finishes rendering the
+        // resulting state change - a gap of one or more frames. A user actively scrolling down
+        // during that gap (e.g. more of the room's history/images backfilling in while they
+        // scroll) ends up somewhere further down than `target` by the time this runs, and an
+        // unconditional reassignment was yanking them straight back to the older, now-stale
+        // captured position - "scrolling back up" while content loads. Content that shrank for
+        // real still clamps `el.scrollTop` below `target` on its own (that's what triggers the
+        // browser's clamp in the first place), so this still catches the case it was built for.
+        if (el.scrollTop < target) {
+            el.scrollTop = target;
+        }
+        // Only actually consumes it once the assignment stuck (or wasn't needed because we're
+        // already at/past it) - this room's own events may still be loading in on a fresh mount
+        // (not enough scrollable height yet to reach `target`), and there's no separate retry loop
+        // here: the next `allEvents` change (guaranteed soon, as more of this room's history loads
+        // in) gives this same effect another pass at it, same as it already does for the
+        // transient-shrink case this mechanism exists for.
+        if (Math.abs(el.scrollTop - target) < 2 || el.scrollTop > target) {
             preRefreshScrollTop.current = null;
         }
     }, [allEvents, scrollContainerRef]);
