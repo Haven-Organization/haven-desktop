@@ -61,7 +61,8 @@
     },
     "emoji_picker": {
         "cancel_search_label": "Cancel search",
-        "emoji_picker": "Emoji picker"
+        "emoji_picker": "Emoji picker",
+        "open_settings": "Open settings"
     },
     "keyboard": {
         "shift": "Shift"

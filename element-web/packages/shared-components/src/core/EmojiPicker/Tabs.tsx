@@ -9,6 +9,7 @@
 
 import React, { useCallback, useRef } from "react";
 import classNames from "classnames";
+import SettingsIcon from "@vector-im/compound-design-tokens/assets/web/icons/settings";
 
 import { _t } from "../i18n/i18n";
 import { RovingAction, type RovingTabIndexProviderProps } from "../roving";
@@ -45,6 +46,12 @@ interface Props {
      * When omitted, a default mapping based on `KeyboardEvent.key` is used.
      */
     getAction?: RovingTabIndexProviderProps["getAction"];
+    /**
+     * Haven: when given, renders a trailing settings button below the category list (e.g. to open
+     * pack/sticker settings) - restored after the upstream merge that introduced this component
+     * dropped it. Omit to render no settings button at all.
+     */
+    onOpenSettings?: () => void;
 }
 
 const getDefaultAction = (ev: React.KeyboardEvent): RovingAction | undefined => {
@@ -72,6 +79,7 @@ export const Tabs: React.FC<Props> = ({
     onAnchorClick,
     pickerBodyId,
     getAction,
+    onOpenSettings,
 }) => {
     const findNearestEnabled = useCallback(
         (index: number, delta: number): number | undefined => {
@@ -186,6 +194,19 @@ export const Tabs: React.FC<Props> = ({
                     </button>
                 );
             })}
+            {onOpenSettings && (
+                <button
+                    type="button"
+                    className={styles.anchor}
+                    onClick={onOpenSettings}
+                    title={_t("emoji_picker|open_settings")}
+                    role="tab"
+                    aria-selected={false}
+                    tabIndex={-1}
+                >
+                    <SettingsIcon width="16px" height="16px" />
+                </button>
+            )}
         </nav>
     );
 };

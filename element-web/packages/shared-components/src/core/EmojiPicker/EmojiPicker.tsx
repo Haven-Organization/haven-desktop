@@ -164,6 +164,11 @@ export interface EmojiPickerProps {
      */
     getAction?: RovingTabIndexProviderProps["getAction"];
     /**
+     * Haven: when given, renders a trailing settings button below the category rail - see Tabs.tsx's
+     * own doc for why this was reintroduced.
+     */
+    onOpenSettings?: () => void;
+    /**
      * Whether to show the quick reactions at the bottom of the picker. Defaults to true.
      * Previews of emoji are displayed in the same bar as will also be hidden when this is false.
      */
@@ -288,6 +293,7 @@ export function EmojiPicker({
     recentEmojis,
     onRecordRecent,
     getAction,
+    onOpenSettings,
     showQuickReactions = true,
     extraCategories,
     dataByExtraCategory,
@@ -606,6 +612,7 @@ export function EmojiPicker({
                         onAnchorClick={scrollToCategory}
                         pickerBodyId={pickerBodyId}
                         getAction={getAction}
+                        onOpenSettings={onOpenSettings}
                     />
                     {/* Haven: everything but the rail (Tabs above) stacked in its own column - see
                         .main/.picker's own doc in EmojiPicker.module.css. */}

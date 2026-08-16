@@ -251,6 +251,7 @@ export function HavenEmojiPicker({
             onFinished={onFinished}
             isEmojiDisabled={isEmojiDisabled}
             getAction={getWebRovingAction}
+            onOpenSettings={onOpenSettings}
             recentEmojis={stickerMode ? undefined : recentEmojis}
             onRecordRecent={recent.add}
             showQuickReactions={showQuickReactions ?? !stickerMode}
