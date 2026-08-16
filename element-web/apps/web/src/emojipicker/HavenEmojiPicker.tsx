@@ -67,6 +67,14 @@ interface IProps {
     disableCustomEmoji?: boolean;
 }
 
+/** Haven: the grid cell a pack emoji/sticker actually renders into (see EmojiPicker.module.css's
+ *  own .itemWrapper/.itemWrapperSticker) - used to request a properly-sized thumbnail rather than
+ *  the original image (see buildPackCategories' own imageUrl doc for why this matters). A little
+ *  larger than the CSS box itself for a bit of headroom; getSquareThumbnailHttp already accounts
+ *  for devicePixelRatio on top of this. */
+const EMOJI_IMAGE_SIZE = 32;
+const STICKER_IMAGE_SIZE = 76;
+
 function buildPackCategories(
     room: Room | undefined,
     usage: ImagePackUsage,
@@ -92,9 +100,19 @@ function buildPackCategories(
             manageRoomId: manageable ? pack.roomId : undefined,
             manageStateKey: manageable ? pack.stateKey : undefined,
         } as Category & { manageRoomId?: string; manageStateKey?: string });
+        const imageSize = usage === "sticker" ? STICKER_IMAGE_SIZE : EMOJI_IMAGE_SIZE;
         dataByCategory[id] = imagesForUsage(pack, usage).map(({ shortcode, image }) => {
             const custom = makeCustomEmoji(shortcode, image.url, name, pack.roomId, pack.stateKey, image.info);
-            return { ...custom, imageUrl: mediaFromMxc(image.url, room.client).srcHttp ?? undefined };
+            // Haven: was .srcHttp (the original, full-resolution image) - for a grid of dozens/
+            // hundreds of tiny cells that's a lot of unnecessary decode work piling up as the
+            // picker scrolls and mounts more of them, easily enough to exhaust the renderer's heap
+            // for an account with many favorited packs. A properly-sized server-side thumbnail is
+            // what this cell actually needs.
+            const media = mediaFromMxc(image.url, room.client);
+            return {
+                ...custom,
+                imageUrl: media.getSquareThumbnailHttp(imageSize) ?? media.srcHttp ?? undefined,
+            };
         });
     }
 
