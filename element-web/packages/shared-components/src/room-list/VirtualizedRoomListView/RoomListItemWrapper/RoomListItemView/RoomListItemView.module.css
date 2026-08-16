@@ -16,6 +16,13 @@
     cursor: pointer;
     width: 100%;
 
+    /* A closed label-tooltip's accessibility placeholder (see the compound-web patch) is
+       position: absolute with this as its containing block, sized to its own text rather than
+       clipped to the row - clip it here so it can never poke past the row's own right edge into
+       the list's scrollable area (see .roomList's own overflow-x: hidden for the other half of
+       this fix). */
+    overflow: hidden;
+
     /* Gap between items, accounted for in ROOM_LIST_ITEM_HEIGHT */
     --padding-top: var(--cpd-space-1x);
     --padding-bottom: var(--cpd-space-1x);

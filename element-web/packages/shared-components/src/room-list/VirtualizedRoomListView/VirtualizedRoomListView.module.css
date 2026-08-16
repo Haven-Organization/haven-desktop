@@ -10,4 +10,12 @@
  */
 .roomList {
     width: 100%;
+    /* This className lands on react-virtuoso's own Scroller element, which only ever sets
+       overflow-y inline - never overflow-x. Per the CSS Overflow spec, a non-visible overflow-y
+       with no explicit overflow-x computes the latter as auto too, so ANY stray horizontal
+       overflow inside the list (even a couple of px from an absolutely-positioned element like a
+       closed tooltip's accessibility placeholder - see the compound-web patch) silently grows a
+       real horizontal scrollbar. Force it off explicitly rather than relying on content never
+       overflowing by even a pixel. */
+    overflow-x: hidden;
 }
