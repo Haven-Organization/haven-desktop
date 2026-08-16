@@ -10,7 +10,6 @@ Please see LICENSE files in the repository root for full details.
 import React from "react";
 import { type MatrixEvent, EventType, RelationType, type Relations, RelationsEvent } from "matrix-js-sdk/src/matrix";
 
-import EmojiPicker from "./EmojiPicker";
 import { type CustomEmojiChoice } from "./customEmoji";
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
 import dis from "../../../dispatcher/dispatcher";
@@ -19,6 +18,7 @@ import RoomContext from "../../../contexts/RoomContext";
 import { type FocusComposerPayload } from "../../../dispatcher/payloads/FocusComposerPayload";
 import { REACTION_SHORTCODE_KEY } from "../../../viewmodels/room/timeline/event-tile/reactions/reactionShortcode";
 import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacks } from "../../../utils/imageSourcePacks";
+import { HavenEmojiPicker } from "../../../emojipicker/HavenEmojiPicker";
 
 interface IProps {
     mxEvent: MatrixEvent;
@@ -105,7 +105,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
         if (myReactions.hasOwnProperty(key)) {
             if (this.props.mxEvent.isRedacted() || !this.context.canSelfRedact) return false;
 
-            MatrixClientPeg.safeGet().redactEvent(this.props.mxEvent.getRoomId()!, myReactions[key]);
+            void MatrixClientPeg.safeGet().redactEvent(this.props.mxEvent.getRoomId()!, myReactions[key]);
             dis.dispatch<FocusComposerPayload>({
                 action: Action.FocusAComposer,
                 context: this.context.timelineRenderingType,
@@ -133,7 +133,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
                 ...(Object.keys(imageSourcePacks).length > 0 ? { [IMAGE_SOURCE_PACKS_KEY]: imageSourcePacks } : {}),
             };
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            client.sendEvent(this.props.mxEvent.getRoomId()!, EventType.Reaction, content as any);
+            void client.sendEvent(this.props.mxEvent.getRoomId()!, EventType.Reaction, content as any);
             this.props.onReact?.();
             dis.dispatch({ action: "message_sent" });
             dis.dispatch<FocusComposerPayload>({
@@ -157,7 +157,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
         // all (see EmojiPicker's own IProps.mode doc), so ReactionPicker never even offers it.
         const room = MatrixClientPeg.safeGet().getRoom(this.props.mxEvent.getRoomId());
         return (
-            <EmojiPicker
+            <HavenEmojiPicker
                 onChoose={this.onChoose}
                 isEmojiDisabled={this.isEmojiDisabled}
                 onFinished={this.props.onFinished}

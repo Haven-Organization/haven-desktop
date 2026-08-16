@@ -10,7 +10,7 @@ import React, { type JSX } from "react";
 import classNames from "classnames";
 
 import { RovingAccessibleButton } from "../../accessibility/RovingTabIndex";
-import NotificationBadge from "../../components/views/rooms/NotificationBadge";
+import { NotificationBadge } from "../../components/views/rooms/NotificationBadge/NotificationBadge";
 import { type NotificationState } from "../../stores/notifications/NotificationState";
 import { type ButtonEvent } from "../../components/views/elements/AccessibleButton";
 import useHover from "../hooks/useHover";

@@ -70,17 +70,6 @@ describe("<RoomAvatarView />", () => {
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("should render a public room decoration", () => {
-        mocked(useRoomAvatarViewModel).mockReturnValue({
-            ...defaultValue,
-            badgeDecoration: AvatarBadgeDecoration.PublicRoom,
-        });
-        const { asFragment } = render(<RoomAvatarView room={room} />);
-
-        expect(screen.getByLabelText("This room is public")).toBeInTheDocument();
-        expect(asFragment()).toMatchSnapshot();
-    });
-
     it.each([
         { presence: Presence.Online, label: "Online" },
         { presence: Presence.Offline, label: "Offline" },

@@ -647,7 +647,7 @@ export default class RoomListStoreV3 {
     public static get instance(): RoomListStoreV3Class {
         if (!RoomListStoreV3.internalInstance) {
             const instance = new RoomListStoreV3Class(defaultDispatcher);
-            instance.start();
+            void instance.start();
             RoomListStoreV3.internalInstance = instance;
         }
 

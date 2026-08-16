@@ -228,7 +228,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
 
     public componentDidMount(): void {
         const cli = MatrixClientPeg.safeGet();
-        checkUserIsAllowedToChangeEncryption(cli, Preset.PrivateChat).then(({ allowChange, forcedValue }) =>
+        void checkUserIsAllowedToChangeEncryption(cli, Preset.PrivateChat).then(({ allowChange, forcedValue }) =>
             this.setState((state) => ({
                 canChangeEncryption: allowChange,
                 // override with forcedValue if it is set
@@ -244,7 +244,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         const action = getKeyBindingsManager().getAccessibilityAction(event);
         switch (action) {
             case KeyBindingAction.Enter:
-                this.onOk();
+                void this.onOk();
                 event.preventDefault();
                 event.stopPropagation();
                 break;

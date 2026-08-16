@@ -195,7 +195,7 @@ export class RoomUploadViewModel
         if (![TimelineRenderingType.Room, TimelineRenderingType.Thread].includes(this.timelineRenderingType)) {
             throw new Error("TimelineRenderingType must be Room or Thread");
         }
-        fn(
+        void fn(
             this.room.roomId,
             {
                 view: this.timelineRenderingType === TimelineRenderingType.Room ? "room" : "thread",
@@ -318,7 +318,7 @@ export function RoomUploadContextProvider({
                 timelineRenderingType,
                 threadRelation,
             );
-            vm.initiateViaInputFiles(fileInsert.files);
+            void vm.initiateViaInputFiles(fileInsert.files);
         }
     });
 

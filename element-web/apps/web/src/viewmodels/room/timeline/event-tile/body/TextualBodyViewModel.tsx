@@ -9,7 +9,6 @@ import React, { type MouseEvent } from "react";
 import { MatrixEventEvent, MsgType, User, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import {
     BaseViewModel,
-    LINKIFIED_DATA_ATTRIBUTE,
     TextualBodyViewBodyWrapperKind,
     TextualBodyViewKind,
     type TextualBodyViewModel as TextualBodyViewModelInterface,
@@ -281,10 +280,6 @@ export class TextualBodyViewModel
     public onRootClick = (event: MouseEvent<HTMLDivElement>): void => {
         let target: HTMLLinkElement | null = event.target as HTMLLinkElement;
 
-        if (target.dataset?.[LINKIFIED_DATA_ATTRIBUTE]) {
-            return;
-        }
-
         if (target.nodeName !== "A") {
             target = target.closest<HTMLLinkElement>("a");
         }
@@ -347,7 +342,7 @@ export class TextualBodyViewModel
 
         const integrationManager = managers.getPrimaryManager();
         const scalarClient = integrationManager?.getScalarClient();
-        scalarClient?.connect().then(() => {
+        void scalarClient?.connect().then(() => {
             const completeUrl = scalarClient.getStarterLink(starterLink);
             const integrationsUrl = integrationManager!.uiUrl;
             const { finished } = Modal.createDialog(QuestionDialog, {
@@ -356,7 +351,7 @@ export class TextualBodyViewModel
                 button: _t("action|continue"),
             });
 
-            finished.then(([confirmed]) => {
+            return finished.then(([confirmed]) => {
                 if (!confirmed) {
                     return;
                 }

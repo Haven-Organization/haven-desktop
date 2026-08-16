@@ -26,7 +26,7 @@ import DecoratedRoomAvatar from "../../components/views/avatars/DecoratedRoomAva
 import { RoomNotifState } from "../../RoomNotifs";
 import { MatrixClientPeg } from "../../MatrixClientPeg";
 import { RoomNotificationContextMenu } from "../../components/views/context_menus/RoomNotificationContextMenu";
-import NotificationBadge from "../../components/views/rooms/NotificationBadge";
+import { NotificationBadge } from "../../components/views/rooms/NotificationBadge/NotificationBadge";
 import { type ActionPayload } from "../../dispatcher/payloads";
 import { RoomNotificationStateStore } from "../../stores/notifications/RoomNotificationStateStore";
 import { type NotificationState, NotificationStateEvents } from "../../stores/notifications/NotificationState";
@@ -405,7 +405,7 @@ class RoomTile extends React.PureComponent<Props, State> {
             // aria-hidden because we summarise the unread count/highlight status in a manual aria-label below
             badge = (
                 <div className="mx_RoomTile_badgeContainer" aria-hidden="true">
-                    <NotificationBadge notification={this.notificationState} roomId={this.props.room.roomId} />
+                    <NotificationBadge notification={this.notificationState} />
                 </div>
             );
         }

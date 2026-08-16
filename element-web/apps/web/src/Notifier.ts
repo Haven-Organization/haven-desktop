@@ -371,12 +371,12 @@ export default class Notifier extends TypedEventEmitter<keyof EmittedEvents, Emi
         // make sure that we persist the current setting audio_enabled setting
         // before changing anything
         if (SettingsStore.isLevelSupported(SettingLevel.DEVICE)) {
-            SettingsStore.setValue("audioNotificationsEnabled", null, SettingLevel.DEVICE, this.isEnabled());
+            void SettingsStore.setValue("audioNotificationsEnabled", null, SettingLevel.DEVICE, this.isEnabled());
         }
 
         if (enable) {
             // Attempt to get permission from user
-            plaf.requestNotificationPermission().then((result) => {
+            void plaf.requestNotificationPermission().then((result) => {
                 if (result !== "granted") {
                     // The permission request was dismissed or denied
                     // TODO: Support alternative branding in messaging
@@ -491,7 +491,7 @@ export default class Notifier extends TypedEventEmitter<keyof EmittedEvents, Emi
 
         // wait for first non-cached sync to complete
         if (![SyncState.Stopped, SyncState.Error].includes(state) && !data?.fromCache) {
-            createLocalNotificationSettingsIfNeeded(this.sdkContext.client);
+            void createLocalNotificationSettingsIfNeeded(this.sdkContext.client);
         }
     };
 
@@ -509,7 +509,7 @@ export default class Notifier extends TypedEventEmitter<keyof EmittedEvents, Emi
         if (ev.getSender() === this.sdkContext.client.getUserId()) return;
         if (data.timeline.getTimelineSet().threadListType !== null) return; // Ignore events on the thread list generated timelines
 
-        this.sdkContext.client.decryptEventIfNeeded(ev);
+        void this.sdkContext.client.decryptEventIfNeeded(ev);
 
         // If it's an encrypted event and the type is still 'm.room.encrypted',
         // it hasn't yet been decrypted, so wait until it is.
@@ -586,7 +586,7 @@ export default class Notifier extends TypedEventEmitter<keyof EmittedEvents, Emi
             }
             if (actions.tweaks.sound && this.isAudioEnabled()) {
                 PlatformPeg.get()?.loudNotification(ev, room);
-                this.playAudioNotification(ev, room);
+                void this.playAudioNotification(ev, room);
             }
         }
     }

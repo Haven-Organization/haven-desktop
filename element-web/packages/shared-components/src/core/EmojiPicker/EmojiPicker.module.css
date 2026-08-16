@@ -1,0 +1,284 @@
+/*
+ * Copyright 2026 Element Creations Ltd.
+ * Copyright 2019 Tulir Asokan <tulir@maunium.net>
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+.picker {
+    /* Haven: 340px base (the 8-per-row grid, see .row's own doc) plus the 44px rail and its 1px
+       border - see .header below. */
+    width: 385px;
+    height: min(450px, 80vh);
+    max-height: 80vh;
+
+    border-radius: 4px;
+
+    /* Haven: rail (.header) on the left, everything else (search/body/footer) stacked in a column
+       to its right via .main. */
+    display: flex;
+    flex-direction: row;
+}
+
+.main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.body {
+    margin-left: var(--cpd-space-1-5x);
+    flex: 1;
+    overflow-y: scroll;
+}
+
+/* Haven: a vertical category rail rather than a horizontal tab bar - a narrow icon strip, not a
+   content area with a scroll position worth showing a track/thumb for, so it stays scrollable
+   (wheel/trackpad/drag) without a visible scrollbar rendered over it. */
+.header {
+    flex-shrink: 0;
+    width: 44px;
+    padding: var(--cpd-space-2x) var(--cpd-space-1x);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    overflow-y: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    border-right: 1px solid var(--cpd-color-gray-400);
+}
+
+.anchor {
+    border: none;
+    /* Haven: was a horizontal tab bar (border-bottom underline for the active one) - now a
+       vertical rail, so the "active" indicator moves to a left-edge bar instead. */
+    border-left: 2px solid transparent;
+    padding: var(--cpd-space-1x) 0;
+    /* We have to explicitly inherit the font as button browser styles are implicitly ignorant */
+    font: inherit;
+    font-size: var(--cpd-font-size-heading-sm);
+    line-height: 1;
+    background-color: transparent;
+    border-radius: 4px;
+
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+
+    color: var(--cpd-color-text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /*
+     * These have 'text' in them because they're emoji, but it doesn't make sense for the user
+     * to be able to select it
+     */
+    user-select: none;
+
+    &:not(:disabled) {
+        cursor: pointer;
+    }
+
+    &:disabled {
+        filter: opacity(0.3);
+    }
+
+    &:not(:disabled):hover {
+        background-color: var(--cpd-color-bg-subtle-primary);
+        border-left: 2px solid var(--cpd-color-text-action-accent);
+    }
+}
+
+.anchorSelected {
+    border-left: 2px solid var(--cpd-color-text-action-accent);
+}
+
+.search {
+    margin: 8px;
+    border-radius: 4px;
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
+    background-color: var(--cpd-color-bg-canvas-default);
+    display: flex;
+
+    input {
+        flex: 1;
+        border: none;
+        padding: var(--cpd-space-1x) var(--cpd-space-3x);
+        border-radius: 4px 0;
+
+        &::placeholder {
+            color: var(--cpd-color-text-secondary);
+        }
+    }
+
+    button {
+        border: none;
+        background-color: inherit;
+        margin: 0;
+        padding: var(--cpd-space-2x);
+        align-self: center;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+
+.searchIcon {
+    width: 18px;
+    margin: var(--cpd-space-2x);
+
+    svg {
+        width: 100%;
+        height: 100%;
+        color: var(--cpd-color-text-primary);
+    }
+}
+
+.category {
+    padding: 0 var(--cpd-space-3x);
+}
+
+.categoryLabel {
+    width: 304px;
+    font: var(--cpd-font-heading-sm-semibold);
+}
+
+.list {
+    padding: 0;
+    margin: 0;
+}
+
+/* A single row of emoji within the grid. Fixed to the width of EMOJIS_PER_ROW
+   cells so the row never wraps, offset to align with the category headers. */
+.row {
+    width: 304px;
+    margin: 0 var(--cpd-space-3x);
+}
+
+.itemWrapper {
+    display: inline-block;
+    list-style: none;
+    width: 38px;
+    cursor: pointer;
+
+    &:focus-within {
+        background-color: var(--cpd-color-bg-subtle-primary);
+    }
+}
+
+.bodyShowHighlight .itemWrapper [tabindex="0"] .item {
+    background-color: var(--cpd-color-bg-subtle-primary);
+}
+
+.item {
+    display: inline-block;
+    font-size: var(--cpd-font-size-heading-sm);
+    padding: 5px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    border-radius: 4px;
+
+    &:hover {
+        background-color: var(--cpd-color-bg-subtle-primary);
+    }
+}
+
+.itemSelected {
+    color: rgb(0, 0, 0, 0.5);
+    border: 1px solid var(--cpd-color-text-action-accent);
+    padding: var(--cpd-space-1x);
+}
+
+/* Haven: a custom/pack emoji's image (see Emoji.tsx's own PickerEmoji.imageUrl doc) - sized to
+   fill the same cell a unicode glyph's font-size would occupy. */
+.itemImage {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Haven: a pack category's own icon in the rail (see Category.iconUrl's own doc) - same 36x36 box
+   .anchor itself already reserves for a plain emoji glyph. */
+.anchorIcon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+/* Haven: renderEmptyStateCategory's own container - e.g. "this room has no packs yet, create one".
+   Sized to roughly match what a single sticker row would otherwise occupy, so the picker doesn't
+   visibly jump when this is the only category present. */
+.emptyStateCategory {
+    padding: var(--cpd-space-4x);
+    color: var(--cpd-color-text-secondary);
+}
+
+.categoryLabel,
+.previewName {
+    font-size: 1rem;
+    font-weight: var(--cpd-font-weight-semibold);
+    margin: 0;
+}
+
+.footer {
+    border-top: 1px solid var(--cpd-color-gray-400);
+    min-height: 72px;
+    max-height: 72px;
+
+    display: flex;
+    align-items: center;
+}
+
+.previewEmoji {
+    font-size: var(--cpd-font-size-heading-xl);
+    padding: var(--cpd-space-2x) var(--cpd-space-4x);
+}
+
+.previewText {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    flex-direction: column;
+}
+
+.name {
+    text-transform: capitalize;
+}
+
+.shortcode {
+    color: var(--cpd-color-text-secondary);
+    overflow-wrap: break-word;
+    font: var(--cpd-font-body-md-regular);
+
+    &::before,
+    &::after {
+        content: ":";
+    }
+}
+
+.quick {
+    flex-direction: column;
+    justify-content: space-around;
+}
+
+.quickHeader .name {
+    margin-right: var(--cpd-space-1x);
+}

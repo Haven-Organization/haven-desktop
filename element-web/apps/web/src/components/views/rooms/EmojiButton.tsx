@@ -13,7 +13,7 @@ import { type Room, type IEventRelation, type IContent, THREAD_RELATION_TYPE, Ev
 
 import { _t } from "../../../languageHandler";
 import ContextMenu, { aboveLeftOf, type MenuProps, useContextMenu } from "../../structures/ContextMenu";
-import EmojiPicker from "../emojipicker/EmojiPicker";
+import { HavenEmojiPicker } from "../../../emojipicker/HavenEmojiPicker";
 import { type CustomEmojiChoice } from "../emojipicker/customEmoji";
 import { CollapsibleButton, OverflowMenuContext } from "./CollapsibleButton";
 import { doMaybeLocalRoomAction } from "../../../utils/local-room";
@@ -245,12 +245,11 @@ export function EmojiButton({
                             {_t("composer|emoji_picker|sticker_tab")}
                         </button>
                     </div>
-                    {/* Haven: EmojiPicker is a class component that computes its categories/data
-                        once in its constructor rather than reacting to prop changes, so switching
-                        `mode` on an already-mounted instance would leave the old tab's categories
-                        on screen - keying by activeTab forces a fresh mount instead. */}
+                    {/* Haven: keyed by tab so switching mode always starts the newly-shown picker
+                        (search filter, scroll position, roving focus) fresh rather than carrying
+                        over whatever state the other tab's picker was left in. */}
                     {activeTab === "emoji" ? (
-                        <EmojiPicker
+                        <HavenEmojiPicker
                             key="emoji"
                             onChoose={addEmoji}
                             onFinished={onFinished}
@@ -259,7 +258,7 @@ export function EmojiButton({
                             disableCustomEmoji={disableCustomEmoji}
                         />
                     ) : (
-                        <EmojiPicker
+                        <HavenEmojiPicker
                             key="sticker"
                             onChoose={onChooseSticker}
                             onFinished={onFinished}

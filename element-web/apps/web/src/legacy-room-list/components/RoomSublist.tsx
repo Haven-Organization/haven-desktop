@@ -44,7 +44,7 @@ import { StyledMenuItemCheckbox } from "./StyledMenuItemCheckbox";
 import { StyledMenuItemRadio } from "./StyledMenuItemRadio";
 import AccessibleButton, { type ButtonEvent } from "../../components/views/elements/AccessibleButton";
 import type ExtraTile from "./ExtraTile";
-import NotificationBadge from "../../components/views/rooms/NotificationBadge";
+import { NotificationBadge } from "../../components/views/rooms/NotificationBadge/NotificationBadge";
 import RoomTile from "./RoomTile";
 
 const SHOW_N_BUTTON_HEIGHT = 28; // As defined by CSS
@@ -639,7 +639,7 @@ export default class RoomSublist extends React.Component<IProps, IState> {
                             notification={this.notificationState}
                             onClick={this.onBadgeClick}
                             tabIndex={tabIndex}
-                            aria-label={ariaLabel}
+                            ariaLabel={ariaLabel}
                             showUnsentTooltip={true}
                         />
                     );

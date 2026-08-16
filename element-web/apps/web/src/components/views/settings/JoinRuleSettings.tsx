@@ -257,7 +257,7 @@ const JoinRuleSettings: React.FC<JoinRuleSettingsProps> = ({
                 if (restrictedAllowRoomIds.length > 0) {
                     onRestrictedRoomIdsChange(restrictedAllowRoomIds);
                 } else {
-                    onChange(JoinRule.Invite);
+                    void onChange(JoinRule.Invite);
                 }
             };
 

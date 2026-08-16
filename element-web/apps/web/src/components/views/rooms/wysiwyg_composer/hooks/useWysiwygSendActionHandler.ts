@@ -75,7 +75,9 @@ export function useWysiwygSendActionHandler(
                         const label = `:${payload.customEmoji.shortcode}:`;
                         setSelection(composerContext.selection).then(() => composerFunctions.insertText(label));
                     } else if (payload.text) {
-                        setSelection(composerContext.selection).then(() => composerFunctions.insertText(payload.text));
+                        void setSelection(composerContext.selection).then(() =>
+                            composerFunctions.insertText(payload.text),
+                        );
                     }
                     break;
             }

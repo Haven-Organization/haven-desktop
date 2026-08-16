@@ -226,6 +226,7 @@ function Indicators({ count, currentIndex }: IndicatorsProps): JSX.Element {
     return (
         <div className="mx_PinnedMessageBanner_Indicators">
             {Array.from({ length: numberOfIndicators }).map((_, i) => (
+                // oxlint-disable-next-line react/no-array-index-key
                 <Indicator key={i} active={i === index} hidden={isLastCycle && lastCycleIndex <= i} />
             ))}
         </div>

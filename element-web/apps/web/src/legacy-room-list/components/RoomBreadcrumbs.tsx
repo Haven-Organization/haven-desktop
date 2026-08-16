@@ -30,6 +30,17 @@ interface IState {
     // breadcrumb update function for info on that.
     doAnimation: boolean;
     skipFirst: boolean;
+    // Haven: onBreadcrumbsUpdate's two setState calls (one synchronous, one via
+    // setTimeout) are both automatically batched together by React 18+, since automatic
+    // batching now covers setTimeout callbacks too (it didn't when this component was
+    // originally written). Their net effect on doAnimation/skipFirst is always a no-op -
+    // the second call's values equal what they already were before the first - so
+    // PureComponent's shallow state comparison correctly (but unhelpfully) concludes
+    // nothing changed and skips re-rendering, meaning this component would otherwise
+    // never re-render after mount no matter how many times BreadcrumbsStore actually
+    // updates. This counter has no purpose beyond always differing from its previous
+    // value, guaranteeing the shallow comparison sees a real change on every update.
+    updateCount: number;
 }
 
 const RoomBreadcrumbTile: React.FC<{ room: Room; onClick: (ev: ButtonEvent) => void }> = ({ room, onClick }) => {
@@ -68,6 +79,7 @@ export default class RoomBreadcrumbs extends React.PureComponent<EmptyObject, IS
         this.state = {
             doAnimation: true, // technically we want animation on mount, but it won't be perfect
             skipFirst: false, // render the thing, as boring as it is
+            updateCount: 0,
         };
     }
 
@@ -91,8 +103,14 @@ export default class RoomBreadcrumbs extends React.PureComponent<EmptyObject, IS
         // The second update, on the next available tick, causes the "enter" animation to start
         // again and this time we want to show the newest breadcrumb because it'll be hidden
         // off screen for the animation.
-        this.setState({ doAnimation: false, skipFirst: true });
-        window.setTimeout(() => this.setState({ doAnimation: true, skipFirst: false }), 0);
+        this.setState((prevState) => ({ doAnimation: false, skipFirst: true, updateCount: prevState.updateCount + 1 }));
+        window.setTimeout(() => {
+            this.setState((prevState) => ({
+                doAnimation: true,
+                skipFirst: false,
+                updateCount: prevState.updateCount + 1,
+            }));
+        }, 0);
     };
 
     private viewRoom = (room: Room, index: number, viaKeyboard = false): void => {

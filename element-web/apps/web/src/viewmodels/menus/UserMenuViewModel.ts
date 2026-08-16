@@ -23,7 +23,7 @@ import { shouldShowFeedback } from "../../utils/Feedback";
 import { getHomePageUrl } from "../../utils/pages";
 import SdkConfig from "../../SdkConfig";
 import type { MatrixClient } from "matrix-js-sdk/src/matrix";
-import { clearUserStatus } from "../../utils/userStatus";
+import { clearAllUserStatus } from "../../utils/userStatus";
 import { type SetStatusViewModel, UserMenuSetStatusViewModel } from "../status/SetStatusViewModel";
 import SettingsStore from "../../settings/SettingsStore";
 
@@ -89,7 +89,7 @@ export class UserMenuViewModel
         super(props, UserMenuViewModel.computeSnapshot(client, props.ownProfileStore, isPanelCollapsed));
         this.setStatusVm = new UserMenuSetStatusViewModel({ client, ownProfileStore: props.ownProfileStore });
         props.ownProfileStore.on(UPDATE_EVENT, this.recalculateProfile);
-        this.loadAuthMetadata();
+        void this.loadAuthMetadata();
     }
 
     public dispose(): void {
@@ -159,7 +159,7 @@ export class UserMenuViewModel
 
     public readonly clearStatus = (): void => {
         this.setOpen(false);
-        clearUserStatus(this.client).catch((err) => {
+        clearAllUserStatus(this.client).catch((err) => {
             logger.warn("Failed to clear user status", err);
         });
     };

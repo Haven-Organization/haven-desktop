@@ -8,7 +8,7 @@
  * restyled here as a row per app instead of a row per pack.
  */
 
-import { type JSX, useState } from "react";
+import React, { type JSX, useState } from "react";
 
 import { _t } from "../../../../../languageHandler";
 import SettingsTab from "../SettingsTab";

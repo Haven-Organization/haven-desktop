@@ -352,13 +352,13 @@ export default class RightPanelStore extends ReadyWatchingStore {
     private emitAndUpdateSettings(): void {
         this.filterValidCards(this.global);
         const storePanelGlobal = convertToStorePanel(this.global);
-        SettingsStore.setValue("RightPanel.phasesGlobal", null, SettingLevel.DEVICE, storePanelGlobal);
+        void SettingsStore.setValue("RightPanel.phasesGlobal", null, SettingLevel.DEVICE, storePanelGlobal);
 
         if (!!this.viewedRoomId) {
             const panelThisRoom = this.byRoom[this.viewedRoomId];
             this.filterValidCards(panelThisRoom);
             const storePanelThisRoom = convertToStorePanel(panelThisRoom);
-            SettingsStore.setValue(
+            void SettingsStore.setValue(
                 "RightPanel.phases",
                 this.viewedRoomId,
                 SettingLevel.ROOM_DEVICE,
@@ -486,7 +486,7 @@ export default class RightPanelStore extends ReadyWatchingStore {
     public static get instance(): RightPanelStore {
         if (!this.internalInstance) {
             this.internalInstance = new RightPanelStore();
-            this.internalInstance.start();
+            void this.internalInstance.start();
         }
         return this.internalInstance;
     }

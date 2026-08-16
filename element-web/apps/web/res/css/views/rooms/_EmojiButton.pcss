@@ -61,3 +61,13 @@ Please see LICENSE files in the repository root for full details.
     color: var(--cpd-color-text-primary);
     border-bottom: 2px solid $accent;
 }
+
+/* Haven: ReactionPicker's own "React with '<text>'" freeform option (see HavenEmojiPicker.tsx),
+   rendered via EmojiPicker's own belowSearch slot - between the search box and the results grid.
+   Block so it always starts its own line, with matching side margins so its text lines up with
+   the search box/grid around it. */
+.mx_HavenEmojiPicker_freeformReact {
+    display: block;
+    margin: -4px 12px 8px;
+    font: var(--cpd-font-body-sm-regular);
+}

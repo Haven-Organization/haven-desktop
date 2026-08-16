@@ -9,8 +9,6 @@ Please see LICENSE files in the repository root for full details.
 import React from "react";
 import {
     RovingAction,
-    RovingGridIndexProvider as SharedRovingGridIndexProvider,
-    type RovingGridIndexProviderProps,
     RovingTabIndexProvider as SharedRovingTabIndexProvider,
     type RovingTabIndexProviderProps,
 } from "@element-hq/web-shared-components";
@@ -24,7 +22,11 @@ export { findNextSiblingElement, RovingTabIndexContext } from "@element-hq/web-s
 export { checkInputableElement } from "@element-hq/web-shared-components";
 export { RovingStateActionType } from "@element-hq/web-shared-components";
 export { useRovingTabIndex } from "@element-hq/web-shared-components";
-export type { IAction, IState } from "@element-hq/web-shared-components";
+export type { IState } from "@element-hq/web-shared-components";
+// Haven: still needed by the legacy room list (a class-component tree, which can't use the
+// useRovingTabIndex hook above directly) - upstream's own app code no longer imports this since
+// it fully migrated to hooks, but the component itself is still shipped by shared-components.
+export { RovingTabIndexWrapper } from "@element-hq/web-shared-components";
 
 /**
  * Module to simplify implementing the Roving TabIndex accessibility technique
@@ -65,7 +67,7 @@ export function jkArrowEquivalent(
     return undefined;
 }
 
-const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined => {
+export const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined => {
     switch (getKeyBindingsManager().getAccessibilityAction(ev)) {
         case KeyBindingAction.Home:
             return RovingAction.Home;
@@ -106,16 +108,10 @@ const getWebRovingAction = (ev: React.KeyboardEvent): RovingAction | undefined =
 };
 
 type IRovingTabIndexProps = Omit<RovingTabIndexProviderProps, "getAction">;
-type IRovingGridIndexProps = Omit<RovingGridIndexProviderProps, "getAction">;
 
 export const RovingTabIndexProvider: React.FC<IRovingTabIndexProps> = (props) => {
     return <SharedRovingTabIndexProvider {...props} getAction={getWebRovingAction} />;
 };
 
-export const RovingGridIndexProvider: React.FC<IRovingGridIndexProps> = (props) => {
-    return <SharedRovingGridIndexProvider {...props} getAction={getWebRovingAction} />;
-};
-
 // re-export the semantic helper components for simplicity
-export { RovingTabIndexWrapper } from "./roving/RovingTabIndexWrapper";
 export { RovingAccessibleButton } from "./roving/RovingAccessibleButton";

@@ -15,7 +15,7 @@
  * default close-the-dialog handling instead.
  */
 
-import { type JSX, useEffect, useState } from "react";
+import React, { type JSX, useEffect, useState } from "react";
 
 import BaseDialog from "../../../../element-web/apps/web/src/components/views/dialogs/BaseDialog";
 import DialogButtons from "../../../../element-web/apps/web/src/components/views/elements/DialogButtons";
