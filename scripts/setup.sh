@@ -327,6 +327,31 @@ if old in content:
 else:
     print("WARNING: old .svg?react webpack rule text not found - skipping SVG loader fix, check if it needs updating", file=sys.stderr)
 PYEOF
+
+    # webpack.config.ts at BRANDING_COMMIT^ still imports and calls the "postcss-easings" PostCSS
+    # plugin, which a later (non-branding) commit dropped as a dependency entirely - reverting to
+    # this old snapshot brings the import back without the package still being installed. This
+    # isn't a silent bug like the two patches above (nothing renders wrong) - it's a hard failure:
+    # webpack-cli can't even load webpack.config.ts at all ("Cannot find package 'postcss-easings'"
+    # surfaces as a confusing "Unable to use specified module loaders for '.ts'" instead, since
+    # webpack-cli's error handling for a config file whose *own* import fails looks the same as one
+    # it can't parse as TypeScript at all). Confirmed 2026-08-16 cutting the 0.6.0 release: "glowers
+    # element" failed outright the first time this specific dependency-removal commit and
+    # HAVEN_NO_BRANDING had ever been exercised together. Same revert-then-strip-back-out approach
+    # as the two patches above; a no-op if this text isn't found (e.g. the plugin list changes again).
+    python3 - "$ROOT_DIR/element-web/apps/web/webpack.config.ts" <<'PYEOF'
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    content = f.read()
+
+content = content.replace('import postcssEasings from "postcss-easings";\n', "", 1)
+content = content.replace("                                        postcssEasings(),\n", "", 1)
+
+with open(path, "w") as f:
+    f.write(content)
+PYEOF
 fi
 
 if [ -n "${HAVEN_LOGIN_BACKGROUND:-}" ]; then
