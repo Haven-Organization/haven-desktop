@@ -231,9 +231,17 @@
 
 /* Haven: renderEmptyStateCategory's own container - e.g. "this room has no packs yet, create one".
    Sized to roughly match what a single sticker row would otherwise occupy, so the picker doesn't
-   visibly jump when this is the only category present. */
+   visibly jump when this is the only category present. Rounded gray box, matching the pre-merge
+   picker's own .mx_EmojiPicker_createPackCategory_body (apps/web/res/css/views/emojipicker's own
+   copy, before that whole component moved into this package) - lost in the restructure since this
+   class started out as a bare, unstyled container instead of carrying that box treatment over. */
 .emptyStateCategory {
-    padding: var(--cpd-space-4x);
+    margin: 0 var(--cpd-space-4x) var(--cpd-space-3x);
+    padding: var(--cpd-space-3x);
+    background-color: var(--cpd-color-bg-subtle-primary);
+    border-radius: 8px;
+    text-align: center;
+    font: var(--cpd-font-body-sm-regular);
     color: var(--cpd-color-text-secondary);
 }
 

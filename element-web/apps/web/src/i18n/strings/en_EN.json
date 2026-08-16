@@ -982,9 +982,10 @@
         "category_travel_places": "Travel & Places"
     },
     "emoji_picker": {
-        "create_pack_prompt": "This room has no emoji or sticker packs yet. <a>Create New Pack</a>",
+        "create_pack_prompt": "This room has no emoji packs yet. <a>Create New Pack</a>",
         "manage_pack": "Manage pack",
-        "no_stickers_in_room": "This room has no stickers. Add stickers from other rooms in <a>Favorite Packs</a>.",
+        "no_stickers_in_room": "This room has no sticker packs yet. Add stickers from other rooms in <a>Favorite Packs</a>.",
+        "no_stickers_in_room_can_create": "This room has no sticker packs yet. <a>Create New Pack</a>, or add stickers from other rooms in <b>Favorite Packs</b>.",
         "react_with_text": "React with \"%(text)s\""
     },
     "empty_room": "Empty room",

@@ -170,6 +170,15 @@ export function HavenEmojiPicker({
         };
     }, [stickerMode, packCategories, dataByPackCategory, room]);
 
+    // Haven: whether the "no stickers" empty state (just above) should also offer a "Create New
+    // Pack" link alongside the "Favorite Packs" one - same permission buildPackCategories itself
+    // already checks for its own "you can create a pack" case, recomputed here since that decision
+    // lives inside a memo the component doesn't otherwise have visibility into.
+    const canCreatePack = useMemo(
+        () => (room ? canManageImagePacks(room, room.client.getSafeUserId()) : false),
+        [room],
+    );
+
     const onManageClick = useCallback((roomId: string, stateKey?: string) => {
         onFinished();
         openManagePack(roomId, stateKey);
@@ -206,7 +215,30 @@ export function HavenEmojiPicker({
 
     const renderEmptyStateCategory = useCallback(
         (_category: Category) => {
+            const roomId = room?.roomId;
             if (stickerMode) {
+                if (canCreatePack && roomId) {
+                    return (
+                        <>
+                            {_t(
+                                "emoji_picker|no_stickers_in_room_can_create",
+                                {},
+                                {
+                                    a: (sub) => (
+                                        <AccessibleButton kind="link_inline" onClick={() => onManageClick(roomId)}>
+                                            {sub}
+                                        </AccessibleButton>
+                                    ),
+                                    b: (sub) => (
+                                        <AccessibleButton kind="link_inline" onClick={onOpenSettings}>
+                                            {sub}
+                                        </AccessibleButton>
+                                    ),
+                                },
+                            )}
+                        </>
+                    );
+                }
                 return (
                     <>
                         {_t(
@@ -223,7 +255,6 @@ export function HavenEmojiPicker({
                     </>
                 );
             }
-            const roomId = room?.roomId;
             if (!roomId) return null;
             return (
                 <>
@@ -241,7 +272,7 @@ export function HavenEmojiPicker({
                 </>
             );
         },
-        [room, onManageClick, stickerMode, onOpenSettings],
+        [room, onManageClick, stickerMode, onOpenSettings, canCreatePack],
     );
 
     return (
