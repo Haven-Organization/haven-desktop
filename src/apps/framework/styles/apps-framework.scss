@@ -38,6 +38,13 @@
         align-items: center;
         gap: var(--cpd-space-2x);
         padding: var(--cpd-space-3x);
+        // RoomListSearch's own root (_view_zk0ja_8, see the [data-testid="room-list-search"] rule
+        // below) draws its own border-bottom, sized to only its own box - as a full-width column
+        // child that's the whole width of the room list, same as spanning the row, but as a sibling
+        // next to the room icon/Apps button here it only reaches under itself, stopping short of the
+        // avatar/Apps button and reading as a divider that inexplicably doesn't cover the whole row.
+        // Moved to the row itself (and suppressed on room-list-search below) so it spans everything.
+        border-bottom: var(--cpd-border-width-1) solid var(--cpd-color-bg-subtle-primary);
 
         // haven_UserMenuPortalTarget's own margin-right (see apps-framework.scss's base rule for
         // it) exists for old room list's filterContainer, which has no gap property of its own and
@@ -85,6 +92,9 @@
             // own padding covers both sides.
             padding-left: 0;
             padding-right: 0;
+            // Its own border-bottom only ever reaches under itself (see the row's own border-bottom
+            // above, which replaces this so the divider spans the whole row instead).
+            border-bottom: none;
         }
 
         // Without this, dragging the panel narrow enough eventually squeezes RoomListSearch
@@ -349,23 +359,19 @@
     }
 }
 
-// Same avatar-size mismatch haven_UserMenu_relocated fixes below, but for the *normal* in-column
-// UserMenu (spaces bar shown, className is plain "mx_UserMenu" - see the showSpacesBar ternary in
-// SpacePanel.tsx) - that fix only ever applied to the relocated instance (portaled next to the
-// search bar when the spaces bar is hidden). Only the avatar's own size is fixed here, not
-// padding-inline-start too (unlike the relocated rule) - that 6px inset is genuinely needed in this
-// context (it's what the un-collapsed panel's own displayname sits flush against, next to the
-// avatar); zeroing it here (tried first, measured live) shifted the avatar further off-center, not
-// closer - it was never the thing misaligning it to begin with, only the size was.
-// Scoped to .mx_SpacePanel so it only ever reaches this in-column instance - the relocated one is
-// portaled elsewhere in the DOM (outside .mx_SpacePanel entirely) and keeps its own rule below.
-.mx_SpacePanel .mx_UserMenu {
-    // UserMenu.tsx hardcodes this trigger avatar's size at 36px, 4px bigger than every other icon
-    // in this column (Apps button, Home/space buttons' own avatars are all 32px) - see
-    // haven_UserMenu_relocated's own identical comment for the full explanation.
-    [data-type="round"] {
-        --cpd-avatar-size: 32px !important;
-    }
+// UserMenu.module.css's trigger <button> has an asymmetric 12px-left/8px-right margin plus a 6px
+// left padding-inline-start (both sized for the *uncollapsed* column, where a displayname sits to
+// the button's right and needs offsetting from it) - left in place in the collapsed, icon-only
+// column, that net-left-heavy asymmetry sits the avatar a couple px right of true-center relative
+// to the Apps/Home/etc. icons below it. margin-inline: auto centers the button itself within
+// .wrapper regardless of the asymmetric margin values; padding-inline-start: 0 then also centers
+// the avatar *within* the now-centered button (that 6px inset otherwise still sits the avatar
+// flush against the button's right edge - zeroing both together (rather than either alone, which
+// was tried first and made it worse - see haven_UserMenu_relocated's own comment below for that
+// same lesson in its own context) is what actually gets true centering here).
+.mx_SpacePanel .mx_UserMenu button {
+    margin-inline: auto !important;
+    padding-inline-start: 0 !important;
 }
 
 .haven_UserMenu_relocated {
@@ -391,16 +397,6 @@
         // here, it pushes the avatar off-center within its own clickable area, throwing off
         // alignment with the centered Apps/search/explore icons next to and below it.
         padding-inline-start: 0 !important;
-    }
-
-    // UserMenu.tsx hardcodes this trigger avatar's size at 36px (sized for the normal vertical
-    // space-panel column) — 4px bigger than every other icon in this row/stack (AppsButton's
-    // IconButton, RoomSearch's collapsed icon, mx_LeftPanel_exploreButton are all 32px), which is
-    // what actually threw off the "aligned with each other" look. --cpd-avatar-size is set inline
-    // by the Avatar component itself, so this needs !important to win; [data-type="round"] is a
-    // stable attribute Avatar sets rather than a hashed module class name.
-    [data-type="round"] {
-        --cpd-avatar-size: 32px !important;
     }
 }
 
