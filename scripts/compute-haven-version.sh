@@ -37,8 +37,10 @@ haven_version=$(cat "$ROOT_DIR/HAVEN_VERSION" 2>/dev/null || echo unknown)
 
 if [ -e "$ROOT_DIR/element-web/.git" ]; then
     # Publishable-repo layout: element-web/ is its own checkout pinned to a real upstream tag, so
-    # its tags are unambiguous.
-    element_version=$(git -C "$ROOT_DIR/element-web" describe --tags || echo unknown)
+    # its tags are unambiguous. Still matched against "v[0-9]*" (see the dev-repo branch's own
+    # comment below) since element-web's own tag namespace also has non-release tags (module/...,
+    # no-media-devices-release) that a plain `--tags` would otherwise compete with.
+    element_version=$(git -C "$ROOT_DIR/element-web" describe --tags --match "v[0-9]*" || echo unknown)
 else
     # Dev-repo layout: element-web/ is just a subdirectory of this same unified history (Haven's
     # changes are merged straight into it), so `git describe` there would search the exact same
@@ -49,9 +51,15 @@ else
     # parent of the most recent merge commit, i.e. exactly what "git subtree pull"/"git merge"
     # last brought in - sidesteps the collision entirely, since none of Haven's own tags are
     # reachable from a commit that predates Haven's own history existing.
+    #
+    # Matched against "v[0-9]*" for a second reason on top of that: upstream's own tag namespace
+    # also has non-release tags (module/banner/v1.0.0 and similar per-module release tags,
+    # no-media-devices-release) that `--tags` alone would compete on equal footing with the real
+    # vX.Y.Z release tags - and can win, since "nearest tag by commit count" has no concept of
+    # which tag is more meaningful to report, only which one is closer.
     upstream_tip=$(git -C "$ROOT_DIR" log --merges -1 --format='%P' HEAD 2>/dev/null | awk '{print $2}')
     if [ -n "$upstream_tip" ]; then
-        element_version=$(git -C "$ROOT_DIR" describe --tags "$upstream_tip" 2>/dev/null || echo unknown)
+        element_version=$(git -C "$ROOT_DIR" describe --tags --match "v[0-9]*" "$upstream_tip" 2>/dev/null || echo unknown)
     else
         element_version=unknown
     fi
