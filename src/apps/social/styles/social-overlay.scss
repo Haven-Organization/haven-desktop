@@ -52,6 +52,24 @@
 .social_Sidebar_resizeWrapper {
     flex-shrink: 0;
     height: 100%;
+    // Haven: containing block for BackdropPanel (see SocialHomeView.tsx) - its own width:100% needs
+    // to resolve against this specific element (the one react-resizable-panels actually sets width
+    // on) rather than some further-out ancestor, or the blur would size to the wrong box entirely.
+    // Deliberately NOT overflow: hidden here (see .social_Sidebar_backdropClip below for why
+    // BackdropPanel gets its own dedicated clip layer instead) - re-resizable's own handle
+    // intentionally straddles this element's right edge for an easier-to-grab drag target, and
+    // overflow: hidden here would clip off (and make un-grabbable) the half that sticks out.
+    position: relative;
+
+    // Haven: mx_ResizeHandle's own base rule (_ResizeHandle.pcss) sets z-index: 100, but that rule is
+    // keyed off .mx_ResizeHandle, which this handle never gets - re-resizable's handleClasses prop
+    // only applies mx_ResizeHandle--horizontal. Without an explicit z-index here the handle sits at
+    // the default (auto) stacking level, which social_Sidebar's own z-index: 1 (see its own doc)
+    // then covers wherever the two overlap - hence matching the same z-index the "real" ResizeHandle
+    // component already uses everywhere else.
+    .mx_ResizeHandle--horizontal {
+        z-index: 100;
+    }
 
     &:hover .mx_ResizeHandle--horizontal::before {
         position: absolute;
@@ -70,6 +88,22 @@
     }
 }
 
+// Haven: wraps BackdropPanel (see SocialHomeView.tsx), giving it a second, independent clip layer on
+// top of its own (.mx_BackdropPanel already has overflow: hidden - see _BackdropPanel.pcss). Needed
+// because .mx_BackdropPanel also carries `filter: blur(...)` and `transform: translateZ(0)` on the
+// very same element as that overflow: hidden, and combining all three on one element is a known
+// cross-engine rendering edge case that can let the blur's own halo paint outside its own box -
+// that's what caused it to visibly spill out past the sidebar. This element has none of those other
+// properties, so clipping here isn't subject to the same interaction. Deliberately not placed on
+// social_Sidebar_resizeWrapper itself - see that rule's own doc for why (would also clip the resize
+// handle's grabbable area, which intentionally straddles that element's edge).
+.social_Sidebar_backdropClip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
 .social_Sidebar {
     width: 100%;
     height: 100%;
@@ -80,6 +114,30 @@
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
+    // Haven: BackdropPanel (a sibling rendered just before this in SocialHomeView.tsx) is
+    // position: absolute, which - per CSS stacking rules - paints (and hit-tests) above any
+    // in-flow static sibling regardless of DOM order, not just the ones after it. Without its own
+    // position, this nav ends up UNDER the backdrop despite coming later in the markup, which both
+    // hid its own semi-transparent background (showing the raw unblended image instead of a subtle
+    // hint) and made its buttons unclickable. Same fix, same reason, as .mx_SpacePanel's own
+    // z-index: 1 in _SpacePanel.pcss.
+    position: relative;
+    z-index: 1;
+
+    // Matches .mx_LeftPanel_wrapper--user's own treatment (see legacy-room-list's _LeftPanel.pcss)
+    // so BackdropPanel's blurred-avatar background reads the same subtle way behind this sidebar
+    // as it does behind the room list - a hint of the avatar through the normal panel color, not
+    // the raw blurred image. Opacity is user-configurable (Settings > Appearance > Room List) - see
+    // RoomListBackdropWatcher.ts, which keeps --haven-roomlist-blur-opacity in sync with the setting.
+    background-color: var(--cpd-color-bg-canvas-default);
+
+    .mx_MatrixChat--with-avatar & {
+        background-color: color-mix(
+            in srgb,
+            var(--cpd-color-bg-canvas-default) var(--haven-roomlist-blur-opacity, 90%),
+            transparent
+        );
+    }
 
     // The relocated top-left menu's own slot when the spaces bar is hidden — see
     // UserMenuPortalContext.ts. padding-bottom (not the shared rule's own margin-right, meant for a

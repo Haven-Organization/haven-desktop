@@ -31,6 +31,7 @@ interface IState {
     useSystemFont: boolean;
     systemFont: string;
     showAdvanced: boolean;
+    roomListBackdropOpacity: number;
 }
 
 export default class AppearanceUserSettingsTab extends React.Component<EmptyObject, IState> {
@@ -42,8 +43,16 @@ export default class AppearanceUserSettingsTab extends React.Component<EmptyObje
             useSystemFont: SettingsStore.getValue("useSystemFont"),
             systemFont: SettingsStore.getValue("systemFont"),
             showAdvanced: false,
+            roomListBackdropOpacity: SettingsStore.getValue("Haven.roomListBackdropOpacity"),
         };
     }
+
+    // haven apps-framework patch: see BackdropPanel.tsx / RoomListBackdropWatcher.ts's own doc.
+    private onRoomListBackdropOpacityChange = (evt: ChangeEvent<HTMLInputElement>): void => {
+        const value = parseInt(evt.target.value, 10);
+        this.setState({ roomListBackdropOpacity: value });
+        void SettingsStore.setValue("Haven.roomListBackdropOpacity", null, SettingLevel.ACCOUNT, value);
+    };
 
     private renderAdvancedSection(): ReactNode {
         if (!SettingsStore.getValue(UIFeature.AdvancedSettings)) return null;
@@ -111,6 +120,28 @@ export default class AppearanceUserSettingsTab extends React.Component<EmptyObje
                     <FontScalingPanel />
                     {this.renderAdvancedSection()}
                     <ImageSizePanel />
+                    <SettingsSubsection
+                        heading={_t("settings|appearance|room_list_heading")}
+                        description={_t("settings|appearance|room_list_backdrop_opacity_description")}
+                    >
+                        <div className="mx_AppearanceUserSettingsTab_roomListBackdropOpacity">
+                            <label htmlFor="mx_AppearanceUserSettingsTab_roomListBackdropOpacity_input">
+                                {_t("settings|appearance|room_list_backdrop_opacity")}
+                            </label>
+                            <input
+                                id="mx_AppearanceUserSettingsTab_roomListBackdropOpacity_input"
+                                type="range"
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={this.state.roomListBackdropOpacity}
+                                onChange={this.onRoomListBackdropOpacityChange}
+                            />
+                            <span className="mx_AppearanceUserSettingsTab_roomListBackdropOpacity_value">
+                                {this.state.roomListBackdropOpacity}%
+                            </span>
+                        </div>
+                    </SettingsSubsection>
                     <SettingsSubsection heading={_t("settings|appearance|banners_heading")} formWrap>
                         <SettingsFlag name="Haven.showRoomBannerInTimelineHeader" level={SettingLevel.ACCOUNT} />
                         <SettingsFlag name="Haven.showSpaceBannerInRoomListHeader" level={SettingLevel.ACCOUNT} />

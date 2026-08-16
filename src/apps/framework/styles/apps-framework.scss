@@ -368,8 +368,16 @@
 // the avatar *within* the now-centered button (that 6px inset otherwise still sits the avatar
 // flush against the button's right edge - zeroing both together (rather than either alone, which
 // was tried first and made it worse - see haven_UserMenu_relocated's own comment below for that
-// same lesson in its own context) is what actually gets true centering here).
-.mx_SpacePanel .mx_UserMenu button {
+// same lesson in its own context) is what actually gets true centering here). Scoped to .collapsed
+// specifically (not just .mx_SpacePanel) - without that, this same auto-centering also fired once
+// expanded, where a displayname span sits right after the button as a *separate* flex sibling (not
+// centered by this rule at all, since it only targets the button). Auto-margin flexbox centering
+// splits the row's *entire* leftover space onto the button alone regardless of what comes after it,
+// so the button got shoved right by roughly half that leftover space, and the displayname - now with
+// nothing pushing back on its own side - ran flush up against the panel's own edge and got visually
+// covered by the collapse-toggle button (mx_SpacePanel_toggleCollapse below), which pokes into that
+// same edge zone by design.
+.mx_SpacePanel.collapsed .mx_UserMenu button {
     margin-inline: auto !important;
     padding-inline-start: 0 !important;
 }

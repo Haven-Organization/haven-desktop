@@ -52,6 +52,7 @@ import AutoDiscoveryUtils from "../../utils/AutoDiscoveryUtils";
 import { calculateRoomVia, makeRoomPermalink } from "../../utils/permalinks/Permalinks";
 import ThemeWatcher, { ThemeWatcherEvent } from "../../settings/watchers/ThemeWatcher";
 import { FontWatcher } from "../../settings/watchers/FontWatcher";
+import { RoomListBackdropWatcher } from "../../settings/watchers/RoomListBackdropWatcher";
 import { storeRoomAliasInCache } from "../../RoomAliasCache";
 import ToastStore from "../../stores/ToastStore";
 import * as StorageManager from "../../utils/StorageManager";
@@ -236,6 +237,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
     private dispatcherRef?: string;
     private themeWatcher?: ThemeWatcher;
     private fontWatcher?: FontWatcher;
+    private roomListBackdropWatcher?: RoomListBackdropWatcher;
     private readonly stores: SDKContextClass;
     private loadSessionAbortController = new AbortController();
 
@@ -500,9 +502,11 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
 
         this.themeWatcher = new ThemeWatcher();
         this.fontWatcher = new FontWatcher();
+        this.roomListBackdropWatcher = new RoomListBackdropWatcher();
         this.themeWatcher.start();
         this.themeWatcher.on(ThemeWatcherEvent.Change, setTheme);
         void this.fontWatcher.start();
+        this.roomListBackdropWatcher.start();
 
         void initSentry(SdkConfig.get("sentry"));
         window.addEventListener("resize", this.onWindowResized);
@@ -543,6 +547,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         this.themeWatcher?.off(ThemeWatcherEvent.Change, setTheme);
         this.themeWatcher?.stop();
         this.fontWatcher?.stop();
+        this.roomListBackdropWatcher?.stop();
         UIStore.destroy();
         this.stores.resizeNotifier.removeListener("middlePanelResized", this.dispatchTimelineResize);
         window.removeEventListener("resize", this.onWindowResized);

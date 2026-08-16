@@ -6,6 +6,61 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
+/* Haven: wraps BackdropPanel + SpacePanel together (see LoggedInView.tsx) wherever SpacePanel isn't
+   already inside a positioned ancestor sized to just the spaces-bar column (the new room list's
+   GroupView mounts SpacePanel as a bare flex sibling of the whole app body, so without this
+   BackdropPanel's absolute 100%/100vh sizing would resolve against that instead and cover the
+   entire window rather than just the spaces bar). flex: 0 0 auto so it hugs SpacePanel's own
+   intrinsic width instead of stretching/shrinking like a normal flex item; height: 100% plus its own
+   nested flex/stretch is needed because SpacePanel relies on being a *direct* flex child of a
+   full-height row (its default align-items: stretch) to reach full height itself - wrapping it in a
+   plain block div would otherwise shrink it back down to its content's own height. */
+.mx_SpacePanel_backdropWrapper {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    height: 100%;
+    // Haven: without this, whatever Haven app (e.g. Social) fills the rest of the row when isAppMode
+    // is true - a later, separate sibling subtree at the same level as this one - wins any stacking
+    // comparison by DOM order alone (both are z-index: auto otherwise), painting over this entire
+    // subtree wherever the two overlap. That includes .mx_SpacePanel's own toggle-collapse button
+    // (mx_SpacePanel_toggleCollapse in this file, right: -8px so it deliberately pokes past
+    // SpacePanel's own edge into that overlap zone) despite SpacePanel's own z-index: 1 - that z-index
+    // only wins comparisons *within* this subtree, not against an entirely separate sibling subtree.
+    z-index: 2;
+}
+
+/* Haven: independent second clip layer around just the BackdropPanel inside
+   mx_SpacePanel_backdropWrapper (mirrors .social_Sidebar_backdropClip in social-overlay.scss - see
+   that rule's own doc for the full explanation). .mx_BackdropPanel already clips itself
+   (overflow: hidden, see _BackdropPanel.pcss), but it also carries `filter: blur(...)` and
+   `transform: translateZ(0)` on that very same element, and combining all three on one element is a
+   known cross-engine rendering edge case that can let the blur's own halo/softness paint outside its
+   own box - visually this both let the blur bleed onto the spaces bar's own icon content (which is
+   supposed to sit crisply on top of it, unblurred) and made the effect read as weaker/less saturated
+   overall than the old room list's version (which happened to escape this same bug less severely,
+   apparently due to unrelated differences in its surrounding DOM). This element has none of those
+   other properties, so clipping here isn't subject to the same interaction. */
+.mx_SpacePanel_backdropClip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Haven: same BackdropPanel blend the room list gets (see legacy-room-list/css/_LeftPanel.pcss's own
+   doc and RoomListBackdropWatcher.ts) - without this the plain background-color below stays fully
+   opaque and hides BackdropPanel's blurred-avatar image behind the spaces bar entirely, unlike
+   stock Element where the spaces bar was never given its own opaque override. Higher specificity
+   than the plain .mx_SpacePanel rule below wins this whenever an avatar backdrop is set. */
+.mx_MatrixChat--with-avatar .mx_SpacePanel {
+    background-color: color-mix(
+        in srgb,
+        var(--cpd-color-bg-canvas-default) var(--haven-roomlist-blur-opacity, 90%),
+        transparent
+    );
+}
+
 .mx_SpacePanel {
     --activeBackground-color: $panel-actions;
     --activeBorder-color: $primary-content;

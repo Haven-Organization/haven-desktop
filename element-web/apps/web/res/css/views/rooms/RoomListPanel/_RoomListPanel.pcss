@@ -9,3 +9,18 @@
     background-color: var(--cpd-color-bg-canvas-default);
     height: 100%;
 }
+
+/* Haven: same BackdropPanel blend the old room list gets (see legacy-room-list/css/_LeftPanel.pcss's
+   own doc and RoomListBackdropWatcher.ts) - this is the new room list's actual own opaque layer, and
+   the ONLY one of the nested with-avatar layers between here and BackdropPanel that actually blends
+   (mx_LeftPanel_newRoomList and mx_LeftPanel_wrapper--user both sit further out, on the way down to
+   this element, and go plain transparent under the new list specifically instead of blending
+   themselves - stacking multiple partial-opacity blends of the same color compounds to something far
+   more opaque than any one of their opacity values alone, which is why they don't). */
+.mx_MatrixChat--with-avatar .mx_RoomListPanel {
+    background-color: color-mix(
+        in srgb,
+        var(--cpd-color-bg-canvas-default) var(--haven-roomlist-blur-opacity, 90%),
+        transparent
+    );
+}

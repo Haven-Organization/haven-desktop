@@ -820,16 +820,23 @@ class LoggedInView extends React.Component<IProps, IState> {
                 <LeftPanelLiveShareWarning isMinimized={shouldUseMinimizedUI || false} />
                 <div className={leftPanelWrapperClasses}>
                     {/* haven apps-framework patch: BackdropPanel is the room list's own blurred-avatar
-                        ambient background - gated on isAppMode too (unlike SpacePanel just below,
-                        which stays mounted deliberately), since it otherwise keeps rendering behind
-                        Social's own sidebar while the room list itself is hidden for an open app. */}
-                    {!useNewRoomList && !isAppMode && (
-                        <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
+                        ambient background. Renders regardless of isAppMode (unlike LeftPanel below,
+                        which does hide for an open app) so it stays visible behind Social's own
+                        sidebar too, and regardless of useNewRoomList - both room lists get it. The
+                        SpacePanel pairing just below stays old-list-only since the new list mounts
+                        SpacePanel separately (see the two other call sites below) - rendering it here
+                        too would double-mount it. */}
+                    {!useNewRoomList && (
+                        <div className="mx_SpacePanel_backdropClip">
+                            <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
+                        </div>
                     )}
                     {!useNewRoomList && (
                         <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
                     )}
-                    {!useNewRoomList && !isAppMode && <BackdropPanel backgroundImage={this.state.backgroundImage} />}
+                    <div className="mx_LeftPanel_backdropClip">
+                        <BackdropPanel backgroundImage={this.state.backgroundImage} />
+                    </div>
                     {/* haven apps-framework patch: hide the room list while an app is open so SpacePanel stays mounted */}
                     {!moduleRenderer && !isAppMode && (
                         <div
@@ -857,9 +864,21 @@ class LoggedInView extends React.Component<IProps, IState> {
             // (leftPanel omits it).
             content = (
                 <GroupView vm={resizerViewModel}>
-                    <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
+                    {/* haven apps-framework patch: BackdropPanel behind the spaces bar - see the
+                        matching pairing in leftPanel above for why this needs its own wrapper div
+                        (GroupView isn't a positioned ancestor sized to just this column). */}
+                    <div className="mx_SpacePanel_backdropWrapper">
+                        <div className="mx_SpacePanel_backdropClip">
+                            <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
+                        </div>
+                        <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
+                    </div>
                     {isAppMode ? (
-                        // haven apps-framework patch: the app fills the space normally used by room list + room view
+                        // haven apps-framework patch: the app fills the space normally used by room
+                        // list + room view. This branch skips leftPanel entirely, so unlike the room
+                        // list, apps get no ambient backdrop for free here - each app that wants one
+                        // (e.g. Social) renders its own BackdropPanel internally, scoped to its own
+                        // sidebar, since only the app itself knows its own sidebar's layout/width.
                         pageElement
                     ) : (
                         <>
@@ -904,12 +923,22 @@ class LoggedInView extends React.Component<IProps, IState> {
             content = (
                 <>
                     {useNewRoomList && (
-                        <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
+                        <div className="mx_SpacePanel_backdropWrapper">
+                            <div className="mx_SpacePanel_backdropClip">
+                                <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
+                            </div>
+                            <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
+                        </div>
                     )}
                     {/* haven apps-framework patch: always render leftPanel for old room list */}
                     {!useNewRoomList && leftPanel}
                     {isAppMode ? (
-                        // haven apps-framework patch: the app fills the space alongside the SpacePanel column
+                        // haven apps-framework patch: the app fills the space alongside the
+                        // SpacePanel column. leftPanel's own BackdropPanel above shrinks down to
+                        // just SpacePanel's own width once isAppMode hides the room list, so it
+                        // never reaches this sibling - each app that wants an ambient backdrop
+                        // behind its own sidebar (e.g. Social) renders one internally instead, since
+                        // only the app itself knows its own sidebar's layout/width.
                         pageElement
                     ) : (
                         <>

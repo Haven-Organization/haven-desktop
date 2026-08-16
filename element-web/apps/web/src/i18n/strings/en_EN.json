@@ -2594,6 +2594,9 @@
             "layout_irc": "IRC (experimental)",
             "match_system_theme": "Match system theme",
             "room_banner_timeline_header": "Show room banners in timeline header",
+            "room_list_backdrop_opacity": "Room list background opacity",
+            "room_list_backdrop_opacity_description": "A blurred version of your profile picture shows behind the room list, spaces bar, and Social. Lower this to show more of it through the background colour, or raise it to 100% to turn the effect off.",
+            "room_list_heading": "Room List",
             "space_banner_room_list_header": "Show space banners in room list header",
             "timeline_image_size": "Image size in the timeline"
         },

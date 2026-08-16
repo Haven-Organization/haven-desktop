@@ -378,6 +378,11 @@ export interface Settings {
     "Haven.showRoomBannerInTimelineHeader": IBaseSetting<boolean>;
     // Haven: MSC4221 banners - see RoomListHeaderViewModel.ts's own computeBannerHttpUrl.
     "Haven.showSpaceBannerInRoomListHeader": IBaseSetting<boolean>;
+    // Haven: room list "ambient backdrop" opacity - see BackdropPanel.tsx and
+    // RoomListBackdropWatcher.ts's own doc. 0-100, the percentage of solid panel color blended over
+    // the blurred-avatar image behind the room list/spaces bar/Social sidebar; 100 disables the
+    // blur entirely. Applies to both the old and new room list.
+    "Haven.roomListBackdropOpacity": IBaseSetting<number>;
     // Haven: Social app - see social-actions.ts's own sendComment/crossPostReply.
     "Social.crossPostReplies": IBaseSetting<boolean>;
     // Haven: user-customized keyboard shortcuts, keyed by KeyBindingAction's own string value -
@@ -1368,6 +1373,15 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|appearance|space_banner_room_list_header"),
         default: true,
+    },
+    // Haven: room list "ambient backdrop" opacity - see BackdropPanel.tsx and
+    // RoomListBackdropWatcher.ts's own doc. 0-100, the percentage of solid panel color blended over
+    // the blurred-avatar image behind the room list/spaces bar/Social sidebar; 100 disables the
+    // blur entirely. Applies to both the old and new room list.
+    "Haven.roomListBackdropOpacity": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|appearance|room_list_backdrop_opacity"),
+        default: 90,
     },
     // Haven: widens the new room list's Unreads filter to match every room the room-list-v3 store's
     // own bold/dot indicators already treat as unread (see UnreadFilter.ts's own doc and

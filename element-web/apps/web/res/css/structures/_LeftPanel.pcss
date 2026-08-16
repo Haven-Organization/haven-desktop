@@ -20,6 +20,22 @@ Please see LICENSE files in the repository root for full details.
     position: relative;
 }
 
+/* Haven: independent second clip layer around just the room-list-paired BackdropPanel (see
+   LoggedInView.tsx), mirroring .social_Sidebar_backdropClip in social-overlay.scss and
+   .mx_SpacePanel_backdropClip in _SpacePanel.pcss - see either rule's own doc for the full
+   explanation of why .mx_BackdropPanel's own overflow: hidden isn't always enough on its own
+   (combining `overflow: hidden` with the `filter` and `transform` it also carries, all on the same
+   element, is a known cross-engine edge case that can let the blur escape its own clip box - which
+   both bled visually onto the room list's own content, e.g. avatars/room names, that's meant to sit
+   crisply on top of it unblurred, and read as part of why the new room list's version of this effect
+   looked weaker than the old room list's). */
+.mx_LeftPanel_backdropClip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
 .mx_LeftPanel_wrapper,
 .mx_LeftPanel {
     --collapsedWidth: 68px;
@@ -94,6 +110,22 @@ Please see LICENSE files in the repository root for full details.
     --collapsedWidth: 224px;
     /* Important to force the color on ED titlebar until we remove the old room list */
     background-color: var(--cpd-color-bg-canvas-default) !important;
+}
+
+/* Haven: without this, the plain rule above stays fully opaque and hides BackdropPanel's
+   blurred-avatar background behind the new room list entirely. Higher specificity than the plain
+   rule above wins this over it despite both being !important.
+
+   Plain transparent, NOT a blend - this class sits on two elements on the way down to
+   .mx_RoomListPanel (the new list's actual visible panel, in _RoomListPanel.pcss), which is the one
+   that does the real "blend in the panel color at the configured opacity" compositing. If this also
+   blended, the opacity setting would compound across multiple nested partial-opacity layers and read
+   far more washed-out than the same setting on the old room list (see
+   legacy-room-list/css/_LeftPanel.pcss's own doc on mx_LeftPanel_wrapper--user for the full
+   reasoning) - going fully transparent here instead just passes that single blend through
+   unmodified. */
+.mx_MatrixChat--with-avatar .mx_LeftPanel_newRoomList {
+    background-color: transparent !important;
 }
 
 #left-panel .mx_LeftPanel_wrapper--user {

@@ -58,6 +58,9 @@ import { consumePendingFeedThread } from "../utils/pendingFeedThread";
 import { useDispatcher } from "../../../../element-web/apps/web/src/hooks/useDispatcher";
 import { useSettingValue } from "../../../../element-web/apps/web/src/hooks/useSettings";
 import { UPDATE_EVENT } from "../../../../element-web/apps/web/src/stores/AsyncStore";
+import { OwnProfileStore } from "../../../../element-web/apps/web/src/stores/OwnProfileStore";
+import { mediaFromMxc } from "../../../../element-web/apps/web/src/customisations/Media";
+import { BackdropPanel } from "../../../../element-web/apps/web/src/legacy-room-list/components/BackdropPanel";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 import { RoomPermalinkCreator } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { NotificationsButton } from "../components/NotificationsButton";
@@ -424,6 +427,28 @@ export function SocialHomeView(): JSX.Element {
 
     const [rooms, setRooms] = useState<Room[]>(() => client.getRooms());
     const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
+    // haven apps-framework patch: BackdropPanel's blurred-avatar background (rendered just below,
+    // inside social_Sidebar_resizeWrapper) - mirrors LoggedInView.tsx's own refreshBackgroundImage
+    // exactly (RoomList.backgroundImage override, falling back to the user's own avatar) so it stays
+    // in sync with whatever the room list's own backdrop is showing. No width/resize plumbing is
+    // needed here at all: BackdropPanel is a plain sibling inside the *actual* resizable element
+    // (social_Sidebar_resizeWrapper, which react-resizable-panels sets width on directly), so it
+    // tracks drags for free via normal CSS layout - see that rule's own doc in _SpacePanel.pcss for
+    // why an earlier version of this drove a CSS custom property from a resize handler instead
+    // (it worked, but re-computing style on every drag frame made dragging noticeably laggy).
+    const roomListBackgroundImageOverride = useSettingValue("RoomList.backgroundImage");
+    const [ownAvatarUrl, setOwnAvatarUrl] = useState(() => OwnProfileStore.instance.getHttpAvatarUrl());
+    useEffect(() => {
+        const update = (): void => setOwnAvatarUrl(OwnProfileStore.instance.getHttpAvatarUrl());
+        OwnProfileStore.instance.on(UPDATE_EVENT, update);
+        return () => {
+            OwnProfileStore.instance.off(UPDATE_EVENT, update);
+        };
+    }, []);
+    const backdropImage =
+        (roomListBackgroundImageOverride
+            ? mediaFromMxc(roomListBackgroundImageOverride).srcHttp
+            : ownAvatarUrl) ?? undefined;
     const setUserMenuPortalTarget = useSetUserMenuPortalTarget();
     const sidebarCollapsed = sidebarWidth < SIDEBAR_COLLAPSE_THRESHOLD;
     // re-resizable's `delta` is cumulative from resize start, not incremental per event — track the
@@ -1085,6 +1110,17 @@ export function SocialHomeView(): JSX.Element {
                         window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(finalWidth));
                     }}
                 >
+                    {/* haven apps-framework patch: sibling of social_Sidebar below (not a child of
+                        it) so social_Sidebar's own semi-transparent background-color (see
+                        social-overlay.scss) paints over this and shows through as a hint, the same
+                        way the room list's own BackdropPanel/mx_LeftPanel_wrapper--user pairing
+                        composites. Both live inside social_Sidebar_resizeWrapper, the element
+                        react-resizable-panels actually sets width on, so this tracks drags for free.
+                        Wrapped in its own clip layer (social_Sidebar_backdropClip) - see that
+                        selector's own doc for why BackdropPanel's own clipping isn't always enough. */}
+                    <div className="social_Sidebar_backdropClip">
+                        <BackdropPanel backgroundImage={backdropImage} />
+                    </div>
                     <nav className="social_Sidebar">
                         {/* haven apps-framework patch: when the spaces bar is hidden, LeftPanel
                             (and its own portal target next to the search bar) is unmounted while

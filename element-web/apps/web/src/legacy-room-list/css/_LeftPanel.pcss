@@ -15,17 +15,45 @@ Please see LICENSE files in the repository root for full details.
    selectors when the flag is off, same as before this file existed. */
 
 /* Haven: res/css/structures/_LeftPanel.pcss's .mx_MatrixChat--with-avatar rule makes .mx_LeftPanel
-   and .mx_LeftPanel_roomListContainer transparent (on purpose - it's what lets BackdropPanel's
-   blurred avatar image show through at all) whenever a room-list background image is set, which is
-   the *default* once the account has any avatar (see LoggedInView.tsx's fallback to
-   OwnProfileStore.getHttpAvatarUrl()). The new room list compensates with its own
-   .mx_LeftPanel_newRoomList background-color override (!important, in the same shared file) so it
-   stays opaque regardless; the old room list used to rely on this same wrapper carrying its own
-   solid background before upstream dropped it as part of that redesign, and never got an
-   equivalent override, so without this it renders the raw unobscured backdrop image behind
-   everything instead of the old room list's normal solid panel. */
+   and .mx_LeftPanel_roomListContainer transparent, which is what lets BackdropPanel's blurred
+   avatar image show through at all whenever a room-list background image is set - the *default*
+   once the account has any avatar (see LoggedInView.tsx's fallback to
+   OwnProfileStore.getHttpAvatarUrl()). mx_LeftPanel_wrapper--user is a Haven-only wrapper (not
+   present upstream) added when the old room list was restored, so it isn't covered by that
+   shared selector list; give it the same solid-by-default/see-through-under-with-avatar pair so
+   the old room list still gets its normal solid panel when there's no avatar to blur. It's the
+   outermost of the (otherwise fully transparent) layers stacked over BackdropPanel, so its own
+   background-color is what actually composites with the blur - the old room list was always meant
+   to read as mostly the normal panel color with just a hint of the avatar underneath, not the raw
+   image, so this blends in the panel color at high opacity rather than going fully transparent.
+   The opacity itself is user-configurable (Settings > Appearance > Room List) - see
+   RoomListBackdropWatcher.ts, which keeps --haven-roomlist-blur-opacity in sync with the setting;
+   the 90% is only a fallback for the instant before the watcher's first run sets it.
+
+   Only applies to the OLD room list. The new room list nests three nominally-independent
+   "with-avatar, blend in the panel color" layers on top of BackdropPanel on its way from here down
+   to the actual content (this one, .mx_LeftPanel_newRoomList in res/css/structures/_LeftPanel.pcss,
+   and .mx_RoomListPanel in _RoomListPanel.pcss) - if all three actually blended, the same opacity
+   setting would read far more opaque there than here, since partial-opacity layers compound when
+   stacked (three layers each letting 20% through only lets ~0.8% through total, not 20%). So only
+   the innermost of the three (mx_RoomListPanel, the new list's actual visible panel) does the real
+   blend; this one and mx_LeftPanel_newRoomList both go fully transparent under the new list instead,
+   passing the single blend straight through unmodified - see the more specific override just below
+   and mx_RoomListPanel's own doc. */
 .mx_LeftPanel_wrapper--user {
     background-color: var(--cpd-color-bg-canvas-default);
+}
+
+.mx_MatrixChat--with-avatar .mx_LeftPanel_wrapper--user {
+    background-color: color-mix(
+        in srgb,
+        var(--cpd-color-bg-canvas-default) var(--haven-roomlist-blur-opacity, 90%),
+        transparent
+    );
+}
+
+.mx_MatrixChat--with-avatar .mx_LeftPanel_newRoomList .mx_LeftPanel_wrapper--user {
+    background-color: transparent;
 }
 
 .mx_LeftPanel {
