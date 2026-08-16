@@ -18,6 +18,7 @@ export const mockedActions: RoomListItemViewActions = {
     onInvite: fn(),
     onCopyRoomLink: fn(),
     onOpenSettings: fn(),
+    onOpenDevtools: fn(),
     onLeaveRoom: fn(),
     onSetRoomNotifState: fn(),
     onCreateSection: fn(),

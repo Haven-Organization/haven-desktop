@@ -183,6 +183,7 @@
         "list_title": "Room list",
         "more_options": {
             "copy_link": "Copy room link",
+            "dev_tools": "Dev Tools",
             "favourited": "Favorited",
             "leave_room": "Leave room",
             "low_priority": "Low priority",
@@ -198,7 +199,6 @@
         "room": {
             "more_options": "More Options"
         },
-        "room_options": "Room Options",
         "section_created": "Section created",
         "section_header": {
             "edit_section": "Edit section",
@@ -347,7 +347,6 @@
     },
     "user_menu": {
         "link_new_device": "Link new device",
-        "open_feedback": "Feedback",
         "open_home": "Home",
         "open_security": "Security & Privacy",
         "open_settings": "All settings"

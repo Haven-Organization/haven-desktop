@@ -39,6 +39,8 @@ import dispatcher from "../../dispatcher/dispatcher";
 import { Action } from "../../dispatcher/actions";
 import type { ViewRoomPayload } from "../../dispatcher/payloads/ViewRoomPayload";
 import PosthogTrackers from "../../PosthogTrackers";
+import Modal from "../../Modal";
+import DevtoolsDialog from "../../components/views/dialogs/DevtoolsDialog";
 import { type Call, CallEvent } from "../../models/Call";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
 import { CHATS_TAG, getCustomSectionData, isDefaultSectionTag } from "../../stores/room-list-v3/section";
@@ -400,6 +402,11 @@ export class RoomListItemViewModel
         const sections: Section[] = RoomListItemViewModel.buildSections(roomTags, availableSections);
         const areSectionsEnabled = SettingsStore.getValue("RoomList.showSections");
 
+        // Haven: brought back from the legacy room list's own "Dev Tools" option (see
+        // DeveloperToolsOption.tsx / RoomGeneralContextMenu.tsx) - the new room list's context menu
+        // never had this item at all.
+        const canOpenDevtools = SettingsStore.getValue("developerMode");
+
         return {
             id: room.roomId,
             room,
@@ -429,6 +436,7 @@ export class RoomListItemViewModel
             roomNotifState,
             sections,
             areSectionsEnabled,
+            canOpenDevtools,
         };
     }
 
@@ -482,6 +490,12 @@ export class RoomListItemViewModel
             action: "open_room_settings",
             room_id: this.props.room.roomId,
         });
+    };
+
+    // Haven: brought back from the legacy room list's own "Dev Tools" option (see
+    // DeveloperToolsOption.tsx's identical Modal.createDialog call) - see canOpenDevtools's own doc.
+    public onOpenDevtools = (): void => {
+        Modal.createDialog(DevtoolsDialog, { roomId: this.props.room.roomId }, "mx_DevtoolsDialog_wrapper");
     };
 
     public onLeaveRoom = (): void => {

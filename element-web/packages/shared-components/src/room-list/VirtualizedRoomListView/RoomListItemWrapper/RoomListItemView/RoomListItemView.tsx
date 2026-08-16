@@ -99,6 +99,9 @@ export interface RoomListItemViewSnapshot {
     sections: Section[];
     /** Whether sections are enabled in the room list */
     areSectionsEnabled: boolean;
+    /** Haven: whether the "Dev Tools" more-options item should be shown - gated on the
+     *  "developerMode" setting, matching the legacy room list's own context menu. */
+    canOpenDevtools: boolean;
 }
 
 /**
@@ -122,6 +125,8 @@ export interface RoomListItemViewActions {
     onCopyRoomLink: () => void;
     /** Called when opening this room's settings */
     onOpenSettings: () => void;
+    /** Haven: called when opening this room's Dev Tools dialog - see canOpenDevtools's own doc. */
+    onOpenDevtools: () => void;
     /** Called when leaving the room */
     onLeaveRoom: () => void;
     /** Called when setting the room notification state */

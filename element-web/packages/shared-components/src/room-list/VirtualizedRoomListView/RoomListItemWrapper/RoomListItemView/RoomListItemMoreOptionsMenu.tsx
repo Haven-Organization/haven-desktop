@@ -20,6 +20,7 @@ import {
     CheckIcon,
     MinusIcon,
     SettingsSolidIcon,
+    InlineCodeIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { _t } from "../../../../core/i18n/i18n";
@@ -179,6 +180,15 @@ export function MoreOptionContent({ vm }: MoreOptionContentProps): JSX.Element {
                 onClick={(evt) => evt.stopPropagation()}
                 hideChevron={true}
             />
+            {snapshot.canOpenDevtools && (
+                <MenuItem
+                    Icon={InlineCodeIcon}
+                    label={_t("room_list|more_options|dev_tools")}
+                    onSelect={vm.onOpenDevtools}
+                    onClick={(evt) => evt.stopPropagation()}
+                    hideChevron={true}
+                />
+            )}
             <MenuItem
                 kind="critical"
                 Icon={LeaveIcon}
