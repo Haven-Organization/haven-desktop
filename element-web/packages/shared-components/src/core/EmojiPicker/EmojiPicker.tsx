@@ -35,6 +35,12 @@ const ZERO_WIDTH_JOINER = "\u200D";
 export const EMOJI_HEIGHT = 35;
 export const EMOJIS_PER_ROW = 8;
 
+/** Haven: the Stickers tab's own grid slot - bigger than a regular emoji's, at a 4-per-row layout
+ *  (304px / 4 = 76px; this and .row's own fixed 304px width in EmojiPicker.module.css must change
+ *  together - EMOJIS_PER_ROW's 8-per-row and STICKERS_PER_ROW's 4-per-row both divide it evenly). */
+export const STICKER_HEIGHT = 70;
+export const STICKERS_PER_ROW = 4;
+
 const CATEGORY_CONFIG: Category[] = [
     { id: "recent", untranslatedName: _td("emoji|category_frequently_used"), emoji: "🕒" },
     { id: "people", untranslatedName: _td("emoji|category_smileys_people"), emoji: "😀" },
@@ -355,6 +361,8 @@ export function EmojiPicker({
         setScrollElement(ref);
     }, []);
 
+    const itemsPerRow = mode === "sticker" ? STICKERS_PER_ROW : EMOJIS_PER_ROW;
+
     // Flatten into a list for virtuoso.
     const items = useMemo<ListItem[]>(() => {
         const flat: ListItem[] = [];
@@ -367,12 +375,12 @@ export function EmojiPicker({
             const emojis = dataByCategory[cat.id];
             if (emojis.length === 0) continue;
             flat.push({ type: "header", category: cat });
-            for (let i = 0; i < emojis.length; i += EMOJIS_PER_ROW) {
-                flat.push({ type: "row", emojis: emojis.slice(i, i + EMOJIS_PER_ROW), categoryId: cat.id });
+            for (let i = 0; i < emojis.length; i += itemsPerRow) {
+                flat.push({ type: "row", emojis: emojis.slice(i, i + itemsPerRow), categoryId: cat.id });
             }
         }
         return flat;
-    }, [activeCategoryConfig, dataByCategory]);
+    }, [activeCategoryConfig, dataByCategory, itemsPerRow]);
 
     const onRangeChanged = useCallback(
         (range: ListRange): void => {
@@ -541,7 +549,11 @@ export function EmojiPicker({
                 );
             }
             return item.emojis.map((emoji) => (
-                <div role="gridcell" className={styles.itemWrapper} key={emoji.hexcode}>
+                <div
+                    role="gridcell"
+                    className={classNames(styles.itemWrapper, { [styles.itemWrapperSticker]: mode === "sticker" })}
+                    key={emoji.hexcode}
+                >
                     <Emoji
                         // The category is part of the ID because the same emoji can appear both in
                         // its own category and in the recently used one.
@@ -556,7 +568,16 @@ export function EmojiPicker({
                 </div>
             ));
         },
-        [selectedEmojis, onClickEmoji, onHoverEmoji, onHoverEmojiEnd, isEmojiDisabled, emojiIdBase, renderEmptyStateCategory],
+        [
+            selectedEmojis,
+            onClickEmoji,
+            onHoverEmoji,
+            onHoverEmojiEnd,
+            isEmojiDisabled,
+            emojiIdBase,
+            renderEmptyStateCategory,
+            mode,
+        ],
     );
 
     const pickerBodyId = useId();
@@ -610,7 +631,7 @@ export function EmojiPicker({
                                     ref={virtuosoRef}
                                     customScrollParent={scrollElement}
                                     data={items}
-                                    defaultItemHeight={EMOJI_HEIGHT}
+                                    defaultItemHeight={mode === "sticker" ? STICKER_HEIGHT : EMOJI_HEIGHT}
                                     components={gridComponents}
                                     itemContent={renderItem}
                                     rangeChanged={onRangeChanged}

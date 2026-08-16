@@ -179,6 +179,14 @@
     }
 }
 
+/* Haven: the Stickers tab's own grid slot - bigger than a regular emoji's, at a 4-per-row layout
+   (see STICKERS_PER_ROW/STICKER_HEIGHT's own doc in EmojiPicker.tsx for why these two numbers
+   must change together with .row's own fixed 304px width above). */
+.itemWrapperSticker {
+    width: 76px;
+    height: 70px;
+}
+
 .bodyShowHighlight .itemWrapper [tabindex="0"] .item {
     background-color: var(--cpd-color-bg-subtle-primary);
 }
