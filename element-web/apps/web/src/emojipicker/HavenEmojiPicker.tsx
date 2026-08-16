@@ -153,6 +153,23 @@ export function HavenEmojiPicker({
         [packRoom, packUsage],
     );
 
+    // Haven: sticker mode has no unicode-emoji grid to fall back on, unlike emoji mode - with zero
+    // pack categories it'd otherwise render nothing at all. Synthesize an isEmptyState category
+    // (same shape buildPackCategories itself already uses for its own "you can create a pack" case
+    // just above) so the "no stickers in this room" message still renders *inside* SharedEmojiPicker
+    // and inherits its fixed .picker size, instead of the caller having to bail out into a bare,
+    // unstyled div that only shrink-wraps to the message text (see renderEmptyStateCategory's own
+    // stickerMode branch below for the message itself).
+    const stickerCategories = useMemo<{ categories: Category[]; dataByCategory: Record<string, PickerEmoji[]> }>(() => {
+        if (!stickerMode) return { categories: [], dataByCategory: {} };
+        if (packCategories.length > 0) return { categories: packCategories, dataByCategory: dataByPackCategory };
+        const id = `no-stickers:${room?.roomId ?? "none"}`;
+        return {
+            categories: [{ id, name: room?.name ?? "", emoji: "🖼️", isEmptyState: true } as Category],
+            dataByCategory: { [id]: [] },
+        };
+    }, [stickerMode, packCategories, dataByPackCategory, room]);
+
     const onManageClick = useCallback((roomId: string, stateKey?: string) => {
         onFinished();
         openManagePack(roomId, stateKey);
@@ -189,6 +206,23 @@ export function HavenEmojiPicker({
 
     const renderEmptyStateCategory = useCallback(
         (_category: Category) => {
+            if (stickerMode) {
+                return (
+                    <>
+                        {_t(
+                            "emoji_picker|no_stickers_in_room",
+                            {},
+                            {
+                                a: (sub) => (
+                                    <AccessibleButton kind="link_inline" onClick={onOpenSettings}>
+                                        {sub}
+                                    </AccessibleButton>
+                                ),
+                            },
+                        )}
+                    </>
+                );
+            }
             const roomId = room?.roomId;
             if (!roomId) return null;
             return (
@@ -207,26 +241,8 @@ export function HavenEmojiPicker({
                 </>
             );
         },
-        [room, onManageClick],
+        [room, onManageClick, stickerMode, onOpenSettings],
     );
-
-    if (stickerMode && packCategories.length === 0) {
-        return (
-            <div className="mx_HavenEmojiPicker_empty">
-                {_t(
-                    "emoji_picker|no_stickers_in_room",
-                    {},
-                    {
-                        a: (sub) => (
-                            <AccessibleButton kind="link_inline" onClick={onOpenSettings}>
-                                {sub}
-                            </AccessibleButton>
-                        ),
-                    },
-                )}
-            </div>
-        );
-    }
 
     return (
         <SharedEmojiPicker
@@ -241,8 +257,8 @@ export function HavenEmojiPicker({
             mode={mode}
             extraCategories={stickerMode ? undefined : packCategories}
             dataByExtraCategory={stickerMode ? undefined : dataByPackCategory}
-            stickerCategories={stickerMode ? packCategories : undefined}
-            dataByStickerCategory={stickerMode ? dataByPackCategory : undefined}
+            stickerCategories={stickerMode ? stickerCategories.categories : undefined}
+            dataByStickerCategory={stickerMode ? stickerCategories.dataByCategory : undefined}
             renderEmptyStateCategory={renderEmptyStateCategory}
             onFilterChange={setFilter}
             belowSearch={
