@@ -41,6 +41,10 @@ interface IProps {
      * a badge. That is: only display badges and not dots. Default: false.
      */
     hideIfDot?: boolean;
+    /**
+     * If true, never show the public-room globe badge, even for a public room. Default: false.
+     */
+    hidePublicIcon?: boolean;
     oobData?: IOOBData;
     viewAvatarOnClick?: boolean;
     tooltipProps?: {
@@ -176,7 +180,7 @@ export default class DecoratedRoomAvatar extends React.PureComponent<IProps, ISt
             }
         } else {
             // Track publicity
-            icon = this.isPublicRoom ? Icon.Globe : Icon.None;
+            icon = this.isPublicRoom && !this.props.hidePublicIcon ? Icon.Globe : Icon.None;
             if (!this.isWatchingTimeline) {
                 this.props.room.on(RoomEvent.Timeline, this.onRoomTimeline);
                 this.isWatchingTimeline = true;
@@ -187,8 +191,18 @@ export default class DecoratedRoomAvatar extends React.PureComponent<IProps, ISt
 
     public render(): React.ReactNode {
         // Spread the remaining props to make it work with compound component
-        const { room, size, displayBadge, hideIfDot, oobData, viewAvatarOnClick, tooltipProps, className, ...props } =
-            this.props;
+        const {
+            room,
+            size,
+            displayBadge,
+            hideIfDot,
+            hidePublicIcon,
+            oobData,
+            viewAvatarOnClick,
+            tooltipProps,
+            className,
+            ...props
+        } = this.props;
 
         let badge: React.ReactNode;
         if (this.props.displayBadge && this.state.notificationState) {

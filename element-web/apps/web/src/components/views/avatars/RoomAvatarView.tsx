@@ -7,7 +7,6 @@
 
 import React, { memo, useState, type JSX, type ReactNode } from "react";
 import { type Room } from "matrix-js-sdk/src/matrix";
-import PublicIcon from "@vector-im/compound-design-tokens/assets/web/icons/public";
 import VideoIcon from "@vector-im/compound-design-tokens/assets/web/icons/video-call-solid";
 import ArrowDownIcon from "@vector-im/compound-design-tokens/assets/web/icons/arrow-down";
 import OnlineOrUnavailableIcon from "@vector-im/compound-design-tokens/assets/web/icons/presence-solid-8x8";
@@ -41,7 +40,7 @@ export const RoomAvatarView = memo(function RoomAvatarView({ room }: RoomAvatarV
     const icon = getAvatarDecoration(vm.badgeDecoration, vm.presence);
     const label = getDecorationLabel(vm.badgeDecoration, vm.presence);
 
-    // Presence indicator and video/public icons don't have the same size
+    // Presence indicator and video icons don't have the same size
     // We use different masks
     const maskClass =
         vm.badgeDecoration === AvatarBadgeDecoration.Presence
@@ -61,7 +60,7 @@ export const RoomAvatarView = memo(function RoomAvatarView({ room }: RoomAvatarV
  * an initial position eagerly (walking the full ancestor chain for scroll containers/clipping
  * boxes/fixed-position ancestors) even while the tooltip is closed and nobody's hovering it. In a
  * virtualized room list, Virtuoso mounts a fresh batch of rows on every scroll tick, so every row
- * with a decoration (presence, public/video room, low priority) was paying that ancestor-walk cost
+ * with a decoration (presence, video room, low priority) was paying that ancestor-walk cost
  * purely from scrolling past it - confirmed via CPU profiling during scroll, where Floating UI's
  * internals (isOverflowElement, getClippingElementAncestors, hasFixedPositionAncestor, etc.)
  * accounted for a large share of sampled time.
@@ -156,16 +155,6 @@ function getAvatarDecoration(decoration: AvatarBadgeDecoration, presence: Presen
                 aria-label={getDecorationLabel(decoration, presence)}
             />
         );
-    } else if (decoration === AvatarBadgeDecoration.PublicRoom) {
-        return (
-            <PublicIcon
-                width="16px"
-                height="16px"
-                className="mx_RoomAvatarView_icon"
-                color="var(--cpd-color-icon-info-primary)"
-                aria-label={getDecorationLabel(decoration, presence)}
-            />
-        );
     } else if (decoration === AvatarBadgeDecoration.Presence) {
         return getPresenceDecoration(presence!);
     }
@@ -181,8 +170,6 @@ function getDecorationLabel(decoration: AvatarBadgeDecoration, presence: Presenc
             return _t("room|room_is_low_priority");
         case AvatarBadgeDecoration.VideoRoom:
             return _t("room|video_room");
-        case AvatarBadgeDecoration.PublicRoom:
-            return _t("room|header|room_is_public");
         case AvatarBadgeDecoration.Presence:
             return getPresenceLabel(presence!);
     }

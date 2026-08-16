@@ -479,6 +479,7 @@ class RoomTile extends React.PureComponent<Props, State> {
                             room={this.props.room}
                             size="32px"
                             displayBadge={this.props.isMinimized}
+                            hidePublicIcon
                             tooltipProps={{ tabIndex: isActive ? 0 : -1 }}
                         />
                         {titleContainer}
