@@ -5,10 +5,11 @@
  * No new client instances are created here.
  */
 
-import { type MatrixClient, EventType, JoinRule, KnownMembership, Method, ReceiptType } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, type Room, EventType, JoinRule, KnownMembership, Method, ReceiptType } from "matrix-js-sdk/src/matrix";
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import SettingsStore from "../../../../element-web/apps/web/src/settings/SettingsStore";
+import { calculateRoomVia } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import {
     uploadFile,
     infoForImageFile,
@@ -18,6 +19,7 @@ import {
 import {
     MSC4501_EVENT_POST,
     MSC4501_PROFILE_ROOM_KEY,
+    MSC4501_PROFILE_ROOM_ID_KEY_LEGACY,
     MSC4501_RELATES_TO_KEY,
     MSC4501_REL_TYPE_REPOST,
     MSC4501_REL_TYPE_REPLY,
@@ -61,22 +63,36 @@ export async function removeRoomBanner(client: MatrixClient, roomId: string): Pr
 // MSC4501 — profile room pointer (depends on MSC4133 for the profile-field mechanism itself)
 // ---------------------------------------------------------------------------
 
+/** The MSC4501_PROFILE_ROOM_KEY value shape since the MSC's 2026-08 block-ification (see that
+ *  constant's own doc in room-classifier.ts). */
+interface ProfileRoomLinkValue {
+    room_id: string;
+    via?: string[];
+}
+
 /** Low-level PUT, shared by setProfileRoomLink and clearProfileRoomLink's fallback — throws on
- *  failure instead of swallowing, so callers that need to know whether it actually worked can. */
-async function putProfileRoomLink(client: MatrixClient, roomId: string): Promise<void> {
+ *  failure instead of swallowing, so callers that need to know whether it actually worked can.
+ *  `via` should be calculateRoomVia(room) for a real link, or omitted/empty for the empty-string
+ *  clear fallback (nothing to route to once cleared). */
+async function putProfileRoomLink(client: MatrixClient, roomId: string, via: string[] = []): Promise<void> {
     // setProfileInfo's TS overloads only know about "avatar_url"/"displayname", but the endpoint
     // itself (PUT /profile/$userId/$info) is generic — content must be `{ [info]: value }`, same
     // shape as the two built-in overloads use, just keyed by our own MSC4501 field name.
     const info = MSC4501_PROFILE_ROOM_KEY as unknown as "displayname";
-    const content = { [MSC4501_PROFILE_ROOM_KEY]: roomId } as unknown as { displayname: string };
+    const value: ProfileRoomLinkValue = { room_id: roomId, ...(via.length ? { via } : {}) };
+    const content = { [MSC4501_PROFILE_ROOM_KEY]: value } as unknown as { displayname: string };
     await client.setProfileInfo(info, content);
 }
 
 /** Best-effort — used from room creation, where a failure to write this secondary metadata
- *  shouldn't block the room itself from being created. */
+ *  shouldn't block the room itself from being created. `via` is computed from the room's own
+ *  locally-known state (calculateRoomVia) when it's already a real Room object — falls back to no
+ *  via hints if the caller only has a bare room id (e.g. /setprofileroom run before the room's
+ *  state has fully loaded), same as a repost/reply's own relates_to.via does. */
 export async function setProfileRoomLink(client: MatrixClient, roomId: string): Promise<void> {
+    const room = client.getRoom(roomId);
     try {
-        await putProfileRoomLink(client, roomId);
+        await putProfileRoomLink(client, roomId, room ? calculateRoomVia(room) : []);
     } catch (err) {
         // eslint-disable-next-line no-console
         console.error("setProfileRoomLink failed (server may not support MSC4133 profile writes)", err);
@@ -84,11 +100,17 @@ export async function setProfileRoomLink(client: MatrixClient, roomId: string): 
     defaultDispatcher.dispatch({ action: PROFILE_ROOM_LINK_CHANGED });
 }
 
-/** Removes the MSC4501 profile_room_id pointer from the user's own profile — no SDK wrapper exists
+/** Removes the MSC4501 profile_room pointer from the user's own profile — no SDK wrapper exists
  *  for DELETE on a per-key profile field, so this calls the endpoint directly via client.http.
- *  Unlike setProfileRoomLink, this one rethrows if both the DELETE and its PUT-empty-string
- *  fallback fail, so the caller (the Unlink Profile button) can show the user a real error instead
- *  of silently no-oping — that silence was exactly why a previous attempt at this looked broken. */
+ *  Also deletes the legacy MSC4501_PROFILE_ROOM_ID_KEY_LEGACY value if present, so an old link
+ *  doesn't resurface via getProfileRoomLink's own backwards-compat fallback the moment the new key
+ *  is gone — an explicit unlink should mean actually unlinked, not "now reading a stale value from
+ *  before the rename". Unlike setProfileRoomLink, this one rethrows if both the new key's DELETE
+ *  and its PUT-empty-string fallback fail, so the caller (the Unlink Profile button) can show the
+ *  user a real error instead of silently no-oping — that silence was exactly why a previous attempt
+ *  at this looked broken. The legacy key's own delete is best-effort only (logged, not rethrown) -
+ *  it's already unreachable via any read path once the new key is gone/empty, so a failure there
+ *  isn't worth failing the whole unlink over. */
 export async function clearProfileRoomLink(client: MatrixClient): Promise<void> {
     const path = `/profile/${encodeURIComponent(client.getSafeUserId())}/${encodeURIComponent(MSC4501_PROFILE_ROOM_KEY)}`;
     try {
@@ -104,12 +126,28 @@ export async function clearProfileRoomLink(client: MatrixClient): Promise<void> 
             throw putErr; // nothing actually changed — don't dispatch PROFILE_ROOM_LINK_CHANGED.
         }
     }
+
+    const legacyPath = `/profile/${encodeURIComponent(client.getSafeUserId())}/${encodeURIComponent(MSC4501_PROFILE_ROOM_ID_KEY_LEGACY)}`;
+    try {
+        await client.http.authedRequest(Method.Delete, legacyPath);
+    } catch (legacyErr) {
+        // Best-effort - a 404 (never set, or already gone) is the common case, not a real error.
+        // eslint-disable-next-line no-console
+        console.error("clearProfileRoomLink: legacy profile_room_id DELETE failed (non-fatal)", legacyErr);
+    }
+
     defaultDispatcher.dispatch({ action: PROFILE_ROOM_LINK_CHANGED });
 }
 
-/** Reads the user's MSC4501 profile_room_id link directly from their account profile (not from any
+/** Reads the user's MSC4501 profile_room link directly from their account profile (not from any
  *  locally-cached state) — `null` once confirmed unset (never linked, or `GET` 404s because the
- *  key was deleted), never throws.
+ *  key was deleted), never throws. Prefers the current block-shaped MSC4501_PROFILE_ROOM_KEY;
+ *  falls back to the legacy flat-string MSC4501_PROFILE_ROOM_ID_KEY_LEGACY only when the new key is
+ *  entirely absent (read-only compat - see that constant's own doc). Only ever returns the room id
+ *  - via is consumed internally where it's actually used (setProfileRoomLink re-derives it fresh
+ *  from local room state rather than round-tripping whatever was last written) rather than
+ *  threaded through every one of this function's many callers, most of which only ever wanted the
+ *  room id in the first place.
  *
  *  Fetches the *whole* profile (no `info` filter) rather than requesting this one key via
  *  `getProfileInfo(userId, key)` — the latter silently came back empty for this custom
@@ -119,8 +157,13 @@ export async function clearProfileRoomLink(client: MatrixClient): Promise<void> 
  *  single-field one Synapse apparently doesn't extend to arbitrary keys. */
 export async function getProfileRoomLink(client: MatrixClient, userId: string): Promise<string | null> {
     try {
-        const profile = (await withTimeout(client.getProfileInfo(userId), 15_000)) as unknown as Record<string, string>;
-        return profile[MSC4501_PROFILE_ROOM_KEY] || null;
+        const profile = (await withTimeout(client.getProfileInfo(userId), 15_000)) as unknown as Record<string, unknown>;
+        const value = profile[MSC4501_PROFILE_ROOM_KEY];
+        if (value && typeof value === "object" && typeof (value as ProfileRoomLinkValue).room_id === "string") {
+            return (value as ProfileRoomLinkValue).room_id || null;
+        }
+        const legacy = profile[MSC4501_PROFILE_ROOM_ID_KEY_LEGACY];
+        return typeof legacy === "string" && legacy ? legacy : null;
     } catch {
         return null;
     }
@@ -475,6 +518,16 @@ async function crossPostReply(
  * Embeds the original post's sender and its entire content (MSC4501 m.social.repost_of) so a
  * repost can be rendered, including attribution, without fetching the original event.
  */
+/** via routing hints for `roomId`, computed from its locally-known state (calculateRoomVia) —
+ *  empty when the room isn't locally known at all (shouldn't normally happen for a repost/reply,
+ *  since RepostContent is always built from an already-fetched event, but a client sending a
+ *  relates_to block should never throw over missing via, just omit it). Shared by sendRepost and
+ *  crossPostReplyToProfile. */
+function roomViaFor(client: MatrixClient, roomId: string): string[] {
+    const room: Room | null = client.getRoom(roomId);
+    return room ? calculateRoomVia(room) : [];
+}
+
 export interface RepostContent {
     event_id: string;
     room_id: string;
@@ -511,10 +564,12 @@ export async function sendRepost(
     const content: Record<string, unknown> = file
         ? await buildMediaMessageContent(client, targetRoomId, file, body)
         : { body, msgtype: "m.text", format: "plain" };
+    const via = roomViaFor(client, reposted.room_id);
     content[MSC4501_RELATES_TO_KEY] = {
         rel_type: MSC4501_REL_TYPE_REPOST,
         event_id: reposted.event_id,
         room_id: reposted.room_id,
+        ...(via.length ? { via } : {}),
         sender: reposted.sender,
         ...(reposted.displayname ? { displayname: reposted.displayname } : {}),
         content: reposted.content,
@@ -557,6 +612,7 @@ export async function crossPostReplyToProfile(
     repliedTo: RepostContent,
     formattedBody?: string,
 ): Promise<void> {
+    const via = roomViaFor(client, repliedTo.room_id);
     await client.sendEvent(profileRoomId, currentPostEventType() as any, {
         body,
         msgtype: "m.text",
@@ -567,6 +623,7 @@ export async function crossPostReplyToProfile(
             rel_type: MSC4501_REL_TYPE_REPLY,
             event_id: repliedTo.event_id,
             room_id: repliedTo.room_id,
+            ...(via.length ? { via } : {}),
             sender: repliedTo.sender,
             ...(repliedTo.displayname ? { displayname: repliedTo.displayname } : {}),
             content: repliedTo.content,

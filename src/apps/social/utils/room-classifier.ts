@@ -51,6 +51,11 @@ export function isSocialPostEventType(eventType: string): boolean {
 // (but distinct from) real Matrix m.relates_to. A bridge (e.g. matrix-appservice-activitypub
 // mirroring poa.st/Soapbox) already sends this shape — clients still checking the old flat field
 // silently fail to recognize any of its reposts/boosts as such.
+//
+// `via` (added to the MSC 2026-08) is a list of server names that can be used to route to
+// `room_id`, the same routing-hint convention as a real Matrix m.mentions/m.in_reply_to or a
+// matrix.to permalink's own ?via= params — populate it with calculateRoomVia(room) (stock
+// element-web's own Permalinks.ts helper) whenever the reposted/replied-to room is locally known.
 export const MSC4501_RELATES_TO_KEY = "org.matrix.msc4501.social.relates_to";
 export const MSC4501_REL_TYPE_REPOST = "org.matrix.msc4501.social.repost";
 export const MSC4501_REL_TYPE_REPLY = "org.matrix.msc4501.social.reply";
@@ -62,8 +67,18 @@ export const MSC4501_BODY_KEY = "org.matrix.msc4501.social.body";
 export const MSC4501_FORMATTED_BODY_KEY = "org.matrix.msc4501.social.formatted_body";
 
 // MSC4501 — links a user's Matrix account to their profile room (depends on MSC4133 for the
-// extensible profile-field mechanism itself)
-export const MSC4501_PROFILE_ROOM_KEY = "org.matrix.msc4501.social.profile_room_id";
+// extensible profile-field mechanism itself). Changed on the MSC 2026-08 from a flat room-id
+// string (org.matrix.msc4501.social.profile_room_id, see MSC4501_PROFILE_ROOM_ID_KEY_LEGACY below)
+// to a block carrying its own via routing hints: `{ room_id: string, via?: string[] }`, the same
+// shape MSC4501_RELATES_TO_KEY's own room_id/via pair uses.
+export const MSC4501_PROFILE_ROOM_KEY = "org.matrix.msc4501.social.profile_room";
+
+// The pre-rename flat-string field MSC4501_PROFILE_ROOM_KEY replaced - read-only backwards
+// compatibility (see getProfileRoomLink in social-actions.ts): fall back to this only when the new
+// block-shaped key is entirely absent. Never written by this client for a new/updated link -
+// clearProfileRoomLink still deletes both, though, so an old value doesn't linger and resurface
+// after an explicit unlink.
+export const MSC4501_PROFILE_ROOM_ID_KEY_LEGACY = "org.matrix.msc4501.social.profile_room_id";
 
 // MSC4501 — the inverse of MSC4501_PROFILE_ROOM_KEY: lives on a profile room's own state (state_key
 // "") and points back at the user it's a profile of, so a room's true owner is knowable even when

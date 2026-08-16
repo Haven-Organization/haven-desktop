@@ -138,8 +138,15 @@ export function PostRelationHeaderLine({ icon, text, room, eventId, embedded, on
     // A real matrix.to href where possible (so it behaves like any other permalink - hover shows
     // the target in the status bar, right-click lets you copy it, etc.) but the click itself is
     // intercepted to navigate within Social instead of falling through to matrix.to or kicking the
-    // app out to the regular room timeline.
-    const href = room ? new RoomPermalinkCreator(room).forEvent(eventId) : undefined;
+    // app out to the regular room timeline. .load() is required for the creator to actually
+    // populate its own server-via candidates from room state - see SocialEventTile.tsx's identical
+    // boost-permalink comment for why this can't be skipped.
+    const href = (() => {
+        if (!room) return undefined;
+        const creator = new RoomPermalinkCreator(room);
+        creator.load();
+        return creator.forEvent(eventId);
+    })();
 
     return (
         <div className="social_EventTile_replyTo" onClick={(e) => e.stopPropagation()}>

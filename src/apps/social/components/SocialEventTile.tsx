@@ -973,7 +973,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 ...(displayname ? { displayname } : {}),
                 content: event.getContent(),
             };
-            const permalink = new RoomPermalinkCreator(room).forEvent(boostedEventId);
+            // .load() is required for the creator to actually populate its own server-via
+            // candidates from room state - without it, forEvent() silently emits a via-less
+            // permalink (found 2026-08-16: this call never had it, so no boost's matrix.to link
+            // ever carried ?via= hints despite the class fully supporting it).
+            const boostPermalinkCreator = new RoomPermalinkCreator(room);
+            boostPermalinkCreator.load();
+            const permalink = boostPermalinkCreator.forEvent(boostedEventId);
             await sendRepost(client, targetRoomId, permalink, reposted);
         } finally {
             setBoostBusy(false);
@@ -1600,7 +1606,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // (see &_timestampBottom's own CSS comment).
     const timestampNode = eventId ? (
         <a
-            href={new RoomPermalinkCreator(room).forEvent(eventId)}
+            href={(() => {
+                // .load() populates via candidates from room state - see the boost permalink's own
+                // identical comment above for why this can't be skipped.
+                const creator = new RoomPermalinkCreator(room);
+                creator.load();
+                return creator.forEvent(eventId);
+            })()}
             className="social_EventTile_timestampLink"
             onClick={handleTimestampClick}
         >
