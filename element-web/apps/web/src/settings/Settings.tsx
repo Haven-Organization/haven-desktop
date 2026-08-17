@@ -368,6 +368,9 @@ export interface Settings {
     "Haven.showSpacesBar": IBaseSetting<boolean>;
     // Haven: MSC4459 (image pack references) opt-out - see utils/imageSourcePacks.ts's own doc.
     "Haven.sendImagePackReferences": IBaseSetting<boolean>;
+    // Haven: escape hatch back to the plain shared-components picker - see this key's own doc
+    // further down for the full explanation.
+    "Haven.disableCustomEmojiPicker": IBaseSetting<boolean>;
     // Haven: widens the new room list's Unreads filter to include plain activity unreads - see
     // UnreadFilter.ts's own doc.
     "Haven.showAllUnreadRoomsInUnreadsFilter": IBaseSetting<boolean>;
@@ -1404,6 +1407,18 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|emoji_stickers|send_image_pack_references"),
         description: _td("settings|emoji_stickers|send_image_pack_references_description"),
+        default: false,
+    },
+    // Haven: escape hatch back to the plain shared-components picker (EmojiPickerWithRecents) -
+    // see EmojiButton.tsx/ReactionPicker.tsx's own checks. Doesn't touch rendering of other
+    // people's custom emoji/stickers in the timeline, or pack management - only which picker
+    // component the composer/reaction-picker mount, since that's the only place the crash found in
+    // accounts with many favorited packs (see HavenEmojiPicker.tsx's own buildPackCategories doc)
+    // can happen. Off by default; a troubleshooting toggle, not something to steer most users to.
+    "Haven.disableCustomEmojiPicker": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|emoji_stickers|disable_custom_emoji_picker"),
+        description: _td("settings|emoji_stickers|disable_custom_emoji_picker_description"),
         default: false,
     },
     // Haven: Social app - see social-actions.ts's own sendComment/crossPostReply. On by default

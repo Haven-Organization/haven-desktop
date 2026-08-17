@@ -97,6 +97,7 @@ export default function EmojiStickersUserSettingsTab(): JSX.Element {
             <SettingsSection heading={_t("settings|emoji_stickers|title")}>
                 <SettingsSubsection formWrap>
                     <SettingsFlag name="Haven.sendImagePackReferences" level={SettingLevel.ACCOUNT} />
+                    <SettingsFlag name="Haven.disableCustomEmojiPicker" level={SettingLevel.ACCOUNT} />
                 </SettingsSubsection>
                 <SettingsSubsection
                     heading={_t("settings|emoji_stickers|favorite_packs")}

@@ -2618,6 +2618,8 @@
         "emoji_autocomplete": "Enable Emoji suggestions while typing",
         "emoji_stickers": {
             "dialog_title": "<strong>Settings:</strong> Emoji & Stickers",
+            "disable_custom_emoji_picker": "Disable custom emoji & sticker picker",
+            "disable_custom_emoji_picker_description": "Restores Element's stock emoji picker. You'll still be able to view custom emoji and stickers from others, and manage image packs.",
             "favorite_packs": "Favorite Packs",
             "favorite_packs_description": "Choose which rooms' emoji and sticker packs you want to use everywhere, not just in the room they belong to.",
             "no_packs": "You haven't joined any rooms with emoji or sticker packs yet. Look for rooms with packs to join, or if you're a moderator in a room you're already in, you can create a pack for it from that room's own settings.",
