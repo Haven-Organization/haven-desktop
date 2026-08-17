@@ -14,6 +14,8 @@ import { type Room, type IEventRelation, type IContent, THREAD_RELATION_TYPE, Ev
 import { _t } from "../../../languageHandler";
 import ContextMenu, { aboveLeftOf, type MenuProps, useContextMenu } from "../../structures/ContextMenu";
 import { HavenEmojiPicker } from "../../../emojipicker/HavenEmojiPicker";
+import { EmojiPickerWithRecents } from "../../../emojipicker/EmojiPickerWithRecents";
+import { useSettingValue } from "../../../hooks/useSettings";
 import { type CustomEmojiChoice } from "../emojipicker/customEmoji";
 import { CollapsibleButton, OverflowMenuContext } from "./CollapsibleButton";
 import { doMaybeLocalRoomAction } from "../../../utils/local-room";
@@ -72,6 +74,16 @@ export function EmojiButton({
 }: IEmojiButtonProps): JSX.Element {
     const overflowMenuCloser = useContext(OverflowMenuContext);
     const [menuDisplayed, button, openMenu, closeMenu] = useContextMenu();
+    // Haven: see Settings.tsx's own doc for Haven.disableCustomEmojiPicker - when set, this button
+    // drops straight to the plain stock picker below, skipping the Emoji/Sticker tab switcher
+    // entirely (stock Element has no sticker tab here at all - it's this app's own addition).
+    const customPickerDisabled = useSettingValue("Haven.disableCustomEmojiPicker");
+    // Haven: see ReactionPicker.tsx's own identical onChoosePlain doc - EmojiPickerWithRecents
+    // always calls onChoose with the picked PickerEmoji as the second argument, never a
+    // CustomEmojiChoice (addEmoji's own second parameter type), since this picker has no pack data
+    // to produce one from. Dropping that argument here is what makes addEmoji reliably treat every
+    // pick as plain unicode instead of misreading the wrong shape as a custom emoji.
+    const onChoosePlain = useCallback((unicode: string): boolean => addEmoji(unicode), [addEmoji]);
     // Haven: same source RoomUploadViewModel's own provider reads these from - lets a sticker sent
     // while replying to something carry that reply relation (see onChooseSticker below), and clear
     // the "Replying" box afterward, the same as sending a text message or an attachment already
@@ -221,50 +233,57 @@ export function EmojiButton({
         contextMenu = (
             <ContextMenu {...position} onFinished={onFinished} managed={false} focusLock>
                 <div className="mx_EmojiButton_picker" onKeyDown={onPickerKeyDown}>
-                    <div className="mx_EmojiButton_tabs" role="tablist">
-                        <button
-                            role="tab"
-                            aria-selected={activeTab === "emoji"}
-                            className={classNames("mx_EmojiButton_tab", {
-                                mx_EmojiButton_tab_active: activeTab === "emoji",
-                            })}
-                            onClick={() => setActiveTab("emoji")}
-                        >
-                            <ReactionIcon />
-                            {_t("composer|emoji_picker|emoji_tab")}
-                        </button>
-                        <button
-                            role="tab"
-                            aria-selected={activeTab === "sticker"}
-                            className={classNames("mx_EmojiButton_tab", {
-                                mx_EmojiButton_tab_active: activeTab === "sticker",
-                            })}
-                            onClick={() => setActiveTab("sticker")}
-                        >
-                            <StickerIcon />
-                            {_t("composer|emoji_picker|sticker_tab")}
-                        </button>
-                    </div>
-                    {/* Haven: keyed by tab so switching mode always starts the newly-shown picker
-                        (search filter, scroll position, roving focus) fresh rather than carrying
-                        over whatever state the other tab's picker was left in. */}
-                    {activeTab === "emoji" ? (
-                        <HavenEmojiPicker
-                            key="emoji"
-                            onChoose={addEmoji}
-                            onFinished={onFinished}
-                            room={room}
-                            mode="emoji"
-                            disableCustomEmoji={disableCustomEmoji}
-                        />
+                    {customPickerDisabled ? (
+                        <EmojiPickerWithRecents onChoose={onChoosePlain} onFinished={onFinished} />
                     ) : (
-                        <HavenEmojiPicker
-                            key="sticker"
-                            onChoose={onChooseSticker}
-                            onFinished={onFinished}
-                            room={room}
-                            mode="sticker"
-                        />
+                        <>
+                            <div className="mx_EmojiButton_tabs" role="tablist">
+                                <button
+                                    role="tab"
+                                    aria-selected={activeTab === "emoji"}
+                                    className={classNames("mx_EmojiButton_tab", {
+                                        mx_EmojiButton_tab_active: activeTab === "emoji",
+                                    })}
+                                    onClick={() => setActiveTab("emoji")}
+                                >
+                                    <ReactionIcon />
+                                    {_t("composer|emoji_picker|emoji_tab")}
+                                </button>
+                                <button
+                                    role="tab"
+                                    aria-selected={activeTab === "sticker"}
+                                    className={classNames("mx_EmojiButton_tab", {
+                                        mx_EmojiButton_tab_active: activeTab === "sticker",
+                                    })}
+                                    onClick={() => setActiveTab("sticker")}
+                                >
+                                    <StickerIcon />
+                                    {_t("composer|emoji_picker|sticker_tab")}
+                                </button>
+                            </div>
+                            {/* Haven: keyed by tab so switching mode always starts the newly-shown
+                                picker (search filter, scroll position, roving focus) fresh rather
+                                than carrying over whatever state the other tab's picker was left
+                                in. */}
+                            {activeTab === "emoji" ? (
+                                <HavenEmojiPicker
+                                    key="emoji"
+                                    onChoose={addEmoji}
+                                    onFinished={onFinished}
+                                    room={room}
+                                    mode="emoji"
+                                    disableCustomEmoji={disableCustomEmoji}
+                                />
+                            ) : (
+                                <HavenEmojiPicker
+                                    key="sticker"
+                                    onChoose={onChooseSticker}
+                                    onFinished={onFinished}
+                                    room={room}
+                                    mode="sticker"
+                                />
+                            )}
+                        </>
                     )}
                 </div>
             </ContextMenu>

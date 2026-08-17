@@ -19,6 +19,8 @@ import { type FocusComposerPayload } from "../../../dispatcher/payloads/FocusCom
 import { REACTION_SHORTCODE_KEY } from "../../../viewmodels/room/timeline/event-tile/reactions/reactionShortcode";
 import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacks } from "../../../utils/imageSourcePacks";
 import { HavenEmojiPicker } from "../../../emojipicker/HavenEmojiPicker";
+import { EmojiPickerWithRecents } from "../../../emojipicker/EmojiPickerWithRecents";
+import SettingsStore from "../../../settings/SettingsStore";
 
 interface IProps {
     mxEvent: MatrixEvent;
@@ -151,7 +153,28 @@ class ReactionPicker extends React.Component<IProps, IState> {
         return true;
     };
 
+    // Haven: EmojiPickerWithRecents (unlike HavenEmojiPicker) always calls its own onChoose with
+    // the picked item's own PickerEmoji as the second argument, even for a plain unicode pick -
+    // never a CustomEmojiChoice, since this picker has no pack data to produce one from at all.
+    // this.onChoose expects a CustomEmojiChoice there and reads custom.mxcUrl off it, so forwarding
+    // that PickerEmoji through unchanged would read undefined off the wrong shape instead of
+    // reliably falling through to the plain-reaction branch - dropping the second argument entirely
+    // here is what actually gets that fallback right.
+    private onChoosePlain = (reaction: string): boolean => this.onChoose(reaction);
+
     public render(): React.ReactNode {
+        // Haven: see Settings.tsx's own doc for Haven.disableCustomEmojiPicker - drops straight to
+        // the plain stock picker (no packs, no freeform-text reactions) when set.
+        if (SettingsStore.getValue("Haven.disableCustomEmojiPicker")) {
+            return (
+                <EmojiPickerWithRecents
+                    onChoose={this.onChoosePlain}
+                    isEmojiDisabled={this.isEmojiDisabled}
+                    onFinished={this.props.onFinished}
+                    selectedEmojis={this.state.selectedEmojis}
+                />
+            );
+        }
         // Haven: no `mode` passed - reactions are always the plain "emoji" mode (stock unicode +
         // any emoji/both image packs), never "sticker" - a sticker can't be sent as m.reaction at
         // all (see EmojiPicker's own IProps.mode doc), so ReactionPicker never even offers it.
