@@ -26,6 +26,13 @@
     flex-direction: column;
     flex: 1;
     min-width: 0;
+    /* Haven: analogous to min-width above but for the column axis - needed for .pickerStock's
+       flex-direction: column (.picker's own default row layout never exercises this axis, which
+       is why this went unnoticed until stockLayout existed). Without it this flex child's default
+       min-height: auto lets it grow to fit its content's own intrinsic height instead of shrinking
+       to whatever's actually left inside .picker's fixed height, so .body's own overflow-y: scroll
+       never kicks in and the grid spills out past the picker's bottom edge instead of scrolling. */
+    min-height: 0;
 }
 
 .body {
@@ -99,6 +106,54 @@
 
 .anchorSelected {
     border-left: 2px solid var(--cpd-color-text-action-accent);
+}
+
+/* Haven: Haven.disableCustomEmojiPicker's "restore stock Element" layout - a horizontal tab bar
+   above the grid instead of the vertical rail down the left, matching the exact pre-Haven layout
+   (see git history: da0cc61301~1's own _EmojiPicker.pcss, before MSC2545 packs introduced the
+   rail to make room for pack icons/a settings button - both meaningless without pack data). Only
+   .picker/.header/.anchor's own row-vs-column axis and indicator side actually change here - the
+   grid itself (.category/.row/etc.) was always identical between the two layouts. */
+.pickerStock {
+    /* Haven: 340px matches the original pre-rail width exactly - see .picker's own doc above for
+       where the extra 45px going the other way comes from. */
+    width: 340px;
+    flex-direction: column;
+}
+
+/* Haven: the rail's own left-edge gap from .body above has nothing to be a gap from once the tab
+   bar moves above the grid instead of beside it. */
+.mainStock .body {
+    margin-left: 0;
+}
+
+.headerStock {
+    flex-shrink: 0;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    padding: var(--cpd-space-1x) var(--cpd-space-2x) 0;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--cpd-color-gray-400);
+}
+
+.anchorStock {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0;
+
+    &:not(:disabled):hover {
+        border-left: none;
+        border-bottom: 2px solid var(--cpd-color-text-action-accent);
+    }
+}
+
+.anchorStock.anchorSelected {
+    border-left: none;
+    border-bottom: 2px solid var(--cpd-color-text-action-accent);
 }
 
 .search {

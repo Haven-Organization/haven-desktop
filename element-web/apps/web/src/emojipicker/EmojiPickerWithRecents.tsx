@@ -14,6 +14,12 @@ import { getWebRovingAction } from "../accessibility/RovingTabIndex";
  * Wrapped version of the shared-components emoji picker that passes in
  * the recent emojis from the web app's local storage (also passes in the
  * web roving actions).
+ *
+ * Haven: always renders with stockLayout - see EmojiPicker.tsx's own doc for that prop. This is
+ * the plain, no-pack-data picker (see EmojiButton.tsx/ReactionPicker.tsx's own
+ * Haven.disableCustomEmojiPicker checks, the only current callers), so it should look exactly
+ * like stock Element's own picker, not carry over the vertical rail that only exists to make room
+ * for pack icons/a settings button.
  */
 export function EmojiPickerWithRecents({
     selectedEmojis,
@@ -34,6 +40,7 @@ export function EmojiPickerWithRecents({
             getAction={getWebRovingAction}
             recentEmojis={recentEmojis}
             onRecordRecent={recent.add}
+            stockLayout
         />
     );
 }

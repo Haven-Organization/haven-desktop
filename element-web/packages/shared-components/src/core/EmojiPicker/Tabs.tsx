@@ -52,6 +52,11 @@ interface Props {
      * dropped it. Omit to render no settings button at all.
      */
     onOpenSettings?: () => void;
+    /**
+     * Haven: renders a horizontal tab bar (underline indicator) instead of the vertical rail - see
+     * EmojiPicker.tsx's own identical prop doc, which this is threaded straight through from.
+     */
+    stockLayout?: boolean;
 }
 
 const getDefaultAction = (ev: React.KeyboardEvent): RovingAction | undefined => {
@@ -80,6 +85,7 @@ export const Tabs: React.FC<Props> = ({
     pickerBodyId,
     getAction,
     onOpenSettings,
+    stockLayout = false,
 }) => {
     const findNearestEnabled = useCallback(
         (index: number, delta: number): number | undefined => {
@@ -163,9 +169,15 @@ export const Tabs: React.FC<Props> = ({
     }
 
     return (
-        <nav className={styles.header} role="tablist" aria-label={_t("emoji|categories")} onKeyDown={onKeyDown}>
+        <nav
+            className={classNames(styles.header, { [styles.headerStock]: stockLayout })}
+            role="tablist"
+            aria-label={_t("emoji|categories")}
+            onKeyDown={onKeyDown}
+        >
             {categories.map((category) => {
                 const classes = classNames(styles.anchor, {
+                    [styles.anchorStock]: stockLayout,
                     [styles.anchorSelected]: category.id === selectedCategory,
                 });
                 return (

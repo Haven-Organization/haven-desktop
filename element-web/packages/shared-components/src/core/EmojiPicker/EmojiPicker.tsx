@@ -222,6 +222,14 @@ export interface EmojiPickerProps {
      * and header, just with this instead of a grid of Emoji cells for its body.
      */
     renderEmptyStateCategory?: (category: Category) => React.ReactNode;
+    /**
+     * Haven: renders the pre-Haven stock Element layout - a horizontal category tab bar above the
+     * grid (underline indicator) instead of the vertical rail down the left side (which needs
+     * room for pack icons/a settings button, both meaningless without pack data) - see
+     * EmojiPickerWithRecents.tsx's own doc, the only current caller. Defaults to false (the rail)
+     * everywhere else, so this has no effect on the picker's normal appearance.
+     */
+    stockLayout?: boolean;
 }
 
 /** Convert recent emoji characters to emoji data, removing unknowns and duplicates */
@@ -303,6 +311,7 @@ export function EmojiPicker({
     renderEmptyStateCategory,
     onFilterChange,
     belowSearch,
+    stockLayout = false,
 }: EmojiPickerProps): React.ReactNode {
     const [filter, setFilter] = useState("");
     const [previewEmoji, setPreviewEmoji] = useState<PickerEmoji | undefined>(undefined);
@@ -601,7 +610,7 @@ export function EmojiPicker({
         >
             {({ onKeyDownHandler }) => (
                 <section
-                    className={styles.picker}
+                    className={classNames(styles.picker, { [styles.pickerStock]: stockLayout })}
                     onKeyDown={onKeyDownHandler}
                     aria-label={_t("emoji_picker|emoji_picker")}
                 >
@@ -613,10 +622,11 @@ export function EmojiPicker({
                         pickerBodyId={pickerBodyId}
                         getAction={getAction}
                         onOpenSettings={onOpenSettings}
+                        stockLayout={stockLayout}
                     />
                     {/* Haven: everything but the rail (Tabs above) stacked in its own column - see
                         .main/.picker's own doc in EmojiPicker.module.css. */}
-                    <div className={styles.main}>
+                    <div className={classNames(styles.main, { [styles.mainStock]: stockLayout })}>
                         <Search
                             query={filter}
                             onChange={onChangeFilter}
