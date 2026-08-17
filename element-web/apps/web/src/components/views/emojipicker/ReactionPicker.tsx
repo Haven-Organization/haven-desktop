@@ -20,7 +20,10 @@ import { REACTION_SHORTCODE_KEY } from "../../../viewmodels/room/timeline/event-
 import { IMAGE_SOURCE_PACKS_KEY, buildImageSourcePacks } from "../../../utils/imageSourcePacks";
 import { HavenEmojiPicker } from "../../../emojipicker/HavenEmojiPicker";
 import { EmojiPickerWithRecents } from "../../../emojipicker/EmojiPickerWithRecents";
+import * as recent from "../../../emojipicker/recent";
 import SettingsStore from "../../../settings/SettingsStore";
+import AccessibleButton from "../elements/AccessibleButton";
+import { _t } from "../../../languageHandler";
 
 interface IProps {
     mxEvent: MatrixEvent;
@@ -34,6 +37,9 @@ interface IProps {
 
 interface IState {
     selectedEmojis: Set<string>;
+    /** Haven: the stock-picker branch's own copy of HavenEmojiPicker's identical `filter` state -
+     *  see this component's own onClickFreeformReact for why the stock branch needs its own. */
+    filter: string;
 }
 
 class ReactionPicker extends React.Component<IProps, IState> {
@@ -45,6 +51,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
 
         this.state = {
             selectedEmojis: new Set(Object.keys(this.getReactions())),
+            filter: "",
         };
     }
 
@@ -162,9 +169,25 @@ class ReactionPicker extends React.Component<IProps, IState> {
     // here is what actually gets that fallback right.
     private onChoosePlain = (reaction: string): boolean => this.onChoose(reaction);
 
+    private onFilterChange = (filter: string): void => {
+        this.setState({ filter });
+    };
+
+    // Haven: the stock branch's own equivalent of HavenEmojiPicker's identical onClickFreeformReact
+    // - that one isn't reachable here since the stock branch never mounts HavenEmojiPicker at all
+    // (see EmojiPickerWithRecents.tsx's own doc), so freeform-text reactions need this small amount
+    // of duplicated logic to survive Haven.disableCustomEmojiPicker rather than being silently lost.
+    private onClickFreeformReact = (): void => {
+        const text = this.state.filter.trim();
+        if (!text) return;
+        if (this.onChoosePlain(text) !== false) recent.add(text);
+        this.props.onFinished();
+    };
+
     public render(): React.ReactNode {
         // Haven: see Settings.tsx's own doc for Haven.disableCustomEmojiPicker - drops straight to
-        // the plain stock picker (no packs, no freeform-text reactions) when set.
+        // the plain stock picker (no packs) when set, but keeps freeform-text reactions (see
+        // onClickFreeformReact above) - those aren't pack-related, so there's no reason to lose them.
         if (SettingsStore.getValue("Haven.disableCustomEmojiPicker")) {
             return (
                 <EmojiPickerWithRecents
@@ -172,6 +195,18 @@ class ReactionPicker extends React.Component<IProps, IState> {
                     isEmojiDisabled={this.isEmojiDisabled}
                     onFinished={this.props.onFinished}
                     selectedEmojis={this.state.selectedEmojis}
+                    onFilterChange={this.onFilterChange}
+                    belowSearch={
+                        this.state.filter.trim() && (
+                            <AccessibleButton
+                                kind="link"
+                                className="mx_HavenEmojiPicker_freeformReact"
+                                onClick={this.onClickFreeformReact}
+                            >
+                                {_t("emoji_picker|react_with_text", { text: this.state.filter.trim() })}
+                            </AccessibleButton>
+                        )
+                    }
                 />
             );
         }
