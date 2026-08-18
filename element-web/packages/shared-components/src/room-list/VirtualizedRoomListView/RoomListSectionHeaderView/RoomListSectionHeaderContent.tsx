@@ -79,6 +79,13 @@ function MenuComponent({ vm }: MenuComponentProps): JSX.Element {
             title={_t("room_list|section_header|more_options")}
             showTitle={false}
             align="start"
+            // Haven: non-modal (see the compound-web patch adding this prop) - Radix's default
+            // modal behavior locks/hides the room list's own scrollbar for as long as this menu is
+            // open, which visibly shifts this row's own layout (confirmed on a real account/OS
+            // where the scrollbar normally reserves its own track width) by however much width that
+            // scrollbar was occupying. A small "..." menu like this has no real need for a modal's
+            // focus trap or background-scroll lock either.
+            modal={false}
             trigger={
                 <IconButton
                     className={styles.menu}
@@ -87,6 +94,17 @@ function MenuComponent({ vm }: MenuComponentProps): JSX.Element {
                     size="24px"
                     style={{ padding: "2px" }}
                     color="var(--cpd-color-icon-primary)"
+                    // Haven: modal={false} above (see its own doc) also drops Radix's own
+                    // internal stopPropagation on the trigger's click - a modal trigger swallows
+                    // it to prevent "click-through" to whatever's underneath by design, but a
+                    // non-modal one deliberately doesn't, since staying click-through to the rest
+                    // of the page is the whole point of non-modal. This button sits INSIDE the
+                    // section header's own clickable row (see RoomListSectionHeaderView.tsx), so
+                    // without this the same click that opens the menu also bubbles up and toggles
+                    // the section's expand/collapse - confirmed live, matching
+                    // SectionHeaderMoreOptionContent's own identical stopPropagation for the
+                    // menu's items just below.
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <OverflowHorizontalIcon fill="var(--cpd-color-icon-primary)" />
                 </IconButton>

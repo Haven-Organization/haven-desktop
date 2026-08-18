@@ -313,7 +313,7 @@ patchedDependencies:
   '@matrix-org/react-sdk-module-api': 016146c9cc96e6363609d2b2ac0896ccef567882eb1d73b75a77b8a30929de96
   '@tanstack/virtual-core@3.17.6': 9db9d80c4fe7a7a9911643522aef9bc9359075570c38f3d847ff75ed635d921c
   '@types/auto-launch': b60dc9846a11a1684ce52c55493f29ea398d3dc44b88f66ab44e9843d6c01538
-  '@vector-im/compound-web@9.9.0': e7bfd103fd1ac3757e206e4fd36cc9698c103d1352475af22018aff6fcff39ac
+  '@vector-im/compound-web@9.9.0': 4a0cb10bc5f493e16b09f73b996b3431d9d1d0ad47ba20525e1ed853d54bea4b
   '@vector-im/matrix-wysiwyg': 7bdf6150f2905bc2f055a6bcaa7b9d78fa7ffde82e800bcc454ac7b0096bd65e
   await-lock: b767a571946a4f8710ac54b1a7bec8a7c1570f9b85d75922392fae20d0578964
   jest-fixed-jsdom: b4bc876eca343b57d231c1cf9817ddb13ff04503ece7794d1690f342f6289ad3
@@ -559,7 +559,7 @@ importers:
         version: 10.2.1(@types/react@19.2.17)(react@19.2.8)
       '@vector-im/compound-web':
         specifier: 'catalog:'
-        version: 9.9.0(patch_hash=e7bfd103fd1ac3757e206e4fd36cc9698c103d1352475af22018aff6fcff39ac)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
+        version: 9.9.0(patch_hash=4a0cb10bc5f493e16b09f73b996b3431d9d1d0ad47ba20525e1ed853d54bea4b)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
       '@vector-im/matrix-wysiwyg':
         specifier: 2.40.0
         version: 2.40.0(patch_hash=7bdf6150f2905bc2f055a6bcaa7b9d78fa7ffde82e800bcc454ac7b0096bd65e)(react@19.2.8)
@@ -1082,7 +1082,7 @@ importers:
         version: 10.2.1(@types/react@19.2.17)(react@19.2.8)
       '@vector-im/compound-web':
         specifier: ^9.0.0
-        version: 9.9.0(patch_hash=e7bfd103fd1ac3757e206e4fd36cc9698c103d1352475af22018aff6fcff39ac)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
+        version: 9.9.0(patch_hash=4a0cb10bc5f493e16b09f73b996b3431d9d1d0ad47ba20525e1ed853d54bea4b)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
       motion:
         specifier: ^13.0.0
         version: 13.1.0(react-dom@19.2.8)(react@19.2.8)
@@ -1140,7 +1140,7 @@ importers:
         version: 10.2.1(@types/react@19.2.17)(react@19.2.8)
       '@vector-im/compound-web':
         specifier: ^9.0.0
-        version: 9.9.0(patch_hash=e7bfd103fd1ac3757e206e4fd36cc9698c103d1352475af22018aff6fcff39ac)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
+        version: 9.9.0(patch_hash=4a0cb10bc5f493e16b09f73b996b3431d9d1d0ad47ba20525e1ed853d54bea4b)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
       styled-components:
         specifier: ^6.1.18
         version: 6.4.4(react-dom@19.2.8)(react@19.2.8)
@@ -1208,7 +1208,7 @@ importers:
         version: 10.2.1(@types/react@19.2.17)(react@19.2.8)
       '@vector-im/compound-web':
         specifier: ^9.0.0
-        version: 9.9.0(patch_hash=e7bfd103fd1ac3757e206e4fd36cc9698c103d1352475af22018aff6fcff39ac)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
+        version: 9.9.0(patch_hash=4a0cb10bc5f493e16b09f73b996b3431d9d1d0ad47ba20525e1ed853d54bea4b)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
       matrix-widget-api:
         specifier: ^1.18.0
         version: 1.18.0
@@ -1506,7 +1506,7 @@ importers:
         version: typescript@7.0.2
       '@vector-im/compound-web':
         specifier: 'catalog:'
-        version: 9.9.0(patch_hash=e7bfd103fd1ac3757e206e4fd36cc9698c103d1352475af22018aff6fcff39ac)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
+        version: 9.9.0(patch_hash=4a0cb10bc5f493e16b09f73b996b3431d9d1d0ad47ba20525e1ed853d54bea4b)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 6.0.5(vite@8.2.1)
@@ -18586,7 +18586,7 @@ snapshots:
       '@types/react': 19.2.17
       react: 19.2.8
 
-  '@vector-im/compound-web@9.9.0(patch_hash=e7bfd103fd1ac3757e206e4fd36cc9698c103d1352475af22018aff6fcff39ac)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)':
+  '@vector-im/compound-web@9.9.0(patch_hash=4a0cb10bc5f493e16b09f73b996b3431d9d1d0ad47ba20525e1ed853d54bea4b)(@fontsource/inconsolata@5.2.8)(@fontsource/inter@5.3.0)(@types/react-dom@19.2.3)(@types/react@19.2.17)(@vector-im/compound-design-tokens@10.2.1)(react-dom@19.2.8)(react@19.2.8)':
     dependencies:
       '@floating-ui/react': 0.27.17(react-dom@19.2.8)(react@19.2.8)
       '@floating-ui/react-dom': 2.1.9(react-dom@19.2.8)(react@19.2.8)
@@ -21105,12 +21105,6 @@ snapshots:
   fd-package-json@2.0.0:
     dependencies:
       walk-up-path: 4.0.0
-
-  fdir@6.5.0(picomatch@4.0.4):
-    dependencies:
-      '@types/picomatch': 4.0.2
-    optionalDependencies:
-      picomatch: 4.0.4
 
   fdir@6.5.0(picomatch@4.0.5):
     dependencies:
@@ -25756,8 +25750,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
 
   tinypool@2.1.0: {}
 

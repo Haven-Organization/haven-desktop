@@ -1,3 +1,63 @@
+diff --git a/dist/components/Menu/Menu.cjs b/dist/components/Menu/Menu.cjs
+index 9cfb1174720f75406c7826f1d92ecec04c044147..c63a768f17d19705b63f60fa2ac74f3de4f1868f 100644
+--- a/dist/components/Menu/Menu.cjs
++++ b/dist/components/Menu/Menu.cjs
+@@ -47,7 +47,7 @@ var DropdownSubMenuWrapper = ({ trigger, children, open: openProp, onOpenChange
+ /**
+ * A menu opened by pressing a button.
+ */
+-var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center" }) => {
++var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center", modal }) => {
+ 	const platform = require_platform.getPlatform();
+ 	const drawer = platform === "android" || platform === "ios";
+ 	const context = (0, react.useMemo)(() => ({
+@@ -75,6 +75,7 @@ var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, c
+ 	}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(_radix_ui_react_dropdown_menu.Root, {
+ 		open,
+ 		onOpenChange,
++		modal,
+ 		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_radix_ui_react_dropdown_menu.Trigger, {
+ 			asChild: true,
+ 			children: trigger
+diff --git a/dist/components/Menu/Menu.d.ts b/dist/components/Menu/Menu.d.ts
+index 3d84f7db1a9958b2f6abcb71c05bf560c401499d..4ba5221f65d6767f12e29ca6c8a6c6fa826aa11b 100644
+--- a/dist/components/Menu/Menu.d.ts
++++ b/dist/components/Menu/Menu.d.ts
+@@ -46,6 +46,13 @@ interface Props {
+      * @default center
+      */
+     align?: "start" | "center" | "end";
++    /**
++     * Haven: forwarded to Radix's DropdownMenu.Root - defaults to Radix's own default (true) when
++     * omitted, so every existing caller keeps its current modal (focus-trapping, scroll-locking)
++     * behavior unchanged. Pass false for a lightweight menu that shouldn't lock page/container
++     * scroll or trap focus while open.
++     */
++    modal?: boolean;
+ }
+ /**
+  * A menu opened by pressing a button.
+diff --git a/dist/components/Menu/Menu.js b/dist/components/Menu/Menu.js
+index c992f7b274a562bb8ba4b63d1ddd195b70f301da..6cde01637ee919ef078a9f35532c74dd0e5135bc 100644
+--- a/dist/components/Menu/Menu.js
++++ b/dist/components/Menu/Menu.js
+@@ -44,7 +44,7 @@ var DropdownSubMenuWrapper = ({ trigger, children, open: openProp, onOpenChange
+ /**
+ * A menu opened by pressing a button.
+ */
+-var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center" }) => {
++var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center", modal }) => {
+ 	const platform = getPlatform();
+ 	const drawer = platform === "android" || platform === "ios";
+ 	const context = useMemo(() => ({
+@@ -72,6 +72,7 @@ var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, c
+ 	}) : /* @__PURE__ */ jsxs(Root, {
+ 		open,
+ 		onOpenChange,
++		modal,
+ 		children: [/* @__PURE__ */ jsx(Trigger, {
+ 			asChild: true,
+ 			children: trigger
 diff --git a/dist/components/Tooltip/Tooltip.cjs b/dist/components/Tooltip/Tooltip.cjs
 index 2a94492d6b2ace9b3c6453993a921783b87deb66..902879dbeb2d9e2be96a2ff748032f05ced5f344 100644
 --- a/dist/components/Tooltip/Tooltip.cjs
@@ -50,6 +110,43 @@ index c06634842361e4c1d112a2685e8dbf16b509febe..7f0f1359fb378ea50d222f2f5c958155
  		children: [/* @__PURE__ */ jsx(FloatingArrow, {
  			ref: arrowRef,
  			context: floatingContext,
+diff --git a/src/components/Menu/Menu.tsx b/src/components/Menu/Menu.tsx
+index 2322345aa3bffe937e912c8bf02533f14b095843..dfaaa6fdd4077f8b2d5149943047fb9382be5dd6 100644
+--- a/src/components/Menu/Menu.tsx
++++ b/src/components/Menu/Menu.tsx
+@@ -84,6 +84,15 @@ interface Props {
+    * @default center
+    */
+   align?: "start" | "center" | "end";
++  /**
++   * Haven: forwarded to Radix's DropdownMenu.Root - defaults to Radix's own default (true) when
++   * omitted, so every existing caller keeps its current modal (focus-trapping, scroll-locking)
++   * behavior unchanged. Pass false for a lightweight menu that shouldn't lock page/container
++   * scroll or trap focus while open - e.g. a small "..." menu where that's more disruptive than
++   * helpful, and where scroll-locking a still-visible scrollable container can visibly shift its
++   * own layout by however much width its now-hidden scrollbar was occupying.
++   */
++  modal?: boolean;
+ }
+ 
+ const DropdownMenuItemWrapper: FC<MenuItemWrapperProps> = ({
+@@ -151,6 +160,7 @@ export const Menu: FC<Props> = ({
+   children: childrenProp,
+   side = "bottom",
+   align = "center",
++  modal,
+ }) => {
+   // Normally, the menu takes the form of a floating box. But on Android and
+   // iOS, the menu should morph into a drawer
+@@ -179,7 +189,7 @@ export const Menu: FC<Props> = ({
+       </Drawer.Portal>
+     </Drawer.Root>
+   ) : (
+-    <Root open={open} onOpenChange={onOpenChange}>
++    <Root open={open} onOpenChange={onOpenChange} modal={modal}>
+       <Trigger asChild>{trigger}</Trigger>
+       <Portal>
+         <Content asChild side={side} align={align} sideOffset={8}>
 diff --git a/src/components/Tooltip/Tooltip.tsx b/src/components/Tooltip/Tooltip.tsx
 index 09805ea8fd565aa852bdb52fcc4b1223baaa48a1..4635d35f7babbe5d3c04ea74f8660d04b374001f 100644
 --- a/src/components/Tooltip/Tooltip.tsx
