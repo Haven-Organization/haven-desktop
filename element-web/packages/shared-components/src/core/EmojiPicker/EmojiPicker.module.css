@@ -268,6 +268,27 @@
     padding: var(--cpd-space-1x);
 }
 
+/* Haven: a freeform reaction shown in Frequently Used (see EmojiPicker.tsx's makeFreeformEmoji)
+   can be arbitrarily long text rather than a single glyph - keep it inside the same fixed
+   .itemWrapper slot a real emoji gets, rather than overflowing into neighbouring cells.
+   Legibility wins over fitting the whole word: a bigger font showing only the first few
+   characters (ellipsis-truncated) beats a tiny font trying to cram the whole thing in. */
+.itemFreeform {
+    display: flex;
+    align-items: center;
+    /* Centering horizontally here would clip equally from both ends when the text overflows,
+       cutting off the start of the word (e.g. "based" -> "ased") instead of truncating with an
+       ellipsis at the end. Left-aligned keeps the start of the word visible, which is what
+       text-overflow: ellipsis below actually assumes. */
+    justify-content: flex-start;
+    font-size: 15px;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
+}
+
 /* Haven: a custom/pack emoji's image (see Emoji.tsx's own PickerEmoji.imageUrl doc) - sized to
    fill the same cell a unicode glyph's font-size would occupy. */
 .itemImage {

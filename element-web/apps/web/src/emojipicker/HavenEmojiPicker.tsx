@@ -15,7 +15,7 @@ import {
     type EmojiPickerProps as SharedEmojiPickerProps,
     type PickerEmoji,
 } from "@element-hq/web-shared-components";
-import { type Room } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, type Room } from "matrix-js-sdk/src/matrix";
 
 import * as recent from "./recent";
 import { getWebRovingAction } from "../accessibility/RovingTabIndex";
@@ -33,6 +33,7 @@ import {
     packDisplayName,
 } from "../utils/ImagePacks";
 import { mediaFromMxc } from "../customisations/Media";
+import { mayBeAnimated } from "../utils/Image";
 import dis from "../dispatcher/dispatcher";
 import { Action } from "../dispatcher/actions";
 import { UserTab } from "../components/views/dialogs/UserTab";
@@ -75,6 +76,17 @@ interface IProps {
 const EMOJI_IMAGE_SIZE = 32;
 const STICKER_IMAGE_SIZE = 76;
 
+/** Haven: a pack category's own icon in the rail (see EmojiPicker.module.css's own .anchorIcon) -
+ *  same 36x36 box .anchor itself already reserves for a plain emoji glyph. */
+const RAIL_ICON_SIZE = 36;
+
+/** A thumbnail sized for `size`, falling back to the original image if no thumbnail is available
+ *  (e.g. an invalid mxc:// URL) rather than rendering nothing. */
+function thumbnailUrl(mxcUrl: string, client: MatrixClient, size: number): string | undefined {
+    const media = mediaFromMxc(mxcUrl, client);
+    return media.getSquareThumbnailHttp(size) ?? media.srcHttp ?? undefined;
+}
+
 function buildPackCategories(
     room: Room | undefined,
     usage: ImagePackUsage,
@@ -92,11 +104,22 @@ function buildPackCategories(
         const avatarMxc = getPackAvatarMxc(pack, room.client);
         const packRoom = room.client.getRoom(pack.roomId);
         const manageable = !!(packRoom && canManageImagePacks(packRoom, userId));
+        // Haven: was .srcHttp (the original, full-resolution image, and per getPackAvatarMxc's own
+        // fallback chain - own avatar -> source room's avatar -> first image in the pack - not even
+        // guaranteed to be a small avatar-shaped image at all). Unlike a grid cell (see imageUrl's
+        // own doc below), this rail icon is never virtualized: EVERY favorited pack's icon mounts
+        // and starts fetching/decoding the moment the picker opens, regardless of scroll position or
+        // which category is showing. For an account with many favorited packs across many rooms,
+        // that's dozens-to-hundreds of full-resolution (sometimes animated-GIF) decodes on every
+        // single open, unbounded by pack count and never cached across opens - confirmed as the
+        // actual cause of a real account's renderer OOMing. A 36x36px rail icon losing an animation
+        // is a far smaller loss than a grid cell's (see imageUrl below), so this one thumbnails
+        // unconditionally rather than special-casing animated sources.
         categories.push({
             id,
             name,
             emoji: "🖼️",
-            iconUrl: avatarMxc ? (mediaFromMxc(avatarMxc, room.client).srcHttp ?? undefined) : undefined,
+            iconUrl: avatarMxc ? thumbnailUrl(avatarMxc, room.client, RAIL_ICON_SIZE) : undefined,
             manageRoomId: manageable ? pack.roomId : undefined,
             manageStateKey: manageable ? pack.stateKey : undefined,
         } as Category & { manageRoomId?: string; manageStateKey?: string });
@@ -107,11 +130,18 @@ function buildPackCategories(
             // hundreds of tiny cells that's a lot of unnecessary decode work piling up as the
             // picker scrolls and mounts more of them, easily enough to exhaust the renderer's heap
             // for an account with many favorited packs. A properly-sized server-side thumbnail is
-            // what this cell actually needs.
-            const media = mediaFromMxc(image.url, room.client);
+            // what this cell actually needs - EXCEPT when the source itself may be animated:
+            // ImagePacks.ts's own upload path (see generateThumbnail's doc there) deliberately
+            // generates thumbnail_url as an always-STATIC single-frame fallback for clients that
+            // can't render a large/animated sticker at all, not a smaller animated copy - using it
+            // here would silently freeze every animated custom emoji/sticker in the grid despite
+            // the category rail's own icon (iconUrl above, never thumbnailed) still animating fine.
+            const imageUrl = mayBeAnimated(image.info?.mimetype)
+                ? (mediaFromMxc(image.url, room.client).srcHttp ?? undefined)
+                : thumbnailUrl(image.url, room.client, imageSize);
             return {
                 ...custom,
-                imageUrl: media.getSquareThumbnailHttp(imageSize) ?? media.srcHttp ?? undefined,
+                imageUrl,
             };
         });
     }

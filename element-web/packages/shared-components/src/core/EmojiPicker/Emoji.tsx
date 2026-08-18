@@ -21,6 +21,10 @@ import styles from "./EmojiPicker.module.css";
 // data ever reaches here. Optional so every plain unicode Emoji (the vast majority) is unaffected.
 export interface PickerEmoji extends IEmoji {
     imageUrl?: string;
+    /** Haven: a previously-sent freeform (non-emoji) reaction shown in Frequently Used - see
+     *  EmojiPicker.tsx's own makeFreeformEmoji doc. Arbitrarily long text rather than a single
+     *  glyph, so it needs different in-cell styling (.itemFreeform below) to stay legible. */
+    isFreeform?: boolean;
 }
 
 interface IProps {
@@ -96,7 +100,12 @@ export const Emoji = React.memo(function Emoji({
             aria-checked={isSelected}
             focusOnMouseOver
         >
-            <div className={classNames(styles.item, { [styles.itemSelected]: isSelected })}>
+            <div
+                className={classNames(styles.item, {
+                    [styles.itemSelected]: isSelected,
+                    [styles.itemFreeform]: emoji.isFreeform,
+                })}
+            >
                 {emoji.imageUrl ? (
                     <img src={emoji.imageUrl} alt={emoji.label} className={styles.itemImage} />
                 ) : (

@@ -247,11 +247,34 @@ export interface EmojiPickerProps {
     onFreeformEnter?: () => void;
 }
 
-/** Convert recent emoji characters to emoji data, removing unknowns and duplicates */
-function resolveRecentEmojis(recentEmojis: string[] | undefined): IEmoji[] {
-    return Array.from(
-        new Set((recentEmojis ?? []).map(getEmojiFromUnicode).filter((emoji): emoji is IEmoji => !!emoji)),
-    );
+/** Haven: a previously-sent freeform (non-emoji) reaction (see HavenEmojiPicker.tsx's
+ *  onClickFreeformReact/allowFreeformReaction) isn't a real emoji, so getEmojiFromUnicode can't
+ *  find it - build a minimal stand-in PickerEmoji instead of dropping it, so it still shows up in
+ *  Frequently Used and flows through the exact same Category/Emoji rendering as a real one.
+ *  hexcode only needs to be a stable, unique React key here, not a real codepoint. */
+function makeFreeformEmoji(text: string): PickerEmoji {
+    return {
+        unicode: text,
+        label: text,
+        shortcodes: [text],
+        hexcode: `freeform-${text}`,
+        isFreeform: true,
+    } as PickerEmoji;
+}
+
+/** Convert recent emoji characters to emoji data, removing unknowns and duplicates. A recent entry
+ *  that isn't a real known emoji is a previously-sent freeform reaction - kept (as a stand-in
+ *  PickerEmoji, see makeFreeformEmoji) rather than dropped like an actual unknown/removed emoji
+ *  would be. */
+function resolveRecentEmojis(recentEmojis: string[] | undefined): PickerEmoji[] {
+    const seen = new Set<string>();
+    const result: PickerEmoji[] = [];
+    for (const entry of recentEmojis ?? []) {
+        if (seen.has(entry)) continue;
+        seen.add(entry);
+        result.push(getEmojiFromUnicode(entry) ?? makeFreeformEmoji(entry));
+    }
+    return result;
 }
 
 function emojiMatchesFilter(emoji: IEmoji, filter: string): boolean {
