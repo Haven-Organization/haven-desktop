@@ -65,6 +65,15 @@ BRANDING_COMMIT="e92aa1bd70d07a9e9ffba574bf21ee637d57faaf"
 #   auth_footer_links explicitly, so the file's own default *branding-text* fallback (Haven's own
 #   GitHub org link vs. stock's Blog/Mastodon/GitHub) is never actually reachable in a real deploy
 #   either way - excluding the whole file costs nothing in practice and fixes the actual bug.
+# - package.sh: the pre-branding form's version scheme is `git describe --dirty --tags` with no tag
+#   filter, run from this unified repo's own root rather than a separate element-web/.git checkout.
+#   Since Haven's own release tags (haven-vX.Y.Z) live in this same repo and this build's tree is
+#   always dirty during the revert itself (files are checked out, not committed), that produced
+#   "haven-vX.Y.Z-dirty" - still showing Haven's own name (the opposite of NO_BRANDING's intent)
+#   while also looking like a broken dev build. User confirmed 2026-08-18 (cutting 0.6.5) they'd
+#   rather glowers element just show the same informative "haven-vX.Y.Z+element-vA.B.C-N-gHASH"
+#   string every other build gets than try to hide "haven" from a Settings > Help string that isn't
+#   really user-facing branding the way logos/icons are - so package.sh no longer reverts at all.
 #
 # Excluded from the revert loop below rather than folded into BRANDING_COMMIT^'s content, so an
 # unbranded build keeps these fixes; only the *visual identity* (logos/icons/backgrounds/copy)
@@ -78,6 +87,7 @@ BRANDING_REVERT_EXCLUDE=(
     "element-web/apps/web/res/themes/light-custom/css/light-custom.pcss"
     "element-web/apps/web/res/themes/light-high-contrast/css/light-high-contrast.pcss"
     "element-web/apps/web/src/components/views/auth/AuthFooter.tsx"
+    "element-web/apps/web/scripts/package.sh"
 )
 
 if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
@@ -100,31 +110,17 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
         esac
     done < <(git -C "$ROOT_DIR" diff --name-status "${BRANDING_COMMIT}^" "$BRANDING_COMMIT")
 
-    # Unlike AuthFooter.tsx/the theme .pcss files above, these two files' branding-relevant content
-    # can't just be excluded wholesale - electron-builder.ts's own DEFAULT_VARIANT genuinely needs to
-    # revert back to "element.io/release/build.json" (the Haven-specific "haven/release/build.json"
-    # it'd otherwise still point at was just removed above, per its own "A" status), and package.sh's
-    # version-naming scheme reverting to plain `git describe` is correct too - showing "haven-v0.2+..."
-    # in a build that's trying to hide Haven's own identity would be self-defeating. But both files
-    # also had a real, non-branding fix land in the same commit, patched back in here rather than
-    # lost: electron-builder.ts's own linux.target dropped AppImage entirely on revert (silently
-    # losing that packaging format for an unbranded desktop build, not just a cosmetic difference),
-    # and package.sh's own staging-directory cleanup (rm -rf before cp -r) prevents a previous
-    # interrupted/killed build's leftover cruft from polluting a new one - unrelated to branding
-    # either way. Both sed patterns below match text that's only ever present in each file's stock
-    # (reverted-to) form, so they're no-ops if this block doesn't run (HAVEN_NO_BRANDING unset).
+    # Unlike AuthFooter.tsx/the theme .pcss files above, electron-builder.ts's branding-relevant
+    # content can't just be excluded wholesale - its own DEFAULT_VARIANT genuinely needs to revert
+    # back to "element.io/release/build.json" (the Haven-specific "haven/release/build.json" it'd
+    # otherwise still point at was just removed above, per its own "A" status). But it also had a
+    # real, non-branding fix land in the same commit, patched back in here rather than lost: its own
+    # linux.target dropped AppImage entirely on revert (silently losing that packaging format for an
+    # unbranded desktop build, not just a cosmetic difference). This sed pattern matches text that's
+    # only ever present in the file's stock (reverted-to) form, so it's a no-op if this block doesn't
+    # run (HAVEN_NO_BRANDING unset).
     sed -i 's/target: \["tar.gz", "deb"\],/target: ["tar.gz", "deb", "AppImage"],/' \
         "$ROOT_DIR/element-web/apps/desktop/electron-builder.ts"
-    sed -i 's/cp -r webapp element-\$version/rm -rf element-$version\ncp -r webapp element-$version/' \
-        "$ROOT_DIR/element-web/apps/web/scripts/package.sh"
-    # Same as Haven's own committed package.sh fix (see its own comment): webpack's output.path
-    # (webapp/) has no `clean` option, so nothing ever wipes a previous build's bundle directory
-    # before the next one runs - every build in a checkout's history piles up there and gets copied
-    # into the tarball wholesale. Confirmed 2026-07-22: a 48-build-deep webapp/ produced a ~1.9G
-    # tarball that should've been ~160M. This sed just re-adds the same fix on top of the stock
-    # (reverted-to) form's own `VERSION=$version pnpm build` line.
-    sed -i 's/VERSION=\$version pnpm build/rm -rf webapp\nVERSION=$version pnpm build/' \
-        "$ROOT_DIR/element-web/apps/web/scripts/package.sh"
 
     # webpack.config.ts's own branding-commit diff is the same kind of mix as the two files above -
     # can't be excluded wholesale (the OG image URL default and VERSION string scheme genuinely are
@@ -135,7 +131,7 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
     # own comment above) disappears - an unbranded build with HAVEN_INCLUDE_OLD_ROOM_LIST=1 would
     # fail to resolve that specifier at all. Confirmed live 2026-07-22 building "glowers element"
     # with the old room list flag together for the first time - this combination had never actually
-    # been exercised before. Patched back in here the same way as the two sed calls above; a no-op
+    # been exercised before. Patched back in here the same way as the sed call above; a no-op
     # if this block doesn't run.
     python3 - "$ROOT_DIR/element-web/apps/web/webpack.config.ts" <<'PYEOF'
 import sys
