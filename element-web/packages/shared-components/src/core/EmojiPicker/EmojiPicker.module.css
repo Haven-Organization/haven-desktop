@@ -321,6 +321,16 @@
     padding: var(--cpd-space-2x) var(--cpd-space-4x);
 }
 
+/* Haven: a custom/pack emoji's own preview image - fixed square size rather than the unicode
+   glyph's own font-size-driven sizing above, since an <img> has no intrinsic size to shrink to
+   fit the same way a single character does. Roughly matches the visual size heading-xl's own line
+   height gives a real glyph. */
+.previewEmojiImage {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
 .previewText {
     display: flex;
     flex: 1;
