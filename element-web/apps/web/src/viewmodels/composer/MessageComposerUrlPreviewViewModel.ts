@@ -45,6 +45,15 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
 
     private content: string;
 
+    /**
+     * Bumped at the start of every computeSnapshot call that actually fetches (or clears)
+     * previews, and checked again before that call applies its result. A call whose id no longer
+     * matches was superseded by a later one (e.g. send's immediate clear) while its own fetch was
+     * still in flight - its now-stale result is discarded instead of clobbering whatever the
+     * later call already put in the snapshot.
+     */
+    private requestId = 0;
+
     public constructor(props: MessageComposerUrlPreviewViewModelProps) {
         super(props, { previews: [], content: props.content ?? "" });
         this.urlPreviewVisible = props.visible;
@@ -62,6 +71,7 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
         if (!this.urlPreviewVisible) {
             // Clear any existing previews whenever previews are hidden, regardless of
             // whether the URL set has changed (e.g. when toggled invisible).
+            this.requestId++;
             this.snapshot.set({ previews: [], content });
             return;
         }
@@ -72,6 +82,7 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
         }
 
         this.links = newLinks;
+        const requestId = ++this.requestId;
 
         let previews;
         if (this.props.urlPreviewBundle) {
@@ -89,11 +100,13 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
             const previewResponses = await Promise.all(previewRequests);
             previews = previewResponses.filter((res) => res !== null);
 
+            if (requestId !== this.requestId) return; // superseded while fetching - discard
             this.snapshot.set({ previews, content });
         } else {
             for (const link of this.links) {
                 try {
                     const preview = await this.fetcher.fetchPreview(link, true);
+                    if (requestId !== this.requestId) return; // superseded while fetching - discard
                     if (preview) {
                         this.snapshot.set({ previews: [preview], content });
                         return;
@@ -103,6 +116,7 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
                 }
             }
 
+            if (requestId !== this.requestId) return; // superseded while fetching - discard
             this.snapshot.set({ previews: [], content });
         }
     }
@@ -119,6 +133,11 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
         if (debounced) {
             return this.computeSnapshotDebounced(this.content);
         } else {
+            // An immediate update (e.g. send's clear-on-send call) must win over a debounced
+            // call already scheduled from typing just before it - otherwise that trailing call
+            // still fires ~DEBOUNCE_REQUEST_TIMEOUT_MS later with the stale (pre-clear) content,
+            // re-fetching and re-showing a preview the user already sent past.
+            this.computeSnapshotDebounced.cancel();
             return this.computeSnapshot(this.content);
         }
     }
