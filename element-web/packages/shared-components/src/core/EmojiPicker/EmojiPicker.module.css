@@ -53,6 +53,7 @@
     align-items: center;
     gap: 2px;
     overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-width: none;
 
     &::-webkit-scrollbar {
