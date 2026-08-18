@@ -42,8 +42,8 @@ import {
     type ICollapseConfig,
     CollapseItem,
     LEGACY_ROOM_LIST_AVAILABLE,
-    BackdropPanel,
 } from "legacy-room-list";
+import { BackdropPanel } from "../views/rooms/BackdropPanel";
 import { type ViewRoomDeltaPayload } from "../../dispatcher/payloads/ViewRoomDeltaPayload";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
 import NonUrgentToastContainer from "./NonUrgentToastContainer";

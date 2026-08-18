@@ -60,7 +60,7 @@ import { useSettingValue } from "../../../../element-web/apps/web/src/hooks/useS
 import { UPDATE_EVENT } from "../../../../element-web/apps/web/src/stores/AsyncStore";
 import { OwnProfileStore } from "../../../../element-web/apps/web/src/stores/OwnProfileStore";
 import { mediaFromMxc } from "../../../../element-web/apps/web/src/customisations/Media";
-import { BackdropPanel } from "../../../../element-web/apps/web/src/legacy-room-list/components/BackdropPanel";
+import { BackdropPanel } from "../../../../element-web/apps/web/src/components/views/rooms/BackdropPanel";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 import { RoomPermalinkCreator } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { NotificationsButton } from "../components/NotificationsButton";

@@ -9,6 +9,16 @@
  * "one directory, one build flag" boundary meaningful. See webpack.config.ts's own
  * HAVEN_INCLUDE_OLD_ROOM_LIST handling and legacy-room-list-stub/index.ts, this module's
  * build-flag-off counterpart (must keep the same exported surface as this file).
+ *
+ * BackdropPanel used to be exported from here, but it isn't actually specific to the legacy room
+ * list at all - LoggedInView.tsx also renders it behind the spaces bar and (new) room list
+ * regardless of which room list is active, and RoomListBackdropWatcher.ts/the new room list's own
+ * CSS already read the opacity setting/CSS variable independent of this build flag. Gating it
+ * behind HAVEN_INCLUDE_OLD_ROOM_LIST meant the whole blurred-avatar backdrop silently went dark -
+ * both the image itself and the Appearance opacity slider's effect - in any build that left the
+ * old room list out, including a real stock/glowers Haven release (found 2026-08-18). It now lives
+ * at src/components/views/rooms/BackdropPanel.tsx, imported directly (no alias), so it's always
+ * bundled regardless of this flag.
  */
 
 export { default as LegacyRoomList, TAG_ORDER } from "./components/LegacyRoomList";
@@ -22,7 +32,6 @@ export {
     type ICollapseConfig,
     CollapseItem,
 } from "./resizer/collapse";
-export { BackdropPanel } from "./components/BackdropPanel";
 
 /** True in this (the real) module; the stub counterpart sets this to false, so callers can tell
  *  at runtime whether the legacy room list was actually included in this build, regardless of

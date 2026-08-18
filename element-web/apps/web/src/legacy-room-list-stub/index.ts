@@ -7,6 +7,10 @@
  * (LEGACY_ROOM_LIST_AVAILABLE is false, so callers should never actually render/use the rest) or
  * throws loudly if something slips past that check anyway - deliberately not a silent no-op, so a
  * bug that bypasses the availability check fails fast instead of rendering a confusing blank panel.
+ *
+ * BackdropPanel isn't part of this exported surface (or the real module's) any more - it moved to
+ * src/components/views/rooms/BackdropPanel.tsx since it isn't actually legacy-room-list-specific,
+ * see that module's own barrel file doc.
  */
 
 import React from "react";
@@ -56,5 +60,3 @@ export interface ICollapseConfig {
     [key: string]: unknown;
 }
 export class CollapseItem {}
-
-export const BackdropPanel: React.FC<Record<string, unknown>> = () => null;
