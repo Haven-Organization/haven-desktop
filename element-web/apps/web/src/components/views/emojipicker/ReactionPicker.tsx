@@ -196,6 +196,7 @@ class ReactionPicker extends React.Component<IProps, IState> {
                     onFinished={this.props.onFinished}
                     selectedEmojis={this.state.selectedEmojis}
                     onFilterChange={this.onFilterChange}
+                    onFreeformEnter={this.onClickFreeformReact}
                     belowSearch={
                         this.state.filter.trim() && (
                             <AccessibleButton

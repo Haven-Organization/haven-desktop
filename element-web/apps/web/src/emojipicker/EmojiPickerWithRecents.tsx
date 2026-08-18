@@ -28,6 +28,7 @@ export function EmojiPickerWithRecents({
     isEmojiDisabled,
     onFilterChange,
     belowSearch,
+    onFreeformEnter,
 }: Omit<EmojiPickerProps, "recentEmojis" | "onRecordRecent" | "getAction">): React.ReactNode {
     // There isn't anything for us to key the memoisation off here. This will just
     // update when the component mounts which is probably good enough.
@@ -44,6 +45,7 @@ export function EmojiPickerWithRecents({
             onRecordRecent={recent.add}
             onFilterChange={onFilterChange}
             belowSearch={belowSearch}
+            onFreeformEnter={onFreeformEnter}
             stockLayout
         />
     );

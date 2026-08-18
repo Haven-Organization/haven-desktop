@@ -230,6 +230,21 @@ export interface EmojiPickerProps {
      * everywhere else, so this has no effect on the picker's normal appearance.
      */
     stockLayout?: boolean;
+    /**
+     * Haven: called instead of selecting the first visible emoji when Enter is pressed in the
+     * search box, whenever the search filter is non-empty - meant for a caller offering a
+     * freeform-text option alongside the search results (e.g. ReactionPicker.tsx's own "React
+     * with '<text>'" link, shown via belowSearch), where Enter reacting with whatever's typed is
+     * far more likely to be what the user wants than the first (possibly irrelevant, possibly
+     * nonexistent) search match - and where the *only* way to reach that first match by keyboard
+     * used to be typing something that happened to match it, an easy way to fat-finger the wrong
+     * reaction. Selecting a specific emoji by keyboard after searching still works: Tab moves
+     * focus off the search box onto the roving-tabindex grid (browser's own default focus order,
+     * nothing extra needed here), and arrow keys/HJKL navigate from there same as ever. Omit this
+     * to keep the original "Enter selects the first visible emoji" behavior (e.g. EmojiButton.tsx's
+     * own composer usage, which has no freeform option to prefer instead).
+     */
+    onFreeformEnter?: () => void;
 }
 
 /** Convert recent emoji characters to emoji data, removing unknowns and duplicates */
@@ -312,6 +327,7 @@ export function EmojiPicker({
     onFilterChange,
     belowSearch,
     stockLayout = false,
+    onFreeformEnter,
 }: EmojiPickerProps): React.ReactNode {
     const [filter, setFilter] = useState("");
     const [previewEmoji, setPreviewEmoji] = useState<PickerEmoji | undefined>(undefined);
@@ -504,13 +520,32 @@ export function EmojiPicker({
     );
 
     const onEnterFilter = useCallback((): void => {
+        // Haven: a caller with a freeform-text option (e.g. ReactionPicker.tsx's "React with
+        // '<text>'" link) wants Enter to always prefer that over the first search match - see
+        // this prop's own doc. Only kicks in once there's actually a filter typed (matching
+        // exactly when that caller's own link would be showing), so an empty search box's Enter
+        // still falls through to the ordinary "select first visible emoji" behavior below.
+        if (onFreeformEnter && filter.trim()) {
+            onFreeformEnter();
+            return;
+        }
+
         // Only select emoji if highlight is shown
         if (!showHighlight) return;
 
         const btn = scrollElement?.querySelector<HTMLElement>('[role="gridcell"] [tabindex="0"]');
         btn?.click();
         onFinished();
-    }, [showHighlight, scrollElement, onFinished]);
+    }, [onFreeformEnter, filter, showHighlight, scrollElement, onFinished]);
+
+    // Haven: see Search.tsx's own onTab doc - only passed down (as Search's onTab prop) when
+    // onFreeformEnter is, so this never changes Tab's ordinary browser-default behavior anywhere
+    // else. Focuses rather than clicks (contrast onEnterFilter above) - Tab is about *moving
+    // keyboard focus onto* an emoji to then navigate from via arrow keys/HJKL, not choosing one.
+    const onTabToGrid = useCallback((): void => {
+        const btn = scrollElement?.querySelector<HTMLElement>('[role="gridcell"] [tabindex="0"]');
+        btn?.focus();
+    }, [scrollElement]);
 
     const onHoverEmoji = useCallback((emoji: PickerEmoji): void => {
         setPreviewEmoji(emoji);
@@ -631,6 +666,7 @@ export function EmojiPicker({
                             query={filter}
                             onChange={onChangeFilter}
                             onEnter={onEnterFilter}
+                            onTab={onFreeformEnter ? onTabToGrid : undefined}
                             onKeyDown={onKeyDownHandler}
                             inputRef={searchRef}
                             controlsId={pickerBodyId}

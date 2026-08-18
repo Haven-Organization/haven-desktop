@@ -30,6 +30,17 @@ interface IProps {
      */
     onEnter: () => void;
     /**
+     * Haven: called when Tab (not Shift+Tab) is pressed in the search input, in place of the
+     * browser's own default focus order - see EmojiPicker.tsx's own onFreeformEnter doc, which
+     * this is gated identically to (only ever passed when that one is). Without this, Tab's
+     * native order stops at this component's own "Cancel search" button (and, when a caller's
+     * freeform-react link is showing below the search box, that link too) before ever reaching
+     * the grid - fine normally, but exactly backwards for a caller that wants Enter to always
+     * mean "react with the typed text" (see onEnter above): the *only* way left to pick a
+     * specific emoji by keyboard is then Tab twice past those intermediate stops, not once.
+     */
+    onTab?: () => void;
+    /**
      * Called when a key is pressed in the search input.
      *
      * @param event - The keyboard event
@@ -48,7 +59,7 @@ interface IProps {
 /**
  * The search input at the top of the emoji picker.
  */
-export const Search: React.FC<IProps> = ({ query, onChange, onEnter, onKeyDown, inputRef, controlsId }) => {
+export const Search: React.FC<IProps> = ({ query, onChange, onEnter, onTab, onKeyDown, inputRef, controlsId }) => {
     const context = useContext(RovingTabIndexContext);
 
     // This component gets mounted in a number of different places where the autoFocus attribute doesn't
@@ -63,11 +74,15 @@ export const Search: React.FC<IProps> = ({ query, onChange, onEnter, onKeyDown, 
                 onEnter();
                 ev.stopPropagation();
                 ev.preventDefault();
+            } else if (ev.key === "Tab" && !ev.shiftKey && onTab) {
+                onTab();
+                ev.stopPropagation();
+                ev.preventDefault();
             } else {
                 onKeyDown(ev);
             }
         },
-        [onEnter, onKeyDown],
+        [onEnter, onTab, onKeyDown],
     );
 
     let rightButton: JSX.Element;

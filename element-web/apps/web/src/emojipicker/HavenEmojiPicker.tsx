@@ -311,6 +311,7 @@ export function HavenEmojiPicker({
             dataByStickerCategory={stickerMode ? stickerCategories.dataByCategory : undefined}
             renderEmptyStateCategory={renderEmptyStateCategory}
             onFilterChange={setFilter}
+            onFreeformEnter={allowFreeformReaction ? onClickFreeformReact : undefined}
             belowSearch={
                 allowFreeformReaction &&
                 filter.trim() && (
