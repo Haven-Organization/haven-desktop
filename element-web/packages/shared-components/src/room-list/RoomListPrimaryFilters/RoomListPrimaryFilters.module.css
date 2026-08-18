@@ -26,6 +26,17 @@
 }
 
 /* IconButton styles for chevron */
+
+/* Haven: overrides Compound's own opaque IconButton fill - see RoomListSearchView.module.css's
+   own identical .search fix for why (same .mx_RoomListPanel-ancestor blend reasoning). Scoped to
+   :not(:hover):not(:active) rather than a bare .iconButton rule - this file loads in a CSS layer
+   after Compound's own, so an unscoped override wins outright regardless of its own lower
+   specificity, silently eating Compound's own separate :hover/:active background rules (which
+   never touch .iconButton at all) along with the resting-state one actually being targeted here. */
+.iconButton:not(:hover):not(:active) {
+    background-color: transparent;
+}
+
 .iconButton svg {
     transition: transform 0.1s linear;
 }

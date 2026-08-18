@@ -835,7 +835,7 @@ class LoggedInView extends React.Component<IProps, IState> {
                         <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
                     )}
                     <div className="mx_LeftPanel_backdropClip">
-                        <BackdropPanel backgroundImage={this.state.backgroundImage} />
+                        <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
                     </div>
                     {/* haven apps-framework patch: hide the room list while an app is open so SpacePanel stays mounted */}
                     {!moduleRenderer && !isAppMode && (

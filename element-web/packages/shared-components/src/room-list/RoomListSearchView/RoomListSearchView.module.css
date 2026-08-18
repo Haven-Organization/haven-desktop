@@ -25,6 +25,30 @@
     }
 }
 
+/* Haven: overrides Compound's own opaque Button fill - this button is a DESCENDANT of
+   .mx_RoomListPanel, which already does the ONE deliberate blurred-avatar blend for the whole
+   panel (see that class's own doc in _RoomListPanel.pcss). Giving this its own opaque fill (or
+   worse, its own second blend) sits on top of that already-blended layer instead of letting it
+   through, either blocking it outright or compounding into something more opaque than intended -
+   see RoomListSectionHeaderView.module.css's own .stickyRow fix for the full "why compounding
+   happens" reasoning. The existing 1px border (Compound's own) still marks this as a distinct
+   field even with no fill of its own.
+   Scoped to :not(:hover):not(:active):not([aria-expanded="true"]) rather than a bare .search rule
+   - this file loads in a CSS layer after Compound's own, so an unscoped override wins outright
+   regardless of its own lower specificity, silently eating Compound's own separate :hover/:active/
+   [aria-expanded="true"] background rules (which never touch .search at all) along with the
+   resting-state one actually being targeted here. */
+.search:not(:hover):not(:active):not([aria-expanded="true"]) {
+    background-color: transparent;
+}
+
+/* Haven: the dial pad/explore-rooms buttons - see .search's own identical doc above for why this
+   overrides Compound's own opaque Button fill (same .mx_RoomListPanel-ancestor blend reasoning)
+   and why it's scoped to exclude :hover/:active rather than a bare .iconButton rule. */
+.iconButton:not(:hover):not(:active) {
+    background-color: transparent;
+}
+
 .search_container {
     flex: 1;
 

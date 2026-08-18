@@ -94,6 +94,7 @@ export function RoomListSearchView({ vm }: Readonly<RoomListSearchViewProps>): J
             </Button>
             {displayDialButton && (
                 <Button
+                    className={styles.iconButton}
                     kind="secondary"
                     size="md"
                     Icon={DialPadIcon}
@@ -104,6 +105,7 @@ export function RoomListSearchView({ vm }: Readonly<RoomListSearchViewProps>): J
             )}
             {displayExploreButton && (
                 <Button
+                    className={styles.iconButton}
                     kind="secondary"
                     size="md"
                     Icon={ExploreIcon}

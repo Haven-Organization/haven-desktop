@@ -38,19 +38,116 @@ Only the relative order of this local 3-layer stack matters — room rows (norma
 }
 
 /*
+Haven: masks out the scroller's own top strip to exactly the pinned overlay's measured height (see
+headerHeight/--sticky-header-height in GroupedVirtualizedList.tsx), so nothing scrolling through the
+list - regular room rows, or a stuck .stickyRow itself - ever gets PAINTED in that region at all; the
+overlay (.stickyHeader) is the only thing visible there. This replaces an earlier approach (see git
+history) where .stickyRow relied on its own background opacity to mask whatever scrolled underneath
+it - that forced a choice between "opaque enough to reliably hide scrolled content" and "matches the
+room tiles' own single blend exactly" (see _RoomListPanel.pcss), which turned out to be mutually
+exclusive at low values of the user's own --haven-roomlist-blur-opacity setting. With scrolled content
+never painted there in the first place, the overlay needs no background of its own either - it just
+lets .mx_RoomListPanel's single blend show through, identically to how an ordinary room row does.
+
+mask-image, deliberately NOT clip-path (tried first - see git history): both hide painting the same
+way, but clip-path also removes the masked-out region from HIT-TESTING, silently routing every click
+on a stuck header to the presentational overlay (.stickyHeader) instead of the real .stickyRow button
+underneath - which is aria-hidden/tabIndex=-1 precisely because it was never meant to be the primary
+click target (see RoomListStickySectionHeaderView's own doc). That broke the toggle for anyone not
+using a pointing device whose click the overlay happens to handle identically, and produced a
+first-click-does-nothing/second-click-works glitch as focus shifted mid-gesture. mask-image only
+affects paint, leaving the real row fully clickable (and focusable) in its normal position even while
+visually hidden here.
+
+Disabled while a header has focus-visible, OR while the pointer is over a stuck header (see the
+stickyRoot rule below) - see .stickyRow:has(:focus-visible) further down for that state's own
+fallback.
+
+The hover case exists because masking out this element's own paint doesn't just hide scrolled-past
+room rows (the actual goal) - it equally hides EVERY OTHER paint that would happen in this same
+region, including .stickyRow's own :hover-triggered background from
+RoomListSectionHeaderView.module.css. Without this escape hatch, whichever section happens to be
+pinned at the top - which for most users most of the time is simply "Favorites", sitting there at
+rest with nothing even scrolled yet - permanently loses its own hover feedback, not just while
+something's mid-scroll behind it.
+
+Deliberately NOT paired with .stickyRow's own opaque fallback background below (that one only
+triggers for :focus-visible) - a real account confirmed this looks visibly flat/opaque against the
+common case (Favorites, sitting at rest with nothing scrolled behind it at all, hovered). Hovering
+unmasked with NO fallback background just lets .stickyRow paint its normal single blend, matching
+room tiles exactly - correct for the overwhelmingly common "nothing behind it" case. The rare
+opposite (a room row genuinely scrolled to this exact position while it's also being hovered) can
+briefly bleed through - an easy-to-miss moment right under the cursor, and still far preferable to
+either "never highlights" or "looks wrong at rest".
+
+position/z-index: mask-image (like clip-path before it) makes this element establish its own
+stacking context, which - since it had no z-index of its own - silently dropped it (and everything
+inside it, including .stickyRow) BELOW .stickyHeader's explicit z-index:1, inverting the intended
+"real row covers the overlay backstop" order from .stickyRow's own doc. Explicit z-index:2 restores
+it: masking out the top strip only makes THIS element paint nothing there (letting the lower overlay
+show through, same as before), it doesn't change who's on top, so the real, still-hit-testable
+.stickyRow keeps receiving clicks there instead of the presentational overlay underneath.
+*/
+.scrollClip {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        transparent var(--sticky-header-height, 0px),
+        black var(--sticky-header-height, 0px),
+        black 100%
+    );
+    mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        transparent var(--sticky-header-height, 0px),
+        black var(--sticky-header-height, 0px),
+        black 100%
+    );
+}
+
+.stickyRoot:has(:focus-visible, .stickyRow:hover) .scrollClip {
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+/*
 Section-header rows pin natively, which is what produces the cover/reveal: `top: 0` sticks each
 header to the scroller's top; z-index above the overlay (1) so a mounted real header covers the
-overlay backstop, and so a stuck header covers the room rows scrolling beneath it. Consecutive stuck
-headers stack in DOM order, so the incoming header covers the current one on scroll-down and the
-top one slides off to reveal the previous on scroll-up. (Room rows stay in normal flow, not sticky.)
-
-The opaque background is essential: every header scrolled past the top stays stuck at top:0, so they
-overlap. Without an opaque fill they show through each other (overlapping text); with it, the current
-(top-most, last-in-DOM) header covers the rest, and sliding it down on scroll-up reveals the previous.
+overlay backstop. In the common (non-focused) case the row is invisible while stuck - see .scrollClip
+above - so it carries no background of its own, matching an ordinary room row exactly.
 */
 .stickyRow {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: var(--cpd-color-bg-canvas-default);
+}
+
+/*
+Haven: .scrollClip also disables its clip on hover (see its own doc), but ONLY :focus-visible gets
+this fallback background - a real account confirmed a fixed opaque background here during hover
+looks visibly flat/wrong for the common "nothing actually scrolled behind it" case (e.g. Favorites,
+hovered at rest). Keyboard focus keeps it: getScrollPaddingTop deliberately scrolls a focused header
+to land exactly here, so unlike hover (which happens wherever the pinned header already is,
+including comfortably at rest) a focus-visible header is reached by ACTUALLY scrolling status quo
+content out of the way first, making "something genuinely scrolled behind it" the common case there,
+not the rare one. Fixed opacity, deliberately not tied to the user's own --haven-roomlist-blur-
+opacity (see prior git history on this rule: a low user setting, e.g. a real account confirmed at
+59%, can't reliably hide scrolled content on its own). Keyboard navigation moves one row at a time
+rather than continuously scrolling, so this brief, less-visually-matched appearance is an acceptable
+trade against losing focus visibility entirely.
+
+Deliberately :has(:focus-visible) scoped to THIS row, not :global(.stickyRoot):has(:focus-visible) -
+.stickyRoot is shared by the WHOLE list (one GroupedVirtualizedList instance covers every section),
+so a rule keyed off the root would match on EVERY .stickyRow the instant ANY ONE header anywhere in
+the list gets focus - confirmed live: tabbing to Favorites gave Inbox and Chats the same flat opaque
+background too, not just Favorites. Scoping to the row that itself contains the focused element keeps
+this to just the one header that's actually focused.
+*/
+.stickyRow:has(:focus-visible) {
+    background: color-mix(in srgb, var(--cpd-color-bg-canvas-default) 95%, transparent);
 }

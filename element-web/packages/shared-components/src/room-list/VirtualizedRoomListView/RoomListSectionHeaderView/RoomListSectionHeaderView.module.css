@@ -170,5 +170,28 @@ scrolling rows beneath because the overlay wrapper (.stickyHeader) owns the stac
     inset-block: 0;
     inset-inline: 0 var(--cpd-space-3x);
     z-index: -1;
-    background: var(--cpd-color-bg-canvas-default);
+    /* Haven: transparent, NOT the blurred-avatar color-mix blend (see .stickyRow's own identical-
+       looking fix in GroupedVirtualizedList.module.css, which really does need one) and NOT the
+       original flat opaque fill either - this backstop sits directly BEHIND .stickyRow (z-index 1
+       vs 2, same screen position) for the exact same pinned section whenever a real header row is
+       mounted, which is the overwhelming common case (see this file's own doc above: "A mounted
+       real header row sits exactly over it"). .stickyRow is the only layer a viewer ever actually
+       sees then, but being semi-transparent itself, its OWN rendered color still depends on
+       whatever's directly behind it - so *this* layer's own color, not just its stacking order,
+       determines what shows through:
+         - opaque (tried first): blocks the real backdrop entirely - .stickyRow's blend then mixes
+           against solid theme color instead of the image, reproducing the original "flat block"
+           bug (confirmed via synthetic solid-backdrop test: 16,19,23 - pure theme color, zero image).
+         - blended the same as .stickyRow (tried second): the two blends compound multiplicatively
+           into something MORE opaque than either alone or than the rest of the list (confirmed:
+           ~111,12,14 vs a plain row's ~167,7,9 against the same flat red backdrop).
+         - transparent (here): a pure passthrough, so .stickyRow's own single blend is the only one
+           that ever applies - matching every other "only the innermost layer blends" spot in this
+           codebase (see _RoomListPanel.pcss's own doc). Confirmed via the same synthetic-backdrop
+           test to finally match plain rows almost exactly.
+       Only degrades the rare edge case this fill originally existed for (a section tall enough that
+       the virtualizer unmounts its own real header row) back to "briefly see-through like everything
+       else" instead of "opaque" - never reported, and far preferable to the always-visible bug this
+       fixes for the actual common case. */
+    background: transparent;
 }

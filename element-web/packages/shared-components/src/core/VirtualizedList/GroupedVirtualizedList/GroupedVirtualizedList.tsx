@@ -395,27 +395,32 @@ export function GroupedVirtualizedList<Header, Item, Context>(
                     {stickyHeader}
                 </div>
             )}
-            <Virtuoso
-                // note that either the container of direct children must be focusable to be axe
-                // compliant, so we leave tabIndex as the default so the container can be focused
-                // (virtuoso wraps the children inside another couple of elements so setting it
-                // on those doesn't seem to work, unfortunately)
-                itemContent={itemContent}
-                data={flatEntries}
-                {...virtuosoProps}
-                components={
-                    { Item: StickyRowItem } as Components<
-                        NavigationEntry<Header, Item>,
-                        VirtualizedListContext<Context>
-                    >
-                }
-                scrollerRef={handleScrollerRef}
-                itemsRendered={handleItemsRendered}
-                // Keep the overlay backstop's section current as you scroll. The cover/reveal
-                // animation is native `position: sticky` (.stickyRow), so this only tracks which
-                // section the backstop should mirror.
-                onScroll={updateSticky}
-            />
+            <div
+                className={styles.scrollClip}
+                style={{ "--sticky-header-height": `${headerHeight}px` } as React.CSSProperties}
+            >
+                <Virtuoso
+                    // note that either the container of direct children must be focusable to be axe
+                    // compliant, so we leave tabIndex as the default so the container can be focused
+                    // (virtuoso wraps the children inside another couple of elements so setting it
+                    // on those doesn't seem to work, unfortunately)
+                    itemContent={itemContent}
+                    data={flatEntries}
+                    {...virtuosoProps}
+                    components={
+                        { Item: StickyRowItem } as Components<
+                            NavigationEntry<Header, Item>,
+                            VirtualizedListContext<Context>
+                        >
+                    }
+                    scrollerRef={handleScrollerRef}
+                    itemsRendered={handleItemsRendered}
+                    // Keep the overlay backstop's section current as you scroll. The cover/reveal
+                    // animation is native `position: sticky` (.stickyRow), so this only tracks which
+                    // section the backstop should mirror.
+                    onScroll={updateSticky}
+                />
+            </div>
         </div>
     );
 }

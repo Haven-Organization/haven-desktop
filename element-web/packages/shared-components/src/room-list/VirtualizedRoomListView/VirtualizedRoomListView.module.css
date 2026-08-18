@@ -18,4 +18,14 @@
        real horizontal scrollbar. Force it off explicitly rather than relying on content never
        overflowing by even a pixel. */
     overflow-x: hidden;
+    /* Haven: a section header's own "..." menu (@vector-im/compound-web's Menu, built on Radix)
+       applies a `data-scroll-locked` attribute to <body> whenever it's open - Radix's standard
+       modal/popover scroll-lock, which hides the page's own scrollbar for the duration. On a
+       platform whose scrollbar normally reserves its own track width (rather than overlaying
+       content, e.g. GTK's default), that momentarily WIDENS whatever it was reserving space in,
+       shifting every bit of content flush against that edge - including this list's own "..."
+       button, confirmed on a real account/OS to visibly jump right the instant a section's menu
+       opens, and back on close. `stable` reserves the gutter unconditionally, so hiding the actual
+       scrollbar during the lock never changes the available content width to begin with. */
+    scrollbar-gutter: stable;
 }
