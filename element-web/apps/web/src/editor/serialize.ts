@@ -77,7 +77,28 @@ export function htmlSerializeIfNeeded(
         return escapeHtml(textSerialize(model)).replace(/\n/g, "<br/>");
     }
 
-    const md = mdSerialize(model);
+    let md = mdSerialize(model);
+    if (hasCustomEmoji) {
+        // Haven: 4+ spaces of leading indentation at the very start of the message, with nothing
+        // before it, is CommonMark's own syntax for an indented code block (haven-desktop#6) - a
+        // real hazard here specifically because mdSerialize embeds a custom emoji's
+        // <img data-mx-emoticon> tag as raw markup straight into this source string (see its own
+        // doc), and a code block always escapes its content by design, turning the tag into garbled
+        // text instead of an image. Confirmed live with several emoji and stray leading/inter-word
+        // whitespace (e.g. from double-spacing while typing) landing right at the start of the
+        // message. Capping any such run below the 4-space threshold sidesteps the whole code-block
+        // classification rather than trying to special-case every way its renderer could swallow the
+        // tag - harmless here, since commonmark trims a paragraph's own leading/trailing whitespace
+        // anyway once it's no longer classified as a code block.
+        //
+        // Deliberately only the very start of the message (no /gm, no per-line matching) rather than
+        // every line - a later line could legitimately be inside a fenced ``` code block the user
+        // pasted alongside an emoji elsewhere in the same message, where stripping real indentation
+        // would mangle actual code content this fix has no business touching. The reported bug (and
+        // every reproduction of it) is specifically about leading whitespace with nothing before it
+        // at all, not mid-message indentation.
+        md = md.replace(/^[ \t]{4,}/, "   ");
+    }
     return htmlSerializeFromMdIfNeeded(md, { forceHTML: forceHTML || hasCustomEmoji });
 }
 

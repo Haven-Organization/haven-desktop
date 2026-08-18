@@ -173,4 +173,35 @@ describe("Markdown parser test", () => {
             expect(md.toHTML()).toEqual(expectedResult);
         });
     });
+
+    // Haven: regression test for a real bug (haven-desktop#6) - a custom emoji (MSC2545, serialized
+    // as a raw <img data-mx-emoticon> tag by editor/serialize.ts's mdSerialize) sent as literally
+    // the ENTIRE message came out as garbled, HTML-escaped text instead of a rendered image.
+    // Commonmark reclassifies a tag that's the whole line as a block-level node rather than inline,
+    // and folds any trailing whitespace on that line into the node's own literal - breaking the
+    // isAllowedHtmlTag() whitelist regex's exact ^...$ match, so the tag fell through to the
+    // "unrecognized HTML" escape() branch. Confirmed live to only reproduce when the emoji has
+    // nothing else around it but whitespace - hence the emoji-plus-other-text case here too, as a
+    // guard that the (already working) inline path stays working.
+    describe("custom emoji (MSC2545)", () => {
+        const emoji = '<img data-mx-emoticon height="32" src="mxc://example.org/abc" alt=":test:" title=":test:" />';
+
+        it("renders a custom emoji sent as the entire message, with trailing whitespace", () => {
+            // The trailing space survives in the output - commonmark folds it into the block-level
+            // node's own literal (see this describe block's own doc), and it's emitted verbatim
+            // once recognized. Harmless: it's outside the tag itself, and HTML collapses it anyway.
+            const md = new Markdown(`${emoji} `);
+            expect(md.toHTML()).toEqual(`${emoji} `);
+        });
+
+        it("renders a custom emoji sent as the entire message, with no trailing whitespace", () => {
+            const md = new Markdown(emoji);
+            expect(md.toHTML()).toEqual(emoji);
+        });
+
+        it("renders a custom emoji alongside other text", () => {
+            const md = new Markdown(`hello ${emoji} world`);
+            expect(md.toHTML()).toEqual(`hello ${emoji} world`);
+        });
+    });
 });

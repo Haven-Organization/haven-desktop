@@ -31,7 +31,17 @@ function isAllowedHtmlTag(node: commonmark.Node): boolean {
     // <img data-mx-emoticon> tag (the same convention other custom-emoji-aware Matrix clients look
     // for when rendering *received* messages) - without this, isPlainText() below never notices the
     // tag needs real HTML and the image gets sent as inert markdown text instead.
-    if (node.literal.match("^<img data-mx-emoticon [^>]*/>$") != null) {
+    //
+    // \s* on both ends: when the tag is the ENTIRE message (nothing else typed, e.g. reacting with
+    // just a custom emoji), commonmark's own HTML-block detection (condition 7: "a line consisting
+    // of nothing but a complete tag, optionally followed by whitespace") reclassifies this node from
+    // html_inline to html_block - and folds any surrounding whitespace from that source line into
+    // the block's own literal (confirmed: a trailing space after the tag makes it into node.literal
+    // verbatim). A bare ^...$ match then fails on that whitespace alone, sending the whole tag down
+    // the "unrecognized HTML" escape() branch below instead - producing a literal, garbled
+    // "&lt;img data-mx-emoticon .../&gt;" in the message instead of a rendered image. Emitting the
+    // literal as-is (including that whitespace) once matched is harmless; HTML collapses it anyway.
+    if (node.literal.match("^\\s*<img data-mx-emoticon [^>]*/>\\s*$") != null) {
         return true;
     }
 

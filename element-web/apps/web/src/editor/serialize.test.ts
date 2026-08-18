@@ -12,6 +12,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import EditorModel from "./model";
 import { htmlSerializeFromMdIfNeeded, htmlSerializeIfNeeded } from "./serialize";
+import { CustomEmojiPart } from "./parts";
 import { createPartCreator } from "./__mocks__";
 import { type IConfigOptions } from "../IConfigOptions";
 import SettingsStore from "../settings/SettingsStore";
@@ -206,6 +207,55 @@ describe("editor/serialize", function () {
                 <p>world</p>
                 "
             `);
+        });
+    });
+
+    // Haven: regression tests for a real bug (haven-desktop#6) - leading whitespace of 4+ spaces at
+    // the start of a message, with nothing before it, is CommonMark's own indented-code-block
+    // syntax. mdSerialize embeds a custom emoji's <img data-mx-emoticon> tag as raw markup in the
+    // source string it hands to CommonMark, and a code block always escapes its own content by
+    // design - so a message that's just custom emoji, with leading/inter-word whitespace from
+    // ordinary typing, came out as garbled escaped text instead of rendered images. See
+    // Markdown.test.ts's own "custom emoji" describe block for the narrower, single-tag variant of
+    // this bug (trailing whitespace defeating an exact-match regex) fixed separately in Markdown.ts.
+    describe("custom emoji (MSC2545)", () => {
+        function customEmoji(text: string, n: number) {
+            return new CustomEmojiPart(text, `mxc://example.org/${n}`, "pack", "!room:example.org", "state");
+        }
+
+        it("renders multiple custom emoji with leading, inter-word, and trailing whitespace", () => {
+            const pc = createPartCreator();
+            const model = new EditorModel(
+                [
+                    pc.plain("     "),
+                    customEmoji(":a:", 1),
+                    pc.plain("    "),
+                    customEmoji(":b:", 2),
+                    pc.plain("    "),
+                    customEmoji(":c:", 3),
+                    pc.plain(" "),
+                ],
+                pc,
+            );
+            // DOMParser round-trips this (htmlSerializeFromMdIfNeeded feeds the rendered markup
+            // through DOMParser to build the final formatted_body), which normalizes the valueless
+            // data-mx-emoticon attribute to ="" and drops the self-closing slash on <img> (a void
+            // element, so it's semantically identical either way) - neither is this fix's concern.
+            const html = htmlSerializeIfNeeded(model, {});
+            expect(html).toBe(
+                '<img data-mx-emoticon="" height="32" src="mxc://example.org/1" alt=":a:" title=":a:">' +
+                    "    " +
+                    '<img data-mx-emoticon="" height="32" src="mxc://example.org/2" alt=":b:" title=":b:">' +
+                    "    " +
+                    '<img data-mx-emoticon="" height="32" src="mxc://example.org/3" alt=":c:" title=":c:">',
+            );
+        });
+
+        it("renders a single custom emoji with only leading whitespace", () => {
+            const pc = createPartCreator();
+            const model = new EditorModel([pc.plain("    "), customEmoji(":a:", 1)], pc);
+            const html = htmlSerializeIfNeeded(model, {});
+            expect(html).toBe('<img data-mx-emoticon="" height="32" src="mxc://example.org/1" alt=":a:" title=":a:">');
         });
     });
 });
