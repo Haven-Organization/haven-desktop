@@ -262,6 +262,73 @@ describe("EmojiPicker", function () {
         expect(onFinished).toHaveBeenCalled();
     });
 
+    // Haven: regression tests for a real bug in a caller with onFreeformEnter (e.g.
+    // ReactionPicker's "React with '<text>'" link) - a prior fix made Enter always prefer
+    // freeform over a real search match whenever the search box had any text in it at all,
+    // rather than only when the search genuinely had nothing to select. Corrected behavior: Enter
+    // selects a highlighted result when one exists, only falling back to freeform when the search
+    // has none; Ctrl+Enter always forces freeform regardless of results.
+    describe("onFreeformEnter", () => {
+        it("selects the highlighted emoji on Enter when the search has results", async () => {
+            const onChoose = vi.fn();
+            const onFreeformEnter = vi.fn();
+            const { container } = render(
+                <EmojiPicker onChoose={onChoose} onFinished={vi.fn()} onFreeformEnter={onFreeformEnter} />,
+            );
+
+            const input = container.querySelector("input")!;
+            await waitFor(() => expect(input).toHaveFocus());
+
+            await userEvent.type(input, "grinning");
+            await waitFor(() => {
+                expect(container.querySelector('[role="gridcell"]')).toBeInTheDocument();
+            });
+
+            await userEvent.keyboard("[Enter]");
+
+            expect(onChoose).toHaveBeenCalled();
+            expect(onFreeformEnter).not.toHaveBeenCalled();
+        });
+
+        it("calls onFreeformEnter on Enter when the search has no results", async () => {
+            const onChoose = vi.fn();
+            const onFreeformEnter = vi.fn();
+            const { container } = render(
+                <EmojiPicker onChoose={onChoose} onFinished={vi.fn()} onFreeformEnter={onFreeformEnter} />,
+            );
+
+            const input = container.querySelector("input")!;
+            await waitFor(() => expect(input).toHaveFocus());
+
+            await userEvent.type(input, "zzznomatchzzz");
+            await userEvent.keyboard("[Enter]");
+
+            expect(onFreeformEnter).toHaveBeenCalled();
+            expect(onChoose).not.toHaveBeenCalled();
+        });
+
+        it("Ctrl+Enter always calls onFreeformEnter, even when the search has results", async () => {
+            const onChoose = vi.fn();
+            const onFreeformEnter = vi.fn();
+            const { container } = render(
+                <EmojiPicker onChoose={onChoose} onFinished={vi.fn()} onFreeformEnter={onFreeformEnter} />,
+            );
+
+            const input = container.querySelector("input")!;
+            await waitFor(() => expect(input).toHaveFocus());
+
+            await userEvent.type(input, "grinning");
+            await waitFor(() => {
+                expect(container.querySelector('[role="gridcell"]')).toBeInTheDocument();
+            });
+
+            await userEvent.keyboard("{Control>}[Enter]{/Control}");
+
+            expect(onFreeformEnter).toHaveBeenCalled();
+            expect(onChoose).not.toHaveBeenCalled();
+        });
+    });
+
     it("should reset to first emoji when filter is cleared after navigation", async () => {
         const onChoose = vi.fn();
         const onFinished = vi.fn();

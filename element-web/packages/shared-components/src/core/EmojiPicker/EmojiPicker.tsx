@@ -231,18 +231,16 @@ export interface EmojiPickerProps {
      */
     stockLayout?: boolean;
     /**
-     * Haven: called instead of selecting the first visible emoji when Enter is pressed in the
-     * search box, whenever the search filter is non-empty - meant for a caller offering a
-     * freeform-text option alongside the search results (e.g. ReactionPicker.tsx's own "React
-     * with '<text>'" link, shown via belowSearch), where Enter reacting with whatever's typed is
-     * far more likely to be what the user wants than the first (possibly irrelevant, possibly
-     * nonexistent) search match - and where the *only* way to reach that first match by keyboard
-     * used to be typing something that happened to match it, an easy way to fat-finger the wrong
-     * reaction. Selecting a specific emoji by keyboard after searching still works: Tab moves
-     * focus off the search box onto the roving-tabindex grid (browser's own default focus order,
-     * nothing extra needed here), and arrow keys/HJKL navigate from there same as ever. Omit this
-     * to keep the original "Enter selects the first visible emoji" behavior (e.g. EmojiButton.tsx's
-     * own composer usage, which has no freeform option to prefer instead).
+     * Haven: a caller offering a freeform-text option alongside the search results (e.g.
+     * ReactionPicker.tsx's own "React with '<text>'" link, shown via belowSearch) passes this so
+     * Enter in the search box can reach it. Enter's own behavior: if the search has at least one
+     * result, Enter selects whichever one is highlighted (arrow keys/HJKL move the highlight, same
+     * as ever - Tab into the grid still works too, see onTabToGrid below); only when the search
+     * has *no* results does a plain Enter fall back to this instead. Ctrl+Enter (Cmd on Mac)
+     * always calls this regardless of results, for a user who wants the literal typed text as a
+     * freeform reaction even though it happens to also match a real emoji. Omit this prop entirely
+     * to keep the plain "Enter always selects the highlighted/first emoji, no freeform" behavior
+     * (e.g. EmojiButton.tsx's own composer usage, which has no freeform option to prefer instead).
      */
     onFreeformEnter?: () => void;
 }
@@ -542,24 +540,29 @@ export function EmojiPicker({
         [onFilterChange],
     );
 
-    const onEnterFilter = useCallback((): void => {
-        // Haven: a caller with a freeform-text option (e.g. ReactionPicker.tsx's "React with
-        // '<text>'" link) wants Enter to always prefer that over the first search match - see
-        // this prop's own doc. Only kicks in once there's actually a filter typed (matching
-        // exactly when that caller's own link would be showing), so an empty search box's Enter
-        // still falls through to the ordinary "select first visible emoji" behavior below.
-        if (onFreeformEnter && filter.trim()) {
-            onFreeformEnter();
-            return;
-        }
+    const onEnterFilter = useCallback(
+        (forceFreeform: boolean): void => {
+            const btn = showHighlight
+                ? scrollElement?.querySelector<HTMLElement>('[role="gridcell"] [tabindex="0"]')
+                : undefined;
 
-        // Only select emoji if highlight is shown
-        if (!showHighlight) return;
+            // Haven: see onFreeformEnter's own doc. Ctrl+Enter always prefers freeform; a plain
+            // Enter only falls back to it when there's no highlighted result (btn) to select -
+            // i.e. the search returned nothing at all, since a non-empty result set always has a
+            // roving-tabindex-active button even before the user has arrowed to a specific one.
+            if (onFreeformEnter && (forceFreeform || !btn)) {
+                onFreeformEnter();
+                return;
+            }
 
-        const btn = scrollElement?.querySelector<HTMLElement>('[role="gridcell"] [tabindex="0"]');
-        btn?.click();
-        onFinished();
-    }, [onFreeformEnter, filter, showHighlight, scrollElement, onFinished]);
+            // Only select emoji if highlight is shown
+            if (!showHighlight) return;
+
+            btn?.click();
+            onFinished();
+        },
+        [onFreeformEnter, showHighlight, scrollElement, onFinished],
+    );
 
     // Haven: see Search.tsx's own onTab doc - only passed down (as Search's onTab prop) when
     // onFreeformEnter is, so this never changes Tab's ordinary browser-default behavior anywhere

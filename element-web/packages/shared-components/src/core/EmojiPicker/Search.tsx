@@ -27,17 +27,20 @@ interface IProps {
     onChange: (value: string) => void;
     /**
      * Called when the Enter key is pressed in the search input.
+     *
+     * @param forceFreeform - Haven: true when Ctrl (or Cmd on Mac) was held too - see
+     * EmojiPicker.tsx's own onFreeformEnter doc for what this means to a caller that has one.
      */
-    onEnter: () => void;
+    onEnter: (forceFreeform: boolean) => void;
     /**
      * Haven: called when Tab (not Shift+Tab) is pressed in the search input, in place of the
      * browser's own default focus order - see EmojiPicker.tsx's own onFreeformEnter doc, which
      * this is gated identically to (only ever passed when that one is). Without this, Tab's
      * native order stops at this component's own "Cancel search" button (and, when a caller's
      * freeform-react link is showing below the search box, that link too) before ever reaching
-     * the grid - fine normally, but exactly backwards for a caller that wants Enter to always
-     * mean "react with the typed text" (see onEnter above): the *only* way left to pick a
-     * specific emoji by keyboard is then Tab twice past those intermediate stops, not once.
+     * the grid - an extra couple of stops a keyboard user has to Tab past before they can even
+     * start arrowing between emoji, on top of Enter itself already selecting the highlighted one
+     * (see onEnter above) - this just gives a faster, more direct way to jump focus straight in.
      */
     onTab?: () => void;
     /**
@@ -71,7 +74,7 @@ export const Search: React.FC<IProps> = ({ query, onChange, onEnter, onTab, onKe
     const onInputKeyDown = useCallback(
         (ev: React.KeyboardEvent): void => {
             if (ev.key === "Enter") {
-                onEnter();
+                onEnter(ev.ctrlKey || ev.metaKey);
                 ev.stopPropagation();
                 ev.preventDefault();
             } else if (ev.key === "Tab" && !ev.shiftKey && onTab) {
