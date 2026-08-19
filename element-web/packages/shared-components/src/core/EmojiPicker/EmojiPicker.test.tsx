@@ -29,11 +29,13 @@ describe("EmojiPicker", function () {
         expect(recentTab).toBeDisabled();
     });
 
-    it("should select the people category by default when no recent emojis", () => {
+    it("should select the people category by default when no recent emojis", async () => {
         render(<EmojiPicker onChoose={() => false} onFinished={vi.fn()} />);
 
+        // The selected category tracks the virtualized list's own reported visible range, which
+        // is set asynchronously (after the initial render) rather than being available immediately.
         const peopleTab = screen.getByRole("tab", { name: "😀" });
-        expect(peopleTab).toHaveAttribute("aria-selected", "true");
+        await waitFor(() => expect(peopleTab).toHaveAttribute("aria-selected", "true"));
     });
 
     it("should enable and select the recent category when recent emojis are supplied", () => {
@@ -56,7 +58,7 @@ describe("EmojiPicker", function () {
         });
 
         await userEvent.click(container.querySelector('[role="gridcell"] [role="button"]')!);
-        expect(onChoose).toHaveBeenCalledWith("😀");
+        expect(onChoose).toHaveBeenCalledWith("😀", expect.objectContaining({ unicode: "😀" }));
         expect(onRecordRecent).toHaveBeenCalledWith("😀");
     });
 
@@ -169,7 +171,7 @@ describe("EmojiPicker", function () {
         expect(getEmoji()).toEqual("📫️");
         await userEvent.keyboard("[Enter]");
 
-        expect(onChoose).toHaveBeenCalledWith("📫️");
+        expect(onChoose).toHaveBeenCalledWith("📫️", expect.objectContaining({ unicode: "📫️" }));
         expect(onFinished).toHaveBeenCalled();
     });
 
@@ -258,7 +260,7 @@ describe("EmojiPicker", function () {
         await userEvent.keyboard("[Enter]");
 
         // onChoose and onFinished should be called
-        expect(onChoose).toHaveBeenCalledWith("😀");
+        expect(onChoose).toHaveBeenCalledWith("😀", expect.objectContaining({ unicode: "😀" }));
         expect(onFinished).toHaveBeenCalled();
     });
 
