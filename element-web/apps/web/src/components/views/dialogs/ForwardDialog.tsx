@@ -333,6 +333,22 @@ const ForwardDialog: React.FC<IProps> = ({
         }
     };
 
+    // Haven: StyledCheckbox's own DOM (a small checkbox glyph plus a <label for=...> wrapping just
+    // the text) only fills part of the pill-shaped, padded/bordered box these two options are
+    // actually styled as (see _ForwardDialog.pcss's own mx_ForwardDialog_attachmentOption) - a
+    // click anywhere in that box's own padding was a dead click, only the checkbox/label text
+    // itself registered. Wiring the same toggle onto the outer box's own onClick fixes that, but
+    // needs to skip when the click's real target IS the checkbox or its label: those already
+    // trigger the identical toggle via the browser's native <label for> behavior, and a click on
+    // them still bubbles up to this outer handler - calling toggle twice in the same event tick
+    // would cancel out (both calls read the same pre-toggle state, since neither's setState has
+    // re-rendered yet) rather than doing nothing extra as intended.
+    const onOptionClick = (toggle: () => void, disabled: boolean) => (ev: React.MouseEvent): void => {
+        if (disabled) return;
+        if ((ev.target as HTMLElement).closest("input, label")) return;
+        toggle();
+    };
+
     const { type: effectiveType, content: effectiveContent } = useMemo((): { type: string; content: IContent } => {
         if (!showAttachmentToggle || (includeBody && includeAttachment)) {
             return { type, content };
@@ -469,6 +485,7 @@ const ForwardDialog: React.FC<IProps> = ({
                         className={classnames("mx_ForwardDialog_attachmentOption", {
                             mx_ForwardDialog_attachmentOption_disabled: !includeAttachment,
                         })}
+                        onClick={onOptionClick(onToggleBody, !includeAttachment)}
                     >
                         <StyledCheckbox checked={includeBody} disabled={!includeAttachment} onChange={onToggleBody}>
                             {_t("forward|body_label")}
@@ -478,6 +495,7 @@ const ForwardDialog: React.FC<IProps> = ({
                         className={classnames("mx_ForwardDialog_attachmentOption", {
                             mx_ForwardDialog_attachmentOption_disabled: !includeBody,
                         })}
+                        onClick={onOptionClick(onToggleAttachment, !includeBody)}
                     >
                         <StyledCheckbox
                             checked={includeAttachment}

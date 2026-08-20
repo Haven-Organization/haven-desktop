@@ -59,9 +59,13 @@ Please see LICENSE files in the repository root for full details.
             border-radius: 8px;
             border: 1px solid $input-border-color;
             background-color: $spacePanel-bg-color;
+            /* Haven: the whole pill toggles on click (see ForwardDialog.tsx's own onOptionClick),
+               not just the checkbox/label text inside it - this affordance should read that way. */
+            cursor: pointer;
 
             &_disabled {
                 opacity: 0.5;
+                cursor: default;
             }
         }
     }
