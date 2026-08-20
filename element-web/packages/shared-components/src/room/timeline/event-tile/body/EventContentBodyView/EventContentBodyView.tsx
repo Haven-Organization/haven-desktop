@@ -15,6 +15,28 @@ type Replacer = HTMLReactParserOptions["replace"];
 type ParseFormattedBody = (formattedBody: string, replacer?: Replacer) => ReturnType<typeof parse>;
 
 /**
+ * Haven: a formatted body that needs real HTML at all (e.g. a message containing a mention pill,
+ * which requires a formatted_body/<a> tag - see serialize.ts's own mdSerialize doc) gets wrapped in
+ * a <p> by CommonMark's own single-paragraph rendering, same as any other message. That's invisible
+ * for the "div" case below (a block <p> inside a block <div> is unremarkable), but rendering into a
+ * "span" - used for an emote's "* name body" line, which must all sit inline on one run (see
+ * TextualBodyView.tsx) - puts a block-level element directly inside an inline one, which forces the
+ * browser to split it onto its own line same as if it were a real paragraph break. Unwrap a single
+ * top-level <p> (ignoring purely-whitespace siblings CommonMark also emits, e.g. handles a message
+ * without any markdown otherwise triggering an HTML formatted_body) so its own children render
+ * inline instead - safe here specifically because "span" callers already never have more than the
+ * one implicit paragraph a plain single-line body produces.
+ */
+function unwrapSoleParagraph(children: ReturnType<typeof parse>): React.ReactNode {
+    const nodes = Array.isArray(children) ? children : [children];
+    const meaningful = nodes.filter((node) => !(typeof node === "string" && node.trim() === ""));
+    if (meaningful.length === 1 && React.isValidElement(meaningful[0]) && meaningful[0].type === "p") {
+        return (meaningful[0].props as { children?: React.ReactNode }).children;
+    }
+    return children;
+}
+
+/**
  * Snapshot interface for the EventContentBody view.
  */
 export interface EventContentBodyViewSnapshot {
@@ -97,7 +119,7 @@ export const EventContentBodyView = memo(function EventContentBodyView({
     if (as === "span") {
         return (
             <span ref={ref} className={className} dir={dir}>
-                {children}
+                {unwrapSoleParagraph(children)}
             </span>
         );
     }
