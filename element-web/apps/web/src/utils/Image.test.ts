@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { blobIsAnimated, mayBeAnimated } from "./Image";
+import { blobIsAnimated, mayBeAnimated, resolveIsAnimated } from "./Image";
 
 const imagesDir = fileURLToPath(import.meta.resolve("../../test/unit-tests/images"));
 
@@ -31,6 +31,28 @@ describe("Image", () => {
         });
         it("image/jpeg", async () => {
             expect(mayBeAnimated("image/jpeg")).toBeFalsy();
+        });
+    });
+
+    // Haven: regression tests for a real bug - a custom emoji/sticker picker grid cell relied on
+    // mayBeAnimated(mimetype) alone to decide whether to load the small server thumbnail or the
+    // full original image, and mayBeAnimated can only say a format is animation-*capable* (true
+    // for every PNG/WEBP whether or not it actually animates) - so it was loading full-resolution
+    // originals for the large majority of ordinary static pack images, not just genuinely animated
+    // ones, causing multi-second lag and multi-GB RAM spikes opening the picker (haven-desktop
+    // report, 2026-08-19 - reproduced with as few as 4 packs/~30 images).
+    describe("resolveIsAnimated", () => {
+        it("prefers a known true answer over the mimetype guess, even for a non-animatable mimetype", () => {
+            expect(resolveIsAnimated("image/jpeg", true)).toBe(true);
+        });
+
+        it("prefers a known false answer over the mimetype guess, even for an animation-capable mimetype", () => {
+            expect(resolveIsAnimated("image/png", false)).toBe(false);
+        });
+
+        it("falls back to the mimetype guess when the real answer isn't known", () => {
+            expect(resolveIsAnimated("image/png", undefined)).toBe(true);
+            expect(resolveIsAnimated("image/jpeg", undefined)).toBe(false);
         });
     });
 

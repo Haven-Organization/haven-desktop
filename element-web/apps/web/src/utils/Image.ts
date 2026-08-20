@@ -12,6 +12,19 @@ export function mayBeAnimated(mimeType?: string): boolean {
     return ["image/gif", "image/webp", "image/png", "image/apng", "image/avif"].includes(mimeType!);
 }
 
+/**
+ * Haven: prefers a real, byte-level "is this actually animated" answer when one is already known
+ * (e.g. persisted per ImagePackImageInfo's own "org.matrix.msc4230.is_animated" doc - see
+ * blobIsAnimated below, run once at upload time), falling back to the mimetype-only guess
+ * (mayBeAnimated) only when it isn't - e.g. for a pack image added before that field existed, or
+ * by a foreign client that doesn't set it. Matters because mayBeAnimated alone can only say a
+ * format is animation-*capable* (true for every PNG/WEBP whether or not it actually animates), so
+ * relying on it alone flags the large majority of ordinary static images as animated too.
+ */
+export function resolveIsAnimated(mimeType: string | undefined, knownAnimated: boolean | undefined): boolean {
+    return knownAnimated ?? mayBeAnimated(mimeType);
+}
+
 function arrayBufferRead(arr: ArrayBuffer, start: number, len: number): Uint8Array {
     return new Uint8Array(arr.slice(start, start + len));
 }

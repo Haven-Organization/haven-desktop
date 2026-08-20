@@ -33,7 +33,11 @@ import {
     packDisplayName,
 } from "../utils/ImagePacks";
 import { mediaFromMxc } from "../customisations/Media";
-import { mayBeAnimated } from "../utils/Image";
+import {
+    ensurePackImageAnimatedChecked,
+    getCachedPackImageAnimated,
+    useAnimatedImageCacheVersion,
+} from "../utils/PackImageAnimationCache";
 import dis from "../dispatcher/dispatcher";
 import { Action } from "../dispatcher/actions";
 import { UserTab } from "../components/views/dialogs/UserTab";
@@ -136,7 +140,22 @@ function buildPackCategories(
             // can't render a large/animated sticker at all, not a smaller animated copy - using it
             // here would silently freeze every animated custom emoji/sticker in the grid despite
             // the category rail's own icon (iconUrl above, never thumbnailed) still animating fine.
-            const imageUrl = mayBeAnimated(image.info?.mimetype)
+            //
+            // A plain mimetype guess alone was flagging the large majority of ordinary static pack
+            // images - the common case, not the exception - as animated, sending every one of them
+            // down the full-original-resolution path above with no size cap at all. Confirmed live
+            // 2026-08-19 against a real reported-slow pack: 12 genuinely static PNGs at ~800x750px
+            // real resolution each (vs. this cell's own ~30px), none carrying the real
+            // "org.matrix.msc4230.is_animated" answer (added before that field existed) - every
+            // single one loading full-res on every single open. That persisted answer is preferred
+            // when present; PackImageAnimationCache (see its own doc) covers the rest - a legacy
+            // image with no persisted answer - with a real, cached-or-in-progress client-side
+            // check instead of the mimetype guess, optimistically assuming static (the common
+            // case) rather than animated while a check is still in flight.
+            const persistedAnimated = image.info?.["org.matrix.msc4230.is_animated"];
+            if (persistedAnimated === undefined) ensurePackImageAnimatedChecked(image.url, room.client);
+            const isAnimated = persistedAnimated ?? getCachedPackImageAnimated(image.url) ?? false;
+            const imageUrl = isAnimated
                 ? (mediaFromMxc(image.url, room.client).srcHttp ?? undefined)
                 : thumbnailUrl(image.url, room.client, imageSize);
             return {
@@ -196,9 +215,13 @@ export function HavenEmojiPicker({
     const stickerMode = mode === "sticker";
     const packUsage: ImagePackUsage = stickerMode ? "sticker" : "emoticon";
     const packRoom = !stickerMode && disableCustomEmoji ? undefined : room;
+    // animatedCacheVersion has no direct effect of its own - it's a dependency purely so this memo
+    // recomputes (picking up a fresh getCachedPackImageAnimated answer) once a background check
+    // kicked off inside buildPackCategories resolves - see PackImageAnimationCache's own doc.
+    const animatedCacheVersion = useAnimatedImageCacheVersion();
     const { categories: packCategories, dataByCategory: dataByPackCategory } = useMemo(
         () => buildPackCategories(packRoom, packUsage),
-        [packRoom, packUsage],
+        [packRoom, packUsage, animatedCacheVersion],
     );
 
     // Haven: sticker mode has no unicode-emoji grid to fall back on, unlike emoji mode - with zero

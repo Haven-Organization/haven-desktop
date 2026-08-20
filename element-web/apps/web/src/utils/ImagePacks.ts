@@ -20,7 +20,7 @@
 import { type MatrixClient, type MatrixEvent, type Room, EventType, MsgType } from "matrix-js-sdk/src/matrix";
 import { NamespacedValue } from "matrix-js-sdk/src/NamespacedValue";
 
-import { mayBeAnimated } from "./Image";
+import { mayBeAnimated, blobIsAnimated } from "./Image";
 
 /** Stable name wins whenever both exist (NamespacedValue, not UnstableValue) - MSC2545 is merged,
  *  so this is what every write in this file uses; the unstable name is only ever read as a
@@ -52,6 +52,17 @@ export interface ImagePackImageInfo {
         w?: number;
         h?: number;
     };
+    /** Haven: a real, byte-level answer (see Image.ts's own blobIsAnimated) to "is this image
+     *  actually animated", computed once at upload time - same field name ImageBodyViewModel.ts/
+     *  MImageReplyBody.tsx already read for a plain m.image, per MSC4230
+     *  (https://github.com/matrix-org/matrix-spec-proposals/pull/4230). Lets a picker grid cell
+     *  (HavenEmojiPicker.tsx's own imageUrl) skip loading the full original image for the vast
+     *  majority of pack images that are static despite having an animation-*capable* mimetype
+     *  (PNG/WEBP support animation but usually aren't) - mayBeAnimated's own mimetype-only guess
+     *  can't tell those apart and would otherwise treat literally every PNG/WEBP pack image as
+     *  animated. Undefined for images added before this field existed, or from a foreign client
+     *  that doesn't set it - callers should fall back to mayBeAnimated(mimetype) in that case. */
+    "org.matrix.msc4230.is_animated"?: boolean;
 }
 
 export interface ImagePackImage {
@@ -316,6 +327,9 @@ interface DecodedImage {
     w: number;
     h: number;
     thumbnail?: { blob: Blob; w: number; h: number };
+    /** See ImagePackImageInfo's own "org.matrix.msc4230.is_animated" doc - undefined when
+     *  blobIsAnimated itself couldn't determine an answer (e.g. an unsupported format). */
+    animated?: boolean;
 }
 
 /** Real width/height so a sticker send later has proper `info` (Element/other clients size
@@ -336,9 +350,14 @@ async function decodeImage(blob: Blob): Promise<DecodedImage | undefined> {
     }
     const w = bitmap.width;
     const h = bitmap.height;
+    // Real byte-level check (see ImagePackImageInfo's own doc) - deliberately NOT used in place of
+    // mayBeAnimated for the "is a thumbnail worth generating at all" decision just below, which
+    // stays conservative on purpose: an upload-time thumbnail is cheap to generate once, so no
+    // reason to narrow when one gets made even though this is now available.
+    const animated = await blobIsAnimated(blob);
     if (!mayBeAnimated(blob.type) && blob.size <= THUMBNAIL_WORTH_IT_SIZE) {
         bitmap.close();
-        return { w, h };
+        return { w, h, animated };
     }
 
     const scale = Math.min(1, THUMBNAIL_MAX_DIM / Math.max(w, h));
@@ -350,11 +369,11 @@ async function decodeImage(blob: Blob): Promise<DecodedImage | undefined> {
     const ctx = canvas.getContext("2d");
     ctx?.drawImage(bitmap, 0, 0, thumbnailW, thumbnailH);
     bitmap.close();
-    if (!ctx) return { w, h };
+    if (!ctx) return { w, h, animated };
 
     const thumbnailBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (!thumbnailBlob) return { w, h };
-    return { w, h, thumbnail: { blob: thumbnailBlob, w: thumbnailW, h: thumbnailH } };
+    if (!thumbnailBlob) return { w, h, animated };
+    return { w, h, animated, thumbnail: { blob: thumbnailBlob, w: thumbnailW, h: thumbnailH } };
 }
 
 async function uploadThumbnailIfAny(
@@ -384,6 +403,7 @@ export async function uploadPackImage(
         size: file.size,
         w: decoded?.w,
         h: decoded?.h,
+        "org.matrix.msc4230.is_animated": decoded?.animated,
         ...(await uploadThumbnailIfAny(client, decoded)),
     };
     return { mxcUrl, info };
@@ -418,6 +438,7 @@ export async function addPackImageFromMxcUrl(
         size: blob.size,
         w: decoded?.w,
         h: decoded?.h,
+        "org.matrix.msc4230.is_animated": decoded?.animated,
         ...(await uploadThumbnailIfAny(client, decoded)),
     };
     return { mxcUrl, info };
