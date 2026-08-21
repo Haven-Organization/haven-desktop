@@ -6,12 +6,13 @@ Please see LICENSE files in the repository root for full details.
 */
 
 .mx_UserDevicesDialog {
+    /* Haven: no max-height/overflow-y of its own here - the base .mx_Dialog wrapper (_common.pcss)
+       already scrolls its whole content when it overflows. Giving this list its own scroll
+       container on top of that produced two nested scrollbars for an account with many devices. */
     .mx_UserDevicesDialog_list {
         list-style: none;
         margin: 0;
         padding: 0;
-        max-height: 60vh;
-        overflow-y: auto;
     }
 
     .mx_UserDevicesDialog_device {
