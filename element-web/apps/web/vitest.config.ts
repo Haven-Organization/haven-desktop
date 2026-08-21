@@ -58,7 +58,7 @@ export default defineProject({
             // the stub here regardless of HAVEN_INCLUDE_OLD_ROOM_LIST (a build-only env var) - the
             // real ~40-file subsystem already has its own dedicated tests under
             // test/unit-tests/legacy-room-list/, nothing outside those needs the real thing loaded.
-            { find: "legacy-room-list", replacement: resolve(__dirname, "./src/legacy-room-list-stub") },
+            { find: "legacy-room-list", replacement: resolve("./src/legacy-room-list-stub") },
         ],
     },
     test: {
