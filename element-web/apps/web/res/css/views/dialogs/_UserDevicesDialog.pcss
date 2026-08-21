@@ -1,0 +1,47 @@
+/*
+Copyright 2026 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+.mx_UserDevicesDialog {
+    .mx_UserDevicesDialog_list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .mx_UserDevicesDialog_device {
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-3x);
+        padding: var(--cpd-space-3x) 0;
+
+        &:not(:last-child) {
+            border-bottom: 1px solid var(--cpd-color-border-interactive-secondary);
+        }
+    }
+
+    .mx_UserDevicesDialog_device_icon {
+        flex-shrink: 0;
+    }
+
+    .mx_UserDevicesDialog_device_info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .mx_UserDevicesDialog_device_name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mx_UserDevicesDialog_device_id {
+        color: var(--cpd-color-text-secondary);
+    }
+}

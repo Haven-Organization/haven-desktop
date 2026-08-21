@@ -14,6 +14,8 @@ import { Flex } from "@element-hq/web-shared-components";
 import { useUserInfoVerificationViewModel } from "../../../viewmodels/right_panel/user_info/UserInfoHeaderVerificationViewModel";
 import { type IDevice } from "../UserInfo";
 import { _t } from "../../../../languageHandler";
+import Modal from "../../../../Modal";
+import UserDevicesDialog from "../../dialogs/UserDevicesDialog";
 
 export const UserInfoHeaderVerificationView: React.FC<{
     member: User | RoomMember;
@@ -45,6 +47,16 @@ export const UserInfoHeaderVerificationView: React.FC<{
                 >
                     {_t("user_info|verify_button")}
                 </Button>
+                {devices.length > 0 && (
+                    <Button
+                        className="mx_UserInfo_viewDevices_button"
+                        kind="tertiary"
+                        size="md"
+                        onClick={() => Modal.createDialog(UserDevicesDialog, { devices })}
+                    >
+                        {_t("user_info|view_devices_button", { count: devices.length })}
+                    </Button>
+                )}
             </div>
         );
     } else {

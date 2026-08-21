@@ -3934,6 +3934,8 @@
         "demote_self_confirm_description_space": "You will not be able to undo this change as you are demoting yourself, if you are the last privileged user in the space it will be impossible to regain privileges.",
         "demote_self_confirm_room": "You will not be able to undo this change as you are demoting yourself, if you are the last privileged user in the room it will be impossible to regain privileges.",
         "demote_self_confirm_title": "Demote yourself?",
+        "devices_dialog_empty": "No devices found.",
+        "devices_dialog_title": "Devices (%(count)s)",
         "disinvite_button_room": "Disinvite from room",
         "disinvite_button_room_name": "Disinvite from %(roomName)s",
         "disinvite_button_space": "Disinvite from space",
@@ -3989,6 +3991,7 @@
         "verification_unavailable": "User verification unavailable",
         "verify_button": "Verify User",
         "verify_explainer": "For extra security, verify this user by checking a one-time code on both of your devices.",
+        "view_devices_button": "View Devices (%(count)s)",
         "view_profile_data_button": "View Profile Data"
     },
     "user_status": {
