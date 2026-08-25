@@ -104,7 +104,7 @@ export class RoomListSectionHeaderViewModel
             canBeReordered: !isDefaultSection || props.tag === CHATS_TAG,
             activeSortOption: algorithmToSortOption(RoomListStoreV3.instance.getSectionSortAlgorithm(props.tag)),
             isMessagePreviewEnabled:
-                SettingsStore.getValue("RoomList.showMessagePreviewBySection")[props.tag] ?? false,
+                SettingsStore.getValue("RoomList.showMessagePreviewBySection")?.[props.tag] ?? false,
         });
         const sectionWatherRef = SettingsStore.watchSetting("RoomList.CustomSectionData", null, () =>
             this.onCustomSectionDataChange(),

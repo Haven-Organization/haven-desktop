@@ -231,7 +231,7 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
      */
     public getSectionSortAlgorithm(tag: string): SortingAlgorithm {
         const bySection = SettingsStore.getValue("RoomList.preferredSortingBySection");
-        return bySection[tag] ?? SortingAlgorithm.Recency;
+        return bySection?.[tag] ?? SortingAlgorithm.Recency;
     }
 
     /**
