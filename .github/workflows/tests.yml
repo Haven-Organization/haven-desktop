@@ -1,0 +1,54 @@
+name: Tests
+
+on:
+    push:
+        branches: [develop]
+    pull_request:
+        branches: [develop]
+
+jobs:
+    test:
+        name: Type-check and unit tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - name: Enable corepack
+              run: corepack enable
+
+            # This monorepo's globally-resolved pnpm can drift ahead of the exact version pinned in
+            # devEngines.packageManager (see the "Fresh-clone pnpm pin fix" project history) and
+            # `~/package.json`-level packageManager fields have been known to fight corepack here too
+            # - these three env vars are the project's own established workaround, not a new one.
+            - name: Install dependencies
+              working-directory: element-web
+              env:
+                  CI: "true"
+                  COREPACK_ENABLE_STRICT: "0"
+                  PNPM_CONFIG_PM_ON_FAIL: ignore
+                  npm_config_pm_on_fail: ignore
+              run: pnpm install --frozen-lockfile
+
+            - name: Type-check (apps/web)
+              working-directory: element-web/apps/web
+              env:
+                  COREPACK_ENABLE_STRICT: "0"
+                  PNPM_CONFIG_PM_ON_FAIL: ignore
+                  npm_config_pm_on_fail: ignore
+              run: pnpm exec tsc --noEmit
+
+            - name: Unit tests - vitest (apps/web)
+              working-directory: element-web/apps/web
+              run: npx vitest run
+
+            - name: Unit tests - vitest (shared-components)
+              working-directory: element-web/packages/shared-components
+              run: npx vitest run --project=unit
+
+            - name: Unit tests - jest (legacy suite)
+              working-directory: element-web/apps/web
+              run: npx jest
