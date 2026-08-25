@@ -38,6 +38,9 @@ export interface ReactionsRowButtonAdapterProps {
     reactionEvents: MatrixEvent[];
     /** The current user's reaction event, if present. */
     myReactionEvent?: MatrixEvent;
+    /** Haven: the full Relations for `mxEvent` - threaded through so the button can right-click
+     *  open ReactionsDialog with all of the event's reaction groups, not just its own. */
+    reactions?: Relations | null;
     /** Disables interaction when true. */
     disabled?: boolean;
     /** Enables rendering custom reaction images. */
@@ -61,12 +64,17 @@ export function ReactionsRowButtonAdapter(props: Readonly<ReactionsRowButtonAdap
                 myReactionEvent: props.myReactionEvent,
                 disabled: props.disabled,
                 customReactionImagesEnabled: props.customReactionImagesEnabled,
+                reactions: props.reactions,
             }),
     );
 
     useEffect(() => {
         vm.setReactionData(props.content, props.reactionEvents, props.customReactionImagesEnabled);
     }, [props.content, props.reactionEvents, props.customReactionImagesEnabled, vm]);
+
+    useEffect(() => {
+        vm.setReactions(props.reactions);
+    }, [props.reactions, vm]);
 
     useEffect(() => {
         vm.setCount(props.count);
@@ -242,6 +250,7 @@ export function ReactionsRowAdapter({
                     reactionEvents={deduplicatedEvents}
                     myReactionEvent={myReactionEvent}
                     customReactionImagesEnabled={customReactionImagesEnabled}
+                    reactions={reactions}
                     disabled={
                         !roomContext.canReact ||
                         (myReactionEvent && !myReactionEvent.isRedacted() && !roomContext.canSelfRedact)
@@ -259,6 +268,7 @@ export function ReactionsRowAdapter({
         reactionGroups,
         myReactions,
         mxEvent,
+        reactions,
         customReactionImagesEnabled,
         roomContext.canReact,
         roomContext.canSelfRedact,

@@ -43,6 +43,7 @@ import {
     TreeIcon,
     StickerIcon,
     SearchIcon,
+    ReactionIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
@@ -81,6 +82,8 @@ import { getPackableImageFromEvent } from "../../../utils/ImagePacks";
 import AddToPackDialog from "../dialogs/AddToPackDialog";
 import { getImageSourcePackRefs } from "../../../utils/imageSourcePacks";
 import FindPackDialog from "../dialogs/FindPackDialog";
+import ReactionsDialog from "../dialogs/ReactionsDialog";
+import { getReactionGroups } from "../rooms/EventTile/ReactionsRowAdapter";
 
 interface IReplyInThreadButton {
     mxEvent: MatrixEvent;
@@ -282,6 +285,13 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
         const packRef = getImageSourcePackRefs(this.props.mxEvent)[0];
         if (!packRef) return;
         Modal.createDialog(FindPackDialog, { packRef }, "mx_FindPackDialog_wrapper");
+        this.closeMenu();
+    };
+
+    private onReactionsClick = (): void => {
+        const { mxEvent, reactions } = this.props;
+        if (!reactions) return;
+        Modal.createDialog(ReactionsDialog, { mxEvent, reactions }, "mx_ReactionsDialog_wrapper");
         this.closeMenu();
     };
 
@@ -508,6 +518,21 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                     icon={<StickerIcon />}
                     label={_t("timeline|context_menu|add_to_pack")}
                     onClick={this.onAddToPackClick}
+                />
+            );
+        }
+
+        // Haven: opens ReactionsDialog - the "..." menu equivalent of right-clicking a reaction
+        // pill directly (see ReactionsRowButtonViewModel's own onContextMenu), for whenever the
+        // event has at least one reaction group and the button itself isn't visible/reachable
+        // (e.g. touch, or the reaction row is limited/collapsed).
+        let reactionsButton: JSX.Element | undefined;
+        if (reactions && getReactionGroups(reactions).length > 0) {
+            reactionsButton = (
+                <IconizedContextMenuOption
+                    icon={<ReactionIcon />}
+                    label={_t("timeline|context_menu|reactions")}
+                    onClick={this.onReactionsClick}
                 />
             );
         }
@@ -776,6 +801,7 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                 {openInMapSiteButton}
                 {endPollButton}
                 {forwardButton}
+                {reactionsButton}
                 {addToPackButton}
                 {findPackButton}
                 {permalinkButton}

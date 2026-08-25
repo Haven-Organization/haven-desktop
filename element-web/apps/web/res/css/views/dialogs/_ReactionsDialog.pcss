@@ -1,0 +1,197 @@
+/*
+ * Haven: "view reactions" modal - see ReactionsDialog.tsx's own doc.
+ */
+
+.mx_ReactionsDialog {
+    width: 640px;
+}
+
+.mx_ReactionsDialog_body {
+    display: flex;
+    /* Haven: explicitly sized (not left to shrink-to-fit like Sable's own version, which the user
+       found cramped) - each pane scrolls independently within this fixed area, so the outer
+       .mx_Dialog itself never needs its own scrollbar too. */
+    min-height: 420px;
+    max-height: 70vh;
+    margin: 0 calc(-1 * var(--cpd-space-4x)) calc(-1 * var(--cpd-space-4x));
+}
+
+.mx_ReactionsDialog_rail {
+    flex-shrink: 0;
+    width: 84px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    list-style: none;
+    margin: 0;
+    padding: var(--cpd-space-2x);
+    border-right: 1px solid var(--cpd-color-border-interactive-secondary);
+}
+
+.mx_ReactionsDialog_railItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+    width: 100%;
+    /* Haven: width:100% + padding needs border-box, else this renders wider than the rail itself -
+       the exact cause of the rail's own horizontal scrollbar the user hit. */
+    box-sizing: border-box;
+    padding: var(--cpd-space-2x);
+    border-radius: 8px;
+    color: var(--cpd-color-text-primary);
+
+    &:hover {
+        background-color: var(--cpd-color-bg-subtle-primary);
+    }
+
+    &[aria-pressed="true"] {
+        background-color: var(--cpd-color-bg-subtle-secondary);
+    }
+}
+
+.mx_ReactionsDialog_railItemContent {
+    max-width: 100%;
+    /* Haven: a freeform text reaction (an arbitrary word, not an emoji) needs to stay small enough
+       to have a real chance of fitting the rail on one line - see the bigger
+       .mx_ReactionsDialog_railItemContent_emoji override below for genuine unicode emoji, which
+       don't have that problem (always a single short glyph). */
+    font-size: var(--cpd-font-size-body-lg);
+    line-height: 1.2;
+    text-align: center;
+    /* Freeform text reactions can still be a single word with no natural break point longer than
+       the rail - force-wrap it instead of overflowing when that happens. */
+    overflow-wrap: anywhere;
+}
+
+.mx_ReactionsDialog_railItemContent_emoji {
+    /* Haven: bigger than the base size - the tile itself (.mx_ReactionsDialog_railItem) stays the
+       same size, only the glyph grows. */
+    font-size: var(--cpd-font-size-heading-sm);
+}
+
+.mx_ReactionsDialog_railItemImage {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.mx_ReactionsDialog_railItemCount {
+    font-size: var(--cpd-font-size-body-sm);
+    color: var(--cpd-color-text-secondary);
+}
+
+.mx_ReactionsDialog_usersPane {
+    /* Haven: wraps the header (selected group's own emoji/image + "Reacted with :name:") and the
+       scrollable reactor list together, so the header stays put above the list rather than
+       scrolling away with it. */
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.mx_ReactionsDialog_usersHeader {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-3x) var(--cpd-space-4x);
+    border-bottom: 1px solid var(--cpd-color-border-interactive-secondary);
+}
+
+.mx_ReactionsDialog_usersHeaderContent {
+    /* Haven: bigger than the rail's own glyph (heading-sm, 20px) - this is the "larger than the
+       rail" copy the user asked for. See .mx_ReactionsDialog_railItemContent's own comment for why
+       freeform text reactions stay smaller than genuine emoji. */
+    font-size: var(--cpd-font-size-heading-md);
+    line-height: 1;
+}
+
+.mx_ReactionsDialog_usersHeaderContent_emoji {
+    font-size: var(--cpd-font-size-heading-lg);
+}
+
+.mx_ReactionsDialog_usersHeaderImageButton {
+    flex-shrink: 0;
+    display: flex;
+    border-radius: 4px;
+}
+
+.mx_ReactionsDialog_usersHeaderImage {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.mx_ReactionsDialog_usersHeaderTitle {
+    font-weight: var(--cpd-font-weight-semibold);
+    color: var(--cpd-color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mx_ReactionsDialog_users {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0;
+    padding: var(--cpd-space-2x) var(--cpd-space-4x);
+}
+
+.mx_ReactionsDialog_user {
+    /* Haven: the reactor identity and its (optional) Find Pack button used to hover as two
+       separate things - the highlight now lives here, on the row as a whole, so hovering either
+       one lights up the full row together. */
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-2x) var(--cpd-space-2x);
+    margin: 0 calc(-1 * var(--cpd-space-2x));
+    border-radius: 8px;
+
+    &:hover {
+        background-color: var(--cpd-color-bg-subtle-primary);
+    }
+}
+
+.mx_ReactionsDialog_userIdentity {
+    /* Haven: the whole avatar+name area is one click target that opens the member panel - looks
+       exactly like the original plain avatar+name row (no link/button chrome). Deliberately not
+       using AccessibleButton's own `kind` prop - every kind (including link_inline) forces
+       display:inline-flex + text-align:center via .mx_AccessibleButton_hasKind, which fought this
+       row's own flex layout. Hover styling lives on .mx_ReactionsDialog_user (the whole row) now,
+       not here. */
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    flex: 1;
+    min-width: 0;
+    color: inherit;
+    text-align: left;
+}
+
+.mx_ReactionsDialog_userName {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.mx_ReactionsDialog_findPack {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    color: var(--cpd-color-icon-secondary);
+
+    /* Haven: no hover of its own - the row it's part of (.mx_ReactionsDialog_user) already
+       highlights as a whole, this only needs its own icon color to react. */
+    .mx_ReactionsDialog_user:hover & {
+        color: var(--cpd-color-icon-primary);
+    }
+}

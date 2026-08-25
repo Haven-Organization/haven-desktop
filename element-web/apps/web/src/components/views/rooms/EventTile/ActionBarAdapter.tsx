@@ -171,6 +171,7 @@ export function ActionBarAdapter({
                     collapseReplyChain={collapseReplyChain}
                     onFinished={closeOptionsMenu}
                     getRelationsForEvent={getRelationsForEvent}
+                    reactions={reactions}
                 />
             ) : null}
             {reactionsMenuAnchorRect ? (

@@ -3465,6 +3465,7 @@
             "find_pack_preview_room": "Preview Room",
             "find_pack_unfavourite": "Favorited",
             "open_in_osm": "Open in OpenStreetMap",
+            "reactions": "Reactions",
             "report": "Report",
             "resent_unsent_reactions": "Resend %(unsentCount)s reaction(s)",
             "show_url_preview": "Show preview",
@@ -3703,6 +3704,9 @@
         "reactions": {
             "add_reaction_prompt": "Add reaction",
             "custom_reaction_fallback_label": "Custom reaction",
+            "dialog_find_pack": "Find the pack this reaction is from",
+            "dialog_title": "Reacted with %(shortName)s",
+            "dialog_title_generic": "Reactions",
             "label": "%(reactors)s reacted with %(content)s",
             "tooltip_caption": "reacted with %(shortName)s"
         },

@@ -52,6 +52,12 @@ export interface ReactionsRowButtonViewActions {
      * Called when the user activates the reaction button.
      */
     onClick: () => void;
+    /**
+     * Haven: called when the user right-clicks (context-menus) the reaction button - opens the
+     * Reactions dialog (see ReactionsDialog.tsx) with this button's own reaction pre-selected.
+     * Optional since not every ReactionsRowButtonViewModel implementation needs to support it.
+     */
+    onContextMenu?: () => void;
 }
 
 export type ReactionsRowButtonViewModel = ViewModel<ReactionsRowButtonViewSnapshot> & ReactionsRowButtonViewActions;
@@ -74,6 +80,13 @@ export function ReactionsRowButtonView({ vm }: Readonly<ReactionsRowButtonViewPr
     const { content, count, className, isSelected, isDisabled, imageSrc, imageAlt, tooltipVm } = snapshot;
     const ariaLabel = snapshot["aria-label"] ?? snapshot.ariaLabel;
     const ariaDisabled = isDisabled ? true : undefined;
+    const onContextMenu = vm.onContextMenu;
+    const handleContextMenu = onContextMenu
+        ? (event: React.MouseEvent<HTMLButtonElement>): void => {
+              event.preventDefault();
+              onContextMenu();
+          }
+        : undefined;
     const classes = classNames(className, styles.reactionsRowButton, {
         [styles.reactionsRowButtonSelected]: isSelected,
         [styles.reactionsRowButtonDisabled]: isDisabled,
@@ -88,20 +101,27 @@ export function ReactionsRowButtonView({ vm }: Readonly<ReactionsRowButtonViewPr
     );
 
     return (
-        <ReactionsRowButtonTooltipView vm={tooltipVm}>
-            <button
-                type="button"
-                className={classes}
-                tabIndex={0}
-                aria-label={ariaLabel}
-                aria-disabled={ariaDisabled}
-                onClick={isDisabled ? undefined : vm.onClick}
-            >
-                {reactionContent}
-                <span className={styles.reactionsRowButtonCount} aria-hidden="true">
-                    {count}
-                </span>
-            </button>
-        </ReactionsRowButtonTooltipView>
+        // Haven: onContextMenu lives on this wrapper, not the <button> itself - Tooltip's own
+        // trigger-cloning (via Floating UI's getReferenceProps) only forwards a fixed set of known
+        // interaction handlers (onClick among them) and silently drops unrecognised ones like
+        // onContextMenu when it clones the button. contextmenu bubbles, so listening here instead
+        // still fires correctly on a right-click anywhere on the button.
+        <span onContextMenu={handleContextMenu}>
+            <ReactionsRowButtonTooltipView vm={tooltipVm}>
+                <button
+                    type="button"
+                    className={classes}
+                    tabIndex={0}
+                    aria-label={ariaLabel}
+                    aria-disabled={ariaDisabled}
+                    onClick={isDisabled ? undefined : vm.onClick}
+                >
+                    {reactionContent}
+                    <span className={styles.reactionsRowButtonCount} aria-hidden="true">
+                        {count}
+                    </span>
+                </button>
+            </ReactionsRowButtonTooltipView>
+        </span>
     );
 }

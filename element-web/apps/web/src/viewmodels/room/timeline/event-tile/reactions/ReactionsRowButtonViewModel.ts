@@ -5,7 +5,7 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import { EventType, type MatrixClient, type MatrixEvent, RelationType } from "matrix-js-sdk/src/matrix";
+import { EventType, type MatrixClient, type MatrixEvent, type Relations, RelationType } from "matrix-js-sdk/src/matrix";
 import {
     BaseViewModel,
     type ReactionsRowButtonViewSnapshot,
@@ -16,6 +16,8 @@ import { mediaFromMxc } from "../../../../../customisations/Media";
 import { _t } from "../../../../../languageHandler";
 import { formatList } from "../../../../../utils/FormattingUtils";
 import dis from "../../../../../dispatcher/dispatcher";
+import Modal from "../../../../../Modal";
+import ReactionsDialog from "../../../../../components/views/dialogs/ReactionsDialog";
 import { ReactionsRowButtonTooltipViewModel } from "./ReactionsRowButtonTooltipViewModel";
 import { REACTION_SHORTCODE_KEY } from "./reactionShortcode";
 
@@ -56,6 +58,11 @@ export interface ReactionsRowButtonViewModelProps {
      * Whether to render custom image reactions.
      */
     customReactionImagesEnabled?: boolean;
+    /**
+     * Haven: the full Relations for `mxEvent` - needed to open ReactionsDialog (see
+     * onContextMenu) with the rest of the event's reaction groups, not just this button's own.
+     */
+    reactions?: Relations | null;
 }
 
 export class ReactionsRowButtonViewModel
@@ -91,7 +98,10 @@ export class ReactionsRowButtonViewModel
             for (const reactionEvent of reactionEvents) {
                 const member = room.getMember(reactionEvent.getSender()!);
                 senders.push(member?.name || reactionEvent.getSender()!);
-                customReactionName =
+                // Haven: same fix as ReactionsRowButtonTooltipViewModel's own identical loop - keep
+                // the first reactor's shortcode rather than letting a later reactor whose event
+                // lacks the metadata clobber one already found.
+                customReactionName ||=
                     (customReactionImagesEnabled && REACTION_SHORTCODE_KEY.findIn(reactionEvent.getContent())) ||
                     undefined;
             }
@@ -189,6 +199,20 @@ export class ReactionsRowButtonViewModel
         this.props = { ...this.props, disabled };
         this.snapshot.merge({ isDisabled: !!disabled });
     }
+
+    public setReactions(reactions?: Relations | null): void {
+        this.props = { ...this.props, reactions };
+    }
+
+    /** Haven: right-clicking a reaction pill opens the same modal as the "..." menu's own
+     *  "Reactions" option, pre-selected to this button's own reaction group - see
+     *  ReactionsDialog.tsx's own doc. No-op if this button's Relations weren't threaded through
+     *  (shouldn't happen via ReactionsRowAdapter, which always passes them). */
+    public onContextMenu = (): void => {
+        const { mxEvent, content, reactions } = this.props;
+        if (!reactions) return;
+        Modal.createDialog(ReactionsDialog, { mxEvent, reactions, initialContent: content }, "mx_ReactionsDialog_wrapper");
+    };
 
     public onClick = (): void => {
         const { client, mxEvent, myReactionEvent, content, disabled } = this.props;

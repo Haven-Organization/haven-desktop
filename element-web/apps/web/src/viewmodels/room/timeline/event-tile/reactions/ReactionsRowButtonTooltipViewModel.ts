@@ -67,7 +67,12 @@ export class ReactionsRowButtonTooltipViewModel
                 const member = room.getMember(reactionEvent.getSender()!);
                 const name = member?.name ?? reactionEvent.getSender()!;
                 senders.push(name);
-                customReactionName =
+                // Haven: keep the first reactor's shortcode, don't let a later reactor whose own
+                // event happens to lack the metadata (e.g. sent from a client that doesn't attach
+                // it) clobber one already found - this was silently dropping the whole "reacted
+                // with :name:" caption for any multi-reactor custom emoji where the LAST reactor's
+                // event lacked it, even though an earlier one had it.
+                customReactionName ||=
                     (customReactionImagesEnabled && REACTION_SHORTCODE_KEY.findIn(reactionEvent.getContent())) ||
                     undefined;
             }
