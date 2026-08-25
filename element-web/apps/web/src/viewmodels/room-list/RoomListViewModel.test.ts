@@ -20,6 +20,7 @@ import {
 } from "test-utils";
 
 import RoomListStoreV3, { RoomListStoreV3Event } from "../../stores/room-list-v3/RoomListStoreV3";
+import RightPanelStore from "../../stores/right-panel/RightPanelStore";
 import { FilterEnum } from "../../stores/room-list-v3/skip-list/filters";
 import dispatcher from "../../dispatcher/dispatcher";
 import { Action } from "../../dispatcher/actions";
@@ -903,6 +904,111 @@ describe("RoomListViewModel", () => {
                     }),
                 ),
             );
+        });
+    });
+
+    // Haven: regression coverage for handleViewRoomDelta's debounce (dispatchViewRoomDebounced)
+    // and the stale-load guard in onDispatch's Action.ActiveRoomChanged branch - see both blocks'
+    // own doc comments in RoomListViewModel.ts. Uses fake timers throughout since the real
+    // dispatchViewRoomDebounced delay is 200ms wall-clock, which the rest of this file's
+    // real-timer `waitFor`-based ViewRoomDelta tests already show is unreliable under any CPU
+    // contention (confirmed flaky in this environment while other work ran concurrently).
+    describe("Debounced navigation and stale-load guarding (Haven)", () => {
+        beforeEach(() => {
+            stubClient();
+            vi.useFakeTimers();
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it("moves the highlight and RightPanelStore's navigation cursor on every keypress, before the debounced ViewRoom dispatch fires", async () => {
+            viewModel = new RoomListViewModel({
+                client: matrixClient,
+                spaceStore: SDKContextClass.instance.spaceStore,
+                roomViewStore: SDKContextClass.instance.roomViewStore,
+            });
+            vi.spyOn(SDKContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!room1:server");
+
+            const rightPanelSpy = vi.spyOn(RightPanelStore.instance, "updateViewedRoomIdForNavigationCursor");
+            const dispatchSpy = vi.spyOn(dispatcher, "dispatch");
+
+            dispatcher.dispatch({ action: Action.ViewRoomDelta, delta: 1, unread: false });
+            await flushPromisesWithFakeTimers();
+
+            // The highlight and RightPanelStore's cursor both update immediately...
+            expect(viewModel.getSnapshot().roomListState.activeRoomIndex).toBe(1); // room2
+            expect(rightPanelSpy).toHaveBeenCalledWith("!room2:server");
+            // ...but the real ViewRoom dispatch (which triggers an actual timeline load) hasn't
+            // fired yet - it's still sitting in the 200ms debounce window.
+            expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ action: Action.ViewRoom }));
+
+            await vi.advanceTimersByTimeAsync(200);
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ action: Action.ViewRoom, room_id: "!room2:server" }),
+            );
+        });
+
+        it("collapses rapid repeated keypresses into a single ViewRoom dispatch for the final target", async () => {
+            viewModel = new RoomListViewModel({
+                client: matrixClient,
+                spaceStore: SDKContextClass.instance.spaceStore,
+                roomViewStore: SDKContextClass.instance.roomViewStore,
+            });
+            vi.spyOn(SDKContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!room1:server");
+
+            const dispatchSpy = vi.spyOn(dispatcher, "dispatch");
+
+            // Two presses in quick succession, well within the 200ms debounce window - each still
+            // moves the highlight, but only the second (final) one should ever reach a real
+            // ViewRoom dispatch.
+            dispatcher.dispatch({ action: Action.ViewRoomDelta, delta: 1, unread: false });
+            await flushPromisesWithFakeTimers();
+            expect(viewModel.getSnapshot().roomListState.activeRoomIndex).toBe(1); // room2
+
+            dispatcher.dispatch({ action: Action.ViewRoomDelta, delta: 1, unread: false });
+            await flushPromisesWithFakeTimers();
+            expect(viewModel.getSnapshot().roomListState.activeRoomIndex).toBe(2); // room3
+
+            await vi.advanceTimersByTimeAsync(200);
+
+            const viewRoomCalls = dispatchSpy.mock.calls.filter(([payload]) => (payload as any).action === Action.ViewRoom);
+            expect(viewRoomCalls).toHaveLength(1);
+            expect(viewRoomCalls[0][0]).toEqual(expect.objectContaining({ room_id: "!room3:server" }));
+        });
+
+        it("ignores a stale ActiveRoomChanged for a room the cursor has since moved past", async () => {
+            viewModel = new RoomListViewModel({
+                client: matrixClient,
+                spaceStore: SDKContextClass.instance.spaceStore,
+                roomViewStore: SDKContextClass.instance.roomViewStore,
+            });
+            vi.spyOn(SDKContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!room1:server");
+
+            // Cursor moves room1 -> room2 -> room3, each still within the same debounce window (so
+            // only room3's own ViewRoom load is actually the one "in flight" from the view model's
+            // perspective - see pendingRoomId in the source).
+            dispatcher.dispatch({ action: Action.ViewRoomDelta, delta: 1, unread: false });
+            await flushPromisesWithFakeTimers();
+            dispatcher.dispatch({ action: Action.ViewRoomDelta, delta: 1, unread: false });
+            await flushPromisesWithFakeTimers();
+            expect(viewModel.getSnapshot().roomListState.activeRoomIndex).toBe(2); // room3
+
+            const sortedRoomsSpy = vi.spyOn(RoomListStoreV3.instance, "getSortedRoomsInActiveSpace");
+            sortedRoomsSpy.mockClear();
+
+            // A late-arriving load for room2 (a target the cursor already moved past) must be
+            // ignored - applying it would flicker the highlight back onto a stale room.
+            dispatcher.dispatch({ action: Action.ActiveRoomChanged, newRoomId: "!room2:server" });
+            await flushPromisesWithFakeTimers();
+            expect(sortedRoomsSpy).not.toHaveBeenCalled();
+            expect(viewModel.getSnapshot().roomListState.activeRoomIndex).toBe(2); // still room3
+
+            // The real load for room3 (the actual current cursor target) is honored normally.
+            dispatcher.dispatch({ action: Action.ActiveRoomChanged, newRoomId: "!room3:server" });
+            await flushPromisesWithFakeTimers();
+            expect(sortedRoomsSpy).toHaveBeenCalled();
         });
     });
 

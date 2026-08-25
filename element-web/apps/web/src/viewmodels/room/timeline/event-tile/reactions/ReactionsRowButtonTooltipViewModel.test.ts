@@ -151,6 +151,33 @@ describe("ReactionsRowButtonTooltipViewModel", () => {
         expect(vm.getSnapshot().caption).toBeUndefined();
     });
 
+    // Haven: regression test for a real bug - the loop computing customReactionName used to
+    // reassign it unconditionally on every reactor event, so a later reactor whose own event
+    // lacked the shortcode metadata silently clobbered one an earlier reactor's event already had,
+    // dropping the "reacted with :name:" caption entirely. The fix keeps the first shortcode found
+    // (customReactionName ||= ...) - this pins that down.
+    it("keeps the first reactor's shortcode when a later reactor's event lacks it", () => {
+        mockedUnicodeToShortcode.mockReturnValue("");
+        const firstReaction = createReactionEvent("@alice:example.org", {
+            "com.beeper.reaction.shortcode": "custom_emoji",
+        });
+        const laterReaction = createReactionEvent("@bob:example.org"); // no shortcode metadata
+        vi.spyOn(room, "getMember").mockImplementation((userId) => {
+            const names: Record<string, string> = { "@alice:example.org": "Alice", "@bob:example.org": "Bob" };
+            return names[userId!] ? ({ name: names[userId!], userId } as RoomMember) : null;
+        });
+
+        const vm = new ReactionsRowButtonTooltipViewModel(
+            createProps({
+                content: "mxc://custom/emoji",
+                reactionEvents: [firstReaction, laterReaction],
+                customReactionImagesEnabled: true,
+            }),
+        );
+
+        expect(vm.getSnapshot().caption).toContain("custom_emoji");
+    });
+
     it("should update snapshot and notify subscribers when setProps is called", () => {
         const aliceReaction = createReactionEvent("@alice:example.org");
         const bobReaction = createReactionEvent("@bob:example.org");

@@ -14,7 +14,7 @@ import {
 } from "@element-hq/web-shared-components";
 import { MsgType, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { vi, describe, it, expect, afterEach } from "vitest";
-import { flushPromises, mkEvent } from "test-utils";
+import { flushPromises, mkEvent, stubClient, mkStubRoom } from "test-utils";
 
 import { TimelineRenderingType } from "../../../../../contexts/RoomContext";
 import { TextualBodyViewModel } from "./TextualBodyViewModel";
@@ -271,6 +271,87 @@ describe("TextualBodyViewModel", () => {
 
         expect(preventDefault).toHaveBeenCalled();
         expect(window.location.hash).toBe("#/room/!room:example.org");
+    });
+
+    // Haven: regression coverage for bare-user-permalink clicks (an @mention with no room/event of
+    // its own, e.g. embedded raw inside a repost/quote card that never went through Linkify pill
+    // wiring) - this used to fall through to stock Element's "User View" page navigation, which
+    // abandoned the room the message was actually in. It should instead dispatch Action.ViewUser
+    // the same way an already-resolved Pill component does.
+    describe("bare user permalink clicks", () => {
+        afterEach(() => {
+            vi.mocked(dispatcher.dispatch).mockClear();
+        });
+
+        it("dispatches Action.ViewUser with the room member when one exists", () => {
+            const client = stubClient();
+            const room = mkStubRoom("!room:example.com", "room", client);
+            const member = { userId: "@bob:example.com", name: "Bob" };
+            vi.spyOn(room, "getMember").mockReturnValue(member as any);
+            vi.spyOn(client, "getRoom").mockReturnValue(room as any);
+            vi.spyOn(dispatcher, "dispatch");
+
+            const vm = createVm({ mxEvent: createEvent({ body: "hi", msgtype: MsgType.Text }, { room: room.roomId }) });
+            const preventDefault = vi.fn();
+
+            vm.onRootClick({
+                preventDefault,
+                target: {
+                    href: "https://matrix.to/#/@bob:example.com",
+                    nodeName: "A",
+                },
+            } as any);
+
+            expect(preventDefault).toHaveBeenCalled();
+            expect(dispatcher.dispatch).toHaveBeenCalledWith(
+                expect.objectContaining({ action: Action.ViewUser, member }),
+            );
+            expect(window.location.hash).toBe("");
+        });
+
+        it("falls back to a synthetic User when the sender isn't a known room member", () => {
+            const client = stubClient();
+            const room = mkStubRoom("!room:example.com", "room", client);
+            vi.spyOn(room, "getMember").mockReturnValue(null);
+            vi.spyOn(client, "getRoom").mockReturnValue(room as any);
+            vi.spyOn(dispatcher, "dispatch");
+
+            const vm = createVm({ mxEvent: createEvent({ body: "hi", msgtype: MsgType.Text }, { room: room.roomId }) });
+            const preventDefault = vi.fn();
+
+            vm.onRootClick({
+                preventDefault,
+                target: {
+                    href: "https://matrix.to/#/@carol:example.com",
+                    nodeName: "A",
+                },
+            } as any);
+
+            expect(preventDefault).toHaveBeenCalled();
+            const call = vi.mocked(dispatcher.dispatch).mock.calls.find((c) => (c[0] as any).action === Action.ViewUser);
+            expect(call).toBeDefined();
+            expect((call![0] as any).member.userId).toBe("@carol:example.com");
+        });
+
+        it("does not intercept a permalink that also has a room/event (not a bare user permalink)", () => {
+            stubClient();
+            vi.spyOn(dispatcher, "dispatch");
+
+            const vm = createVm();
+            const preventDefault = vi.fn();
+
+            vm.onRootClick({
+                preventDefault,
+                target: {
+                    href: "https://matrix.to/#/!room:example.com/$event",
+                    nodeName: "A",
+                },
+            } as any);
+
+            expect(
+                vi.mocked(dispatcher.dispatch).mock.calls.some((c) => (c[0] as any).action === Action.ViewUser),
+            ).toBe(false);
+        });
     });
 
     it("leaves external root clicks alone when no local permalink is found", () => {

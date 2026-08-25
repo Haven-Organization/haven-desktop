@@ -12,7 +12,9 @@ import userEvent from "@testing-library/user-event";
 import { render, waitFor, screen } from "@test-utils";
 import { describe, expect, it, vi } from "vitest";
 
-import { EmojiPicker, filterEmojis } from "./EmojiPicker";
+import { EmojiPicker, filterEmojis, type Category } from "./EmojiPicker";
+import { type PickerEmoji } from "./Emoji";
+import styles from "./EmojiPicker.module.css";
 
 describe("EmojiPicker", function () {
     // Recent emojis as they would be provided by the app, most used first
@@ -522,6 +524,198 @@ describe("EmojiPicker", function () {
 
             await waitFor(() => {
                 expect(peopleTab).toHaveFocus();
+            });
+        });
+    });
+
+    // Haven: coverage for the Haven-added prop surface (image packs, sticker mode, the settings
+    // button, the stock/rail layout toggle, and empty-state categories) - none of this had a
+    // regression test before, despite being the actual custom logic layered onto this
+    // (otherwise-upstream) component.
+    describe("Haven custom picker features", () => {
+        const makePackEmoji = (id: string, imageUrl: string): PickerEmoji =>
+            ({
+                unicode: id,
+                label: id,
+                shortcodes: [id],
+                hexcode: `pack-${id}`,
+                imageUrl,
+            }) as PickerEmoji;
+
+        describe("extraCategories", () => {
+            const packCategory: Category = { id: "pack:room", emoji: "📦", name: "My Pack" };
+
+            it("splices extra categories in after Frequently Used and before the stock categories", () => {
+                const { container } = render(
+                    <EmojiPicker
+                        onChoose={() => false}
+                        onFinished={vi.fn()}
+                        extraCategories={[packCategory]}
+                        dataByExtraCategory={{ "pack:room": [makePackEmoji(":cat:", "https://example.org/cat.png")] }}
+                    />,
+                );
+
+                const titles = Array.from(container.querySelectorAll('nav[role="tablist"] > button')).map((tab) =>
+                    tab.getAttribute("title"),
+                );
+                expect(titles.indexOf("My Pack")).toBeGreaterThan(titles.indexOf("Frequently Used"));
+                expect(titles.indexOf("My Pack")).toBeLessThan(titles.indexOf("Smileys & People"));
+            });
+
+            it("renders an extra category's items as images rather than unicode glyphs", async () => {
+                const packEmoji = makePackEmoji(":cat:", "https://example.org/cat.png");
+                const { container } = render(
+                    <EmojiPicker
+                        onChoose={() => false}
+                        onFinished={vi.fn()}
+                        extraCategories={[packCategory]}
+                        dataByExtraCategory={{ "pack:room": [packEmoji] }}
+                    />,
+                );
+
+                const img = await waitFor(() => {
+                    const el = container.querySelector<HTMLImageElement>('img[alt=":cat:"]');
+                    expect(el).toBeInTheDocument();
+                    return el!;
+                });
+                expect(img).toHaveAttribute("src", "https://example.org/cat.png");
+            });
+
+            it("calls onChoose with the full pack emoji when an extra-category item is picked", async () => {
+                const onChoose = vi.fn(() => false);
+                const packEmoji = makePackEmoji(":cat:", "https://example.org/cat.png");
+                const { container } = render(
+                    <EmojiPicker
+                        onChoose={onChoose}
+                        onFinished={vi.fn()}
+                        extraCategories={[packCategory]}
+                        dataByExtraCategory={{ "pack:room": [packEmoji] }}
+                    />,
+                );
+
+                const img = await waitFor(() => {
+                    const el = container.querySelector<HTMLImageElement>('img[alt=":cat:"]');
+                    expect(el).toBeInTheDocument();
+                    return el!;
+                });
+                await userEvent.click(img.closest('[role="button"]')!);
+                expect(onChoose).toHaveBeenCalledWith(":cat:", expect.objectContaining({ imageUrl: "https://example.org/cat.png" }));
+            });
+        });
+
+        describe("sticker mode", () => {
+            it("shows only stickerCategories, ignoring extraCategories and the stock unicode categories", () => {
+                const { container } = render(
+                    <EmojiPicker
+                        onChoose={() => false}
+                        onFinished={vi.fn()}
+                        mode="sticker"
+                        stickerCategories={[{ id: "pack:stickers", emoji: "🎨", name: "Stickers Pack" }]}
+                        dataByStickerCategory={{
+                            "pack:stickers": [makePackEmoji(":s1:", "https://example.org/s1.png")],
+                        }}
+                        extraCategories={[{ id: "pack:ignored", emoji: "📦", name: "Ignored Pack" }]}
+                        dataByExtraCategory={{ "pack:ignored": [makePackEmoji(":s2:", "https://example.org/s2.png")] }}
+                    />,
+                );
+
+                const titles = Array.from(container.querySelectorAll('nav[role="tablist"] > button')).map((tab) =>
+                    tab.getAttribute("title"),
+                );
+                expect(titles).toEqual(["Stickers Pack"]);
+            });
+
+            it("renders sticker items as images and picks them via onChoose", async () => {
+                const onChoose = vi.fn(() => false);
+                const { container } = render(
+                    <EmojiPicker
+                        onChoose={onChoose}
+                        onFinished={vi.fn()}
+                        mode="sticker"
+                        stickerCategories={[{ id: "pack:stickers", emoji: "🎨", name: "Stickers Pack" }]}
+                        dataByStickerCategory={{
+                            "pack:stickers": [makePackEmoji(":s1:", "https://example.org/s1.png")],
+                        }}
+                    />,
+                );
+
+                const img = await waitFor(() => {
+                    const el = container.querySelector<HTMLImageElement>('img[alt=":s1:"]');
+                    expect(el).toBeInTheDocument();
+                    return el!;
+                });
+                await userEvent.click(img.closest('[role="button"]')!);
+                expect(onChoose).toHaveBeenCalledWith(":s1:", expect.objectContaining({ imageUrl: "https://example.org/s1.png" }));
+            });
+        });
+
+        describe("onOpenSettings", () => {
+            it("renders a settings tab and calls onOpenSettings when clicked", async () => {
+                const onOpenSettings = vi.fn();
+                const { container } = render(
+                    <EmojiPicker onChoose={() => false} onFinished={vi.fn()} onOpenSettings={onOpenSettings} />,
+                );
+
+                const settingsTab = container.querySelector('[title="Open settings"]');
+                expect(settingsTab).toBeInTheDocument();
+                await userEvent.click(settingsTab!);
+                expect(onOpenSettings).toHaveBeenCalled();
+            });
+
+            it("renders no settings button when onOpenSettings is omitted", () => {
+                const { container } = render(<EmojiPicker onChoose={() => false} onFinished={vi.fn()} />);
+                expect(container.querySelector('[title="Open settings"]')).not.toBeInTheDocument();
+            });
+        });
+
+        describe("stockLayout", () => {
+            it("applies the stock horizontal-tab-bar layout classes when set", () => {
+                const { container } = render(<EmojiPicker onChoose={() => false} onFinished={vi.fn()} stockLayout />);
+
+                const section = container.querySelector("section")!;
+                expect(section.className).toContain(styles.pickerStock);
+                const nav = container.querySelector('nav[role="tablist"]')!;
+                expect(nav.className).toContain(styles.headerStock);
+            });
+
+            it("uses the vertical-rail layout by default (no stock classes)", () => {
+                const { container } = render(<EmojiPicker onChoose={() => false} onFinished={vi.fn()} />);
+
+                const section = container.querySelector("section")!;
+                expect(section.className).not.toContain(styles.pickerStock);
+            });
+        });
+
+        describe("renderEmptyStateCategory / isEmptyState", () => {
+            it("renders the caller's empty-state content in place of a grid for an isEmptyState category", async () => {
+                render(
+                    <EmojiPicker
+                        onChoose={() => false}
+                        onFinished={vi.fn()}
+                        extraCategories={[{ id: "pack:empty", emoji: "📦", name: "Empty Pack", isEmptyState: true }]}
+                        dataByExtraCategory={{}}
+                        renderEmptyStateCategory={(category) => <div data-testid="empty-state">{category.name} is empty</div>}
+                    />,
+                );
+
+                await waitFor(() => expect(screen.getByTestId("empty-state")).toBeInTheDocument());
+                expect(screen.getByTestId("empty-state")).toHaveTextContent("Empty Pack is empty");
+            });
+
+            it("still shows the category's tab even though it has no real items", () => {
+                const { container } = render(
+                    <EmojiPicker
+                        onChoose={() => false}
+                        onFinished={vi.fn()}
+                        extraCategories={[{ id: "pack:empty", emoji: "📦", name: "Empty Pack", isEmptyState: true }]}
+                        dataByExtraCategory={{}}
+                        renderEmptyStateCategory={() => <div />}
+                    />,
+                );
+
+                const emptyTab = container.querySelector('[title="Empty Pack"]');
+                expect(emptyTab).toBeInTheDocument();
+                expect(emptyTab).toBeEnabled();
             });
         });
     });

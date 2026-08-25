@@ -7,15 +7,18 @@
 
 // @vitest-environment happy-dom
 
-import { EventType, type MatrixClient, type MatrixEvent, RelationType, type Room } from "matrix-js-sdk/src/matrix";
+import { EventType, type MatrixClient, type MatrixEvent, type Relations, RelationType, type Room } from "matrix-js-sdk/src/matrix";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { createTestClient, mkEvent, mkStubRoom } from "test-utils";
 
 import { ReactionsRowButtonViewModel, type ReactionsRowButtonViewModelProps } from "./ReactionsRowButtonViewModel";
 import { type ReactionsRowButtonTooltipViewModel } from "./ReactionsRowButtonTooltipViewModel";
 import dis from "../../../../../dispatcher/dispatcher";
+import Modal from "../../../../../Modal";
+import ReactionsDialog from "../../../../../components/views/dialogs/ReactionsDialog";
 
 vi.mock("../../../../../dispatcher/dispatcher");
+vi.mock("../../../../../Modal");
 vi.mock("../../../../../customisations/Media", () => ({
     mediaFromMxc: vi.fn(() => ({ srcHttp: "https://example.org/_matrix/media/reaction.png" })),
 }));
@@ -199,5 +202,70 @@ describe("ReactionsRowButtonViewModel", () => {
         expect(client.redactEvent).not.toHaveBeenCalled();
         expect(client.sendEvent).not.toHaveBeenCalled();
         expect(dis.dispatch).not.toHaveBeenCalled();
+    });
+
+    // Haven: regression test - same clobbering bug as ReactionsRowButtonTooltipViewModel's own
+    // identical loop (this one feeds the button's aria-label instead of the tooltip caption). Keeps
+    // the first reactor's shortcode rather than letting a later reactor's event, which lacks the
+    // metadata, clobber one already found.
+    it("keeps the first reactor's shortcode in the aria-label when a later reactor's event lacks it", () => {
+        const firstReaction = createReactionEvent("@alice:example.org", "mxc://example.org/reaction");
+        firstReaction.getContent()["com.beeper.reaction.shortcode"] = "party";
+        const laterReaction = createReactionEvent("@bob:example.org", "mxc://example.org/reaction"); // no shortcode
+
+        const vm = new ReactionsRowButtonViewModel(
+            createProps({
+                content: "mxc://example.org/reaction",
+                reactionEvents: [firstReaction, laterReaction],
+                customReactionImagesEnabled: true,
+            }),
+        );
+
+        expect(getAriaLabel(vm)).toContain("reacted with party");
+        expect(vm.getSnapshot().imageAlt).toBe("party");
+    });
+
+    describe("onContextMenu", () => {
+        it("opens ReactionsDialog with the full Relations and this button's own content pre-selected", () => {
+            const reactions = {} as Relations;
+            const vm = new ReactionsRowButtonViewModel(createProps({ reactions }));
+
+            vm.onContextMenu();
+
+            expect(Modal.createDialog).toHaveBeenCalledWith(
+                ReactionsDialog,
+                { mxEvent, reactions, initialContent: "👍" },
+                "mx_ReactionsDialog_wrapper",
+            );
+        });
+
+        it("does nothing when no Relations were threaded through", () => {
+            const vm = new ReactionsRowButtonViewModel(createProps({ reactions: undefined }));
+
+            vm.onContextMenu();
+
+            expect(Modal.createDialog).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("setReactions", () => {
+        it("updates the reactions used by a later onContextMenu, without notifying subscribers", () => {
+            const vm = new ReactionsRowButtonViewModel(createProps({ reactions: undefined }));
+            const listener = vi.fn();
+            vm.subscribe(listener);
+            const reactions = {} as Relations;
+
+            vm.setReactions(reactions);
+
+            expect(listener).not.toHaveBeenCalled();
+
+            vm.onContextMenu();
+
+            expect(Modal.createDialog).toHaveBeenCalledWith(
+                ReactionsDialog,
+                { mxEvent, reactions, initialContent: "👍" },
+                "mx_ReactionsDialog_wrapper",
+            );
+        });
     });
 });
