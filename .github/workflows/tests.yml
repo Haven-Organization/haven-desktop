@@ -33,6 +33,18 @@ jobs:
                   npm_config_pm_on_fail: ignore
               run: pnpm install --frozen-lockfile
 
+            # src/apps/social lives at the repo root (a sibling of element-web/, not inside it - see
+            # vitest.config.ts's own comment on this), and resolves its own dependencies (e.g.
+            # matrix-js-sdk) via plain Node module resolution walking up from its own location -
+            # which only finds anything if a node_modules symlink exists at the repo root pointing
+            # into element-web's own. Nothing else creates this (it's gitignored, and setup.sh
+            # doesn't make it either), so a fresh checkout is missing it entirely and any vitest run
+            # that even glob-matches a src/apps/**/*.test.ts file (which vitest.config.ts's own
+            # `include` always does, regardless of which specific files are passed on the CLI) fails
+            # outright trying to resolve matrix-js-sdk from that directory.
+            - name: Link repo-root node_modules for src/apps
+              run: ln -s element-web/apps/web/node_modules node_modules
+
             # apps/web imports @element-hq/web-shared-components and @element-hq/element-web-module-api
             # as built packages (their dist/lib output, not raw src) - without this, both the
             # type-check below and apps/web's own vitest run fail outright with "Cannot find module".
