@@ -33,6 +33,13 @@ jobs:
                   npm_config_pm_on_fail: ignore
               run: pnpm install --frozen-lockfile
 
+            # apps/web imports @element-hq/web-shared-components as a built package (its dist/
+            # output, not raw src) - without this, both the type-check below and apps/web's own
+            # vitest run fail outright with "Cannot find module '@element-hq/web-shared-components'".
+            - name: Build shared-components
+              working-directory: element-web/packages/shared-components
+              run: npx vite build
+
             - name: Type-check (apps/web)
               working-directory: element-web/apps/web
               env:
