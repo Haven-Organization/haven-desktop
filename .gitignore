@@ -8,6 +8,14 @@
 # node_modules/ pattern below doesn't match a symlink, so ignore it explicitly here too
 /node_modules
 
+# Haven - flatpak build output/staging (the manifest + supporting assets in /flatpak are real,
+# tracked source; everything flatpak-builder or `flatpak build-bundle` generates there isn't)
+/flatpak/builddir
+/flatpak/.flatpak-builder
+/flatpak/repo
+/flatpak/*.deb
+/flatpak/*.flatpak
+
 # Logs
 logs
 *.log
