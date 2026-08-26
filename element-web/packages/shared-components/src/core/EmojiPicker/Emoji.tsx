@@ -94,7 +94,7 @@ export const Emoji = React.memo(function Emoji({
             onClick={(ev) => onClick(ev, emoji)}
             onMouseEnter={onMouseEnterWrapped}
             onMouseLeave={onMouseLeaveWrapped}
-            className={className}
+            className={classNames(styles.itemButton, className)}
             disabled={disabled || undefined}
             role={selectedEmojis ? "checkbox" : undefined}
             aria-checked={isSelected}
