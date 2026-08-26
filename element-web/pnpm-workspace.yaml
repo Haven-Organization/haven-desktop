@@ -219,6 +219,9 @@ overrides:
     # Hold some things back from ts7
     "@arcmantle/vite-plugin-import-css-sheet>typescript": "catalog:ts6"
     "react-docgen-typescript>typescript": "catalog:ts6"
+    # Haven: links the already-built native module in (see apps/desktop/.hak/hakModules/matrix-seshat)
+    # so the desktop build can require() real local message search instead of the no-op stub.
+    matrix-seshat: link:apps/desktop/.hak/hakModules/matrix-seshat
 
 minimumReleaseAgeExclude:
     - "matrix-js-sdk"

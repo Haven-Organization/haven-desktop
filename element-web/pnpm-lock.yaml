@@ -305,6 +305,7 @@ overrides:
   '@microsoft/api-extractor>typescript': npm:@typescript/typescript6@6.0.2
   '@arcmantle/vite-plugin-import-css-sheet>typescript': npm:@typescript/typescript6@6.0.2
   react-docgen-typescript>typescript: npm:@typescript/typescript6@6.0.2
+  matrix-seshat: link:apps/desktop/.hak/hakModules/matrix-seshat
 
 packageExtensionsChecksum: sha256-kCJccFy7l6HmjcpzmxV958fHndI9zZq246f1ttgkURI=
 
@@ -327,6 +328,10 @@ patchedDependencies:
 importers:
 
   .:
+    dependencies:
+      matrix-seshat:
+        specifier: link:apps/desktop/.hak/hakModules/matrix-seshat
+        version: link:apps/desktop/.hak/hakModules/matrix-seshat
     devDependencies:
       '@action-validator/cli':
         specifier: ^0.6.0

@@ -67,5 +67,8 @@
         }
     },
     "private": true,
-    "nx": {}
+    "nx": {},
+    "dependencies": {
+        "matrix-seshat": "link:apps/desktop/.hak/hakModules/matrix-seshat"
+    }
 }
