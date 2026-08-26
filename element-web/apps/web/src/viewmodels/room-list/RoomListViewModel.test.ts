@@ -695,10 +695,22 @@ describe("RoomListViewModel", () => {
         });
     });
 
+    // Haven: dispatchViewRoomDebounced (see RoomListViewModel.ts's own doc) defers the real
+    // ViewRoom dispatch by 200ms wall-clock, so these need fake timers advanced past that window
+    // rather than a plain flushPromises()/real-timer waitFor - the latter is exactly what made
+    // this block flaky-to-deterministically-failing once the debounce was introduced (confirmed:
+    // real-timer waitFor's default poll window doesn't reliably clear a fixed 200ms real delay
+    // under any CPU contention, and flushPromises() never even attempts to advance real timers at
+    // all). Mirrors the "Debounced navigation and stale-load guarding (Haven)" block below.
     describe("Keyboard navigation (ViewRoomDelta)", () => {
         beforeEach(() => {
             // stubClient sets up MatrixClientPeg which is needed when ViewRoom action is dispatched
             stubClient();
+            vi.useFakeTimers();
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
         });
 
         it("should navigate to next room when delta is 1", async () => {
@@ -717,9 +729,8 @@ describe("RoomListViewModel", () => {
                 delta: 1,
                 unread: false,
             });
-            dispatchSpy.mockImplementation(() => {});
-
-            await flushPromises();
+            await flushPromisesWithFakeTimers();
+            await vi.advanceTimersByTimeAsync(200);
 
             expect(dispatchSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -745,9 +756,8 @@ describe("RoomListViewModel", () => {
                 delta: -1,
                 unread: false,
             });
-            dispatchSpy.mockImplementation(() => {});
-
-            await flushPromises();
+            await flushPromisesWithFakeTimers();
+            await vi.advanceTimersByTimeAsync(200);
 
             expect(dispatchSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -773,9 +783,8 @@ describe("RoomListViewModel", () => {
                 delta: -1,
                 unread: false,
             });
-            dispatchSpy.mockImplementation(() => {});
-
-            await flushPromises();
+            await flushPromisesWithFakeTimers();
+            await vi.advanceTimersByTimeAsync(200);
 
             expect(dispatchSpy).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -802,9 +811,8 @@ describe("RoomListViewModel", () => {
                 delta: 1,
                 unread: false,
             });
-            dispatchSpy.mockImplementation(() => {});
-
-            await flushPromises();
+            await flushPromisesWithFakeTimers();
+            await vi.advanceTimersByTimeAsync(200);
 
             // Should not dispatch ViewRoom since current room wasn't found
             expect(dispatchSpy).not.toHaveBeenCalledWith(
@@ -831,15 +839,14 @@ describe("RoomListViewModel", () => {
                 delta: 1,
                 unread: false,
             });
-            dispatchSpy.mockImplementation(() => {});
+            await flushPromisesWithFakeTimers();
+            await vi.advanceTimersByTimeAsync(200);
 
-            await waitFor(() =>
-                expect(dispatchSpy).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        action: Action.ViewRoom,
-                        room_id: "!room1:server",
-                    }),
-                ),
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: Action.ViewRoom,
+                    room_id: "!room1:server",
+                }),
             );
         });
 
@@ -859,14 +866,14 @@ describe("RoomListViewModel", () => {
                 delta: -1,
                 unread: false,
             });
+            await flushPromisesWithFakeTimers();
+            await vi.advanceTimersByTimeAsync(200);
 
-            await waitFor(() =>
-                expect(dispatchSpy).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        action: Action.ViewRoom,
-                        room_id: "!room3:server",
-                    }),
-                ),
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: Action.ViewRoom,
+                    room_id: "!room3:server",
+                }),
             );
         });
 
@@ -895,14 +902,14 @@ describe("RoomListViewModel", () => {
                 delta: 1,
                 unread: true,
             });
+            await flushPromisesWithFakeTimers();
+            await vi.advanceTimersByTimeAsync(200);
 
-            await waitFor(() =>
-                expect(dispatchSpy).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        action: Action.ViewRoom,
-                        room_id: "!room2:server",
-                    }),
-                ),
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: Action.ViewRoom,
+                    room_id: "!room2:server",
+                }),
             );
         });
     });

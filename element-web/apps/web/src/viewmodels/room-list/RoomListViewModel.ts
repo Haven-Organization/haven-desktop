@@ -644,8 +644,10 @@ export class RoomListViewModel
         // yet), not necessarily the real loaded room - otherwise repeated presses before the
         // debounce fires would keep recomputing "next/prev" from the same stale loaded room
         // instead of actually advancing further each time.
+        // currentRoomId can legitimately be falsy (no room open yet, e.g. right after the app
+        // loads) - handled below by starting from whichever end of the list the delta points at,
+        // not treated as a no-op.
         const currentRoomId = this.pendingRoomId ?? this.props.roomViewStore.getRoomId();
-        if (!currentRoomId) return;
 
         const { delta, unread } = payload;
         const rooms = this.sections.flatMap((section) => section.rooms);
