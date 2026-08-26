@@ -989,7 +989,7 @@ export function SocialHomeView(): JSX.Element {
                 onRoomClick={viewRoom}
                 closeThreadToken={closeThreadToken}
                 focusEventToken={focusEventToken}
-                initialScrollRestore={pendingScrollRestore ?? undefined}
+                initialScrollRestore={pendingScrollRestoreRef.current ?? undefined}
             />
         ) : (
             <div className="social_ContentEmpty">Room not found.</div>
@@ -1014,7 +1014,7 @@ export function SocialHomeView(): JSX.Element {
                 onNavigateToProfile={navigateToProfile}
                 closeThreadToken={closeThreadToken}
                 openThreadTarget={openThreadTarget}
-                initialScrollRestore={pendingScrollRestore ?? undefined}
+                initialScrollRestore={pendingScrollRestoreRef.current ?? undefined}
             />
         );
     } else if (nav.section === "groups") {
@@ -1067,6 +1067,14 @@ export function SocialHomeView(): JSX.Element {
         // alone entirely rather than fighting whichever of those two's own restore is in flight.
         if (restoreHandledByChild) {
             if (pendingScrollRestoreRef.current === null) el.scrollTop = 0;
+            // The child (SocialRoomView/FeedPane) already captured this value from its own
+            // initialScrollRestore prop for this mount - null it now so every *later* navigation
+            // to a different room/profile in this same Social session passes undefined instead of
+            // reapplying the same one-time restore offset forever (this was "clicking a name
+            // sometimes lands partway down their profile" - the child was reused for the restore's
+            // one intended target, then kept getting fed that same stale prop on every unrelated
+            // profile mount after it).
+            pendingScrollRestoreRef.current = null;
             return;
         }
         const target = pendingScrollRestoreRef.current;

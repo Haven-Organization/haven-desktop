@@ -17,7 +17,13 @@ import { useLiveUserProfile } from "../utils/liveUserProfile";
 import { useRoomMembership } from "../utils/useRoomMembership";
 import { followRoom } from "../utils/social-actions";
 import { isGroupRoomType } from "../utils/room-classifier";
-import { linkifyAndSanitizeHtml } from "../../../../element-web/apps/web/src/HtmlUtils";
+import { topicToHtml } from "../../../../element-web/apps/web/src/HtmlUtils";
+import { LinkedText } from "@element-hq/web-shared-components";
+// haven apps-framework patch: see bridgedTopicHtml.ts's own comment for why this is needed - this
+// preview works off the MSC3266 room summary's raw `topic` string (no separate Room/useTopic here,
+// see this component's own doc), so unlike SocialRoomView it needs to apply the same html-fallback
+// detection itself rather than getting it for free.
+import { withBridgedHtmlFallback } from "../../framework/bridgedTopicHtml";
 
 interface Props {
     client: MatrixClient;
@@ -67,6 +73,10 @@ export function SocialProfilePreview({
     // SocialUserProfileView's own placeholder.
     const liveProfile = useLiveUserProfile(client, name && avatarUrl ? undefined : userId);
     const displayName = name || liveProfile?.displayName || userId;
+    // withBridgedHtmlFallback: promotes topic into the html slot when it looks like real markup
+    // (Mastodon-bridged bios are raw HTML by convention) - see that function's own doc. Without
+    // this, an HTML bio would be rendered as escaped plain text instead of parsed markup.
+    const topicState = withBridgedHtmlFallback<{ text?: string; html?: string }>(topic ? { text: topic } : null);
     const avatarHttpUrl = avatarUrl
         ? client.mxcUrlToHttp(avatarUrl, 104, 104, "crop")
         : liveProfile?.avatarUrl
@@ -172,11 +182,10 @@ export function SocialProfilePreview({
                 <div className="social_RoomView_meta">
                     <div className="social_RoomView_info">
                         <h2>{displayName}</h2>
-                        {topic && (
-                            <p
-                                className="social_RoomView_topic"
-                                dangerouslySetInnerHTML={{ __html: linkifyAndSanitizeHtml(topic) }}
-                            />
+                        {topicState?.text && (
+                            <p className="social_RoomView_topic">
+                                <LinkedText>{topicToHtml(topicState.text, topicState.html)}</LinkedText>
+                            </p>
                         )}
                     </div>
                     <div className="social_RoomView_actions">
