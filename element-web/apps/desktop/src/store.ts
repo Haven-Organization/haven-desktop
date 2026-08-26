@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import fs from "node:fs";
+import path from "node:path";
+import { spawn } from "node:child_process";
 import ElectronStore from "electron-store";
 import { app, safeStorage, dialog, type SafeStorage, type Session } from "electron";
 
@@ -58,17 +61,93 @@ const safeStorageBackendMap: Omit<Record<SaneSafeStorageBackend, string>, "syste
  */
 export class SafeStorageDecryptionError extends Error {}
 
+/**
+ * Under an AppImage, process.execPath points at the temporary squashfs FUSE mount (e.g.
+ * /tmp/.mount_HavenXXXXXX/haven-desktop), not the real .AppImage file. That mount is owned by a
+ * separate AppImage runtime process which is *not* our parent (the runtime double-forks and both
+ * it and this process end up reparented to init), so it can't be found via process.ppid - and
+ * despite AppImage docs/the bundled AppRun script assuming otherwise, this runtime doesn't set
+ * $APPIMAGE, $TARGET_APPIMAGE or $APPDIR in our environment either (verified empirically via
+ * /proc/<pid>/environ on both processes).
+ *
+ * What IS reliable: /proc/self/mountinfo's entry for our mount point carries the AppImage's real
+ * filename as its "mount source" field (e.g. "Haven-0.7.0.AppImage" for a mount at
+ * /tmp/.mount_Haven-z00fud), and exactly one live process's /proc/<pid>/exe basename will match
+ * that filename - that's the runtime process, and its exe symlink resolves to the real, persistent
+ * path outside the mount. Returns null if we're not running from an AppImage mount, or on any
+ * failure to resolve it (missing/unreadable /proc, no matching process, etc.) - callers should
+ * fall back to the default relaunch behaviour in that case.
+ */
+function resolveRealAppImagePath(): string | null {
+    const mountMatch = process.execPath.match(/^(\/tmp\/\.mount_[^/]+)\//);
+    if (!mountMatch) return null;
+    const mountPoint = mountMatch[1];
+
+    try {
+        const mountInfo = fs.readFileSync("/proc/self/mountinfo", "utf8");
+        const line = mountInfo.split("\n").find((l: string) => l.includes(` ${mountPoint} `));
+        if (!line) return null;
+        const fields = line.split(" - ")[1]?.split(" ");
+        const mountSource = fields?.[1]; // e.g. "Haven-0.7.0.AppImage"
+        if (!mountSource) return null;
+
+        for (const pid of fs.readdirSync("/proc")) {
+            if (!/^\d+$/.test(pid)) continue;
+            try {
+                const exePath = fs.readlinkSync(`/proc/${pid}/exe`);
+                if (path.basename(exePath) === mountSource && !exePath.startsWith(mountPoint)) {
+                    return exePath;
+                }
+            } catch {
+                // Process may have exited, or belong to another user - skip it.
+            }
+        }
+    } catch {
+        // /proc unavailable (non-Linux) or unreadable - fall through to null.
+    }
+    return null;
+}
+
 function relaunchApp(): void {
     console.info("Relaunching app...");
+    // Haven: app.relaunch() defaults to re-exec'ing process.execPath, which under an AppImage is
+    // the temporary squashfs mount point - that mount is torn down the moment this process exits
+    // below, so the re-exec silently fails and the app never comes back (confirmed live: "Remove
+    // this device"/any clear-data-and-relaunch flow killed the whole process with no replacement,
+    // looking exactly like a crash).
+    const realAppImagePath = resolveRealAppImagePath();
+    if (realAppImagePath) {
+        // Haven: pointing app.relaunch() at the resolved real .AppImage path (instead of the doomed
+        // mount path) still didn't produce a surviving process, even after also fixing the
+        // requestSingleInstanceLock() race below - Electron's own relaunch machinery on Linux proved
+        // unreliable for this specific re-exec-a-live-AppImage case for reasons that didn't yield to
+        // further debugging (no crash/coredump, no log output, the child just silently never
+        // persisted). Spawning it ourselves as a plain detached child process, confirmed reliable in
+        // testing, avoids Electron's relaunch internals entirely.
+        app.releaseSingleInstanceLock();
+        spawn(realAppImagePath, process.argv.slice(1), {
+            detached: true,
+            stdio: "ignore",
+            env: process.env,
+        }).unref();
+        app.exit();
+        return;
+    }
     app.relaunch();
     app.exit();
 }
 
 /**
- * Clear all data and relaunch the app.
+ * Clear all account data and relaunch the app.
  */
 export async function clearDataAndRelaunch(electronSession: Session): Promise<void> {
-    Store.instance?.clear();
+    // Haven: only wipe the actual stored secrets (safeStorage), not the whole config. A bare
+    // Store.instance?.clear() also wiped safeStorageBackend/safeStorageBackendOverride/
+    // safeStorageBackendMigrate - machine/environment properties (which keyring backend this Linux
+    // system supports) rather than account data - so on a system with no supported keyring, every
+    // "Remove this device" re-triggered the first-launch "unsupported keyring" dialog on the very
+    // next launch, forever, instead of remembering the choice already made once.
+    Store.instance?.delete("safeStorage");
     electronSession.flushStorageData();
     await electronSession.clearStorageData();
     relaunchApp();
