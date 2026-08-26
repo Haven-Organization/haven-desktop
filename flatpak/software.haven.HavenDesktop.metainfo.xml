@@ -17,8 +17,8 @@
   <launchable type="desktop-id">software.haven.HavenDesktop.desktop</launchable>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/Haven-Organization/haven-desktop/develop/screenshots/screenshot_feed.png</image>
-      <caption>The Social feed - a federated timeline alongside Matrix chat</caption>
+      <image>https://raw.githubusercontent.com/Haven-Organization/haven-desktop/haven-v0.7.0/screenshots/screenshot_feed_resized.png</image>
+      <caption>The Social feed: federated timeline plus chat</caption>
     </screenshot>
   </screenshots>
   <url type="homepage">https://github.com/Haven-Organization/haven-desktop</url>

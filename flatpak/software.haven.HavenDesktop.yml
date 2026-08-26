@@ -43,20 +43,15 @@ modules:
       - install -Dm644 software.haven.HavenDesktop.desktop /app/share/applications/software.haven.HavenDesktop.desktop
       - install -Dm644 software.haven.HavenDesktop.metainfo.xml /app/share/metainfo/software.haven.HavenDesktop.metainfo.xml
     sources:
-      # TEMP: local 0.7.0 .deb, not yet published as a GitHub release - swap to the url+sha256
-      # source below (commented) once haven-v0.7.0 is actually published with this .deb attached.
       - type: file
-        path: haven-desktop_0.7.0_amd64.deb
+        url: https://github.com/Haven-Organization/haven-desktop/releases/download/haven-v0.7.0/haven-desktop_0.7.0_amd64.deb
+        sha256: 78d6fe3c26c59f6ef714e03dcb4870979722e44fb47aa6f06341ef336d4a39da
         dest-filename: haven-desktop.deb
-      # - type: file
-      #   url: https://github.com/Haven-Organization/haven-desktop/releases/download/haven-v0.7.0/haven-desktop_0.7.0_amd64.deb
-      #   sha256: <fill in after publishing - sha256sum haven-desktop_0.7.0_amd64.deb>
-      #   dest-filename: haven-desktop.deb
-      #   x-checker-data:
-      #     type: json
-      #     url: https://api.github.com/repos/Haven-Organization/haven-desktop/releases/latest
-      #     version-query: .tag_name | sub("^haven-v"; "")
-      #     url-query: .assets[] | select(.name | test("_amd64\\.deb$")) | .browser_download_url
+        x-checker-data:
+          type: json
+          url: https://api.github.com/repos/Haven-Organization/haven-desktop/releases/latest
+          version-query: .tag_name | sub("^haven-v"; "")
+          url-query: .assets[] | select(.name | test("_amd64\\.deb$")) | .browser_download_url
       - type: file
         path: haven-desktop.sh
       - type: file
