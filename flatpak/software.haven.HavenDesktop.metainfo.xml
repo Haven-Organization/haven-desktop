@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>software.haven.Desktop</id>
+  <id>software.haven.HavenDesktop</id>
   <name>Haven</name>
   <summary>A Matrix-native social and chat client</summary>
   <metadata_license>CC0-1.0</metadata_license>
@@ -14,7 +14,7 @@
       combining secure end-to-end encrypted messaging with a federated social timeline.
     </p>
   </description>
-  <launchable type="desktop-id">software.haven.Desktop.desktop</launchable>
+  <launchable type="desktop-id">software.haven.HavenDesktop.desktop</launchable>
   <screenshots>
     <screenshot type="default">
       <image>https://raw.githubusercontent.com/Haven-Organization/haven-desktop/develop/screenshots/screenshot_feed.png</image>

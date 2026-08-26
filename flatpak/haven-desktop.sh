@@ -18,5 +18,5 @@ elif [ -n "$http_proxy" ]; then
     FLAGS="$FLAGS --proxy-server=$http_proxy"
 fi
 
-env TMPDIR="$XDG_RUNTIME_DIR/app/${FLATPAK_ID:-software.haven.Desktop}" \
+env TMPDIR="$XDG_RUNTIME_DIR/app/${FLATPAK_ID:-software.haven.HavenDesktop}" \
     zypak-wrapper /app/Haven/haven-desktop $FLAGS "$@"

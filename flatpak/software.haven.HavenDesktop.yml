@@ -1,4 +1,4 @@
-app-id: software.haven.Desktop
+app-id: software.haven.HavenDesktop
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
@@ -37,11 +37,11 @@ modules:
       - tar -xJf data.tar.xz -C deb-data
       - mkdir -p /app/Haven
       - cp -r deb-data/opt/Haven/* /app/Haven/
-      - install -Dm644 deb-data/usr/share/icons/hicolor/512x512/apps/haven-desktop.png /app/share/icons/hicolor/512x512/apps/software.haven.Desktop.png
-      - install -Dm644 software.haven.Desktop.svg /app/share/icons/hicolor/scalable/apps/software.haven.Desktop.svg
+      - install -Dm644 deb-data/usr/share/icons/hicolor/512x512/apps/haven-desktop.png /app/share/icons/hicolor/512x512/apps/software.haven.HavenDesktop.png
+      - install -Dm644 software.haven.HavenDesktop.svg /app/share/icons/hicolor/scalable/apps/software.haven.HavenDesktop.svg
       - install -Dm755 haven-desktop.sh /app/bin/haven-desktop
-      - install -Dm644 software.haven.Desktop.desktop /app/share/applications/software.haven.Desktop.desktop
-      - install -Dm644 software.haven.Desktop.metainfo.xml /app/share/metainfo/software.haven.Desktop.metainfo.xml
+      - install -Dm644 software.haven.HavenDesktop.desktop /app/share/applications/software.haven.HavenDesktop.desktop
+      - install -Dm644 software.haven.HavenDesktop.metainfo.xml /app/share/metainfo/software.haven.HavenDesktop.metainfo.xml
     sources:
       # TEMP: local 0.7.0 .deb, not yet published as a GitHub release - swap to the url+sha256
       # source below (commented) once haven-v0.7.0 is actually published with this .deb attached.
@@ -60,8 +60,8 @@ modules:
       - type: file
         path: haven-desktop.sh
       - type: file
-        path: software.haven.Desktop.svg
+        path: software.haven.HavenDesktop.svg
       - type: file
-        path: software.haven.Desktop.desktop
+        path: software.haven.HavenDesktop.desktop
       - type: file
-        path: software.haven.Desktop.metainfo.xml
+        path: software.haven.HavenDesktop.metainfo.xml
