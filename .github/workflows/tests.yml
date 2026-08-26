@@ -108,6 +108,12 @@ jobs:
                   src/viewmodels/room/timeline/event-tile/reactions/ReactionsRowButtonTooltipViewModel.test.ts
                   src/viewmodels/room/timeline/event-tile/reactions/ReactionsRowButtonViewModel.test.ts
 
+            # shared-components' "unit" vitest project renders through a real browser (chromium via
+            # Playwright), not happy-dom/jsdom - needs its browser binary installed first.
+            - name: Install Playwright browser
+              working-directory: element-web/packages/shared-components
+              run: npx playwright install --with-deps chromium
+
             - name: Unit tests - vitest (Haven feature coverage, shared-components)
               working-directory: element-web/packages/shared-components
               run: >
