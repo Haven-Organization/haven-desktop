@@ -105,7 +105,7 @@ describe("<ComposeMenuView />", () => {
     it("should create a new section", async () => {
         const user = userEvent.setup();
 
-        const vm = new MockedViewModel({ ...defaultSnapshot, isMessagePreviewEnabled: true });
+        const vm = new MockedViewModel({ ...defaultSnapshot });
         render(<ComposeMenuView vm={vm} />);
 
         await user.click(screen.getByRole("button", { name: "New conversation" }));

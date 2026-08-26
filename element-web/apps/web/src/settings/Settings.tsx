@@ -99,7 +99,6 @@ export enum LabGroup {
     Threads,
     VoiceAndVideo,
     Moderation,
-    Themes,
     Encryption,
     Experimental,
     Developer,
@@ -124,7 +123,6 @@ export const labGroupNames: Record<LabGroup, TranslationKey> = {
     [LabGroup.Threads]: _td("labs|group_threads"),
     [LabGroup.VoiceAndVideo]: _td("labs|group_voip"),
     [LabGroup.Moderation]: _td("labs|group_moderation"),
-    [LabGroup.Themes]: _td("labs|group_themes"),
     [LabGroup.Encryption]: _td("labs|group_encryption"),
     [LabGroup.Experimental]: _td("labs|group_experimental"),
     [LabGroup.Developer]: _td("labs|group_developer"),
@@ -223,7 +221,6 @@ export interface Settings {
     "feature_latex_maths": IFeature;
     "feature_wysiwyg_composer": IFeature;
     "feature_mjolnir": IFeature;
-    "feature_custom_themes": IFeature;
     "feature_exclude_insecure_devices": IFeature;
     "feature_bridge_state": IFeature;
     "feature_jump_to_date": IFeature;
@@ -233,7 +230,9 @@ export interface Settings {
     "feature_disable_call_per_sender_encryption": IFeature;
     "feature_location_share_live": IFeature;
     "feature_dynamic_room_predecessors": IFeature;
+    "feature_render_reaction_images": IFeature;
     "feature_retention": IFeature;
+    "feature_ask_to_join": IFeature;
     "feature_notifications": IFeature;
     "feature_msc4362_encrypted_state_events": IFeature;
     "feature_msc4501_native_post_type": IFeature;
@@ -255,6 +254,7 @@ export interface Settings {
     "MessageComposerInput.showPollsButton": IBaseSetting<boolean>;
     "MessageComposerInput.insertTrailingColon": IBaseSetting<boolean>;
     "Notifications.showbold": IBaseSetting<boolean>;
+    "Notifications.activityIsUnread": IBaseSetting<boolean>;
     "Notifications.tac_only_notifications": IBaseSetting<boolean>;
     "useCompactLayout": IBaseSetting<boolean>;
     "showRedactions": IBaseSetting<boolean>;
@@ -415,6 +415,7 @@ export interface Settings {
     "RoomList.OrderedCustomSections": IBaseSetting<ReorderableSection[]>;
     "RoomList.SectionExpansionState": IBaseSetting<SectionExpansionState>;
     "RoomList.showSections": IBaseSetting<boolean>;
+    "composerUrlPreviewCollapsed": IBaseSetting<boolean>;
 }
 
 export type SettingKey = keyof Settings;
@@ -546,14 +547,6 @@ export const SETTINGS: Settings = {
         supportedLevelsAreOrdered: true,
         default: false,
     },
-    "feature_custom_themes": {
-        isFeature: true,
-        labsGroup: LabGroup.Themes,
-        displayName: _td("labs|custom_themes"),
-        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
-        supportedLevelsAreOrdered: true,
-        default: false,
-    },
     "feature_exclude_insecure_devices": {
         isFeature: true,
         labsGroup: LabGroup.Encryption,
@@ -679,6 +672,15 @@ export const SETTINGS: Settings = {
         shouldWarn: true,
         default: false,
     },
+    "feature_render_reaction_images": {
+        isFeature: true,
+        labsGroup: LabGroup.Messaging,
+        displayName: _td("labs|render_reaction_images"),
+        description: _td("labs|render_reaction_images_description"),
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        supportedLevelsAreOrdered: true,
+        default: false,
+    },
     "feature_login_with_qr": {
         supportedLevels: [SettingLevel.CONFIG],
         labsGroup: LabGroup.Ui,
@@ -750,11 +752,25 @@ export const SETTINGS: Settings = {
         invertedSettingName: "feature_hidebold",
         controller: new AnalyticsController("WebSettingsNotificationsShowBoldToggle"),
     },
+    "Notifications.activityIsUnread": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
+        displayName: _td("settings|activityIsUnread"),
+        default: false,
+        controller: new RequiresSettingsController(["Notifications.showbold"]),
+    },
     "Notifications.tac_only_notifications": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
         displayName: _td("settings|tac_only_notifications"),
         default: true,
         controller: new AnalyticsController("WebSettingsNotificationsTACOnlyNotificationsToggle"),
+    },
+    "feature_ask_to_join": {
+        isFeature: true,
+        labsGroup: LabGroup.Rooms,
+        default: false,
+        displayName: _td("labs|ask_to_join"),
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        supportedLevelsAreOrdered: true,
     },
     "feature_notifications": {
         isFeature: true,
@@ -1270,6 +1286,10 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         default: true,
         displayName: _td("settings|show_sections"),
+    },
+    "composerUrlPreviewCollapsed": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
+        default: true,
     },
     "RightPanel.phasesGlobal": {
         supportedLevels: [SettingLevel.DEVICE],

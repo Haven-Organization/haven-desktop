@@ -1,82 +1,253 @@
 /*
- * Copyright 2026 Element Creations Ltd.
- *
- * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
- * Please see LICENSE files in the repository root for full details.
- */
+Copyright 2024 New Vector Ltd.
+Copyright 2022 The Matrix.org Foundation C.I.C.
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
 
 // @vitest-environment happy-dom
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, type MockedObject } from "vitest";
+import { type MatrixClient, RoomMember } from "matrix-js-sdk/src/matrix";
 import { stubClient } from "test-utils";
 
+import { MatrixClientPeg } from "../../MatrixClientPeg";
+import DMRoomMap from "../../utils/DMRoomMap";
+import { Action } from "../../dispatcher/actions";
+import defaultDispatcher from "../../dispatcher/dispatcher";
+import { type ActiveRoomChangedPayload } from "../../dispatcher/payloads/ActiveRoomChangedPayload";
 import RightPanelStore from "./RightPanelStore";
 import { RightPanelPhases } from "./RightPanelStorePhases";
-import { UPDATE_EVENT } from "../AsyncStore";
+import SettingsStore from "../../settings/SettingsStore";
+import { pendingVerificationRequestForUser } from "../../verification.ts";
+
+vi.mock("../../verification");
 
 describe("RightPanelStore", () => {
-    let store: RightPanelStore;
+    // Mock out the settings store so the right panel store can't persist values between tests
+    vi.spyOn(SettingsStore, "setValue").mockImplementation(async () => {});
 
+    const store = RightPanelStore.instance;
+    let cli: MockedObject<MatrixClient>;
     beforeEach(() => {
         stubClient();
-        store = RightPanelStore.instance;
+        cli = vi.mocked(MatrixClientPeg.safeGet());
+        DMRoomMap.makeShared(cli);
+
+        // Make sure we start with a clean store
         store.reset();
+        store.useUnitTestClient(cli);
     });
 
-    // Haven: regression coverage for updateViewedRoomIdForNavigationCursor - called synchronously by
-    // RoomListViewModel.handleViewRoomDelta the instant Alt+Up/Down moves the keyboard cursor, well
-    // before the debounced real room load lands and fires Action.ActiveRoomChanged. Without this,
-    // viewedRoomId stayed pointed at the previous room for that whole debounce window, so toggling
-    // the right panel right after Alt+Up/Down silently acted on the wrong, no-longer-visible room.
-    describe("updateViewedRoomIdForNavigationCursor", () => {
-        it("retargets isOpenForRoom/currentCardForRoom-style getters at the new room immediately", () => {
-            store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!roomA:example.org");
-            expect(store.isOpenForRoom("!roomA:example.org")).toBe(true);
-
-            store.updateViewedRoomIdForNavigationCursor("!roomB:example.org");
-
-            // isOpen (no roomId arg) reads via the now-updated viewedRoomId - roomB has no panel
-            // state yet, so it must read as closed, NOT fall through to roomA's open state.
-            expect(store.isOpen).toBe(false);
-            expect(store.currentCard.phase).toBeNull();
-        });
-
-        it("does not emit an update event on its own", () => {
-            let emitted = false;
-            store.on(UPDATE_EVENT, () => {
-                emitted = true;
+    const viewRoom = async (roomId: string) => {
+        const roomChanged = new Promise<void>((resolve) => {
+            const ref = defaultDispatcher.register((payload) => {
+                if (payload.action === Action.ActiveRoomChanged && payload.newRoomId === roomId) {
+                    defaultDispatcher.unregister(ref);
+                    resolve();
+                }
             });
+        });
 
-            store.updateViewedRoomIdForNavigationCursor("!roomC:example.org");
+        defaultDispatcher.dispatch<ActiveRoomChangedPayload>({
+            action: Action.ActiveRoomChanged,
+            oldRoomId: null,
+            newRoomId: roomId,
+        });
 
-            expect(emitted).toBe(false);
+        await roomChanged;
+    };
+
+    const setCard = (roomId: string, phase: RightPanelPhases) => store.setCard({ phase }, true, roomId);
+
+    describe("isOpen", () => {
+        it("is false if no rooms are open", () => {
+            expect(store.isOpen).toEqual(false);
+        });
+        it("is false if a room other than the current room is open", async () => {
+            await viewRoom("!1:example.org");
+            setCard("!2:example.org", RightPanelPhases.RoomSummary);
+            expect(store.isOpen).toEqual(false);
+        });
+        it("is true if the current room is open", async () => {
+            await viewRoom("!1:example.org");
+            setCard("!1:example.org", RightPanelPhases.RoomSummary);
+            expect(store.isOpen).toEqual(true);
         });
     });
 
-    // Haven: regression coverage for togglePanel's "never shown before" fix - a room with no
-    // byRoom[rId] entry yet (no persisted RightPanel.phases state, e.g. the first time the "toggle
-    // right panel" shortcut is pressed in a given room) used to silently no-op instead of opening
-    // the panel fresh with the same Room Info default the mouse-driven header button falls back to.
-    describe("togglePanel", () => {
-        it("opens the panel with the Room Info phase for a room that has never had one before", () => {
-            store.updateViewedRoomIdForNavigationCursor("!freshRoom:example.org");
-            expect(store.isOpenForRoom("!freshRoom:example.org")).toBe(false);
-
-            store.togglePanel("!freshRoom:example.org");
-
-            expect(store.isOpenForRoom("!freshRoom:example.org")).toBe(true);
-            expect(store.currentCardForRoom("!freshRoom:example.org").phase).toBe(RightPanelPhases.RoomSummary);
+    describe("currentCard", () => {
+        it("has a phase of null if nothing is open", () => {
+            expect(store.currentCard.phase).toEqual(null);
         });
+        it("has a phase of null if the panel is open but in another room", async () => {
+            await viewRoom("!1:example.org");
+            setCard("!2:example.org", RightPanelPhases.RoomSummary);
+            expect(store.currentCard.phase).toEqual(null);
+        });
+        it("reflects the phase of the current room", async () => {
+            await viewRoom("!1:example.org");
+            setCard("!1:example.org", RightPanelPhases.RoomSummary);
+            expect(store.currentCard.phase).toEqual(RightPanelPhases.RoomSummary);
+        });
+    });
 
-        it("still toggles closed->open->closed normally once a room has panel state", () => {
-            store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!roomD:example.org");
-            expect(store.isOpenForRoom("!roomD:example.org")).toBe(true);
+    describe("setCard", () => {
+        it("does nothing if given no room ID and not viewing a room", () => {
+            store.setCard({ phase: RightPanelPhases.RoomSummary }, true);
+            expect(store.isOpen).toEqual(false);
+            expect(store.currentCard.phase).toEqual(null);
+        });
+        it("does nothing if given an invalid state", async () => {
+            await viewRoom("!1:example.org");
+            // Needs a member specified to be valid
+            store.setCard({ phase: RightPanelPhases.MemberInfo }, true, "!1:example.org");
+            expect(store.roomPhaseHistory).toEqual([]);
+        });
+        it("only creates a single history entry if given the same card twice", async () => {
+            await viewRoom("!1:example.org");
+            store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!1:example.org");
+            store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!1:example.org");
+            expect(store.roomPhaseHistory).toEqual([{ phase: RightPanelPhases.RoomSummary, state: {} }]);
+        });
+        it("opens the panel in the given room with the correct phase", () => {
+            store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!1:example.org");
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(true);
+            expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.RoomSummary);
+        });
+        it("history is generated for certain phases", async () => {
+            await viewRoom("!1:example.org");
+            // Setting the memberlist card should also generate a history with room summary card
+            store.setCard({ phase: RightPanelPhases.MemberList }, true, "!1:example.org");
+            expect(store.roomPhaseHistory).toEqual([
+                { phase: RightPanelPhases.RoomSummary, state: {} },
+                { phase: RightPanelPhases.MemberList, state: {} },
+            ]);
+        });
+    });
 
-            store.togglePanel("!roomD:example.org");
-            expect(store.isOpenForRoom("!roomD:example.org")).toBe(false);
+    describe("setCards", () => {
+        it("overwrites history", async () => {
+            await viewRoom("!1:example.org");
+            store.setCard({ phase: RightPanelPhases.MemberList }, true, "!1:example.org");
+            store.setCards(
+                [{ phase: RightPanelPhases.RoomSummary }, { phase: RightPanelPhases.PinnedMessages }],
+                true,
+                "!1:example.org",
+            );
+            expect(store.roomPhaseHistory).toEqual([
+                { phase: RightPanelPhases.RoomSummary, state: {} },
+                { phase: RightPanelPhases.PinnedMessages, state: {} },
+            ]);
+        });
+    });
 
-            store.togglePanel("!roomD:example.org");
-            expect(store.isOpenForRoom("!roomD:example.org")).toBe(true);
+    describe("pushCard", () => {
+        it("does nothing if given no room ID and not viewing a room", () => {
+            store.pushCard({ phase: RightPanelPhases.RoomSummary }, true);
+            expect(store.isOpen).toEqual(false);
+            expect(store.currentCard.phase).toEqual(null);
+        });
+        it("opens the panel in the given room with the correct phase", () => {
+            store.pushCard({ phase: RightPanelPhases.RoomSummary }, true, "!1:example.org");
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(true);
+            expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.RoomSummary);
+        });
+        it("appends the phase to any phases that were there before", async () => {
+            await viewRoom("!1:example.org");
+            store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!1:example.org");
+            store.pushCard({ phase: RightPanelPhases.PinnedMessages }, true, "!1:example.org");
+            expect(store.roomPhaseHistory).toEqual([
+                { phase: RightPanelPhases.RoomSummary, state: {} },
+                { phase: RightPanelPhases.PinnedMessages, state: {} },
+            ]);
+        });
+    });
+
+    describe("popCard", () => {
+        it("removes the most recent card", () => {
+            store.setCards(
+                [{ phase: RightPanelPhases.RoomSummary }, { phase: RightPanelPhases.PinnedMessages }],
+                true,
+                "!1:example.org",
+            );
+            expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.PinnedMessages);
+            store.popCard("!1:example.org");
+            expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.RoomSummary);
+        });
+    });
+
+    describe("togglePanel", () => {
+        it("opens to Room Info if the room has no phase to open to yet (Haven)", () => {
+            // Haven: this used to silently do nothing here - a room whose right panel had never
+            // been opened before (no byRoom entry yet) had nothing for togglePanel to flip, so the
+            // "Toggle right panel" keyboard shortcut was a dead no-op the very first time it was
+            // pressed in any given room. Falls back to the same Room Info default the mouse-driven
+            // header button already lands on for this exact scenario (see setCard's own tests).
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(false);
+            store.togglePanel("!1:example.org");
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(true);
+            expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.RoomSummary);
+        });
+        it("works if a room is specified", () => {
+            store.setCard({ phase: RightPanelPhases.RoomSummary }, true, "!1:example.org");
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(true);
+            store.togglePanel("!1:example.org");
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(false);
+            store.togglePanel("!1:example.org");
+            expect(store.isOpenForRoom("!1:example.org")).toEqual(true);
+        });
+        it("operates on the current room if no room is specified", async () => {
+            await viewRoom("!1:example.org");
+            store.setCard({ phase: RightPanelPhases.RoomSummary }, true);
+            expect(store.isOpen).toEqual(true);
+            store.togglePanel(null);
+            expect(store.isOpen).toEqual(false);
+            store.togglePanel(null);
+            expect(store.isOpen).toEqual(true);
+        });
+    });
+
+    it("doesn't restore member info cards when switching back to a room", async () => {
+        await viewRoom("!1:example.org");
+        store.setCards(
+            [
+                {
+                    phase: RightPanelPhases.MemberList,
+                },
+                {
+                    phase: RightPanelPhases.MemberInfo,
+                    state: { member: new RoomMember("!1:example.org", "@alice:example.org") },
+                },
+            ],
+            true,
+            "!1:example.org",
+        );
+        expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.MemberInfo);
+
+        // Switch away and back
+        await viewRoom("!2:example.org");
+        await viewRoom("!1:example.org");
+        expect(store.currentCardForRoom("!1:example.org").phase).toEqual(RightPanelPhases.MemberList);
+    });
+
+    it("should redirect to verification if set to phase MemberInfo for a user with a pending verification", async () => {
+        const member = new RoomMember("!1:example.org", "@alice:example.org");
+        const verificationRequest = { mockVerificationRequest: true } as any;
+        vi.mocked(pendingVerificationRequestForUser).mockReturnValue(verificationRequest);
+        await viewRoom("!1:example.org");
+        store.setCard(
+            {
+                phase: RightPanelPhases.MemberInfo,
+                state: { member },
+            },
+            true,
+            "!1:example.org",
+        );
+        expect(store.currentCard).toEqual({
+            phase: RightPanelPhases.EncryptionPanel,
+            state: { member, verificationRequest },
         });
     });
 });

@@ -420,7 +420,7 @@ export class MessageComposer extends React.Component<IProps, IState> {
         // otherwise the send message function will think there are no URLs in
         // message and will not attach URL bundles
         const urlPreviewSnapshot = this.props.urlPreviewVm.getSnapshot();
-        void this.props.urlPreviewVm.updateWithText({ content: "", debounced: false });
+        this.props.urlPreviewVm.updateWithText({ content: "", debounced: false });
         if (this.state.haveRecording && this.voiceRecordingButton.current) {
             // There shouldn't be any text message to send when a voice recording is active, so
             // just send out the voice recording.
@@ -449,7 +449,7 @@ export class MessageComposer extends React.Component<IProps, IState> {
     };
 
     private onChange = (model: EditorModel): void => {
-        void this.props.urlPreviewVm.updateWithText({
+        this.props.urlPreviewVm.updateWithText({
             content: model.contentPlainText,
             debounced: true,
         });
@@ -459,7 +459,7 @@ export class MessageComposer extends React.Component<IProps, IState> {
     };
 
     private onWysiwygChange = (content: string): void => {
-        void this.props.urlPreviewVm.updateWithText({ content, debounced: true });
+        this.props.urlPreviewVm.updateWithText({ content, debounced: true });
         this.setState({
             composerContent: content,
             isComposerEmpty: content?.length === 0,
@@ -787,7 +787,7 @@ export default function MessageComposerWrapper(props: Omit<IProps, "mxClient" | 
     );
 
     useEffect(() => {
-        void urlPreviewVm.updateUrlPreviewVisible(showUrlPreview);
+        urlPreviewVm.updateUrlPreviewVisible(showUrlPreview);
     }, [urlPreviewVm, showUrlPreview]);
 
     return <MessageComposerWithMatrixClient {...props} urlPreviewVm={urlPreviewVm} />;

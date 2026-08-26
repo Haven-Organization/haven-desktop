@@ -5,14 +5,16 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import { logger as rootLogger } from "matrix-js-sdk/src/logger";
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
-import { BaseViewModel, type MessageComposerUrlPreviewSnapshot } from "@element-hq/web-shared-components";
+import {
+    BaseViewModel,
+    type MessageComposerUrlPreviewSnapshotEntry,
+    type MessageComposerUrlPreviewSnapshot,
+} from "@element-hq/web-shared-components";
 import { debounce } from "lodash";
 
 import { UrlPreviewFetcher } from "../../utils/UrlPreviewFetcher";
-
-const logger = rootLogger.getChild("MessageComposerUrlPreviewViewModel");
+import { linksIn } from "../../utils/UrlUtils";
 
 export const DEBOUNCE_REQUEST_TIMEOUT_MS = 500;
 
@@ -43,100 +45,109 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
      */
     private urlPreviewVisible: boolean;
 
+    /**
+     * Composer content when updateWithText is most recently called
+     */
     private content: string;
 
     /**
-     * Bumped at the start of every computeSnapshot call that actually fetches (or clears)
-     * previews, and checked again before that call applies its result. A call whose id no longer
-     * matches was superseded by a later one (e.g. send's immediate clear) while its own fetch was
-     * still in flight - its now-stale result is discarded instead of clobbering whatever the
-     * later call already put in the snapshot.
+     * The list of all previews that are currently loading, loaded or failed to load
+     * - loading entries are immediately added when computeSnapshot detects new link in the composer
+     * - loaded/failed to load entries replaces the loading entry when it resolves
+     * - not all previews in cache are displayed: the preview only selects the previews which link is in the composer,
+     *   and preview.include is true where the preview has not been removed
+     * - the cache is cleared when the composer is emptied: intentionally by user or by sending a message,
+     *   this reloads all previews and forgets all preview.include states, causing all previously removed previews to be unremoved
      */
-    private requestId = 0;
+    private readonly previewCache: Map<string, MessageComposerUrlPreviewSnapshotEntry> = new Map();
 
     public constructor(props: MessageComposerUrlPreviewViewModelProps) {
-        super(props, { previews: [], content: props.content ?? "" });
+        super(props, { entries: [], content: props.content ?? "" });
         this.urlPreviewVisible = props.visible;
         this.fetcher = new UrlPreviewFetcher(props.client, Date.now(), props.showTooltips);
         this.content = this.snapshot.current.content;
     }
 
-    private async computeSnapshot(content: string): Promise<void> {
-        const newLinksOrdered = content
-            .split(" ")
-            .map((w) => w.trim())
-            .filter((word) => URL.canParse(word));
-        const newLinks = new Set(newLinksOrdered);
-
+    private computeSnapshot(content: string): void {
         if (!this.urlPreviewVisible) {
-            // Clear any existing previews whenever previews are hidden, regardless of
-            // whether the URL set has changed (e.g. when toggled invisible).
-            this.requestId++;
-            this.snapshot.set({ previews: [], content });
+            this.snapshot.set({ entries: [], content });
             return;
         }
 
+        const newLinks = linksIn(content);
         if (this.links.symmetricDifference(newLinks).size === 0) {
             // Skip if the URL set hasn't changed
             return;
         }
 
         this.links = newLinks;
-        const requestId = ++this.requestId;
 
-        let previews;
-        if (this.props.urlPreviewBundle) {
-            const previewRequests = Array.from(this.links).map(async (link) => {
-                try {
-                    return await this.fetcher.fetchPreview(link, true);
-                } catch (ex) {
-                    logger.warn("Fetching preview failed", ex);
-                    return null;
-                }
-            });
+        const entries = Array.from(this.links).map((link) => {
+            // if not in cache, add to VM now, fetch later
+            if (!this.previewCache.has(link)) {
+                this.previewCache.set(link, {
+                    status: "loading",
+                    include: true,
+                    matched_url: link,
+                });
 
-            // Fetch previews for all links in the message text,
-            // And remove the ones with erroneous responses
-            const previewResponses = await Promise.all(previewRequests);
-            previews = previewResponses.filter((res) => res !== null);
-
-            if (requestId !== this.requestId) return; // superseded while fetching - discard
-            this.snapshot.set({ previews, content });
-        } else {
-            for (const link of this.links) {
-                try {
-                    const preview = await this.fetcher.fetchPreview(link, true);
-                    if (requestId !== this.requestId) return; // superseded while fetching - discard
-                    if (preview) {
-                        this.snapshot.set({ previews: [preview], content });
-                        return;
+                void this.fetcher.fetchPreview(link, true).then((fetched) => {
+                    // update cache
+                    const currentEntry = this.previewCache.get(link);
+                    if (fetched === null) {
+                        this.previewCache.set(link, {
+                            status: "failed",
+                            include: currentEntry?.include ?? true,
+                            matched_url: link,
+                        });
+                    } else {
+                        this.previewCache.set(link, {
+                            status: "loaded",
+                            include: currentEntry?.include ?? true,
+                            matched_url: link,
+                            preview: fetched,
+                        });
                     }
-                } catch (ex) {
-                    logger.warn("Fetching preview failed", ex);
-                }
+
+                    // insert to snapshot
+                    const updatedEntry = this.previewCache.get(link);
+                    if (updatedEntry === undefined) return;
+
+                    const snapshot = this.snapshot.current;
+
+                    this.snapshot.set({
+                        content: snapshot.content,
+                        entries: snapshot.entries.map((entry) =>
+                            entry.matched_url === updatedEntry.matched_url ? updatedEntry : entry,
+                        ),
+                    });
+                });
             }
 
-            if (requestId !== this.requestId) return; // superseded while fetching - discard
-            this.snapshot.set({ previews: [], content });
-        }
+            return this.previewCache.get(link)!;
+        });
+
+        this.snapshot.set({ entries, content });
     }
 
     /**
      * Trigger a recalculation of the links in the provided text.
      * @param content Plaintext from the message composer.
      */
-    public async updateWithText({ content, debounced }: { content?: string; debounced: boolean }): Promise<void> {
+    public updateWithText({ content, debounced }: { content?: string; debounced: boolean }): void {
         if (content !== undefined) {
             this.content = content;
+        }
+
+        if (content === "") {
+            this.previewCache.clear();
+            this.computeSnapshotDebounced.cancel();
+            return this.computeSnapshot("");
         }
 
         if (debounced) {
             return this.computeSnapshotDebounced(this.content);
         } else {
-            // An immediate update (e.g. send's clear-on-send call) must win over a debounced
-            // call already scheduled from typing just before it - otherwise that trailing call
-            // still fires ~DEBOUNCE_REQUEST_TIMEOUT_MS later with the stale (pre-clear) content,
-            // re-fetching and re-showing a preview the user already sent past.
             this.computeSnapshotDebounced.cancel();
             return this.computeSnapshot(this.content);
         }
@@ -153,9 +164,26 @@ export class MessageComposerUrlPreviewViewModel extends BaseViewModel<
      *
      * @returns A promise that completes when the snapshot has been recomputed.
      */
-    public readonly updateUrlPreviewVisible = (urlPreviewVisible: boolean): Promise<void> => {
+    public readonly updateUrlPreviewVisible = (urlPreviewVisible: boolean): void => {
         this.urlPreviewVisible = urlPreviewVisible;
         this.fetcher.clearCache();
         return this.computeSnapshot(this.content);
+    };
+
+    /**
+     * Remove a preview of a URL and remembers it until cache is cleared
+     * @param url A URL that has been previously requested since the last time composer is empty
+     */
+    public readonly removePreview = (url: string): void => {
+        const entry = this.previewCache.get(url);
+        if (entry === undefined) return;
+        entry.include = false;
+
+        const snapshot = this.snapshot.current;
+
+        this.snapshot.set({
+            content: snapshot.content,
+            entries: snapshot.entries.filter((entry) => entry.include),
+        });
     };
 }

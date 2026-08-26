@@ -142,6 +142,7 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
 
     public constructor(dispatcher: MatrixDispatcher) {
         super(dispatcher);
+
         this.msc3946ProcessDynamicPredecessor = SettingsStore.getValue("feature_dynamic_room_predecessors");
         SDKContextClass.instance.spaceStore.on(UPDATE_SELECTED_SPACE, () => {
             this.onActiveSpaceChanged();
@@ -151,6 +152,9 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
         this.loadCustomSections();
 
         SettingsStore.watchSetting("RoomList.showSections", null, () => this.scheduleEmit());
+        SettingsStore.watchSetting("Spaces.showPeopleInSpace", null, (_settingName, roomId) => {
+            if (roomId === SDKContextClass.instance.spaceStore.activeSpace) this.onActiveSpaceChanged();
+        });
     }
 
     /**
@@ -584,11 +588,27 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     }
 
     /**
+     * Update the room skip list because the list of rooms has changed e.g.
+     * because we have entered a different room.
+     *
+     * Called by RoomListViewModel.updateRoomListData, not triggered by
+     * listening for an event, because this needs to happen after
+     * updateRoomListData has done its job - otherwise the room list will
+     * shuffle around when we change room.
+     *
+     * Does not emit an event.
+     */
+    public updateRoomSkipList(): void {
+        this.roomSkipList?.useNewFilters(this.getSkipListFilters());
+    }
+
+    /**
      * Create a new section.
      * Emits {@link SECTION_CREATED_EVENT} if the section was successfully created.
+     * @param preselectedRoomId The id of a room to preselect in the room picker of the dialog.
      */
-    public async createSection(): Promise<string | undefined> {
-        const tag = await createSection(SDKContextClass.instance.spaceStore.activeSpace);
+    public async createSection(preselectedRoomId?: string): Promise<string | undefined> {
+        const tag = await createSection(SDKContextClass.instance.spaceStore.activeSpace, preselectedRoomId);
         if (!tag) return;
         this.emit(SECTION_CREATED_EVENT, tag);
         return tag;

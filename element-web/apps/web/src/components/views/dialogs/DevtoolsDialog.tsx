@@ -30,6 +30,7 @@ import { Crypto } from "./devtools/Crypto";
 import SettingsField from "../elements/SettingsField.tsx";
 import { StickyStateExplorer } from "./devtools/StickyEventState.tsx";
 import { ProfileDataExplorer } from "./devtools/ProfileData.tsx";
+import { CustomThemes } from "./devtools/CustomThemes.tsx";
 
 enum Category {
     Room,
@@ -59,6 +60,7 @@ const Tools: Record<Category, [label: TranslationKey, tool: Tool][]> = {
         [_td("devtools|server_info"), ServerInfo],
         [_td("devtools|crypto|title"), Crypto],
         [_td("devtools|explore_profile_data"), ProfileDataExplorer],
+        [_td("devtools|custom_themes|title"), CustomThemes],
     ],
 };
 
