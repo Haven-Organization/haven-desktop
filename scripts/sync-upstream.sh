@@ -43,7 +43,11 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
 fi
 
 echo "==> Fetching origin/develop"
-git fetch origin develop
+# --tags: origin's fetch refspec here is scoped to just refs/heads/develop, so git's usual
+# auto-follow-reachable-tags behavior doesn't reliably pick up new release tags (e.g. after a
+# 2026-08-26 sync, `git describe` reported v1.12.25-273-g... instead of v1.12.26-... purely because
+# the v1.12.26 tag itself had never been fetched, even though the commit it points to was).
+git fetch --tags origin develop
 
 BASE="$(git merge-base HEAD origin/develop)"
 echo "==> Merge-base: $BASE"
@@ -58,6 +62,15 @@ echo "    Shifted commit: $SHIFTED_COMMIT"
 
 echo "==> Merging"
 git merge "$SHIFTED_COMMIT" --no-edit || true
+
+# Swap MERGE_HEAD from the throwaway shifted commit to the real origin/develop tip before anyone
+# commits. Without this, `git commit` would record $SHIFTED_COMMIT itself - message and all - as a
+# permanent second parent of the merge commit, instead of leaving it truly unreachable as intended.
+if [ -f .git/MERGE_HEAD ]; then
+    git rev-parse origin/develop > .git/MERGE_HEAD
+    echo "    MERGE_HEAD repointed at the real origin/develop ($(git rev-parse origin/develop)) -"
+    echo "    resolve conflicts as usual, then a plain 'git commit' will parent correctly."
+fi
 
 echo
 echo "==> Done (or stopped for conflicts - check git status)."
