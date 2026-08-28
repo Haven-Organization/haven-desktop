@@ -7,4 +7,4 @@ Type=Application
 Icon=software.haven.HavenDesktop
 StartupWMClass=Haven
 Categories=Network;InstantMessaging;Chat;
-MimeType=x-scheme-handler/io.github.haven-organization.desktop;x-scheme-handler/haven;
+MimeType=x-scheme-handler/io.github.haven-organization.desktop;x-scheme-handler/haven;x-scheme-handler/element;
