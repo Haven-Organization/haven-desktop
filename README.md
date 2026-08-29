@@ -13,7 +13,7 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 
 - **Social.** A Matrix-native profile, feed, and group experience, closer to a normal social
   network than a chat client. Standardizing social media event types on
-  Matrix, not just building a one-off client feature: see
+  Matrix. See
   [MSC4501](https://github.com/matrix-org/matrix-spec-proposals/pull/4501), the spec proposal this
   is built on.
 - **A more fun Element.** Prioritizing features the community wants rather than companies and governments.
@@ -87,6 +87,9 @@ pnpm build --win nsis
 pnpm build --arm64
 ```
 
+See [docs/building.md](docs/building.md) for the full set of build flags, including web-side
+options shared by both.
+
 ## Configuration
 
 See [docs/configure.md](docs/configure.md) for every `config.json` option Haven adds (disabling
@@ -94,8 +97,7 @@ apps, blockquote style, labs, the login/register footer links).
 
 ## MSC compliance
 
-Where possible, Haven builds on real Matrix spec proposals (MSCs) instead of inventing one-off
-client-only behavior, so the same data can be understood by other clients, bridges, and servers
+Where possible, Haven builds on real Matrix spec proposals (MSCs), so the same data can be understood by other clients, bridges, and servers
 too.
 
 - [MSC4501](https://github.com/matrix-org/matrix-spec-proposals/pull/4501): The social media event
