@@ -151,6 +151,11 @@ interface Props {
      *  handleArticleClick), to go deeper/back up the chain without leaving the thread view. Thread
      *  relations never cross rooms, so every tile rendered here is always in `room`. */
     onFocusEvent?: (event: MatrixEvent) => void;
+    /** Opens a brand new thread view for an event in a *different* room — needed because a tile
+     *  rendered here can still embed a repost/quote card pointing at a post from another room
+     *  entirely (reposts routinely cross rooms, unlike replies). Without this, SocialEventTile's
+     *  onViewThread had nowhere to send a cross-room target, and the click silently did nothing. */
+    onNavigateToThread?: (event: MatrixEvent, room: Room) => void;
     /** Plays a brief highlight-and-fade on the focused post's own tile (not ancestors/replies) -
      *  set by callers when this view was opened by resolving a direct/external link to `event`,
      *  mirroring Element's own permalink highlight convention in the normal room timeline. Left
@@ -169,6 +174,7 @@ export function SocialPostView({
     onNavigateToProfile,
     onRoomClick,
     onFocusEvent,
+    onNavigateToThread,
     highlightFocusedPost,
 }: Props): JSX.Element {
     const client = useMatrixClientContext();
@@ -503,14 +509,21 @@ export function SocialPostView({
     const hideRoomName = !!getProfileOwnerUserId(room);
 
     // Every tile shown here (ancestors, focused post, 1st/2nd-level replies) is always in `room` -
-    // thread relations never cross rooms - so any click SocialEventTile routes through onViewThread
-    // (its own card body, or a same-room quoted/reposted card inside it) re-focuses this same
-    // thread view via onFocusEvent instead of trying to navigate away.
+    // thread relations never cross rooms - so a click on the tile itself, or a same-room quoted/
+    // reposted card inside it, re-focuses this same thread view via onFocusEvent. An *embedded*
+    // repost/quote card can still point at a post from a different room entirely though (reposts
+    // routinely cross rooms, unlike replies) - that case needs onNavigateToThread to actually open
+    // it, since onFocusEvent only ever re-targets within `room` and would otherwise silently do
+    // nothing (the original bug behind "clicking the repost card doesn't open the post").
     const handleViewThread = useCallback(
         (target: MatrixEvent, targetRoom: Room) => {
-            if (targetRoom === room) onFocusEvent?.(target);
+            if (targetRoom === room) {
+                onFocusEvent?.(target);
+            } else {
+                onNavigateToThread?.(target, targetRoom);
+            }
         },
-        [room, onFocusEvent],
+        [room, onFocusEvent, onNavigateToThread],
     );
 
     const tileProps = {

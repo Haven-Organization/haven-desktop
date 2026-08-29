@@ -1671,6 +1671,7 @@ function FeedPane({
                 room={threadView.room}
                 onBack={() => setThreadView(null)}
                 onFocusEvent={(e) => setThreadView({ event: e, room: threadView.room })}
+                onNavigateToThread={(event, room) => setThreadView({ event, room })}
                 highlightFocusedPost={!!threadView.highlight}
                 pillsGeneration={pillsGeneration}
                 onViewUser={onViewUser}
