@@ -14,7 +14,7 @@ echo 'storeDir: '$PWD'/flatpak-node/pnpm-store' >> element-web/pnpm-workspace.ya
 
 cd element-web && pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false && cd ..
 
-cd element-web/apps/web && pnpm build && cd ../../..
+cd element-web/apps/web && HAVEN_INCLUDE_OLD_ROOM_LIST=1 pnpm build && cd ../../..
 
 cp element-web/apps/web/config.sample.json element-web/apps/web/webapp/config.json
 
@@ -22,7 +22,7 @@ cd element-web/apps/desktop && pnpm exec asar pack ../web/webapp webapp.asar && 
 
 sed -i 's#export default config;#config.publish = null; config.electronDist = "/run/build/haven-desktop/flatpak-node/cache/electron"; config.linux = config.linux || {}; config.linux.target = ["dir"]; export default config;#' element-web/apps/desktop/electron-builder.ts
 
-cd element-web/apps/desktop && VERSION=0.7.2 pnpm build -- --linux dir --publish=never && cd ../../..
+cd element-web/apps/desktop && VERSION=0.7.3 pnpm build -- --linux dir --publish=never && cd ../../..
 
 mkdir -p /app/Haven
 cp -r element-web/apps/desktop/dist/linux*-unpacked/* /app/Haven/
