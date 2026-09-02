@@ -157,6 +157,11 @@ export function SocialReactionsRow({ client, mxEvent, reactions, canReact, canSe
                     myReactionEvent={myReactionEvent}
                     customReactionImagesEnabled={customReactionImagesEnabled}
                     disabled={!canReact || (myReactionEvent && !myReactionEvent.isRedacted() && !canSelfRedact)}
+                    // Haven: without this, ReactionsRowButtonViewModel.onContextMenu's own
+                    // `if (!reactions) return;` guard makes right-click a silent no-op - see
+                    // upstream ReactionsRowAdapter's own identical prop for the pattern this
+                    // mirrors.
+                    reactions={reactions}
                 />
             );
         });
