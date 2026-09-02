@@ -2,12 +2,16 @@
 <component type="desktop-application">
   <id>software.haven.HavenDesktop</id>
   <name>Haven</name>
-  <summary>A Matrix-native social and chat client</summary>
+  <summary>Matrix chat and social client</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>AGPL-3.0-only</project_license>
   <developer id="software.haven">
     <name>Haven</name>
   </developer>
+  <branding>
+    <color type="primary" scheme_preference="light">#41B592</color>
+    <color type="primary" scheme_preference="dark">#2D7D65</color>
+  </branding>
   <description>
     <p>
       Haven is a Matrix-native chat and social client, built on Element Web/Desktop,
