@@ -22,7 +22,18 @@ cd element-web/apps/desktop && pnpm exec asar pack ../web/webapp webapp.asar && 
 
 sed -i 's#export default config;#config.publish = null; config.electronDist = "/run/build/haven-desktop/flatpak-node/cache/electron"; config.linux = config.linux || {}; config.linux.target = ["dir"]; export default config;#' element-web/apps/desktop/electron-builder.ts
 
-cd element-web/apps/desktop && VERSION=0.7.3 pnpm build -- --linux dir --publish=never && cd ../../..
+# VERSION (electron-builder's packaged `version` field) has to stay a strict X.Y.Z - HAVEN_VERSION
+# at the repo root already is one. HAVEN_FULL_VERSION is the separate, full descriptive string
+# (haven-v<haven-version>+element-<element-version>...) Help & About actually shows - see ipc.ts's
+# getAppVersion and compute-haven-version.sh's own comments. Both used to be hardcoded to whatever
+# version was current when this line was last edited (VERSION=0.7.3, HAVEN_FULL_VERSION unset
+# entirely) - every release since kept bumping HAVEN_VERSION/tagging without anyone remembering to
+# also edit this file, so Flathub kept shipping a build that identified itself as 0.7.3 no matter
+# how many releases had actually gone out. Computing both from the same source setup.sh's own
+# release process already maintains removes the manual step entirely.
+HAVEN_VERSION=$(cat HAVEN_VERSION)
+HAVEN_FULL_VERSION=$(./scripts/compute-haven-version.sh)
+cd element-web/apps/desktop && VERSION=$HAVEN_VERSION HAVEN_FULL_VERSION=$HAVEN_FULL_VERSION pnpm build -- --linux dir --publish=never && cd ../../..
 
 mkdir -p /app/Haven
 cp -r element-web/apps/desktop/dist/linux*-unpacked/* /app/Haven/

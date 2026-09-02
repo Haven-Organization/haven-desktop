@@ -63,6 +63,26 @@ else
     else
         element_version=unknown
     fi
+
+    # Both routes above need real reachable git history (a merge commit, then tags reachable from
+    # its second parent) - neither exists in a shallow single-commit checkout, which is exactly
+    # what some CI/build environments fetch when only a `commit` (no branch) is given as the git
+    # source (confirmed live: Flathub's own build produced literally "+element-unknown" this way,
+    # baked into a real published build's version string). element-web/apps/desktop/package.json's
+    # own `version` field tracks upstream Element's real pinned tag (bumped on every upstream sync -
+    # confirmed "1.12.26" there matching this exact checkout's real `git describe` result above) and
+    # needs no git history at all, so it's a safe fallback - not as precise as a real `git describe`
+    # (no trailing "-N-gSHA" commit-count/SHA suffix), but "v1.12.26" beats "unknown" for a string
+    # whose whole purpose is identifying the exact build in a bug report. element-web/package.json's
+    # own version (the workspace root) is just a static "0.0.0" placeholder, not this - and
+    # apps/web/package.json's has been seen holding Haven's own version number by mistake rather
+    # than Element's, so neither is a safe substitute for this one.
+    if [ "$element_version" = "unknown" ]; then
+        pkg_version=$(grep -m1 '"version"' "$ROOT_DIR/element-web/apps/desktop/package.json" 2>/dev/null | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        if [ -n "$pkg_version" ]; then
+            element_version="v${pkg_version}"
+        fi
+    fi
 fi
 
 version="haven-v${haven_version}+element-${element_version}"
