@@ -10,6 +10,7 @@ import { type RoomMember } from "matrix-js-sdk/src/matrix";
 
 import MemberAvatar from "../../avatars/MemberAvatar";
 import { type EventTileSenderSnapshot } from "../../../../viewmodels/room/timeline/event-tile/EventTileViewModel";
+import { type PerMessageProfile, resolvePerMessageAvatarUrl } from "../../../../utils/PerMessageProfile";
 
 /**
  * Props for the {@link EventTileAvatarAdapter} component.
@@ -19,6 +20,8 @@ interface EventTileAvatarAdapterProps {
     avatarMember: RoomMember | null;
     /** Snapshot of the sender identity state for this tile. */
     senderSnapshot: EventTileSenderSnapshot;
+    /** Haven: MSC4144 per-message profile for this event, if any. */
+    perMessageProfile?: PerMessageProfile;
 }
 
 /**
@@ -27,6 +30,7 @@ interface EventTileAvatarAdapterProps {
 export function EventTileAvatarAdapter({
     avatarMember,
     senderSnapshot,
+    perMessageProfile,
 }: Readonly<EventTileAvatarAdapterProps>): JSX.Element | null {
     const { avatarSize } = senderSnapshot.profileState;
 
@@ -41,6 +45,9 @@ export function EventTileAvatarAdapter({
                 size={avatarSize}
                 viewUserOnClick={senderSnapshot.viewUserOnClick}
                 forceHistorical={senderSnapshot.forceHistoricalAvatar}
+                overrideName={perMessageProfile?.displayname}
+                overrideAvatarUrl={resolvePerMessageAvatarUrl(perMessageProfile)}
+                overrideIdName={perMessageProfile?.id}
             />
         </div>
     );

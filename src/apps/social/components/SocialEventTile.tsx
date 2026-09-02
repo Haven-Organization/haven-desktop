@@ -39,6 +39,11 @@ import QuestionDialog from "../../../../element-web/apps/web/src/components/view
 import ErrorDialog from "../../../../element-web/apps/web/src/components/views/dialogs/ErrorDialog";
 import MessageEditHistoryDialog from "../../../../element-web/apps/web/src/components/views/dialogs/MessageEditHistoryDialog";
 import BaseDialog from "../../../../element-web/apps/web/src/components/views/dialogs/BaseDialog";
+import {
+    getPerMessageProfile,
+    getPerMessageProfileFromContent,
+    resolvePerMessageAvatarUrl,
+} from "../../../../element-web/apps/web/src/utils/PerMessageProfile";
 import DialogButtons from "../../../../element-web/apps/web/src/components/views/elements/DialogButtons";
 import { useContextMenu, toRightOf } from "../../../../element-web/apps/web/src/components/structures/ContextMenu";
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
@@ -1174,7 +1179,14 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     const liveSenderProfile = useLiveUserProfile(client, event.getSender() ?? undefined);
     const senderAvatarMxc = sender?.getMxcAvatarUrl() || liveSenderProfile?.avatarUrl;
     const senderHasRealName = !!sender && sender.rawDisplayName !== sender.userId;
+    // Haven: MSC4144 per-message profile - takes priority over everything else below when
+    // present, but the MXID shown under the name (handleSenderClick's target, senderMxid button
+    // further down) is never touched by this - it's cosmetic display only, not a real identity
+    // swap.
+    const perMessageProfile = getPerMessageProfile(event);
+    const perMessageAvatarUrl = resolvePerMessageAvatarUrl(perMessageProfile);
     const senderDisplayName =
+        perMessageProfile?.displayname ||
         (senderHasRealName ? sender!.rawDisplayName : null) ||
         liveSenderProfile?.displayName ||
         event.getSender() ||
@@ -1686,7 +1698,14 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     }}
                     title={event.getSender() ?? undefined}
                 >
-                    {sender?.getMxcAvatarUrl() ? (
+                    {perMessageAvatarUrl !== undefined ? (
+                        <BaseAvatar
+                            name={senderDisplayName ?? "?"}
+                            idName={perMessageProfile?.id}
+                            url={perMessageAvatarUrl ? (client.mxcUrlToHttp(perMessageAvatarUrl, 40, 40, "crop") ?? undefined) : undefined}
+                            size="40px"
+                        />
+                    ) : sender?.getMxcAvatarUrl() ? (
                         <MemberAvatar member={sender} size="40px" />
                     ) : (
                         <BaseAvatar
@@ -1755,6 +1774,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             mxEvent={event}
                             permalinkCreator={new RoomPermalinkCreator(room)}
                             onFinished={closeMenu}
+                            // Haven: without this, MessageContextMenu's own inherited
+                            // reactionsButton guard (`if (reactions && getReactionGroups(...))`)
+                            // never renders the "Reactions" item at all.
+                            reactions={reactions}
                         />
                     )}
                 </div>
@@ -1879,6 +1902,12 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     repostedMedia.info?.w && repostedMedia.info?.h && repostedMedia.info.w > 0 && repostedMedia.info.h > 0
                         ? { aspectRatio: `${repostedMedia.info.w} / ${repostedMedia.info.h}` }
                         : undefined;
+                // Haven: MSC4144 per-message profile on the *reposted* post itself (e.g. a
+                // Fediverse bridge puppet posting as a single account but per-message-profiling
+                // each remote author) - takes priority over the repost relation's own embedded
+                // sender snapshot below, same field-level fallback rules as the main tile header.
+                const repostedPerMessageProfile = getPerMessageProfileFromContent(repostOfContent);
+                const repostedPerMessageAvatarUrl = resolvePerMessageAvatarUrl(repostedPerMessageProfile);
                 // Clicking the card navigates to the reposted post itself (same target
                 // BoostedIndicator's own link above already uses for a boost) rather than
                 // swallowing the click entirely - only genuinely interactive children (the media
@@ -1902,15 +1931,26 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         onClick={handleRepostCardClick}
                     >
                         <div className="social_EventTile_repostCard_header">
-                            {repostedSenderProfile?.avatarUrl && (
-                                <img
-                                    className="social_EventTile_repostCard_avatar"
-                                    src={client.mxcUrlToHttp(repostedSenderProfile.avatarUrl, 24, 24, "crop") ?? ""}
-                                    alt=""
-                                />
-                            )}
+                            {repostedPerMessageAvatarUrl !== undefined
+                                ? repostedPerMessageAvatarUrl && (
+                                      <img
+                                          className="social_EventTile_repostCard_avatar"
+                                          src={client.mxcUrlToHttp(repostedPerMessageAvatarUrl, 24, 24, "crop") ?? ""}
+                                          alt=""
+                                      />
+                                  )
+                                : repostedSenderProfile?.avatarUrl && (
+                                      <img
+                                          className="social_EventTile_repostCard_avatar"
+                                          src={client.mxcUrlToHttp(repostedSenderProfile.avatarUrl, 24, 24, "crop") ?? ""}
+                                          alt=""
+                                      />
+                                  )}
                             <span className="social_EventTile_repostCard_sender">
-                                {repostedSenderProfile?.displayName || repostOf.displayname || repostOf.sender}
+                                {repostedPerMessageProfile?.displayname ||
+                                    repostedSenderProfile?.displayName ||
+                                    repostOf.displayname ||
+                                    repostOf.sender}
                             </span>
                             <ExternalHandleIcon externalHandle={repostedSenderProfile?.externalHandle} />
                         </div>
@@ -1994,6 +2034,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     quotedMedia.info?.w && quotedMedia.info?.h && quotedMedia.info.w > 0 && quotedMedia.info.h > 0
                         ? { aspectRatio: `${quotedMedia.info.w} / ${quotedMedia.info.h}` }
                         : undefined;
+                // Haven: MSC4144 per-message profile on the quoted original - same as the repost
+                // card's own handling above (no avatar shown here either way, matching this card's
+                // existing text-only header).
+                const quotedPerMessageProfile = getPerMessageProfileFromContent(replyCrossPostOfContent);
                 const handleQuotedCardClick = (e: React.MouseEvent): void => {
                     if (!onViewThread) return;
                     // See handleRepostCardClick's own comment above for why this can't require
@@ -2015,7 +2059,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     >
                         <div className="social_EventTile_repostCard_header">
                             <span className="social_EventTile_repostCard_sender">
-                                {replyCrossPostOf.displayname || replyCrossPostOf.sender}
+                                {quotedPerMessageProfile?.displayname || replyCrossPostOf.displayname || replyCrossPostOf.sender}
                             </span>
                             <ExternalHandleIcon externalHandle={replyCrossPostSenderProfile?.externalHandle} />
                         </div>

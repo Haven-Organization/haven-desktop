@@ -34,6 +34,16 @@ interface IProps extends Omit<React.ComponentProps<typeof BaseAvatar>, "name" | 
     hideTitle?: boolean;
     children?: ReactNode;
     ref?: Ref<HTMLElement>;
+    /** Haven: MSC4144 per-message profile overrides. Only ever change what's *displayed* - the
+     *  underlying `member` (and thus onClick/title's real userId) is left untouched, since a
+     *  per-message profile is cosmetic, not a real identity change. `overrideAvatarUrl` of `null`
+     *  means "explicitly cleared, show a generated fallback" rather than "no override". */
+    overrideName?: string;
+    overrideAvatarUrl?: string | null;
+    /** Colour-hash seed for a generated fallback avatar (e.g. the per-message profile's own
+     *  `id`), so the same persona gets a consistent colour across messages instead of the real
+     *  sender's MXID being used - see MSC4144's own guidance on fallback avatars. */
+    overrideIdName?: string;
 }
 
 export default function MemberAvatar({
@@ -44,6 +54,9 @@ export default function MemberAvatar({
     fallbackUserId,
     hideTitle,
     member: propsMember,
+    overrideName,
+    overrideAvatarUrl,
+    overrideIdName,
     ref,
     ...props
 }: IProps): JSX.Element {
@@ -56,24 +69,30 @@ export default function MemberAvatar({
         forceHistorical: forceHistorical,
     });
 
-    const name = member?.name ?? fallbackUserId;
+    const name = overrideName ?? member?.name ?? fallbackUserId;
     let title: string | undefined = props.title;
     let imageUrl: string | null | undefined;
-    if (member?.name) {
-        if (member.getMxcAvatarUrl()) {
-            imageUrl = mediaFromMxc(member.getMxcAvatarUrl() ?? "", cli).getThumbnailOfSourceHttp(
-                parseInt(size, 10),
-                parseInt(size, 10),
-                resizeMethod,
-            );
-        }
+    if (overrideAvatarUrl !== undefined) {
+        imageUrl = overrideAvatarUrl
+            ? mediaFromMxc(overrideAvatarUrl, cli).getThumbnailOfSourceHttp(
+                  parseInt(size, 10),
+                  parseInt(size, 10),
+                  resizeMethod,
+              )
+            : null;
+    } else if (member?.name && member.getMxcAvatarUrl()) {
+        imageUrl = mediaFromMxc(member.getMxcAvatarUrl() ?? "", cli).getThumbnailOfSourceHttp(
+            parseInt(size, 10),
+            parseInt(size, 10),
+            resizeMethod,
+        );
+    }
 
-        if (!title) {
-            title =
-                UserIdentifierCustomisations.getDisplayUserIdentifier(member?.userId ?? "", {
-                    roomId: member?.roomId ?? "",
-                }) ?? fallbackUserId;
-        }
+    if (member?.name && !title) {
+        title =
+            UserIdentifierCustomisations.getDisplayUserIdentifier(member?.userId ?? "", {
+                roomId: member?.roomId ?? "",
+            }) ?? fallbackUserId;
     }
 
     return (
@@ -82,7 +101,7 @@ export default function MemberAvatar({
             size={size}
             name={name ?? ""}
             title={hideTitle ? undefined : title}
-            idName={member?.userId ?? fallbackUserId}
+            idName={overrideIdName ?? member?.userId ?? fallbackUserId}
             url={imageUrl}
             onClick={
                 viewUserOnClick

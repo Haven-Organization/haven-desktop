@@ -108,6 +108,8 @@ import { TileErrorViewModel } from "../../../viewmodels/message-body/TileErrorVi
 import { useSettingValue } from "../../../hooks/useSettings";
 import { resolveRoomMemberProfile, roomMemberToMemberInfo } from "../../../hooks/room/useRoomMemberProfile";
 import { EventTileE2eViewModel } from "../../../viewmodels/room/timeline/event-tile/EventTileE2eViewModel";
+import { getPerMessageProfile } from "../../../utils/PerMessageProfile";
+import { type MemberInfo } from "../../../viewmodels/room/timeline/event-tile/DisambiguatedProfileViewModel";
 import { shouldHighlightEventTile } from "../../../viewmodels/room/timeline/event-tile/EventTileHighlightState";
 import { shouldHideEventTile } from "../../../viewmodels/room/timeline/event-tile/EventTileVisibilityState";
 
@@ -717,6 +719,33 @@ export class UnwrappedEventTile extends React.Component<EventTileProps, IState> 
         return this.props.mxEvent.sender;
     };
 
+    /** Haven: MemberInfo for the sender-name viewmodel, with the displayname swapped out for a
+     *  per-message profile's (MSC4144) if the event has one - the real userId/roomId/disambiguate
+     *  fields are left untouched, so disambiguation and mentions still target the real sender. */
+    private readonly getSenderMemberInfo = (): MemberInfo | null => {
+        const memberInfo = roomMemberToMemberInfo(
+            this.props.useEventSenderSnapshot
+                ? this.getAvatarMember()
+                : resolveRoomMemberProfile({
+                      room: MatrixClientPeg.safeGet().getRoom(this.props.mxEvent.getRoomId() ?? ""),
+                      userId: this.props.mxEvent.getSender() ?? undefined,
+                      member: this.getAvatarMember(),
+                      useOnlyCurrentProfiles: SettingsStore.getValue("useOnlyCurrentProfiles"),
+                      timelineRenderingType: this.context.timelineRenderingType,
+                  }),
+        );
+        const perMessageDisplayName = getPerMessageProfile(this.props.mxEvent)?.displayname;
+        if (memberInfo && perMessageDisplayName) {
+            // Haven: force the real MXID to show next to the persona name, regardless of the real
+            // sender's own disambiguate status (which only reflects whether some OTHER real member
+            // happens to share their real name - irrelevant here). Without this, a persona whose
+            // name doesn't collide with anyone shows with no indication at all that it isn't the
+            // real sender, which is exactly the impersonation risk per-message profiles create.
+            return { ...memberInfo, rawDisplayName: perMessageDisplayName, disambiguate: true };
+        }
+        return memberInfo;
+    };
+
     private readonly onReactionsCreated = (relationType: string, eventType: string): void => {
         if (!isEventTileReactionRelation(relationType, eventType)) {
             return;
@@ -918,17 +947,7 @@ export class UnwrappedEventTile extends React.Component<EventTileProps, IState> 
                 inhibitInteraction: this.props.inhibitInteraction,
             },
             sender: {
-                member: roomMemberToMemberInfo(
-                    this.props.useEventSenderSnapshot
-                        ? this.getAvatarMember()
-                        : resolveRoomMemberProfile({
-                              room: MatrixClientPeg.safeGet().getRoom(this.props.mxEvent.getRoomId() ?? ""),
-                              userId: this.props.mxEvent.getSender() ?? undefined,
-                              member: this.getAvatarMember(),
-                              useOnlyCurrentProfiles: SettingsStore.getValue("useOnlyCurrentProfiles"),
-                              timelineRenderingType: this.context.timelineRenderingType,
-                          }),
-                ),
+                member: this.getSenderMemberInfo(),
                 hideSender: this.props.hideSender,
             },
             timestamp: {
@@ -1000,7 +1019,13 @@ export class UnwrappedEventTile extends React.Component<EventTileProps, IState> 
         const rootRenderState = eventTileRenderState.root;
 
         const avatarMember = this.getAvatarMember();
-        const avatar = <EventTileAvatarAdapter avatarMember={avatarMember} senderSnapshot={eventTileSnapshot.sender} />;
+        const avatar = (
+            <EventTileAvatarAdapter
+                avatarMember={avatarMember}
+                senderSnapshot={eventTileSnapshot.sender}
+                perMessageProfile={getPerMessageProfile(this.props.mxEvent)}
+            />
+        );
         const sender = (
             <EventTileSenderAdapter
                 sender={eventTileSnapshot.sender}
