@@ -1873,6 +1873,7 @@
 // ---------------------------------------------------------------------------
 
 .social_EventTile_repostCard {
+    position: relative;
     margin: 0 0 var(--cpd-space-3x);
     padding: var(--cpd-space-3x);
     border: 1px solid $quinary-content;
@@ -1886,6 +1887,56 @@
         &:hover {
             background: color-mix(in srgb, $accent 4%, $system);
         }
+    }
+}
+
+.social_RepostVerificationBadge {
+    position: absolute;
+    top: var(--cpd-space-2x);
+    right: var(--cpd-space-2x);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    color: $tertiary-content;
+
+    &--verifying,
+    &--unverified {
+        color: $tertiary-content;
+    }
+
+    &--verified {
+        color: var(--cpd-color-icon-success-primary, #0a0);
+        cursor: default;
+    }
+
+    &--failed,
+    &--forged {
+        color: var(--cpd-color-icon-critical-primary, #d00);
+    }
+
+    &:disabled {
+        cursor: default;
+    }
+}
+
+.social_RepostVerificationBadge_spin {
+    animation: social_RepostVerificationBadge_spin 1s linear infinite;
+}
+
+@keyframes social_RepostVerificationBadge_spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
     }
 }
 

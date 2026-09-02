@@ -23,7 +23,16 @@ import {
 import { M_POLL_START } from "matrix-js-sdk/src/@types/polls";
 import { KnownMembership, type EncryptedFile, type MediaEventInfo } from "matrix-js-sdk/src/types";
 import { logger } from "matrix-js-sdk/src/logger";
-import { ReplyIcon, RestartIcon, EditIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import {
+    ReplyIcon,
+    RestartIcon,
+    EditIcon,
+    HelpSolidIcon,
+    CheckCircleSolidIcon,
+    ErrorSolidIcon,
+    BlockIcon,
+} from "@vector-im/compound-design-tokens/assets/web/icons";
+import { Tooltip } from "@vector-im/compound-web";
 import {
     EventContentBodyView,
     LINKIFIED_DATA_ATTRIBUTE,
@@ -504,38 +513,25 @@ export function resolveAndOpenPost(
             await client.peekInRoom(roomId);
             const room = client.getRoom(roomId);
             if (room) {
-                // A knock-restricted room can still be world-readable (peekable) even though
-                // actually following it requires a request - silently landing on the room here
-                // just because the peek happened to work isn't good enough: the user never sees
-                // why a follow request is needed, and misses out on this same modal's own
-                // auto-accept-then-jump-to-this-post behavior once the request is approved (that
-                // behavior lives in the modal, not in just being able to peek). Route these through
-                // the same knock modal every other knock room gets below, using this already-
-                // fetched room's own real name/avatar/member count instead of a second
-                // getRoomSummary round trip.
-                const peekedJoinRule = room.getJoinRule() as unknown as string;
-                const peekedIsKnockable = peekedJoinRule === JoinRule.Knock || peekedJoinRule === "knock_restricted";
-                if (!peekedIsKnockable) {
-                    // Same fallback as the already-joined branch above, for the same reason - a
-                    // peeked room's locally-available history is even less likely to reach back to
-                    // an older event than a joined room's, so this needs it at least as much.
-                    let targetEvent = room.findEventById(eventId) ?? fallbackEvent;
-                    if (!targetEvent) {
-                        try {
-                            targetEvent = await fetchRoomEventWithRetry(client, roomId, eventId);
-                        } catch {
-                            // Genuinely couldn't resolve it even with retries - nothing left to do.
-                        }
+                // World-readable is independent of join_rule — a knock(_restricted) room can still
+                // be peeked and read even though actually following it needs a request. Used to
+                // route knockable rooms through the knock modal here instead, blocking reading
+                // behind "Follow Request required" even when the peek had already worked; now we
+                // just show the post like any other peekable room, the same way SocialRoomView
+                // already lets a peeked knock room's posts be browsed with an inline follow-request
+                // button rather than a blocking modal.
+                let targetEvent = room.findEventById(eventId) ?? fallbackEvent;
+                if (!targetEvent) {
+                    try {
+                        targetEvent = await fetchRoomEventWithRetry(client, roomId, eventId);
+                    } catch {
+                        // Genuinely couldn't resolve it even with retries - nothing left to do.
                     }
-                    if (targetEvent) onViewThread(targetEvent, room);
+                }
+                if (targetEvent) {
+                    onViewThread(targetEvent, room);
                     return;
                 }
-                showKnockToFollowModal(client, roomId, eventId, fallbackEvent, onViewThread, {
-                    name: room.name,
-                    avatar_url: room.getMxcAvatarUrl() ?? undefined,
-                    num_joined_members: room.getJoinedMemberCount(),
-                });
-                return;
             }
         } catch {
             // Not public-and-world-readable (or genuinely not accessible at all) - fall through to
@@ -790,6 +786,178 @@ function RepliedToProfileIndicator({
                 resolveAndOpenPost(client, roomId, eventId, undefined, onViewThread);
             }}
         />
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Repost/cross-post-reply source verification badge - a repost's embedded content
+// (repostOfContent/replyCrossPostOfContent) is just a snapshot the REPOSTER wrote into their own
+// event; nothing stops them from lying about what the original actually said, or reposting content
+// that never existed at all. The only way to know is to fetch the real event from the real room,
+// which needs either already being a member or the room allowing peeking - and even then, the
+// fetched content has to actually be compared against what's shown, not just fetched.
+//
+// Verification is user-triggered (click) rather than automatic on every render, specifically
+// because client.peekInRoom() replaces the client's single global peek-sync instance per call -
+// firing one automatically for every repost card in a feed would have them cancel each other out
+// mid-flight, not just be slow. The one exception is autoVerify, used for the single focused post a
+// thread view was opened onto (SocialPostView's isFocused tile) - safe there since it's at most one
+// card in flight, not a whole feed of them.
+// ---------------------------------------------------------------------------
+
+type RepostVerificationState = "unverified" | "verifying" | "verified" | "failed" | "forged";
+
+/** Compares an embedded repost/reply snapshot against a real fetched event's content, normalizing
+ *  both sides the same way (resolvePostBody/stripHavenHeader) so legitimate structural differences
+ *  don't false-positive as forgery. Only compares the fields that actually matter for "does this
+ *  say/show what the card claims" - body, formatted_body, msgtype, and the media reference - not a
+ *  full deep-equal, since unrelated metadata drifting apart isn't a sign of tampering. */
+function repostContentMatches(
+    embeddedSource: Record<string, any> | undefined,
+    realContent: Record<string, any> | undefined,
+): boolean {
+    const a = stripHavenHeader(resolvePostBody(embeddedSource)) as {
+        body?: string;
+        formatted_body?: string;
+        msgtype?: string;
+        url?: string;
+        file?: { url?: string };
+    };
+    const b = stripHavenHeader(resolvePostBody(realContent)) as typeof a;
+    return (
+        (a?.body ?? "") === (b?.body ?? "") &&
+        (a?.formatted_body ?? "") === (b?.formatted_body ?? "") &&
+        (a?.msgtype ?? "") === (b?.msgtype ?? "") &&
+        (a?.url ?? a?.file?.url ?? "") === (b?.url ?? b?.file?.url ?? "")
+    );
+}
+
+interface RepostVerificationBadgeProps {
+    client: MatrixClient;
+    roomId: string;
+    eventId: string;
+    /** The repost/reply relation's own embedded content snapshot, pre-normalization - what the
+     *  card is actually showing, and what gets compared against the real fetched event. */
+    embeddedSource: Record<string, any> | undefined;
+    /** Verify immediately on mount rather than waiting for a click - see this section's own doc
+     *  above for why this is only safe to set for a single focused post, not a whole feed. */
+    autoVerify?: boolean;
+}
+
+function RepostVerificationBadge({
+    client,
+    roomId,
+    eventId,
+    embeddedSource,
+    autoVerify,
+}: RepostVerificationBadgeProps): JSX.Element {
+    // Cheap, network-free initial check: if we're already in the room and already have this exact
+    // event in the local timeline (the common case for a repost of something in a room you're
+    // already in), we can determine verified/forged immediately with no click needed at all.
+    const [state, setState] = useState<RepostVerificationState>(() => {
+        const room = client.getRoom(roomId);
+        const realEvent = room?.findEventById(eventId);
+        if (!realEvent) return "unverified";
+        return repostContentMatches(embeddedSource, realEvent.getContent()) ? "verified" : "forged";
+    });
+
+    const verify = useCallback(async (): Promise<void> => {
+        setState("verifying");
+        // client.peekInRoom() starts an indefinite background /events long-poll (sync.js's
+        // peekPoll, which reschedules itself forever - success or failure - until something calls
+        // client.stopPeeking()). Element's own RoomView pairs every peekInRoom with a stopPeeking
+        // on cleanup; this didn't, so every verify() against a room we're not a member of leaked
+        // one of these polls permanently. They don't multiply (peekInRoom tears down the previous
+        // one first), but on an account that verifies against many different source rooms over a
+        // long session, the constant teardown/recreate churn (each one abandoning an in-flight
+        // request/retry timer) was the actual cause of the freeze/crash reported on @q's real
+        // account - never reproduced on the much lighter-use q_test account. Must stop peeking once
+        // we're done with it, and only if we're the one who started it here.
+        let weArePeeking = false;
+        try {
+            let room = client.getRoom(roomId);
+            if (!room) {
+                await client.peekInRoom(roomId);
+                weArePeeking = true;
+                room = client.getRoom(roomId);
+            }
+            if (!room) throw new Error("room not accessible after peek");
+            let realEvent = room.findEventById(eventId) ?? null;
+            if (!realEvent) {
+                if (room.getMyMembership() === KnownMembership.Join) {
+                    realEvent = await fetchRoomEventWithRetry(client, roomId, eventId);
+                } else {
+                    // Haven: neither client.fetchRoomEvent() (GET /rooms/{id}/event/{id}, 404s) nor
+                    // client.getEventTimeline() (GET /rooms/{id}/context/{id}, 403s) reliably work
+                    // for a peeked-but-unjoined room on at least Synapse, even when world_readable -
+                    // confirmed live against real reports of exactly this. /messages (what
+                    // client.scrollback() pages through) is the one endpoint confirmed to actually
+                    // honor world_readable for a genuine non-member peeker, so page backwards
+                    // through it looking for the event, the same way "load more history" already
+                    // does for any peeked room's timeline. A room whose world_readable grant is
+                    // newer than this specific event will still correctly come up empty here - that
+                    // reflects real, non-retroactive Matrix history_visibility semantics (an event's
+                    // visibility is fixed by whichever value was in effect when it was sent, not
+                    // whatever the room's value happens to be now), not a bug to route around.
+                    for (let page = 0; page < 15 && !realEvent; page++) {
+                        const before = room.getLiveTimeline().getEvents().length;
+                        await client.scrollback(room, 100);
+                        realEvent = room.findEventById(eventId) ?? null;
+                        if (room.getLiveTimeline().getEvents().length === before) break;
+                    }
+                }
+            }
+            if (!realEvent) throw new Error("event not found");
+            setState(repostContentMatches(embeddedSource, realEvent.getContent()) ? "verified" : "forged");
+        } catch {
+            setState("failed");
+        } finally {
+            if (weArePeeking) client.stopPeeking();
+        }
+    }, [client, roomId, eventId, embeddedSource]);
+
+    useEffect(() => {
+        if (autoVerify) void verify();
+        // Only ever want this once, on mount, for the specific post it was opened onto - not on
+        // every re-render, and not re-triggered by verify's own identity changing.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoVerify]);
+
+    if (state === "verified") {
+        return (
+            <Tooltip label="Post source verified.">
+                <div className="social_RepostVerificationBadge social_RepostVerificationBadge--verified">
+                    <CheckCircleSolidIcon width="14" height="14" />
+                </div>
+            </Tooltip>
+        );
+    }
+
+    const label =
+        state === "forged"
+            ? "Content does not match the original post. Possible forgery."
+            : state === "failed"
+              ? "Verification attempt failed. Unable to access event."
+              : state === "verifying"
+                ? "Verifying…"
+                : "Post source is unverified. Click to verify.";
+
+    const Icon = state === "forged" ? BlockIcon : state === "failed" ? ErrorSolidIcon : HelpSolidIcon;
+
+    return (
+        <Tooltip label={label}>
+            <button
+                type="button"
+                className={`social_RepostVerificationBadge social_RepostVerificationBadge--${state}`}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    void verify();
+                }}
+                disabled={state === "verifying"}
+            >
+                <Icon width="14" height="14" className={state === "verifying" ? "social_RepostVerificationBadge_spin" : undefined} />
+            </button>
+        </Tooltip>
     );
 }
 
@@ -1930,6 +2098,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         className={`social_EventTile_repostCard${onViewThread ? " social_EventTile_repostCard--clickable" : ""}`}
                         onClick={handleRepostCardClick}
                     >
+                        <RepostVerificationBadge
+                            client={client}
+                            roomId={repostOf.room_id}
+                            eventId={repostOf.event_id}
+                            embeddedSource={repostOfSourceContent}
+                            autoVerify={isFocused}
+                        />
                         <div className="social_EventTile_repostCard_header">
                             {repostedPerMessageAvatarUrl !== undefined
                                 ? repostedPerMessageAvatarUrl && (
@@ -2057,6 +2232,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         className={`social_EventTile_repostCard${onViewThread ? " social_EventTile_repostCard--clickable" : ""}`}
                         onClick={handleQuotedCardClick}
                     >
+                        <RepostVerificationBadge
+                            client={client}
+                            roomId={replyCrossPostOf.room_id}
+                            eventId={replyCrossPostOf.event_id}
+                            embeddedSource={replyCrossPostOfSourceContent}
+                            autoVerify={isFocused}
+                        />
                         <div className="social_EventTile_repostCard_header">
                             <span className="social_EventTile_repostCard_sender">
                                 {quotedPerMessageProfile?.displayname || replyCrossPostOf.displayname || replyCrossPostOf.sender}

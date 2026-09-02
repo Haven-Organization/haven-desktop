@@ -253,17 +253,26 @@ export async function resolveProfileRoom(
     // predates knock_restricted etc. in the spec) — widen to what the server can actually send.
     const joinRule = summary.join_rule as unknown as string | undefined;
 
-    if (joinRule === JoinRule.Public) {
-        if (summary.world_readable) {
-            try {
-                await withTimeout(client.peekInRoom(profileRoomId), 15_000);
-                return { kind: "room" };
-            } catch {
-                // Summary said world-readable but the peek itself was refused/failed — fall back
-                // to the lightweight summary-only preview below rather than "private", since the
-                // room genuinely is public.
-            }
+    const isKnockJoinRule = joinRule === JoinRule.Knock || joinRule === "knock_restricted";
+
+    // World-readable is independent of join_rule — a knock(_restricted) room can still be peeked
+    // for its posts even though actually following it needs a request, same as a public one. Used
+    // to only ever attempt the peek for joinRule === Public, so a peekable knock room's profile
+    // always fell to the summary-only preview below with no posts, even though SocialRoomView (the
+    // same view a public peek already reuses) already fully supports browsing a non-member's
+    // peeked room and sending a follow/knock request from right there.
+    if ((joinRule === JoinRule.Public || isKnockJoinRule) && summary.world_readable) {
+        try {
+            await withTimeout(client.peekInRoom(profileRoomId), 15_000);
+            return { kind: "room" };
+        } catch {
+            // Summary said world-readable but the peek itself was refused/failed — fall back to
+            // the lightweight summary-only preview below rather than "private", since the room
+            // genuinely is public/knockable.
         }
+    }
+
+    if (joinRule === JoinRule.Public) {
         return {
             kind: "preview",
             joinRule: "public",
@@ -274,7 +283,7 @@ export async function resolveProfileRoom(
         };
     }
 
-    if (joinRule === JoinRule.Knock || joinRule === "knock_restricted") {
+    if (isKnockJoinRule) {
         return {
             kind: "preview",
             joinRule: "knock",
