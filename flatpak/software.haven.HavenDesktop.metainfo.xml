@@ -33,8 +33,37 @@
     <content_attribute id="social-info">mild</content_attribute>
   </content_rating>
   <releases>
-    <release version="0.7.0" date="2026-08-26" />
-    <release version="0.6.5" date="2026-08-18" />
+    <release version="0.7.0" date="2026-08-26">
+      <description>
+        <p>Fixes and improvements across profiles, room navigation, and the emoji/sticker picker:</p>
+        <ul>
+          <li>Fix stale scroll position and HTML bio rendering when navigating profiles</li>
+          <li>Fix Alt+Up/Down room navigation when no room is currently selected</li>
+          <li>Add a "Reactions" dialog for viewing who reacted with what</li>
+          <li>Add a "View Devices" link to a room member's profile</li>
+          <li>Fix emoji picker tiles not filling their full clickable area</li>
+          <li>Fix the custom emoji/sticker picker loading full-resolution images</li>
+          <li>Fix "Create New Pack" wrapping and a double scrollbar in the devices dialog</li>
+          <li>Fix /me messages with a mention pill wrapping onto a second line</li>
+          <li>Make the Forward dialog's body/attachment toggles clickable anywhere</li>
+          <li>Keep the room list's blurred-avatar backdrop bundled regardless of the old room list flag</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.6.5" date="2026-08-18">
+      <description>
+        <p>A round of fixes focused on the custom emoji/sticker picker and room list:</p>
+        <ul>
+          <li>Add a setting to disable the custom emoji/sticker picker in favor of the stock picker</li>
+          <li>Fix the picker crashing on scroll for accounts with many favorited packs</li>
+          <li>Fix a horizontal scrollbar on the picker's category rail and missing hover previews for custom emoji</li>
+          <li>Restore freeform-text reactions when the custom picker is disabled</li>
+          <li>Restore the room list's blurred-avatar backdrop and extend it to section headers and the search bar</li>
+          <li>Fix custom emoji being sent as garbled, escaped HTML</li>
+          <li>Fix the composer's URL preview lingering after sending or clearing the link</li>
+        </ul>
+      </description>
+    </release>
   </releases>
   <categories>
     <category>Network</category>
