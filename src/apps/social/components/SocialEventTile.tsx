@@ -811,10 +811,22 @@ type RepostVerificationState = "unverified" | "verifying" | "verified" | "failed
  *  both sides the same way (resolvePostBody/stripHavenHeader) so legitimate structural differences
  *  don't false-positive as forgery. Only compares the fields that actually matter for "does this
  *  say/show what the card claims" - body, formatted_body, msgtype, and the media reference - not a
- *  full deep-equal, since unrelated metadata drifting apart isn't a sign of tampering. */
+ *  full deep-equal, since unrelated metadata drifting apart isn't a sign of tampering.
+ *
+ *  `contentInline` is the same flag repostOf/replyCrossPostOf.content_inline carries — when true
+ *  *and* the embedded snapshot has a media URL with no genuine MSC4501 body override, its raw
+ *  body/formatted_body describe the outer wrapper event's own backwards-compat filler caption (a
+ *  bare permalink/filename per MSC4501, per this file's own repost-card rendering logic further
+ *  down - see hasPostBodyOverride's callers), not the real embedded post's content. Comparing that
+ *  filler against the real fetched event's actual body/formatted_body was always a mismatch,
+ *  flagging every such repost/reply as a possible forgery regardless of whether the real content
+ *  matched - confirmed live against a genuine, unaltered image repost. The media URL is
+ *  content-addressed, so an exact match there is already proof; body/formatted_body just aren't
+ *  meaningful to compare in this specific case. */
 function repostContentMatches(
     embeddedSource: Record<string, any> | undefined,
     realContent: Record<string, any> | undefined,
+    contentInline?: boolean,
 ): boolean {
     const a = stripHavenHeader(resolvePostBody(embeddedSource)) as {
         body?: string;
@@ -824,11 +836,14 @@ function repostContentMatches(
         file?: { url?: string };
     };
     const b = stripHavenHeader(resolvePostBody(realContent)) as typeof a;
+    const aUrl = a?.url ?? a?.file?.url ?? "";
+    const bUrl = b?.url ?? b?.file?.url ?? "";
+    const bodyIsWrapperFiller = !!contentInline && !!aUrl && !hasPostBodyOverride(embeddedSource);
     return (
-        (a?.body ?? "") === (b?.body ?? "") &&
-        (a?.formatted_body ?? "") === (b?.formatted_body ?? "") &&
+        (bodyIsWrapperFiller ||
+            ((a?.body ?? "") === (b?.body ?? "") && (a?.formatted_body ?? "") === (b?.formatted_body ?? ""))) &&
         (a?.msgtype ?? "") === (b?.msgtype ?? "") &&
-        (a?.url ?? a?.file?.url ?? "") === (b?.url ?? b?.file?.url ?? "")
+        aUrl === bUrl
     );
 }
 
@@ -839,6 +854,9 @@ interface RepostVerificationBadgeProps {
     /** The repost/reply relation's own embedded content snapshot, pre-normalization - what the
      *  card is actually showing, and what gets compared against the real fetched event. */
     embeddedSource: Record<string, any> | undefined;
+    /** repostOf/replyCrossPostOf.content_inline - see repostContentMatches's own doc for why this
+     *  changes what counts as a meaningful mismatch. */
+    contentInline?: boolean;
     /** Verify immediately on mount rather than waiting for a click - see this section's own doc
      *  above for why this is only safe to set for a single focused post, not a whole feed. */
     autoVerify?: boolean;
@@ -849,6 +867,7 @@ function RepostVerificationBadge({
     roomId,
     eventId,
     embeddedSource,
+    contentInline,
     autoVerify,
 }: RepostVerificationBadgeProps): JSX.Element {
     // Cheap, network-free initial check: if we're already in the room and already have this exact
@@ -858,7 +877,7 @@ function RepostVerificationBadge({
         const room = client.getRoom(roomId);
         const realEvent = room?.findEventById(eventId);
         if (!realEvent) return "unverified";
-        return repostContentMatches(embeddedSource, realEvent.getContent()) ? "verified" : "forged";
+        return repostContentMatches(embeddedSource, realEvent.getContent(), contentInline) ? "verified" : "forged";
     });
 
     const verify = useCallback(async (): Promise<void> => {
@@ -887,34 +906,48 @@ function RepostVerificationBadge({
                 if (room.getMyMembership() === KnownMembership.Join) {
                     realEvent = await fetchRoomEventWithRetry(client, roomId, eventId);
                 } else {
-                    // Haven: neither client.fetchRoomEvent() (GET /rooms/{id}/event/{id}, 404s) nor
-                    // client.getEventTimeline() (GET /rooms/{id}/context/{id}, 403s) reliably work
-                    // for a peeked-but-unjoined room on at least Synapse, even when world_readable -
-                    // confirmed live against real reports of exactly this. /messages (what
-                    // client.scrollback() pages through) is the one endpoint confirmed to actually
-                    // honor world_readable for a genuine non-member peeker, so page backwards
-                    // through it looking for the event, the same way "load more history" already
-                    // does for any peeked room's timeline. A room whose world_readable grant is
-                    // newer than this specific event will still correctly come up empty here - that
-                    // reflects real, non-retroactive Matrix history_visibility semantics (an event's
-                    // visibility is fixed by whichever value was in effect when it was sent, not
-                    // whatever the room's value happens to be now), not a bug to route around.
-                    for (let page = 0; page < 15 && !realEvent; page++) {
-                        const before = room.getLiveTimeline().getEvents().length;
-                        await client.scrollback(room, 100);
-                        realEvent = room.findEventById(eventId) ?? null;
-                        if (room.getLiveTimeline().getEvents().length === before) break;
+                    // client.getEventTimeline() (GET /rooms/{id}/context/{id}) reliably 403s for a
+                    // peeked-but-unjoined room on at least Synapse, even when world_readable -
+                    // confirmed live. client.fetchRoomEvent() (GET /rooms/{id}/event/{id}) was
+                    // assumed to fail the same way from an earlier test against a different room,
+                    // but resolveAndOpenPost's own peeked-knock-room fallback (same call, same
+                    // retry-on-eventual-consistency reasoning as the joined-member branch above)
+                    // proved live that it *can* succeed for a peeked non-member too - a reply whose
+                    // target this loop alone failed to find within its page budget opened instantly
+                    // through that path instead. Try it first for the same reason it's used there:
+                    // a single targeted fetch not finding the event in this room's already-backfilled
+                    // /messages history yet doesn't mean the homeserver can't still resolve it
+                    // directly (e.g. via federation), and retrying briefly costs nothing once a
+                    // click already means the user is waiting either way. Only page backwards through
+                    // /messages (what client.scrollback() calls) as a second attempt if that outright
+                    // fails - confirmed to actually honor world_readable for a genuine non-member
+                    // peeker even when the targeted fetch doesn't, the same way "load more history"
+                    // already does for any peeked room's timeline. A room whose world_readable grant
+                    // is newer than this specific event will still correctly come up empty either
+                    // way - that reflects real, non-retroactive Matrix history_visibility semantics
+                    // (an event's visibility is fixed by whichever value was in effect when it was
+                    // sent, not whatever the room's value happens to be now), not a bug to route
+                    // around.
+                    try {
+                        realEvent = await fetchRoomEventWithRetry(client, roomId, eventId);
+                    } catch {
+                        for (let page = 0; page < 15 && !realEvent; page++) {
+                            const before = room.getLiveTimeline().getEvents().length;
+                            await client.scrollback(room, 100);
+                            realEvent = room.findEventById(eventId) ?? null;
+                            if (room.getLiveTimeline().getEvents().length === before) break;
+                        }
                     }
                 }
             }
             if (!realEvent) throw new Error("event not found");
-            setState(repostContentMatches(embeddedSource, realEvent.getContent()) ? "verified" : "forged");
+            setState(repostContentMatches(embeddedSource, realEvent.getContent(), contentInline) ? "verified" : "forged");
         } catch {
             setState("failed");
         } finally {
             if (weArePeeking) client.stopPeeking();
         }
-    }, [client, roomId, eventId, embeddedSource]);
+    }, [client, roomId, eventId, embeddedSource, contentInline]);
 
     useEffect(() => {
         if (autoVerify) void verify();
@@ -2103,6 +2136,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             roomId={repostOf.room_id}
                             eventId={repostOf.event_id}
                             embeddedSource={repostOfSourceContent}
+                            contentInline={repostOf.content_inline}
                             autoVerify={isFocused}
                         />
                         <div className="social_EventTile_repostCard_header">
@@ -2237,6 +2271,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             roomId={replyCrossPostOf.room_id}
                             eventId={replyCrossPostOf.event_id}
                             embeddedSource={replyCrossPostOfSourceContent}
+                            contentInline={replyCrossPostOf.content_inline}
                             autoVerify={isFocused}
                         />
                         <div className="social_EventTile_repostCard_header">
