@@ -552,6 +552,7 @@
         "public_room": "Public room",
         "public_space": "Public space",
         "qr_code": "QR Code",
+        "qr_code_unavailable": "QR code unavailable in this browser",
         "random": "Random",
         "reactions": "Reactions",
         "recommended": "Recommended",
