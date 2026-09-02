@@ -9,6 +9,8 @@
 
 Try Haven at: https://app.haven.software
 
+[<img width="190" alt="Get it on Flathub" src="https://flathub.org/api/badge?locale=en">](https://flathub.org/apps/software.haven.HavenDesktop)
+
 Haven is a fork of [Element Web](https://github.com/element-hq/element-web) built around four goals:
 
 - **Social.** A Matrix-native profile, feed, and group experience, closer to a normal social
