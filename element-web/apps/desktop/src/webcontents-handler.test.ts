@@ -7,6 +7,9 @@ Please see LICENSE files in the repository root for full details.
 
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { dialog, shell, type WebContents } from "electron";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 // The `userDownloadAction` listener is registered at import time, so capture the callbacks that
 // `ipcMain.on` receives in order to invoke the handler under test directly.
@@ -57,6 +60,7 @@ vi.mock("./language-helper.js", () => ({ _t: (key: string): string => key }));
 vi.mock("./config.js", () => ({ getConfig: (): Record<string, never> => ({}) }));
 vi.mock("./save-image.js", () => ({ saveImageToFile: vi.fn() }));
 
+const { saveImageToFile } = await import("./save-image.js");
 const registerWebContentsHandlers = (await import("./webcontents-handler.js")).default;
 
 interface MockWebContents {
@@ -222,8 +226,10 @@ describe("save dialog filters", () => {
         );
     });
 
-    it("asks the save dialog to confirm overwrites when saving an image from the context menu", async () => {
-        vi.mocked(dialog.showSaveDialog).mockResolvedValue({ canceled: false, filePath: "/tmp/renamed.jpg" });
+    it("saves under the dialog's own path when nothing is there yet", async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "webcontents-handler-test-"));
+        const target = path.join(dir, "photo.jpg");
+        vi.mocked(dialog.showSaveDialog).mockResolvedValue({ canceled: false, filePath: target });
 
         wc.handlers["context-menu"](
             { preventDefault: vi.fn() },
@@ -232,10 +238,32 @@ describe("save dialog filters", () => {
         const saveAs = menus[0].items.find((item) => item.label === "right_click_menu|save_image_as");
         await saveAs!.click!();
 
-        expect(dialog.showSaveDialog).toHaveBeenCalledWith(
-            expect.objectContaining({
-                properties: ["showOverwriteConfirmation"],
-            }),
+        expect(saveImageToFile).toHaveBeenCalledWith("https://example.org/photo.jpg", target, expect.anything());
+        fs.rmSync(dir, { recursive: true });
+    });
+
+    it("picks the first free '(n)' suffix instead of the native dialog's own overwrite prompt", async () => {
+        // GTK on Linux doesn't confirm overwrites unless told to, unlike macOS/Windows which
+        // always do - either way, the point here is this never needs to ask at all: same as
+        // Chrome's own download manager, it just finds a name nothing is using yet.
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "webcontents-handler-test-"));
+        fs.writeFileSync(path.join(dir, "photo.jpg"), "existing");
+        fs.writeFileSync(path.join(dir, "photo (1).jpg"), "also existing");
+        const target = path.join(dir, "photo.jpg");
+        vi.mocked(dialog.showSaveDialog).mockResolvedValue({ canceled: false, filePath: target });
+
+        wc.handlers["context-menu"](
+            { preventDefault: vi.fn() },
+            { srcURL: "https://example.org/photo.jpg", hasImageContents: true, suggestedFilename: "photo.jpg" },
         );
+        const saveAs = menus[0].items.find((item) => item.label === "right_click_menu|save_image_as");
+        await saveAs!.click!();
+
+        expect(saveImageToFile).toHaveBeenCalledWith(
+            "https://example.org/photo.jpg",
+            path.join(dir, "photo (2).jpg"),
+            expect.anything(),
+        );
+        fs.rmSync(dir, { recursive: true });
     });
 });

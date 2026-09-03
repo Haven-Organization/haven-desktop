@@ -22,6 +22,7 @@ import {
 } from "electron";
 import url from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 
 import { _t } from "./language-helper.js";
 import { saveImageToFile } from "./save-image.js";
@@ -50,6 +51,32 @@ function saveDialogFilters(fileName: string): FileFilter[] | undefined {
         { name: _t("save_dialog|named_file_type", { extension: extension.toUpperCase() }), extensions: [extension] },
         { name: _t("save_dialog|all_files"), extensions: ["*"] },
     ];
+}
+
+/**
+ * Given a save path the user picked, returns a path that won't clobber an existing file - the same
+ * name if it's free, otherwise " (1)"/" (2)"/etc. appended before the extension, same as Chrome's
+ * own download manager. The GTK save dialog used on Linux doesn't ask before overwriting unless
+ * explicitly told to (unlike macOS/Windows, which always do), so relying on the dialog's own
+ * confirmation isn't an option here - this sidesteps it entirely rather than adding a prompt Chrome
+ * itself doesn't show either.
+ *
+ * @param filePath - the path returned from a save dialog
+ * @returns `filePath` unchanged if nothing exists there yet, otherwise the first available
+ * "name (n).ext" alongside it
+ */
+function nonCollidingPath(filePath: string): string {
+    if (!fs.existsSync(filePath)) return filePath;
+    const dir = path.dirname(filePath);
+    const ext = path.extname(filePath);
+    const base = path.basename(filePath, ext);
+    let n = 1;
+    let candidate: string;
+    do {
+        candidate = path.join(dir, `${base} (${n})${ext}`);
+        n++;
+    } while (fs.existsSync(candidate));
+    return candidate;
 }
 
 function safeOpenURL(target: string): void {
@@ -152,19 +179,12 @@ function onLinkContextMenu(ev: Event, params: ContextMenuParams, webContents: We
                     const { filePath } = await dialog.showSaveDialog({
                         defaultPath: targetFileName,
                         filters: saveDialogFilters(targetFileName),
-                        // Linux-only: the GTK save dialog doesn't confirm overwrites unless asked
-                        // to. macOS/Windows already do this unconditionally, so the flag is a no-op
-                        // there - see https://www.electronjs.org/docs/latest/api/dialog. Without it,
-                        // typing/picking a name that collides with an existing file (e.g. the same
-                        // suggested filename downloaded twice) silently replaces it - the opposite
-                        // of how Chrome's own save dialog behaves on the same platform.
-                        properties: ["showOverwriteConfirmation"],
                     });
 
                     if (!filePath) return; // user cancelled dialog
 
                     try {
-                        await saveImageToFile(url, filePath, webContents.session);
+                        await saveImageToFile(url, nonCollidingPath(filePath), webContents.session);
                     } catch (err) {
                         console.error(err);
                         void dialog.showMessageBox({
