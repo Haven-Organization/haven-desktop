@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+ROOT="$PWD"
+
 mkdir -p pnpm-cli && tar -xzf pnpm-11.22.0.tgz -C pnpm-cli
 
 sed -i 's/minimumReleaseAgeStrict: true/minimumReleaseAgeStrict: false/' element-web/pnpm-workspace.yaml
@@ -19,6 +21,51 @@ cd element-web/apps/web && HAVEN_INCLUDE_OLD_ROOM_LIST=1 pnpm build && cd ../../
 cp element-web/apps/web/config.sample.json element-web/apps/web/webapp/config.json
 
 cd element-web/apps/desktop && pnpm exec asar pack ../web/webapp webapp.asar && cd ../../..
+
+# Build matrix-seshat (local encrypted-room message search) from source using Element's own "hak"
+# native-module build tool. Never wired up for this from-source build before now - matrix-seshat
+# only ever made it into a shippable build via a manually pre-built
+# ".hak/hakModules/matrix-seshat" directory nobody's from-scratch checkout (including this one)
+# could reproduce, so every published build here has been silently shipping a "Cannot find
+# package 'matrix-seshat'" runtime error instead of real search - confirmed live by extracting
+# app.asar from a real published build. hak's own lifecycle (fetch/link/build/copy - see
+# apps/desktop/scripts/hak/README.md) runs entirely without Docker (that's only an optional
+# reproducibility wrapper for scripts/in-docker.sh, not something hak itself needs - checked by
+# reading fetch.ts/build.ts/link.ts/copy.ts directly), so it runs right here the same way this
+# script already runs pnpm/webpack/electron-builder inside flatpak-builder's own sandboxed SDK
+# environment. Verified locally end-to-end (deleted .hak entirely, real network, confirmed the
+# resulting index.node loads and exposes the expected native functions) before writing this, then
+# verified again fully offline (isolated CARGO_HOME + `cargo vendor`, CARGO_NET_OFFLINE=true) to
+# confirm the vendored-sources approach below actually works, not just the theory.
+#
+# hak's own "fetch" stage (a pacote npm-registry fetch, then `yarn install`) needs live network
+# access flatpak-builder's sandboxed build never has - worked around by having the *manifest*
+# extract the same matrix-seshat npm tarball directly into both directories fetch.ts would
+# otherwise populate (moduleBuildDir and moduleOutDir - fetch.ts skips its own fetch entirely once
+# moduleBuildDir already exists), so hak's later check/link/build/copy stages behave exactly as if
+# a normal fetch had already happened. yarn (hak hardcodes it, not pnpm) and Rust both come from
+# manifest-provided sources/SDK extensions rather than being fetched here.
+#
+# One real gotcha found only by actually testing this offline (not just reading the source):
+# published matrix-seshat npm tarballs don't ship their own yarn.lock - fetch.ts's own
+# `yarn install --ignore-scripts` step is what *generates* one from package.json's loose semver
+# ranges, resolved against whatever's live in the registry at fetch time. Skipping fetch.ts (as
+# above) skips that generation too, so without also placing a real yarn.lock into moduleBuildDir,
+# the later `yarn install` inside hak's build stage has nothing to resolve from and fails outright
+# even with the offline mirror fully populated (confirmed live: "No lockfile found", then a real
+# network attempt straight to the registry). The manifest's matrix-seshat npm-tarball source needs
+# a pinned yarn.lock layered in on top for the same dest - see flatpak-seshat-vendoring/README.md
+# for exactly which file and where.
+mkdir -p yarn-cli && tar -xzf yarn-1.22.22.tgz -C yarn-cli
+export PATH="$ROOT/yarn-cli/package/bin:/usr/lib/sdk/rust-stable/bin:$PATH"
+HOME="$ROOT" yarn config --offline set yarn-offline-mirror "$ROOT/flatpak-node/yarn-mirror"
+
+cd element-web/apps/desktop
+for hak_stage in check link build copy; do
+    HOME="$ROOT" CARGO_HOME="$ROOT/cargo" CARGO_NET_OFFLINE=true SQLCIPHER_BUNDLED=1 \
+        pnpm run hak "$hak_stage" matrix-seshat
+done
+cd ../../..
 
 sed -i 's#export default config;#config.publish = null; config.electronDist = "/run/build/haven-desktop/flatpak-node/cache/electron"; config.linux = config.linux || {}; config.linux.target = ["dir"]; export default config;#' element-web/apps/desktop/electron-builder.ts
 
