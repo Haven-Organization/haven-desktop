@@ -807,11 +807,40 @@ function RepliedToProfileIndicator({
 
 type RepostVerificationState = "unverified" | "verifying" | "verified" | "failed" | "forged";
 
+/** Strips a trailing "Other Attachments:" block some bridges append to a post's *stock*
+ *  body/formatted_body when the original had more than one image - Matrix media messages only
+ *  carry a single `url`, so the first image becomes the real attachment and any rest get listed as
+ *  a text link instead, for clients with no other way to show them. Only ever appears on the stock
+ *  fields: the same bridge's own org.matrix.msc4501.social.body/formatted_body override (the
+ *  "real", MSC4501-aware caption) omits it entirely, since an MSC4501 client is expected to have a
+ *  real way to show the rest instead. That split is exactly what repostContentMatches hits: a
+ *  repost's embedded snapshot captures the *override* (no trailer), while re-fetching the real
+ *  event returns its stock fields (trailer attached, since it has no override of its own) -
+ *  confirmed live against a genuine, unaltered repost that only differed by this exact trailer.
+ *  Applied to both sides before comparing so a real edit to the shared caption still gets caught. */
+function stripOtherAttachmentsTrailer<T extends { body?: string; formatted_body?: string } | undefined>(
+    content: T,
+): T {
+    if (typeof content?.body !== "string" && typeof content?.formatted_body !== "string") return content;
+    const stripped = { ...content };
+    if (typeof stripped.body === "string") {
+        stripped.body = stripped.body.replace(/\n\nOther Attachments:\n[\s\S]*$/, "");
+    }
+    if (typeof stripped.formatted_body === "string") {
+        stripped.formatted_body = stripped.formatted_body.replace(
+            /(?:<br\s*\/?>\s*){2}Other Attachments:[\s\S]*$/i,
+            "",
+        );
+    }
+    return stripped;
+}
+
 /** Compares an embedded repost/reply snapshot against a real fetched event's content, normalizing
- *  both sides the same way (resolvePostBody/stripHavenHeader) so legitimate structural differences
- *  don't false-positive as forgery. Only compares the fields that actually matter for "does this
- *  say/show what the card claims" - body, formatted_body, msgtype, and the media reference - not a
- *  full deep-equal, since unrelated metadata drifting apart isn't a sign of tampering.
+ *  both sides the same way (resolvePostBody/stripHavenHeader/stripOtherAttachmentsTrailer) so
+ *  legitimate structural differences don't false-positive as forgery. Only compares the fields that
+ *  actually matter for "does this say/show what the card claims" - body, formatted_body, msgtype,
+ *  and the media reference - not a full deep-equal, since unrelated metadata drifting apart isn't a
+ *  sign of tampering.
  *
  *  `contentInline` is the same flag repostOf/replyCrossPostOf.content_inline carries — when true
  *  *and* the embedded snapshot has a media URL with no genuine MSC4501 body override, its raw
@@ -820,30 +849,47 @@ type RepostVerificationState = "unverified" | "verifying" | "verified" | "failed
  *  down - see hasPostBodyOverride's callers), not the real embedded post's content. Comparing that
  *  filler against the real fetched event's actual body/formatted_body was always a mismatch,
  *  flagging every such repost/reply as a possible forgery regardless of whether the real content
- *  matched - confirmed live against a genuine, unaltered image repost. The media URL is
- *  content-addressed, so an exact match there is already proof; body/formatted_body just aren't
- *  meaningful to compare in this specific case. */
+ *  matched - confirmed live against a genuine, unaltered image repost.
+ *
+ *  The media URL is *not* content-addressed, despite this function originally assuming it was -
+ *  matrix media IDs are opaque and server-assigned at upload time, not derived from the file's own
+ *  bytes. Confirmed live: a repost's embedded mxc:// URL and the real post's own mxc:// URL were
+ *  different strings pointing at byte-identical images (same SHA-256, same size) - the fediverse
+ *  bridge re-uploads media fresh each time it relays an activity that references it, rather than
+ *  reusing one upload, so a genuine unaltered repost routinely gets a different media ID than its
+ *  original. A raw URL mismatch alone is no longer enough to call something a forgery; if the
+ *  dimensions and mimetype in `info` also match, that's about as strong a signal of "same image"
+ *  as is available without downloading and hashing the media itself on every verification. */
 function repostContentMatches(
     embeddedSource: Record<string, any> | undefined,
     realContent: Record<string, any> | undefined,
     contentInline?: boolean,
 ): boolean {
-    const a = stripHavenHeader(resolvePostBody(embeddedSource)) as {
+    const a = stripOtherAttachmentsTrailer(stripHavenHeader(resolvePostBody(embeddedSource))) as {
         body?: string;
         formatted_body?: string;
         msgtype?: string;
         url?: string;
         file?: { url?: string };
+        info?: { mimetype?: string; w?: number; h?: number };
     };
-    const b = stripHavenHeader(resolvePostBody(realContent)) as typeof a;
+    const b = stripOtherAttachmentsTrailer(stripHavenHeader(resolvePostBody(realContent))) as typeof a;
     const aUrl = a?.url ?? a?.file?.url ?? "";
     const bUrl = b?.url ?? b?.file?.url ?? "";
+    const sameDimensionsAndType = !!(
+        a?.info?.mimetype &&
+        a.info.mimetype === b?.info?.mimetype &&
+        a.info.w != null &&
+        a.info.w === b?.info?.w &&
+        a.info.h != null &&
+        a.info.h === b?.info?.h
+    );
     const bodyIsWrapperFiller = !!contentInline && !!aUrl && !hasPostBodyOverride(embeddedSource);
     return (
         (bodyIsWrapperFiller ||
             ((a?.body ?? "") === (b?.body ?? "") && (a?.formatted_body ?? "") === (b?.formatted_body ?? ""))) &&
         (a?.msgtype ?? "") === (b?.msgtype ?? "") &&
-        aUrl === bUrl
+        (aUrl === bUrl || (!!aUrl && !!bUrl && sameDimensionsAndType))
     );
 }
 
