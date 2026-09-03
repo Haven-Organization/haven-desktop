@@ -152,6 +152,13 @@ function onLinkContextMenu(ev: Event, params: ContextMenuParams, webContents: We
                     const { filePath } = await dialog.showSaveDialog({
                         defaultPath: targetFileName,
                         filters: saveDialogFilters(targetFileName),
+                        // Linux-only: the GTK save dialog doesn't confirm overwrites unless asked
+                        // to. macOS/Windows already do this unconditionally, so the flag is a no-op
+                        // there - see https://www.electronjs.org/docs/latest/api/dialog. Without it,
+                        // typing/picking a name that collides with an existing file (e.g. the same
+                        // suggested filename downloaded twice) silently replaces it - the opposite
+                        // of how Chrome's own save dialog behaves on the same platform.
+                        properties: ["showOverwriteConfirmation"],
                     });
 
                     if (!filePath) return; // user cancelled dialog

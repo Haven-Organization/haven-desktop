@@ -221,4 +221,21 @@ describe("save dialog filters", () => {
             }),
         );
     });
+
+    it("asks the save dialog to confirm overwrites when saving an image from the context menu", async () => {
+        vi.mocked(dialog.showSaveDialog).mockResolvedValue({ canceled: false, filePath: "/tmp/renamed.jpg" });
+
+        wc.handlers["context-menu"](
+            { preventDefault: vi.fn() },
+            { srcURL: "https://example.org/photo.jpg", hasImageContents: true, suggestedFilename: "photo.jpg" },
+        );
+        const saveAs = menus[0].items.find((item) => item.label === "right_click_menu|save_image_as");
+        await saveAs!.click!();
+
+        expect(dialog.showSaveDialog).toHaveBeenCalledWith(
+            expect.objectContaining({
+                properties: ["showOverwriteConfirmation"],
+            }),
+        );
+    });
 });
