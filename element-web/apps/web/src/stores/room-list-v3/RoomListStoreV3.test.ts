@@ -1017,13 +1017,28 @@ describe("RoomListStoreV3", () => {
 
             const settingsBySection: Record<string, SortingAlgorithm> = {};
             vi.spyOn(SettingsStore, "getValue").mockImplementation((setting: string) => {
+                // mockImplementation replaces enableSections()'s own mock outright rather than
+                // layering on top of it, so "RoomList.showSections" has to be re-included here too -
+                // left out, it silently fell back to false below, disabling sections entirely and
+                // routing getSortedRoomsInActiveSpace through its flat/unsectioned path, which never
+                // calls applySectionSort at all. That's why the room list came back in the skip
+                // list's own base Recency order instead of ever being resorted Alphabetically -
+                // confirmed live, a second real bug independent of the setValue mock fix above.
+                if (setting === "RoomList.showSections") return true;
                 if (setting === "RoomList.preferredSortingBySection") return settingsBySection;
                 if (setting === "RoomList.OrderedCustomSections") return [];
                 if (setting === "RoomList.CustomSectionData") return {};
                 return false;
             });
             vi.spyOn(SettingsStore, "setValue").mockImplementation(async (_name, _roomId, _level, value) => {
-                settingsBySection[CHATS_TAG] = value as SortingAlgorithm;
+                // `value` here is already the whole updated by-section map setSectionSortAlgorithm
+                // builds (`{...bySection, [tag]: algorithm}`), not a single algorithm value - merge
+                // it in directly rather than nesting it under one more key. Nesting it left
+                // getSectionSortAlgorithm reading back an object instead of a real SortingAlgorithm,
+                // matching no case in getSorterFromSortingAlgorithm's switch and silently falling
+                // back to the default Recency sorter - the section never actually got sorted
+                // Alphabetically, which is what this test exists to check.
+                Object.assign(settingsBySection, value as Record<string, SortingAlgorithm>);
             });
 
             store.setSectionSortAlgorithm(CHATS_TAG, SortingAlgorithm.Alphabetic);
@@ -1553,6 +1568,26 @@ describe("RoomListStoreV3 - currently viewed room tracking (Haven)", () => {
             .sections.flatMap((s) => s.rooms.map((r) => r.roomId));
 
     beforeEach(() => {
+        // This describe block is a sibling top-level describe, not nested inside the main
+        // describe("RoomListStoreV3", ...) above - it doesn't inherit that one's own beforeEach,
+        // which is where storeReadyPromise (among others) normally gets mocked to resolve
+        // immediately. Left unmocked, the real getter never resolves against this suite's stubbed
+        // client, so `await SDKContextClass.instance.spaceStore.storeReadyPromise` in this file's
+        // own ready() helper just hangs until vitest's test timeout kills it - confirmed live
+        // (reproduced locally, not a CI-only flake). Mirroring the same mocks the other describe
+        // block already relies on, rather than just the one that happens to cause the hang.
+        vi.spyOn(global, "requestAnimationFrame").mockImplementation((cb: FrameRequestCallback) => {
+            cb(0);
+            return 0;
+        });
+        vi.spyOn(SDKContextClass.instance.spaceStore, "isRoomInSpace").mockImplementation(
+            (space) => space === MetaSpace.Home,
+        );
+        vi.spyOn(SDKContextClass.instance.spaceStore, "activeSpace", "get").mockImplementation(() => MetaSpace.Home);
+        vi.spyOn(SDKContextClass.instance.spaceStore, "storeReadyPromise", "get").mockImplementation(() =>
+            Promise.resolve(),
+        );
+
         DMRoomMap.setShared({ getUserIdForRoomId: vi.fn().mockReturnValue(null) } as unknown as DMRoomMap);
 
         client = stubClient();
