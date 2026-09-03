@@ -60,6 +60,16 @@ mkdir -p yarn-cli && tar -xzf yarn-1.22.22.tgz -C yarn-cli
 export PATH="$ROOT/yarn-cli/package/bin:/usr/lib/sdk/rust-stable/bin:$PATH"
 HOME="$ROOT" yarn config --offline set yarn-offline-mirror "$ROOT/flatpak-node/yarn-mirror"
 
+# hak/matrix-seshat/build.ts's own "yarn install" call has no --offline flag - having the mirror
+# configured isn't enough on its own, classic Yarn 1.x still does a DNS lookup against
+# registry.yarnpkg.com first ("Fetching packages...") and fails outright in a real network-less
+# sandbox (confirmed live: a real flatpak-builder run failed here with
+# "getaddrinfo EAI_AGAIN registry.yarnpkg.com" even with every package already in the mirror) -
+# an earlier local-only offline test missed this because it used an unreachable IP instead of an
+# unresolvable hostname, which fails a different way and didn't exercise this exact code path.
+sed -i 's#hakEnv\.spawn("yarn", \["install"\]#hakEnv.spawn("yarn", ["install", "--offline"]#' \
+    element-web/apps/desktop/hak/matrix-seshat/build.ts
+
 cd element-web/apps/desktop
 for hak_stage in check link build copy; do
     HOME="$ROOT" CARGO_HOME="$ROOT/cargo" CARGO_NET_OFFLINE=true SQLCIPHER_BUNDLED=1 \
