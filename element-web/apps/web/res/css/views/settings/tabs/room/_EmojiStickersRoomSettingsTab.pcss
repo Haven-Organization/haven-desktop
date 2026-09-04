@@ -76,29 +76,31 @@
 }
 
 .mx_EmojiStickersSettingsTab_backBar {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
     margin-bottom: var(--cpd-space-3x);
+}
+
+/* Haven: red reminder next to Back once the pack has unsaved changes - see requirement 5. Back
+   itself isn't guarded (only the dialog's own X/click-outside/other-category navigation is, via
+   SettingsNavigationGuardContext), so this is the only warning a user gets before Back would lose
+   local edits. */
+.mx_EmojiStickersSettingsTab_unsavedWarning {
+    color: var(--cpd-color-text-critical-primary);
+    font: var(--cpd-font-body-sm-semibold);
 }
 
 .mx_EmojiStickersSettingsTab_packHeader {
     display: flex;
     align-items: center;
     /* Haven: the settings subsection lays rows out on a CSS grid with `justify-items: flex-start`,
-       so this row shrink-wraps to its own content width by default - stretch it so the trailing
-       Edit/Done button lands at the same right edge as the image rows' Edit buttons below. */
+       so this row shrink-wraps to its own content width by default - stretch it so the editable
+       name field below fills the remaining width rather than shrink-wrapping to nothing. */
     justify-self: stretch;
-    gap: var(--cpd-space-3x);
-    /* Haven: matches .mx_EmojiStickersSettingsTab_imageRow's horizontal padding so this row's
-       Edit/Done button lines up exactly with the image rows' Edit buttons below. */
+    gap: var(--cpd-space-4x);
     padding-inline: var(--cpd-space-2x);
     margin-bottom: var(--cpd-space-4x);
-
-    /* Haven: .mx_SettingsTab forces every .mx_AccessibleButton to `align-self: flex-start`
-       (so buttons never stretch full width elsewhere), which also overrides this row's own
-       `align-items: center` for the bare Edit/Done button - pin it back to centered so it
-       lines up with the pack name / editable name field next to it. */
-    > .mx_AccessibleButton {
-        align-self: center;
-    }
 }
 
 .mx_EmojiStickersSettingsTab_packHeaderInfo {
@@ -106,13 +108,67 @@
     min-width: 0;
 }
 
-.mx_EmojiStickersSettingsTab_packHeaderName {
-    margin: 0;
+/* Haven: the pack name field's own checkmark/X pair - shown whenever the typed name differs from
+   the pack's own saved name (see PackEditor.tsx's own `nameEdited`), not via Compound's
+   EditInPlace, whose focus-driven show/hide flickered on Cancel and hid on blur instead of
+   staying up once edited. */
+.mx_EmojiStickersSettingsTab_packNameEdit {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--cpd-space-2x);
+
+    > .mx_Field {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+.mx_EmojiStickersSettingsTab_packNameEditButtons {
+    display: flex;
+    gap: var(--cpd-space-1x);
+    /* Haven: Field's own label sits above the input, so without this the icon buttons - which
+       have no label row of their own - would sit centered against the label+input pair rather
+       than lined up with just the input's own height. */
+    padding-bottom: 2px;
 }
 
 .mx_EmojiStickersSettingsTab_uploadBtn {
     display: inline-flex;
     cursor: pointer;
+}
+
+/* Haven: the pack avatar + its always-visible edit pencil (see requirement 2) - same layered
+   pattern as AvatarSetting.tsx's own .mx_AvatarSetting_avatar/_uploadButton, just built around
+   PackAvatar's own size-prop-driven sizing instead of a fixed 120px circle. */
+.mx_EmojiStickersSettingsTab_avatarEdit {
+    position: relative;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.mx_EmojiStickersSettingsTab_avatarEditTrigger {
+    display: block;
+    cursor: pointer;
+}
+
+.mx_EmojiStickersSettingsTab_avatarEditButton {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 28px;
+    height: 28px;
+    border-radius: 32px;
+    border: 1px solid var(--cpd-color-bg-canvas-default);
+    background-color: var(--cpd-color-bg-canvas-default);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.mx_EmojiStickersSettingsTab_avatarEditButton:hover,
+.mx_EmojiStickersSettingsTab_avatarEditButton_active {
+    background-color: var(--cpd-color-bg-subtle-primary);
 }
 
 .mx_EmojiStickersSettingsTab_usageRow {
@@ -164,8 +220,9 @@
 }
 
 .mx_EmojiStickersSettingsTab_imageThumb {
-    width: 32px;
-    height: 32px;
+    /* Haven: bumped from 32px - see requirement 4 */
+    width: 40px;
+    height: 40px;
     object-fit: contain;
     flex-shrink: 0;
 }
@@ -192,6 +249,7 @@
     margin-top: var(--cpd-space-4x);
     display: flex;
     justify-content: flex-end;
+    gap: var(--cpd-space-3x);
 }
 
 .mx_EmojiStickersSettingsTab_addImageRow {
