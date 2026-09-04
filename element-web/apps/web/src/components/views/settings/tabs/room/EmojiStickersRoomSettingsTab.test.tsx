@@ -17,11 +17,14 @@ import EmojiStickersRoomSettingsTab from "./EmojiStickersRoomSettingsTab";
 import * as ImagePacks from "../../../../../utils/ImagePacks";
 import * as pendingManagePack from "../../../../../utils/pendingManagePack";
 import * as useRoomStateHook from "../../../../../hooks/useRoomState";
+import Modal from "../../../../../Modal";
+import CopyPackDialog from "../../../dialogs/CopyPackDialog";
 
 vi.mock("../../emojistickers/PackEditor", () => ({
     PackEditor: (props: any) => <div data-testid="pack-editor">{props.pack.stateKey}</div>,
     PackAvatar: () => <div data-testid="pack-avatar" />,
 }));
+vi.mock("../../../../../Modal");
 
 function makePack(stateKey: string, imageCount = 0): ImagePacks.RoomImagePack {
     const images: Record<string, unknown> = {};
@@ -128,6 +131,23 @@ describe("EmojiStickersRoomSettingsTab", () => {
         await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
         expect(deleteSpy).toHaveBeenCalledWith(client, room.roomId, "packA");
+    });
+
+    it("opens the copy dialog for a pack when its Copy button is clicked", async () => {
+        const room = mkStubRoom("!room:example.org", "Room", client);
+        room.isSpaceRoom = vi.fn().mockReturnValue(false);
+        const pack = makePack("packA", 1);
+        mockRoomState([pack], true);
+
+        render(<EmojiStickersRoomSettingsTab room={room} />);
+
+        await userEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+        expect(Modal.createDialog).toHaveBeenCalledWith(
+            CopyPackDialog,
+            { matrixClient: client, pack },
+            "mx_CopyPackDialog_wrapper",
+        );
     });
 
     it("opens straight into a pending pack's editor when the emoji picker's manage gear queued one", () => {

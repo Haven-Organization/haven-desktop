@@ -866,10 +866,17 @@ describe("<MatrixChat />", () => {
                     await waitFor(() =>
                         expect(createDialog).toHaveBeenCalledWith(
                             UserSettingsDialog,
-                            { initialTabId: UserTab.SessionManager, sdkContext: expect.any(SDKContextClass) },
+                            {
+                                initialTabId: UserTab.SessionManager,
+                                sdkContext: expect.any(SDKContextClass),
+                                // Haven: lets a nested tab hold the dialog's own close while
+                                // dirty - see SettingsNavigationGuardContext's own doc.
+                                navigationGuardRef: { current: null },
+                            },
                             /*className=*/ undefined,
                             /*isPriority=*/ false,
                             /*isStatic=*/ true,
+                            { onBeforeClose: expect.any(Function) },
                         ),
                     );
                 });

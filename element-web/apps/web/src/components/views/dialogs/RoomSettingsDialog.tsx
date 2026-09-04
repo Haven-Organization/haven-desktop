@@ -49,12 +49,22 @@ import { type SDKContextClass } from "../../../contexts/SDKContextClass";
 import { RoomSettingsTab } from "./RoomSettingsDialog-tab.ts";
 import SdkConfig from "../../../SdkConfig";
 import { socialRoomKind } from "../../../../../../../src/apps/social/utils/room-classifier";
+import {
+    type NavigationGuard,
+    type NavigationGuardRef,
+    SettingsNavigationGuardContext,
+} from "../../../contexts/SettingsNavigationGuardContext";
 
 interface IProps {
     roomId: string;
     onFinished: (success?: boolean) => void;
     initialTabId?: RoomSettingsTab;
     sdkContext: SDKContextClass;
+    /** Haven: see SettingsNavigationGuardContext's own doc - kept in sync with whatever guard a
+     *  nested tab registers, so the caller's `onBeforeClose` (passed to Modal.createDialog
+     *  alongside this same ref) can consult it when the dialog's own close is attempted from
+     *  outside the React tree (e.g. clicking the modal background). */
+    navigationGuardRef?: NavigationGuardRef;
 }
 
 interface IState {
@@ -64,6 +74,9 @@ interface IState {
 
 class RoomSettingsDialog extends React.Component<IProps, IState> {
     private dispatcherRef?: string;
+    // Haven: registered by a nested tab (currently only PackEditor.tsx) while it has unsaved
+    // changes - see SettingsNavigationGuardContext's own doc.
+    private navigationGuard: NavigationGuard | null = null;
 
     public constructor(props: IProps) {
         super(props);
@@ -129,6 +142,30 @@ class RoomSettingsDialog extends React.Component<IProps, IState> {
         this.setState({ activeTabId: tabId });
     };
 
+    // Haven: kept in sync with `navigationGuardRef` (when supplied) so the dialog's own close -
+    // handled by `onBeforeClose` at the Modal.createDialog call site, outside this component
+    // entirely - can consult the same guard a sidebar tab switch below uses. See
+    // SettingsNavigationGuardContext's own doc.
+    private setNavigationGuard = (guard: NavigationGuard | null): void => {
+        this.navigationGuard = guard;
+        if (this.props.navigationGuardRef) {
+            this.props.navigationGuardRef.current = guard;
+        }
+    };
+
+    // Haven: sidebar tab switching is an in-tree action (unlike the dialog's own close), so it can
+    // just call whatever guard is currently registered directly rather than going through
+    // `onBeforeClose`.
+    private onGuardedTabChange = (tabId: RoomSettingsTab): void => {
+        if (!this.navigationGuard) {
+            this.onTabChange(tabId);
+            return;
+        }
+        void this.navigationGuard().then((proceed) => {
+            if (proceed) this.onTabChange(tabId);
+        });
+    };
+
     private getTabs(): NonEmptyArray<Tab<RoomSettingsTab>> {
         const tabs: Tab<RoomSettingsTab>[] = [];
 
@@ -146,7 +183,10 @@ class RoomSettingsDialog extends React.Component<IProps, IState> {
                 RoomSettingsTab.EmojiStickers,
                 _td("room_settings|emoji_stickers|title"),
                 <StickerIcon />,
-                <EmojiStickersRoomSettingsTab room={this.state.room} />,
+                <EmojiStickersRoomSettingsTab
+                    room={this.state.room}
+                    closeSettingsFn={() => this.props.onFinished(true)}
+                />,
             ),
         );
         if (this.state.room.getJoinRule() === "knock") {
@@ -252,21 +292,23 @@ class RoomSettingsDialog extends React.Component<IProps, IState> {
                   : _t("room_settings|title", { roomName });
         return (
             <SDKContext.Provider value={this.props.sdkContext}>
-                <BaseDialog
-                    className="mx_RoomSettingsDialog"
-                    hasCancel={true}
-                    onFinished={this.props.onFinished}
-                    title={title}
-                >
-                    <div className="mx_SettingsDialog_content">
-                        <TabbedView
-                            tabs={this.getTabs()}
-                            activeTabId={this.state.activeTabId}
-                            screenName="RoomSettings"
-                            onChange={this.onTabChange}
-                        />
-                    </div>
-                </BaseDialog>
+                <SettingsNavigationGuardContext.Provider value={{ setGuard: this.setNavigationGuard }}>
+                    <BaseDialog
+                        className="mx_RoomSettingsDialog"
+                        hasCancel={true}
+                        onFinished={this.props.onFinished}
+                        title={title}
+                    >
+                        <div className="mx_SettingsDialog_content">
+                            <TabbedView
+                                tabs={this.getTabs()}
+                                activeTabId={this.state.activeTabId}
+                                screenName="RoomSettings"
+                                onChange={this.onGuardedTabChange}
+                            />
+                        </div>
+                    </BaseDialog>
+                </SettingsNavigationGuardContext.Provider>
             </SDKContext.Provider>
         );
     }

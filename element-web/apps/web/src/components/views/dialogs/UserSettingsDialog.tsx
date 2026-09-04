@@ -9,7 +9,7 @@ Please see LICENSE files in the repository root for full details.
 
 import { ClientEvent, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { Toast } from "@vector-im/compound-web";
-import React, { type JSX, useState } from "react";
+import React, { type JSX, useCallback, useRef, useState } from "react";
 import UserProfileIcon from "@vector-im/compound-design-tokens/assets/web/icons/user-profile";
 import DevicesIcon from "@vector-im/compound-design-tokens/assets/web/icons/devices";
 import VisibilityOnIcon from "@vector-im/compound-design-tokens/assets/web/icons/visibility-on";
@@ -55,6 +55,11 @@ import EmojiStickersUserSettingsTab from "../settings/tabs/user/EmojiStickersUse
 import AppsUserSettingsTab from "../settings/tabs/user/AppsUserSettingsTab";
 import { AppsGridIcon } from "../../../../../../../src/apps/framework/icons/AppsGridIcon";
 import { getEnabledApps } from "../../../../../../../src/apps/framework/registry";
+import {
+    type NavigationGuard,
+    type NavigationGuardRef,
+    SettingsNavigationGuardContext,
+} from "../../../contexts/SettingsNavigationGuardContext";
 
 interface IProps {
     initialTabId?: UserTab;
@@ -71,6 +76,11 @@ interface IProps {
     initialEncryptionState?: State;
     sdkContext: SDKContextClass;
     onFinished(this: void): void;
+    /** Haven: see SettingsNavigationGuardContext's own doc - kept in sync with whatever guard a
+     *  nested tab registers, so the caller's `onBeforeClose` (passed to Modal.createDialog
+     *  alongside this same ref) can consult it when the dialog's own close is attempted from
+     *  outside the React tree (e.g. clicking the modal background). */
+    navigationGuardRef?: NavigationGuardRef;
 }
 
 function titleForTabID(tabId: UserTab): React.ReactNode {
@@ -244,7 +254,7 @@ export default function UserSettingsDialog(props: IProps): JSX.Element {
                 UserTab.EmojiStickers,
                 _td("settings|emoji_stickers|title"),
                 <StickerIcon />,
-                <EmojiStickersUserSettingsTab />,
+                <EmojiStickersUserSettingsTab closeSettingsFn={props.onFinished} />,
             ),
         );
 
@@ -308,32 +318,59 @@ export default function UserSettingsDialog(props: IProps): JSX.Element {
 
     const [activeToast, toastRack] = useActiveToast();
 
+    // Haven: kept in sync with `props.navigationGuardRef` (when supplied) so the dialog's own
+    // close - handled by `onBeforeClose` at the Modal.createDialog call site, outside this
+    // component entirely - can consult the same guard a sidebar tab switch below uses. See
+    // SettingsNavigationGuardContext's own doc.
+    const navigationGuard = useRef<NavigationGuard | null>(null);
+    const setNavigationGuard = useCallback(
+        (guard: NavigationGuard | null): void => {
+            navigationGuard.current = guard;
+            if (props.navigationGuardRef) props.navigationGuardRef.current = guard;
+        },
+        [props.navigationGuardRef],
+    );
+    // Haven: sidebar tab switching is an in-tree action (unlike the dialog's own close), so it can
+    // just call whatever guard is currently registered directly rather than going through
+    // `onBeforeClose`.
+    const onGuardedTabChange = useCallback((tabId: UserTab): void => {
+        if (!navigationGuard.current) {
+            setActiveTabId(tabId);
+            return;
+        }
+        void navigationGuard.current().then((proceed) => {
+            if (proceed) setActiveTabId(tabId);
+        });
+    }, []);
+
     return (
         // XXX: SDKContext is provided within the LoggedInView subtree.
         // Modals function outside the MatrixChat React tree, so sdkContext is reprovided here to simulate that.
         // The longer term solution is to move our ModalManager into the React tree to inherit contexts properly.
         <SDKContext.Provider value={props.sdkContext}>
             <ToastContext.Provider value={toastRack}>
-                <BaseDialog
-                    className="mx_UserSettingsDialog"
-                    hasCancel={true}
-                    onFinished={props.onFinished}
-                    title={titleForTabID(activeTabId)}
-                    titleClass="mx_UserSettingsDialog_title"
-                >
-                    <div className="mx_SettingsDialog_content">
-                        <TabbedView
-                            tabs={getTabs()}
-                            activeTabId={activeTabId}
-                            screenName="UserSettings"
-                            onChange={setActiveTabId}
-                            responsive={true}
-                        />
-                    </div>
-                    <div className="mx_SettingsDialog_toastContainer">
-                        {activeToast && <Toast>{activeToast}</Toast>}
-                    </div>
-                </BaseDialog>
+                <SettingsNavigationGuardContext.Provider value={{ setGuard: setNavigationGuard }}>
+                    <BaseDialog
+                        className="mx_UserSettingsDialog"
+                        hasCancel={true}
+                        onFinished={props.onFinished}
+                        title={titleForTabID(activeTabId)}
+                        titleClass="mx_UserSettingsDialog_title"
+                    >
+                        <div className="mx_SettingsDialog_content">
+                            <TabbedView
+                                tabs={getTabs()}
+                                activeTabId={activeTabId}
+                                screenName="UserSettings"
+                                onChange={onGuardedTabChange}
+                                responsive={true}
+                            />
+                        </div>
+                        <div className="mx_SettingsDialog_toastContainer">
+                            {activeToast && <Toast>{activeToast}</Toast>}
+                        </div>
+                    </BaseDialog>
+                </SettingsNavigationGuardContext.Provider>
             </ToastContext.Provider>
         </SDKContext.Provider>
     );

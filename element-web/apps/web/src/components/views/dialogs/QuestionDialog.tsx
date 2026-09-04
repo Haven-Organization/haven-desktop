@@ -27,6 +27,13 @@ export interface IQuestionDialogProps {
     className?: string;
     hasCancelButton?: boolean;
     cancelButton?: React.ReactNode;
+    /**
+     * Haven: the CSS class for the cancel button, mirroring `danger`'s effect on the primary
+     * button above - lets a caller put a destructive action (e.g. "Discard Changes") in the
+     * cancel slot, which renders to the primary button's left, while keeping a non-destructive
+     * action as the emphasized primary button. Passed straight through to DialogButtons.
+     */
+    cancelButtonClass?: string;
     onFinished(ok?: boolean): void;
 }
 
@@ -72,6 +79,7 @@ export default class QuestionDialog extends React.Component<IQuestionDialogProps
                     primaryButtonClass={primaryButtonClass}
                     primaryDisabled={this.props.buttonDisabled}
                     cancelButton={this.props.cancelButton}
+                    cancelButtonClass={this.props.cancelButtonClass}
                     hasCancel={this.props.hasCancelButton && !this.props.quitOnly}
                     onPrimaryButtonClick={this.onOk}
                     focus={this.props.focus}

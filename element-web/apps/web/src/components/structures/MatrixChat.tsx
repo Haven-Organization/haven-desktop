@@ -38,6 +38,7 @@ import PlatformPeg from "../../PlatformPeg";
 import SdkConfig, { type ConfigOptions } from "../../SdkConfig";
 import dis from "../../dispatcher/dispatcher";
 import Modal from "../../Modal";
+import { type NavigationGuardRef, guardedBeforeClose } from "../../contexts/SettingsNavigationGuardContext";
 import { showRoomInviteDialog, showStartChatInviteDialog } from "../../RoomInvite";
 import * as Rooms from "../../Rooms";
 import * as Lifecycle from "../../Lifecycle";
@@ -801,12 +802,23 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             }
             case Action.ViewUserSettings: {
                 const tabPayload = payload as OpenToTabPayload;
+                // Haven: lets a nested tab (currently only PackEditor.tsx) hold the dialog's own
+                // close - its X button, Escape, and clicking outside it - when it has unsaved
+                // changes; see SettingsNavigationGuardContext's own doc for why this ref is needed
+                // at all (background clicks bypass the React tree/onFinished prop entirely).
+                const navigationGuardRef: NavigationGuardRef = { current: null };
                 Modal.createDialog(
                     UserSettingsDialog,
-                    { ...payload.props, initialTabId: tabPayload.initialTabId as UserTab, sdkContext: this.stores },
+                    {
+                        ...payload.props,
+                        initialTabId: tabPayload.initialTabId as UserTab,
+                        sdkContext: this.stores,
+                        navigationGuardRef,
+                    },
                     /*className=*/ undefined,
                     /*isPriority=*/ false,
                     /*isStatic=*/ true,
+                    { onBeforeClose: guardedBeforeClose(navigationGuardRef) },
                 );
 
                 // View the welcome or home page if we need something to look at

@@ -30,12 +30,16 @@ import {
 } from "../../../../../utils/ImagePacks";
 import { PackEditor, PackAvatar } from "../../emojistickers/PackEditor";
 import { consumePendingManagePackStateKey } from "../../../../../utils/pendingManagePack";
+import Modal from "../../../../../Modal";
+import CopyPackDialog from "../../../dialogs/CopyPackDialog";
+import { type RoomImagePack } from "../../../../../utils/ImagePacks";
 
 interface Props {
     room: Room;
+    closeSettingsFn?(): void;
 }
 
-export default function EmojiStickersRoomSettingsTab({ room }: Props): JSX.Element {
+export default function EmojiStickersRoomSettingsTab({ room, closeSettingsFn }: Props): JSX.Element {
     const client = room.client;
     const myUserId = client.getSafeUserId();
 
@@ -81,6 +85,17 @@ export default function EmojiStickersRoomSettingsTab({ room }: Props): JSX.Eleme
             }
         },
         [client, room],
+    );
+
+    const handleCopy = useCallback(
+        (pack: RoomImagePack): void => {
+            Modal.createDialog(
+                CopyPackDialog,
+                { matrixClient: client, pack, closeSettingsFn },
+                "mx_CopyPackDialog_wrapper",
+            );
+        },
+        [client, closeSettingsFn],
     );
 
     const openPack = packs?.find((p) => p.stateKey === openStateKey);
@@ -144,6 +159,9 @@ export default function EmojiStickersRoomSettingsTab({ room }: Props): JSX.Eleme
                                             })}
                                         </span>
                                     </div>
+                                    <AccessibleButton kind="primary_outline" onClick={() => handleCopy(pack)}>
+                                        {_t("action|copy")}
+                                    </AccessibleButton>
                                     <AccessibleButton kind="primary_outline" onClick={() => setOpenStateKey(pack.stateKey)}>
                                         {_t("action|view")}
                                     </AccessibleButton>

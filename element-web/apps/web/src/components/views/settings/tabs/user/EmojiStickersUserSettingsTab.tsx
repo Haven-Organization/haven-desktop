@@ -34,12 +34,18 @@ import {
     packDisplayName,
 } from "../../../../../utils/ImagePacks";
 import { PackEditor } from "../../emojistickers/PackEditor";
+import Modal from "../../../../../Modal";
+import CopyPackDialog from "../../../dialogs/CopyPackDialog";
 
 function packKey(pack: { roomId: string; stateKey: string }): string {
     return `${pack.roomId} ${pack.stateKey}`;
 }
 
-export default function EmojiStickersUserSettingsTab(): JSX.Element {
+interface Props {
+    closeSettingsFn?(): void;
+}
+
+export default function EmojiStickersUserSettingsTab({ closeSettingsFn }: Props): JSX.Element {
     const client = MatrixClientPeg.safeGet();
     const myUserId = client.getSafeUserId();
 
@@ -75,6 +81,17 @@ export default function EmojiStickersUserSettingsTab(): JSX.Element {
             setBusy(false);
         }
     }, [client, packs, favorited]);
+
+    const handleCopy = useCallback(
+        (pack: RoomImagePack): void => {
+            Modal.createDialog(
+                CopyPackDialog,
+                { matrixClient: client, pack, closeSettingsFn },
+                "mx_CopyPackDialog_wrapper",
+            );
+        },
+        [client, closeSettingsFn],
+    );
 
     const openPack = packs.find((pack) => packKey(pack) === openKey);
     if (openPack) {
@@ -146,6 +163,9 @@ export default function EmojiStickersUserSettingsTab(): JSX.Element {
                                                 </span>
                                             </div>
                                         </label>
+                                        <AccessibleButton kind="primary_outline" onClick={() => handleCopy(pack)}>
+                                            {_t("action|copy")}
+                                        </AccessibleButton>
                                         <AccessibleButton kind="primary_outline" onClick={() => setOpenKey(key)}>
                                             {_t("action|view")}
                                         </AccessibleButton>

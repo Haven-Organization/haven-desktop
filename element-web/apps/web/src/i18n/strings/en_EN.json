@@ -2278,8 +2278,16 @@
         },
         "delete_avatar_label": "Delete avatar",
         "emoji_stickers": {
+            "avatar_from_mxc_description": "Enter the mxc:// URL of an image already uploaded to this server.",
+            "avatar_from_mxc_title": "Set pack avatar from MXC URL",
             "body": "Description",
+            "copy_pack_copied": "Copied",
+            "copy_pack_no_rooms": "You don't have permission to add packs to any of your rooms.",
+            "copy_pack_preview_heading": "Pack",
+            "copy_pack_title": "Copy pack",
+            "discard_changes": "Discard Changes",
             "edit_avatar": "Change avatar",
+            "go_back": "Go back",
             "image_count": {
                 "one": "%(count)s image",
                 "other": "%(count)s images"
@@ -2295,13 +2303,18 @@
             "or": "or",
             "pack_name": "Pack name",
             "packs": "Packs",
+            "save_changes": "Save Changes",
             "search_images": "Search images",
             "shortcode": "Shortcode",
             "title": "Emoji & Stickers",
+            "unsaved_changes": "You have unsaved changes.",
+            "unsaved_changes_dialog_description": "You have unsaved changes to this pack. If you leave now, they'll be lost.",
+            "unsaved_changes_dialog_title": "Unsaved changes",
             "upload_image": "Upload image",
             "usage_both": "Emoji and stickers",
             "usage_emoji": "Emoji",
-            "usage_sticker": "Stickers"
+            "usage_sticker": "Stickers",
+            "use_mxc_url": "Use MXC URL"
         },
         "general": {
             "alias_field_has_domain_invalid": "Missing domain separator e.g. (:domain.org)",

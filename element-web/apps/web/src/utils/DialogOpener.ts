@@ -25,6 +25,7 @@ import { type ButtonEvent } from "../components/views/elements/AccessibleButton"
 import PosthogTrackers from "../PosthogTrackers";
 import { showAddExistingSubspace, showCreateNewRoom } from "./space";
 import { SDKContextClass } from "../contexts/SDKContextClass";
+import { type NavigationGuardRef, guardedBeforeClose } from "../contexts/SettingsNavigationGuardContext";
 
 /**
  * Auxiliary class to listen for dialog opening over the dispatcher and
@@ -51,19 +52,27 @@ export class DialogOpener {
     private onDispatch = (payload: ActionPayload): void => {
         if (!this.matrixClient) return;
         switch (payload.action) {
-            case "open_room_settings":
+            case "open_room_settings": {
+                // Haven: lets a nested tab (currently only PackEditor.tsx) hold the dialog's own
+                // close - its X button, Escape, and clicking outside it - when it has unsaved
+                // changes; see SettingsNavigationGuardContext's own doc for why this ref is needed
+                // at all (background clicks bypass the React tree/onFinished prop entirely).
+                const navigationGuardRef: NavigationGuardRef = { current: null };
                 Modal.createDialog(
                     RoomSettingsDialog,
                     {
                         roomId: payload.room_id || SDKContextClass.instance.roomViewStore.getRoomId(),
                         initialTabId: payload.initial_tab_id,
                         sdkContext: SDKContextClass.instance,
+                        navigationGuardRef,
                     },
                     /*className=*/ undefined,
                     /*isPriority=*/ false,
                     /*isStatic=*/ true,
+                    { onBeforeClose: guardedBeforeClose(navigationGuardRef) },
                 );
                 break;
+            }
             case Action.OpenForwardDialog:
                 Modal.createDialog(ForwardDialog, {
                     matrixClient: this.matrixClient,

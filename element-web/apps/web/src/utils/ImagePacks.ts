@@ -495,6 +495,17 @@ export function getManageableImagePacks(client: MatrixClient): RoomImagePack[] {
     return client.getRooms().flatMap((room) => (canManageImagePacks(room, userId) ? getRoomImagePacksForManagement(room) : []));
 }
 
+/** Copies `pack` into `targetRoom` as a brand new pack there, under a fresh state_key derived from
+ *  its own display name (see newPackStateKey) so it can't collide with anything already in that
+ *  room. Writes the pack's content verbatim, images included - every image's own `url` is a real
+ *  mxc:// already hosted on the server, so nothing needs to be re-uploaded, the new pack just
+ *  references the exact same media. Used by CopyPackDialog.tsx. */
+export async function copyImagePackToRoom(client: MatrixClient, pack: RoomImagePack, targetRoom: Room): Promise<void> {
+    const name = packDisplayName(pack.content, pack.stateKey);
+    const stateKey = newPackStateKey(targetRoom, name);
+    await saveRoomImagePack(client, targetRoom.roomId, stateKey, pack.content);
+}
+
 function uniqueShortcode(base: string, existing: ReadonlySet<string>): string {
     if (!existing.has(base)) return base;
     for (let i = 2; ; i++) {
