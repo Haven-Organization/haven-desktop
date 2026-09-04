@@ -23,8 +23,9 @@ interface IProps {
 }
 
 /**
- * Haven: lists another user's devices (see UserInfoHeaderVerificationView.tsx's own "View Devices"
- * link, the only caller). `devices` is passed in already-fetched, rather than re-queried here - see
+ * Haven: lists another user's devices (see UserInfoBasicOptionsView.tsx's own "View Devices" button,
+ * the only caller - a developer-mode-only option, same gating as "View Profile Data" next to it).
+ * `devices` is passed in already-fetched, rather than re-queried here - see
  * UserInfo.tsx's own useDevices() doc: it's backed by MatrixClient.getCrypto().getUserDeviceInfo(),
  * which reads the SDK's own already-synced local device-list cache (kept fresh in the background by
  * the same /keys/query machinery E2E encryption already depends on) rather than a fresh network

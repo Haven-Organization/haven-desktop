@@ -163,18 +163,7 @@ Please see LICENSE files in the repository root for full details.
 
     .mx_UserInfo_verification {
         margin-top: var(--cpd-space-4x);
-        /* Haven: was a fixed 36px (one row) - the verify-button case can now also show a "View
-           Devices" link below it (see UserInfoHeaderVerificationView.tsx), which needs the extra
-           row's own height. The badge/spinner/unavailable-text cases below are all still a single
-           row regardless, so auto-sizing them doesn't change how they look. */
-        min-height: 36px;
-
-        .mx_UserInfo_container_verifyButton {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: var(--cpd-space-2x);
-        }
+        height: 36px;
 
         .mx_UserInfo_verified_badge {
             min-width: 68px;

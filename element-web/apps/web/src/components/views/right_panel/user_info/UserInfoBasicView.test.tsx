@@ -49,7 +49,7 @@ describe("<UserInfoBasic />", () => {
     const defaultMember = new RoomMember(defaultRoomId, defaultUserId);
     let defaultRoom: Room;
 
-    let defaultProps: { member: User | RoomMember; room: Room };
+    let defaultProps: { member: User | RoomMember; room: Room; devices: never[] };
     let matrixClient: MatrixClient;
 
     const renderComponent = (props = defaultProps) => {
@@ -65,6 +65,7 @@ describe("<UserInfoBasic />", () => {
         defaultProps = {
             member: defaultMember,
             room: defaultRoom,
+            devices: [],
         };
     });
 

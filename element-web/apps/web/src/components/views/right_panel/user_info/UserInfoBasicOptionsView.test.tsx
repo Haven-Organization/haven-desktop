@@ -20,7 +20,8 @@ import {
 import { UserInfoBasicOptionsView } from "./UserInfoBasicOptionsView";
 import { UIComponent } from "../../../../settings/UIFeature";
 import { shouldShowComponent } from "../../../../customisations/helpers/UIComponents";
-import { type Member } from "../UserInfo";
+import { type Member, type IDevice } from "../UserInfo";
+import SettingsStore from "../../../../settings/SettingsStore";
 
 vi.mock("../../../viewmodels/right_panel/user_info/UserInfoBasicOptionsViewModel", () => ({
     useUserInfoBasicOptionsViewModel: vi.fn(),
@@ -52,7 +53,7 @@ describe("<UserOptionsSection />", () => {
     const defaultMember = new RoomMember(defaultRoomId, defaultUserId);
     let defaultRoom: Room;
 
-    let defaultProps: { member: User | RoomMember; room: Room };
+    let defaultProps: { member: User | RoomMember; room: Room; devices: never[] };
 
     beforeEach(() => {
         const matrixClient = stubClient();
@@ -60,6 +61,7 @@ describe("<UserOptionsSection />", () => {
         defaultProps = {
             member: defaultMember,
             room: defaultRoom,
+            devices: [],
         };
     });
 
@@ -209,5 +211,45 @@ describe("<UserOptionsSection />", () => {
         render(<UserInfoBasicOptionsView {...propsWithMe} />);
         const dmButton = screen.queryByRole("button", { name: "Send message" });
         expect(dmButton).not.toBeInTheDocument();
+    });
+
+    // Haven: "View Devices" (opens UserDevicesDialog) - a developer-mode-only option, same gating
+    // as the pre-existing "View Profile Data" button it sits directly above.
+    it("should not show View Devices button when developer mode is off", () => {
+        vi.mocked(useUserInfoBasicOptionsViewModel).mockReturnValue({ ...defaultValue });
+        vi.spyOn(SettingsStore, "getValue").mockReturnValue(false);
+        render(<UserInfoBasicOptionsView {...defaultProps} />);
+
+        expect(screen.queryByRole("button", { name: /View Devices/ })).not.toBeInTheDocument();
+    });
+
+    it("should show View Devices button above View Profile Data when developer mode is on", async () => {
+        vi.mocked(useUserInfoBasicOptionsViewModel).mockReturnValue({ ...defaultValue });
+        vi.spyOn(SettingsStore, "getValue").mockImplementation((setting) => setting === "developerMode");
+        const devices = [{ deviceId: "d1" } as IDevice];
+        render(<UserInfoBasicOptionsView {...defaultProps} devices={devices} />);
+
+        const viewDevicesButton = screen.getByRole("button", { name: "View Devices (1)" });
+        expect(viewDevicesButton).toBeInTheDocument();
+
+        const buttons = screen.getAllByRole("button");
+        const devicesIndex = buttons.indexOf(viewDevicesButton);
+        const profileDataIndex = buttons.indexOf(screen.getByRole("button", { name: "View Profile Data" }));
+        expect(devicesIndex).toBeLessThan(profileDataIndex);
+
+        fireEvent.click(viewDevicesButton);
+        expect(await screen.findByText("Devices (1)")).toBeInTheDocument();
+    });
+
+    // Haven: unlike the old header-verification-section link (which never showed for your own
+    // profile, since you're always already "Verified" to yourself), this button isn't gated on
+    // vm.isMe at all - developer mode is the only condition, matching View Profile Data.
+    it("should show View Devices button on your own profile when developer mode is on", () => {
+        vi.mocked(useUserInfoBasicOptionsViewModel).mockReturnValue({ ...defaultValue, isMe: true });
+        vi.spyOn(SettingsStore, "getValue").mockImplementation((setting) => setting === "developerMode");
+        const devices = [{ deviceId: "d1" } as IDevice];
+        render(<UserInfoBasicOptionsView {...defaultProps} devices={devices} />);
+
+        expect(screen.getByRole("button", { name: "View Devices (1)" })).toBeInTheDocument();
     });
 });

@@ -14,17 +14,19 @@ import {
     MentionIcon,
     ShareIcon,
     InlineCodeIcon,
+    DevicesIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import InviteIcon from "@vector-im/compound-design-tokens/assets/web/icons/user-add";
 
 import { _t } from "../../../../languageHandler";
 import { useUserInfoBasicOptionsViewModel } from "../../../viewmodels/right_panel/user_info/UserInfoBasicOptionsViewModel";
-import { Container, type Member } from "../UserInfo";
+import { Container, type Member, type IDevice } from "../UserInfo";
 import { shouldShowComponent } from "../../../../customisations/helpers/UIComponents";
 import { UIComponent } from "../../../../settings/UIFeature";
 import SettingsStore from "../../../../settings/SettingsStore";
 import Modal from "../../../../Modal";
 import ViewProfileSource from "../../../structures/ViewProfileSource";
+import UserDevicesDialog from "../../dialogs/UserDevicesDialog";
 
 const MessageButton = ({
     member,
@@ -55,8 +57,9 @@ const MessageButton = ({
 export const UserInfoBasicOptionsView: React.FC<{
     member: User | RoomMember;
     room: Room;
+    devices: IDevice[];
     children?: ReactNode;
-}> = ({ room, member, children }) => {
+}> = ({ room, member, devices, children }) => {
     const vm = useUserInfoBasicOptionsViewModel(room, member);
 
     let insertPillButton: JSX.Element | undefined;
@@ -123,6 +126,18 @@ export const UserInfoBasicOptionsView: React.FC<{
             <MessageButton member={member} openDMForUser={vm.onOpenDmForUser} />
         );
 
+    const viewDevicesButton = SettingsStore.getValue("developerMode") ? (
+        <MenuItem
+            role="button"
+            onSelect={async (ev) => {
+                ev.preventDefault();
+                Modal.createDialog(UserDevicesDialog, { devices });
+            }}
+            label={_t("user_info|view_devices_button", { count: devices.length })}
+            Icon={DevicesIcon}
+        />
+    ) : null;
+
     const viewProfileDataButton = SettingsStore.getValue("developerMode") ? (
         <MenuItem
             role="button"
@@ -143,6 +158,7 @@ export const UserInfoBasicOptionsView: React.FC<{
             {readReceiptButton}
             {shareUserButton}
             {insertPillButton}
+            {viewDevicesButton}
             {viewProfileDataButton}
         </Container>
     );
