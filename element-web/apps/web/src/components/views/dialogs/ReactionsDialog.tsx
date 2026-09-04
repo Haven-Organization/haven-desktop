@@ -180,6 +180,13 @@ export default function ReactionsDialog({ mxEvent, reactions, initialContent, on
                                     mx_ReactionsDialog_usersHeaderContent_emoji: selectedIsRealEmoji,
                                 })}
                                 aria-hidden="true"
+                                // Haven: a freeform reaction (no real emoji shortcode) truncates to a
+                                // fixed width right below (see _ReactionsDialog.pcss's own doc on
+                                // .mx_ReactionsDialog_usersHeaderContent) - without this, two
+                                // different long reactions sharing the same truncated prefix (e.g.
+                                // "LOOOOOO...") became indistinguishable at a glance. A native title
+                                // tooltip shows the real, untruncated text on hover.
+                                title={!selectedIsRealEmoji ? selectedGroup?.content : undefined}
                             >
                                 {selectedGroup?.content}
                             </span>
@@ -244,6 +251,12 @@ function ReactionsDialogRailItem({
     // freeform text reaction (an arbitrary word, which needs to stay small enough to have a real
     // chance of fitting the rail's fixed width on one line - see overflow-wrap below).
     const isRealEmoji = !isCustomImage && !!unicodeToShortcode(group.content);
+    // Haven: a freeform reaction has no shortName (reactionGroupShortName can't find one) and now
+    // clamps to 2 lines with an ellipsis (see _ReactionsDialog.pcss's own doc on
+    // .mx_ReactionsDialog_railItemContent) - without its own tooltip, two different long
+    // reactions sharing the same truncated prefix became indistinguishable at a glance. Falls
+    // back to the full, untruncated group.content in that case rather than showing nothing.
+    const tooltip = shortName ?? (!isCustomImage && !isRealEmoji ? group.content : undefined);
 
     return (
         <li>
@@ -251,7 +264,7 @@ function ReactionsDialogRailItem({
                 className="mx_ReactionsDialog_railItem"
                 aria-pressed={selected}
                 onClick={onSelect}
-                title={shortName}
+                title={tooltip}
             >
                 {isCustomImage ? (
                     <img

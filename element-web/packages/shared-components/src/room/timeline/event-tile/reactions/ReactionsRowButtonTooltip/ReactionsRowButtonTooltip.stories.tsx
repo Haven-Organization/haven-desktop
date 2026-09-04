@@ -33,6 +33,7 @@ const meta = {
     argTypes: {
         formattedSenders: { control: "text" },
         caption: { control: "text" },
+        content: { control: "text" },
     },
     args: {
         children: <button>👍 3</button>,
@@ -46,6 +47,8 @@ export const Default: Story = {
     args: {
         formattedSenders: "Alice, Bob and Charlie",
         caption: ":thumbsup:",
+        content: "👍",
+        hasEmojiIcon: true,
         tooltipOpen: true,
     },
 };
@@ -54,6 +57,8 @@ export const ManySenders: Story = {
     args: {
         formattedSenders: "Alice, Bob, Charlie, David, Eve, Frank and 2 others",
         caption: ":heart:",
+        content: "❤️",
+        hasEmojiIcon: true,
         children: <button>❤️ 8</button>,
         tooltipOpen: true,
     },
@@ -63,7 +68,23 @@ export const WithoutCaption: Story = {
     args: {
         formattedSenders: "Alice and Bob",
         caption: undefined,
+        content: "🎉",
+        hasEmojiIcon: true,
         children: <button>🎉 2</button>,
+        tooltipOpen: true,
+    },
+};
+
+// Haven: a freeform-text reaction (e.g. typed via the emoji picker's "React with '<text>'" link) -
+// there's no icon-sized rendering of arbitrary text, so no icon at all is shown, just the sender(s)
+// and a "reacted with <text>" caption (see ReactionsRowButtonTooltipViewModel's own hasEmojiIcon doc).
+export const FreeformText: Story = {
+    args: {
+        formattedSenders: "Alice and Bob",
+        caption: "reacted with LOST",
+        content: "LOST",
+        hasEmojiIcon: false,
+        children: <button>LOST 2</button>,
         tooltipOpen: true,
     },
 };

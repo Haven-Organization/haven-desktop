@@ -42,6 +42,13 @@ export interface ReactionsRowButtonViewSnapshot extends Pick<
      */
     imageAlt?: string;
     /**
+     * Haven: whether `content` is a genuine unicode emoji (as opposed to a custom pack image or
+     * freeform text) - rendered slightly bigger, closer in visual weight to a custom image
+     * reaction, which otherwise looked noticeably larger by comparison. See
+     * ReactionsRowButton.module.css's own doc on `.reactionsRowButtonContentEmoji`.
+     */
+    isEmoji?: boolean;
+    /**
      * View model for the tooltip wrapper.
      */
     tooltipVm: ReactionsRowButtonTooltipViewModel;
@@ -77,7 +84,7 @@ interface ReactionsRowButtonViewProps {
  */
 export function ReactionsRowButtonView({ vm }: Readonly<ReactionsRowButtonViewProps>): JSX.Element {
     const snapshot = useViewModel(vm) as ReactionsRowButtonViewSnapshot & { ariaLabel?: string };
-    const { content, count, className, isSelected, isDisabled, imageSrc, imageAlt, tooltipVm } = snapshot;
+    const { content, count, className, isSelected, isDisabled, imageSrc, imageAlt, isEmoji, tooltipVm } = snapshot;
     const ariaLabel = snapshot["aria-label"] ?? snapshot.ariaLabel;
     const ariaDisabled = isDisabled ? true : undefined;
     const onContextMenu = vm.onContextMenu;
@@ -93,9 +100,17 @@ export function ReactionsRowButtonView({ vm }: Readonly<ReactionsRowButtonViewPr
     });
 
     const reactionContent = imageSrc ? (
-        <img className={styles.reactionsRowButtonContent} alt={imageAlt ?? ""} src={imageSrc} width="16" height="16" />
+        // Haven: 22px, up from 16px - see ReactionsRowButton.module.css's own doc on the pill's
+        // overall size bump (line-height now 24px); a custom pack emoji's image was barely visible
+        // at the old size, noticeably smaller than the pill containing it.
+        <img className={styles.reactionsRowButtonContent} alt={imageAlt ?? ""} src={imageSrc} width="22" height="22" />
     ) : (
-        <span className={styles.reactionsRowButtonContent} aria-hidden="true">
+        <span
+            className={classNames(styles.reactionsRowButtonContent, {
+                [styles.reactionsRowButtonContentEmoji]: isEmoji,
+            })}
+            aria-hidden="true"
+        >
             {content ?? ""}
         </span>
     );

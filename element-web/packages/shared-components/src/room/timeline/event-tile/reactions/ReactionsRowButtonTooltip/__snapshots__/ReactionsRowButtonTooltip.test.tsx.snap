@@ -2,9 +2,7 @@
 
 exports[`ReactionsRowButtonTooltip > renders the tooltip with formatted senders and caption 1`] = `
 <div>
-  <button
-    aria-describedby="react-use-id-1"
-  >
+  <button>
     👍 3
   </button>
 </div>
@@ -12,9 +10,7 @@ exports[`ReactionsRowButtonTooltip > renders the tooltip with formatted senders 
 
 exports[`ReactionsRowButtonTooltip > renders the tooltip with many senders 1`] = `
 <div>
-  <button
-    aria-describedby="react-use-id-1"
-  >
+  <button>
     ❤️ 8
   </button>
 </div>

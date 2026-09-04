@@ -1,0 +1,64 @@
+/*
+ * Copyright 2026 Element Creations Ltd.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+ * Please see LICENSE files in the repository root for full details.
+ */
+
+/* Haven: unlike Compound's own <Tooltip>, this panel hosts a real click target (it opens
+   ReactionsDialog on this reaction), so it's built from raw floating-ui primitives instead of
+   reusing that component - an ARIA tooltip role can't host interactive content. Colours/radius/
+   shadow are Compound tokens so it still reads as an Element surface, same family as a context
+   menu or popover elsewhere in the app. */
+.popover {
+    z-index: 5001;
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    max-width: 320px;
+    padding: var(--cpd-space-3x) var(--cpd-space-4x);
+    background-color: var(--cpd-color-bg-canvas-default);
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+        background-color: var(--cpd-color-bg-subtle-primary);
+    }
+}
+
+.arrow {
+    fill: var(--cpd-color-bg-canvas-default);
+}
+
+.icon {
+    flex-shrink: 0;
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.iconImage {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-1x);
+    overflow: hidden;
+}
+
+.senders {
+    font: var(--cpd-font-body-md-semibold);
+    color: var(--cpd-color-text-primary);
+    overflow-wrap: break-word;
+}
+
+.caption {
+    font: var(--cpd-font-body-sm-regular);
+    color: var(--cpd-color-text-secondary);
+}

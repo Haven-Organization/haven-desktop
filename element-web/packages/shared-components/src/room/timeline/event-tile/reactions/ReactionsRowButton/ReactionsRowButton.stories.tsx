@@ -9,6 +9,7 @@ import React, { type JSX } from "react";
 import { fn } from "storybook/test";
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import customImageSrc from "../../../../../../static/image-body/install-spinner.png";
 import { useMockedViewModel } from "../../../../../core/viewmodel";
 import { withViewDocs } from "../../../../../../.storybook/withViewDocs";
 import { type ReactionsRowButtonTooltipViewSnapshot } from "../ReactionsRowButtonTooltip";
@@ -69,6 +70,7 @@ const meta = {
         isDisabled: false,
         imageSrc: undefined,
         imageAlt: undefined,
+        isEmoji: true,
         tooltipFormattedSenders: undefined,
         tooltipCaption: undefined,
         tooltipOpen: true,
@@ -92,5 +94,23 @@ export const WithTooltip: Story = {
         tooltipFormattedSenders: "Alice, Bob and Charlie",
         tooltipCaption: ":thumbsup:",
         tooltipOpen: true,
+    },
+};
+
+export const FreeformText: Story = {
+    args: {
+        content: "LOST",
+        ariaLabel: "Alice and Bob reacted with LOST",
+        isEmoji: false,
+    },
+};
+
+export const CustomImage: Story = {
+    args: {
+        content: "mxc://example.com/abc123",
+        ariaLabel: "Alice and Bob reacted with :party_parrot:",
+        imageSrc: customImageSrc,
+        imageAlt: ":party_parrot:",
+        isEmoji: false,
     },
 };

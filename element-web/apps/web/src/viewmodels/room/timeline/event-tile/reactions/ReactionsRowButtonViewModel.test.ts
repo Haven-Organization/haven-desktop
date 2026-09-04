@@ -126,6 +126,32 @@ describe("ReactionsRowButtonViewModel", () => {
         expect(getAriaLabel(vm)).toContain("reacted with party");
     });
 
+    it("flags a genuine unicode emoji reaction as isEmoji", () => {
+        const vm = new ReactionsRowButtonViewModel(createProps({ content: "👍" }));
+
+        expect(vm.getSnapshot().isEmoji).toBe(true);
+    });
+
+    it("does not flag a freeform text reaction as isEmoji", () => {
+        const vm = new ReactionsRowButtonViewModel(createProps({ content: "LOST" }));
+
+        expect(vm.getSnapshot().isEmoji).toBe(false);
+    });
+
+    it("does not flag a custom image reaction as isEmoji", () => {
+        const reactionEvent = createReactionEvent("@alice:example.org", "mxc://example.org/reaction");
+
+        const vm = new ReactionsRowButtonViewModel(
+            createProps({
+                content: "mxc://example.org/reaction",
+                reactionEvents: [reactionEvent],
+                customReactionImagesEnabled: true,
+            }),
+        );
+
+        expect(vm.getSnapshot().isEmoji).toBe(false);
+    });
+
     it("updates selected state with myReactionEvent without touching tooltip props", () => {
         const vm = new ReactionsRowButtonViewModel(createProps());
         const tooltipSetPropsSpy = vi.spyOn(getTooltipVm(vm), "setProps");
@@ -243,6 +269,32 @@ describe("ReactionsRowButtonViewModel", () => {
             const vm = new ReactionsRowButtonViewModel(createProps({ reactions: undefined }));
 
             vm.onContextMenu();
+
+            expect(Modal.createDialog).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("tooltip onOpenDialog", () => {
+        // Haven: the tooltip popover is now a real click target too (see
+        // ReactionsRowButtonTooltipView) - clicking it should open the exact same dialog as
+        // right-clicking the pill itself, on the reaction the tooltip is actually showing.
+        it("opens ReactionsDialog with this button's own content pre-selected, same as onContextMenu", () => {
+            const reactions = {} as Relations;
+            const vm = new ReactionsRowButtonViewModel(createProps({ reactions }));
+
+            getTooltipVm(vm).getSnapshot().onOpenDialog?.();
+
+            expect(Modal.createDialog).toHaveBeenCalledWith(
+                ReactionsDialog,
+                { mxEvent, reactions, initialContent: "👍" },
+                "mx_ReactionsDialog_wrapper",
+            );
+        });
+
+        it("does nothing when no Relations were threaded through", () => {
+            const vm = new ReactionsRowButtonViewModel(createProps({ reactions: undefined }));
+
+            getTooltipVm(vm).getSnapshot().onOpenDialog?.();
 
             expect(Modal.createDialog).not.toHaveBeenCalled();
         });

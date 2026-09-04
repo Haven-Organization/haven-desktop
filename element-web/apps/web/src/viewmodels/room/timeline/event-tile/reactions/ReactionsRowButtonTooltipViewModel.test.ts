@@ -178,6 +178,69 @@ describe("ReactionsRowButtonTooltipViewModel", () => {
         expect(vm.getSnapshot().caption).toContain("custom_emoji");
     });
 
+    // Haven: freeform-text reactions (e.g. "LOST", not a real emoji and not a custom pack image)
+    // used to render their raw text through the same giant-icon slot as a real emoji, and got no
+    // "reacted with ..." caption at all since there's no shortcode for arbitrary text. Fixed to
+    // suppress the icon (hasEmojiIcon: false) and fall back to the raw content as the caption.
+    it("treats a freeform-text reaction as caption-only, with no icon", () => {
+        mockedUnicodeToShortcode.mockReturnValue("");
+        const reactionEvent = createReactionEvent("@alice:example.org");
+        vi.spyOn(room, "getMember").mockReturnValue({ name: "Alice", userId: "@alice:example.org" } as RoomMember);
+
+        const vm = new ReactionsRowButtonTooltipViewModel(
+            createProps({ content: "LOST", reactionEvents: [reactionEvent] }),
+        );
+        const snapshot = vm.getSnapshot();
+
+        expect(snapshot.hasEmojiIcon).toBe(false);
+        expect(snapshot.caption).toBe("reacted with LOST");
+    });
+
+    it("still shows an icon and shortcode caption for a real emoji reaction", () => {
+        const reactionEvent = createReactionEvent("@alice:example.org");
+        vi.spyOn(room, "getMember").mockReturnValue({ name: "Alice", userId: "@alice:example.org" } as RoomMember);
+
+        const vm = new ReactionsRowButtonTooltipViewModel(
+            createProps({ content: "👍", reactionEvents: [reactionEvent] }),
+        );
+        const snapshot = vm.getSnapshot();
+
+        expect(snapshot.hasEmojiIcon).toBe(true);
+        expect(snapshot.caption).toContain(":thumbsup:");
+    });
+
+    it("shows an icon for a custom pack image reaction but no caption when it has no shortcode", () => {
+        mockedUnicodeToShortcode.mockReturnValue("");
+        const reactionEvent = createReactionEvent("@alice:example.org");
+        vi.spyOn(room, "getMember").mockReturnValue({ name: "Alice", userId: "@alice:example.org" } as RoomMember);
+
+        const vm = new ReactionsRowButtonTooltipViewModel(
+            createProps({
+                content: "mxc://custom/emoji",
+                reactionEvents: [reactionEvent],
+                customReactionImagesEnabled: true,
+            }),
+        );
+        const snapshot = vm.getSnapshot();
+
+        expect(snapshot.hasEmojiIcon).toBe(true);
+        expect(snapshot.caption).toBeUndefined();
+    });
+
+    it("passes content and onOpenDialog straight through to the snapshot", () => {
+        const onOpenDialog = vi.fn();
+        const reactionEvent = createReactionEvent("@alice:example.org");
+        vi.spyOn(room, "getMember").mockReturnValue({ name: "Alice", userId: "@alice:example.org" } as RoomMember);
+
+        const vm = new ReactionsRowButtonTooltipViewModel(
+            createProps({ reactionEvents: [reactionEvent], onOpenDialog }),
+        );
+        const snapshot = vm.getSnapshot();
+
+        expect(snapshot.content).toBe("👍");
+        expect(snapshot.onOpenDialog).toBe(onOpenDialog);
+    });
+
     it("should update snapshot and notify subscribers when setProps is called", () => {
         const aliceReaction = createReactionEvent("@alice:example.org");
         const bobReaction = createReactionEvent("@bob:example.org");

@@ -120,6 +120,44 @@ describe("ReactionsDialog", () => {
         expect(screen.getByText("Reactions")).toBeInTheDocument();
     });
 
+    it("gives a freeform text reaction's own header content and rail tile a hover tooltip with its full, untruncated text", () => {
+        const longText = "LOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOST";
+        const reactions = mkReactions([[longText, [mkReactionEvent(alice.userId, longText)]]]);
+        render(<ReactionsDialog mxEvent={mxEvent} reactions={reactions} onFinished={vi.fn()} />);
+
+        expect(document.querySelector(".mx_ReactionsDialog_usersHeaderContent")).toHaveAttribute(
+            "title",
+            longText,
+        );
+        // Haven: AccessibleButton's own `title` prop doesn't become a native HTML title attribute -
+        // it wraps the button in a real Tooltip component and also sets aria-label from it (see
+        // AccessibleButton.tsx's own newProps/Tooltip wiring), so that's what a rail tile's tooltip
+        // actually surfaces as here.
+        expect(document.querySelector(".mx_ReactionsDialog_railItem")).toHaveAttribute("aria-label", longText);
+    });
+
+    it("keeps a real emoji's own pre-existing shortcode tooltip rather than duplicating its own glyph into it", () => {
+        const reactions = mkReactions([["😄", [mkReactionEvent(alice.userId, "😄")]]]);
+        render(<ReactionsDialog mxEvent={mxEvent} reactions={reactions} onFinished={vi.fn()} />);
+
+        expect(document.querySelector(".mx_ReactionsDialog_usersHeaderContent")).not.toHaveAttribute("title");
+        expect(document.querySelector(".mx_ReactionsDialog_railItem")).toHaveAttribute("aria-label", ":smile:");
+    });
+
+    it("still distinguishes two different freeform reactions on the rail that share the same truncated prefix", () => {
+        const long1 = "LOOOOOOOOOST";
+        const long2 = "LOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOST";
+        const reactions = mkReactions([
+            [long1, [mkReactionEvent(alice.userId, long1)]],
+            [long2, [mkReactionEvent(bob.userId, long2)]],
+        ]);
+        render(<ReactionsDialog mxEvent={mxEvent} reactions={reactions} onFinished={vi.fn()} />);
+
+        const railItems = document.querySelectorAll(".mx_ReactionsDialog_railItem");
+        expect(railItems[0]).toHaveAttribute("aria-label", long1);
+        expect(railItems[1]).toHaveAttribute("aria-label", long2);
+    });
+
     it("only shows Find Pack when the reaction event carries image-source-pack refs", () => {
         const reactions = mkReactions([
             [

@@ -13,6 +13,7 @@ import {
 } from "@element-hq/web-shared-components";
 
 import { mediaFromMxc } from "../../../../../customisations/Media";
+import { unicodeToShortcode } from "../../../../../HtmlUtils";
 import { _t } from "../../../../../languageHandler";
 import { formatList } from "../../../../../utils/FormattingUtils";
 import dis from "../../../../../dispatcher/dispatcher";
@@ -127,6 +128,8 @@ export class ReactionsRowButtonViewModel
             }
         }
 
+        const isEmoji = !imageSrc && !!unicodeToShortcode(content);
+
         const snapshot = {
             content,
             count,
@@ -136,6 +139,7 @@ export class ReactionsRowButtonViewModel
             isDisabled: !!disabled,
             imageSrc,
             imageAlt,
+            isEmoji,
             tooltipVm,
         };
 
@@ -143,16 +147,23 @@ export class ReactionsRowButtonViewModel
     };
 
     public constructor(props: ReactionsRowButtonViewModelProps) {
+        // Haven: `this` isn't available until super() runs below, but tooltipVm has to be built
+        // (with its onOpenDialog callback already wired) before that call - this indirection lets
+        // the callback close over `this.onContextMenu` without referencing `this` early. It's only
+        // ever invoked later, on a real click, by which point construction has long finished.
+        const dialogOpener = { open: (): void => {} };
         const tooltipVm = new ReactionsRowButtonTooltipViewModel({
             client: props.client,
             mxEvent: props.mxEvent,
             content: props.content,
             reactionEvents: props.reactionEvents,
             customReactionImagesEnabled: props.customReactionImagesEnabled,
+            onOpenDialog: () => dialogOpener.open(),
         });
         super(props, ReactionsRowButtonViewModel.computeSnapshot(props, tooltipVm));
         this.tooltipVm = tooltipVm;
         this.disposables.track(tooltipVm);
+        dialogOpener.open = (): void => this.onContextMenu();
     }
 
     private setSnapshot(nextSnapshot: ReactionsRowButtonViewSnapshot): void {
@@ -166,7 +177,8 @@ export class ReactionsRowButtonViewModel
             nextSnapshot.isSelected === currentSnapshot.isSelected &&
             nextSnapshot.isDisabled === currentSnapshot.isDisabled &&
             nextSnapshot.imageSrc === currentSnapshot.imageSrc &&
-            nextSnapshot.imageAlt === currentSnapshot.imageAlt
+            nextSnapshot.imageAlt === currentSnapshot.imageAlt &&
+            nextSnapshot.isEmoji === currentSnapshot.isEmoji
         ) {
             return;
         }

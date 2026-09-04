@@ -8,8 +8,13 @@
 .reactionsRowButton {
     all: unset;
     cursor: pointer;
-    line-height: var(--cpd-font-size-heading-sm);
-    padding: 1px var(--cpd-space-1-5x);
+    /* Haven: bumped from heading-sm (20px) to heading-md (24px), with matching padding/image-size
+       bumps below - closer to Discord's own reaction pill size, which made ours look cramped by
+       comparison and left a custom pack emoji's image (see reactionsRowButtonContent's own doc in
+       the view) barely visible at its old 16px. */
+    line-height: var(--cpd-font-size-heading-md);
+    font-size: var(--cpd-font-size-body-md);
+    padding: 2px var(--cpd-space-2x);
     border: 1px solid var(--cpd-color-gray-400);
     border-radius: 10px;
     background-color: var(--cpd-color-gray-200);
@@ -47,6 +52,15 @@
        breathing room is enough - matching the right padding made it visibly lopsided. */
     padding-left: 2px;
     padding-right: var(--cpd-space-1x);
+}
+
+.reactionsRowButtonContentEmoji {
+    /* Haven: a genuine unicode emoji glyph rendered at the pill's own body-md text size (15px)
+       reads visibly smaller than a custom pack image reaction sat right next to it (22px) - same
+       token ReactionsDialog.tsx's own rail/header already reach for to make an emoji glyph read
+       bigger than plain text (see _ReactionsDialog.pcss's *_emoji rules). Not applied to freeform
+       text reactions, which stay at the base size. */
+    font-size: var(--cpd-font-size-heading-sm);
 }
 
 .reactionsRowButtonCount {

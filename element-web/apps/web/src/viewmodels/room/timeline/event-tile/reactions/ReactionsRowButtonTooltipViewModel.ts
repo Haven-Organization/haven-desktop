@@ -12,6 +12,7 @@ import {
     type ReactionsRowButtonTooltipViewModel as ReactionsRowButtonTooltipViewModelInterface,
 } from "@element-hq/web-shared-components";
 
+import { mediaFromMxc } from "../../../../../customisations/Media";
 import { _t } from "../../../../../languageHandler";
 import { formatList } from "../../../../../utils/FormattingUtils";
 import { unicodeToShortcode } from "../../../../../HtmlUtils";
@@ -38,6 +39,12 @@ export interface ReactionsRowButtonTooltipViewModelProps {
      * Whether to render custom image reactions.
      */
     customReactionImagesEnabled?: boolean;
+    /**
+     * Haven: called when the tooltip popover itself is clicked - opens ReactionsDialog with this
+     * reaction pre-selected. Supplied by ReactionsRowButtonViewModel, which owns the Relations
+     * needed to actually open the dialog (see its own onContextMenu, which this mirrors).
+     */
+    onOpenDialog?: () => void;
 }
 
 /**
@@ -55,9 +62,16 @@ export class ReactionsRowButtonTooltipViewModel
     private static readonly computeSnapshot = (
         props: ReactionsRowButtonTooltipViewModelProps,
     ): ReactionsRowButtonTooltipViewSnapshot => {
-        const { client, mxEvent, content, reactionEvents, customReactionImagesEnabled } = props;
+        const { client, mxEvent, content, reactionEvents, customReactionImagesEnabled, onOpenDialog } = props;
 
         const room = client?.getRoom(mxEvent.getRoomId());
+
+        // Haven: the large icon shown in the popover - same logic ReactionsRowButtonViewModel
+        // uses for the pill's own icon, duplicated here rather than threaded through as a prop
+        // since it depends on customReactionImagesEnabled/content which this view model already
+        // has independently (matches this file's existing customReactionName duplication).
+        let imageSrc: string | undefined;
+        let imageAlt: string | undefined;
 
         if (room) {
             const senders: string[] = [];
@@ -77,13 +91,41 @@ export class ReactionsRowButtonTooltipViewModel
                     undefined;
             }
 
-            const shortName = unicodeToShortcode(content) || customReactionName;
+            if (customReactionImagesEnabled && content.startsWith("mxc://")) {
+                const resolved = mediaFromMxc(content).srcHttp;
+                if (resolved) {
+                    imageSrc = resolved;
+                    imageAlt = customReactionName || _t("timeline|reactions|custom_reaction_fallback_label");
+                }
+            }
+
+            const knownShortcode = unicodeToShortcode(content);
+            const shortName = knownShortcode || customReactionName;
             const formattedSenders = formatList(senders, 6);
-            const caption = shortName ? _t("timeline|reactions|tooltip_caption", { shortName }) : undefined;
+            // Haven: an `mxc://` reaction is never freeform text even when customReactionImagesEnabled
+            // is off and it therefore failed to resolve into an actual imageSrc above - it's still a
+            // custom pack reference, just not one this client is configured to render as an image.
+            const isMxcContent = content.startsWith("mxc://");
+            // Haven: a real emoji (known shortcode), a custom pack image, or an unresolved mxc://
+            // reference all get the big icon slot. Anything else is a genuine freeform-text reaction
+            // (e.g. "LOST") - there's no sensible icon-sized rendering of arbitrary text, so it gets
+            // no icon at all, and its own caption is just the raw text itself, keeping the "reacted
+            // with ..." line present for every reaction kind rather than only emoji/image ones.
+            const hasEmojiIcon = !!imageSrc || !!knownShortcode || isMxcContent;
+            const caption = shortName
+                ? _t("timeline|reactions|tooltip_caption", { shortName })
+                : imageSrc || isMxcContent
+                  ? undefined
+                  : _t("timeline|reactions|tooltip_caption", { shortName: content });
 
             return {
                 formattedSenders,
                 caption,
+                content,
+                hasEmojiIcon,
+                imageSrc,
+                imageAlt,
+                onOpenDialog,
             };
         }
 
@@ -108,7 +150,11 @@ export class ReactionsRowButtonTooltipViewModel
 
         if (
             nextSnapshot.formattedSenders === currentSnapshot.formattedSenders &&
-            nextSnapshot.caption === currentSnapshot.caption
+            nextSnapshot.caption === currentSnapshot.caption &&
+            nextSnapshot.content === currentSnapshot.content &&
+            nextSnapshot.hasEmojiIcon === currentSnapshot.hasEmojiIcon &&
+            nextSnapshot.imageSrc === currentSnapshot.imageSrc &&
+            nextSnapshot.onOpenDialog === currentSnapshot.onOpenDialog
         ) {
             return;
         }
