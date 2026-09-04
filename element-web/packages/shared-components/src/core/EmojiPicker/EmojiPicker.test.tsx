@@ -311,6 +311,37 @@ describe("EmojiPicker", function () {
             expect(onChoose).not.toHaveBeenCalled();
         });
 
+        it("does not activate an empty-state 'Create New Pack' link on Enter, even though it defaults to tabindex 0", async () => {
+            const onChoose = vi.fn();
+            const onFreeformEnter = vi.fn();
+            const onCreatePack = vi.fn();
+            const { container } = render(
+                <EmojiPicker
+                    onChoose={onChoose}
+                    onFinished={vi.fn()}
+                    onFreeformEnter={onFreeformEnter}
+                    extraCategories={[{ id: "pack:room", emoji: "📦", name: "Room Pack", isEmptyState: true }]}
+                    dataByExtraCategory={{}}
+                    renderEmptyStateCategory={() => (
+                        // Mirrors AccessibleButton's own default tabIndex={0} - the actual root cause.
+                        <button tabIndex={0} onClick={onCreatePack}>
+                            Create New Pack
+                        </button>
+                    )}
+                />,
+            );
+
+            const input = container.querySelector("input")!;
+            await waitFor(() => expect(input).toHaveFocus());
+
+            await userEvent.type(input, "zzznomatchzzz");
+            await userEvent.keyboard("[Enter]");
+
+            expect(onFreeformEnter).toHaveBeenCalled();
+            expect(onCreatePack).not.toHaveBeenCalled();
+            expect(onChoose).not.toHaveBeenCalled();
+        });
+
         it("Ctrl+Enter always calls onFreeformEnter, even when the search has results", async () => {
             const onChoose = vi.fn();
             const onFreeformEnter = vi.fn();

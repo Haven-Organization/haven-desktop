@@ -70,4 +70,8 @@ Please see LICENSE files in the repository root for full details.
     display: block;
     margin: -4px 12px 8px;
     font: var(--cpd-font-body-sm-regular);
+    /* Haven: the typed text can be a single long word with no natural break point (e.g. a
+       search filter with no spaces) - without this it overflowed straight out of the picker's
+       own bounds instead of wrapping onto further lines within it. */
+    overflow-wrap: anywhere;
 }

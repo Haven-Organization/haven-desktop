@@ -29,23 +29,31 @@ export const Preview: React.FC<IProps> = ({ emoji }) => {
         label,
         shortcodes: [shortcode],
         imageUrl,
+        isFreeform,
     } = emoji;
 
     return (
         <div className={styles.footer}>
-            <div className={styles.previewEmoji}>
-                {/* Haven: a custom/pack emoji's own `unicode` is a synthetic `:shortcode:` string
-                    (see customEmoji.ts's own makeCustomEmoji), not a real glyph - rendering it as
-                    text here (like a real emoji's actual unicode) showed that whole string at
-                    heading-xl font size, ballooning this box wide enough to push .previewText
-                    itself out of the footer instead of showing the pack's own image. */}
-                {imageUrl ? (
-                    <img src={imageUrl} alt={label} className={styles.previewEmojiImage} />
-                ) : (
-                    unicode
-                )}
-            </div>
-            <div className={styles.previewText}>
+            {/* Haven: a freeform (previously-sent, non-emoji) reaction's own `unicode` is just its
+                arbitrary text - unlike a real emoji's single glyph or a custom pack emoji's own
+                small image, that read as an oversized, out-of-place word at this box's heading-xl
+                size. Its label/shortcode below already say the same thing at a normal size, so the
+                icon itself is skipped entirely rather than shrunk to fit. */}
+            {!isFreeform && (
+                <div className={styles.previewEmoji}>
+                    {/* Haven: a custom/pack emoji's own `unicode` is a synthetic `:shortcode:` string
+                        (see customEmoji.ts's own makeCustomEmoji), not a real glyph - rendering it as
+                        text here (like a real emoji's actual unicode) showed that whole string at
+                        heading-xl font size, ballooning this box wide enough to push .previewText
+                        itself out of the footer instead of showing the pack's own image. */}
+                    {imageUrl ? (
+                        <img src={imageUrl} alt={label} className={styles.previewEmojiImage} />
+                    ) : (
+                        unicode
+                    )}
+                </div>
+            )}
+            <div className={classNames(styles.previewText, { [styles.previewTextNoIcon]: isFreeform })}>
                 <div className={classNames(styles.name, styles.previewName)}>{label}</div>
                 <div className={styles.shortcode}>{shortcode}</div>
             </div>

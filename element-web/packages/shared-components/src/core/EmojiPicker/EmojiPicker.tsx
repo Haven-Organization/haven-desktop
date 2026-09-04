@@ -542,8 +542,15 @@ export function EmojiPicker({
 
     const onEnterFilter = useCallback(
         (forceFreeform: boolean): void => {
+            // Haven: excludes the "Create New Pack" empty-state link (see the "empty-state" branch
+            // of renderItem below) - AccessibleButton defaults its own tabIndex to 0 unconditionally,
+            // so without this exclusion that link (not a real search result) is the only
+            // `[role="gridcell"] [tabindex="0"]` match when a room has no packs, and gets mistaken
+            // for "a real emoji is highlighted", swallowing Enter's freeform-reaction fallback.
             const btn = showHighlight
-                ? scrollElement?.querySelector<HTMLElement>('[role="gridcell"] [tabindex="0"]')
+                ? scrollElement?.querySelector<HTMLElement>(
+                      `[role="gridcell"]:not(.${styles.emptyStateCategory}) [tabindex="0"]`,
+                  )
                 : undefined;
 
             // Haven: see onFreeformEnter's own doc. Ctrl+Enter always prefers freeform; a plain
@@ -569,7 +576,9 @@ export function EmojiPicker({
     // else. Focuses rather than clicks (contrast onEnterFilter above) - Tab is about *moving
     // keyboard focus onto* an emoji to then navigate from via arrow keys/HJKL, not choosing one.
     const onTabToGrid = useCallback((): void => {
-        const btn = scrollElement?.querySelector<HTMLElement>('[role="gridcell"] [tabindex="0"]');
+        const btn = scrollElement?.querySelector<HTMLElement>(
+            `[role="gridcell"]:not(.${styles.emptyStateCategory}) [tabindex="0"]`,
+        );
         btn?.focus();
     }, [scrollElement]);
 

@@ -17,6 +17,7 @@ import { HavenEmojiPicker } from "./HavenEmojiPicker";
 import { makeCustomEmoji } from "../components/views/emojipicker/customEmoji";
 import * as ImagePacks from "../utils/ImagePacks";
 import * as animCache from "../utils/PackImageAnimationCache";
+import * as animatedThumbnailSupport from "../utils/AnimatedThumbnailSupport";
 import { consumePendingManagePackStateKey } from "../utils/pendingManagePack";
 import dis from "../dispatcher/dispatcher";
 import { Action } from "../dispatcher/actions";
@@ -60,6 +61,9 @@ describe("HavenEmojiPicker", () => {
         vi.spyOn(animCache, "useAnimatedImageCacheVersion").mockReturnValue(0);
         vi.spyOn(animCache, "getCachedPackImageAnimated").mockReturnValue(false);
         vi.spyOn(animCache, "ensurePackImageAnimatedChecked").mockImplementation(() => {});
+        vi.spyOn(animatedThumbnailSupport, "useAnimatedThumbnailSupportVersion").mockReturnValue(0);
+        vi.spyOn(animatedThumbnailSupport, "getCachedAnimatedThumbnailSupport").mockReturnValue(undefined);
+        vi.spyOn(animatedThumbnailSupport, "ensureAnimatedThumbnailSupportChecked").mockImplementation(() => {});
     });
 
     it("builds one extra category per emoticon pack, with images resolved via imagesForUsage", () => {
@@ -86,6 +90,50 @@ describe("HavenEmojiPicker", () => {
         const items = capturedProps.dataByExtraCategory[category.id];
         expect(items).toHaveLength(1);
         expect(items[0].shortcodes).toEqual(["tada"]);
+    });
+
+    it("falls back to the full-original image for an animated pack image when animated-thumbnail support is unconfirmed", () => {
+        const room = mkStubRoom("!room:example.org", "Room", client);
+        const pack = makePack();
+        vi.spyOn(ImagePacks, "getEmoticonPacks").mockReturnValue([pack]);
+        vi.spyOn(ImagePacks, "getRoomImagePacks").mockReturnValue([pack]);
+        vi.spyOn(ImagePacks, "canManageImagePacks").mockReturnValue(true);
+        vi.spyOn(ImagePacks, "packDisplayName").mockReturnValue("Party Pack");
+        vi.spyOn(ImagePacks, "getPackAvatarMxc").mockReturnValue(undefined);
+        vi.spyOn(ImagePacks, "imagesForUsage").mockReturnValue([
+            { shortcode: "wobble", image: { url: "mxc://example.org/wobble", body: "wobble" } } as never,
+        ]);
+        vi.spyOn(animCache, "getCachedPackImageAnimated").mockReturnValue(true);
+        const ensureChecked = vi.spyOn(animatedThumbnailSupport, "ensureAnimatedThumbnailSupportChecked");
+
+        render(<HavenEmojiPicker onChoose={vi.fn()} onFinished={vi.fn()} room={room} />);
+
+        const category = capturedProps.extraCategories[0];
+        const items = capturedProps.dataByExtraCategory[category.id];
+        expect(items[0].imageUrl).toBe("http://this.is.a.url/example.org/wobble");
+        expect(ensureChecked).toHaveBeenCalledWith("mxc://example.org/wobble", client);
+    });
+
+    it("uses a small animated thumbnail for an animated pack image once this homeserver's own support is confirmed", () => {
+        const room = mkStubRoom("!room:example.org", "Room", client);
+        const pack = makePack();
+        vi.spyOn(ImagePacks, "getEmoticonPacks").mockReturnValue([pack]);
+        vi.spyOn(ImagePacks, "getRoomImagePacks").mockReturnValue([pack]);
+        vi.spyOn(ImagePacks, "canManageImagePacks").mockReturnValue(true);
+        vi.spyOn(ImagePacks, "packDisplayName").mockReturnValue("Party Pack");
+        vi.spyOn(ImagePacks, "getPackAvatarMxc").mockReturnValue(undefined);
+        vi.spyOn(ImagePacks, "imagesForUsage").mockReturnValue([
+            { shortcode: "wobble", image: { url: "mxc://example.org/wobble", body: "wobble" } } as never,
+        ]);
+        vi.spyOn(animCache, "getCachedPackImageAnimated").mockReturnValue(true);
+        vi.spyOn(animatedThumbnailSupport, "getCachedAnimatedThumbnailSupport").mockReturnValue(true);
+
+        render(<HavenEmojiPicker onChoose={vi.fn()} onFinished={vi.fn()} room={room} />);
+
+        const category = capturedProps.extraCategories[0];
+        const items = capturedProps.dataByExtraCategory[category.id];
+        expect(items[0].imageUrl).toContain("animated=true");
+        expect(items[0].imageUrl).not.toBe("http://this.is.a.url/example.org/wobble");
     });
 
     it("offers a create-pack empty-state category in emoji mode when the room has no packs but is manageable", () => {

@@ -266,13 +266,18 @@
 }
 
 .item {
-    display: inline-block;
+    /* Haven: was inline-block + text-align:center - centered the glyph horizontally but left it
+       sitting on its line-height's own baseline rather than actually centered in the tile's height,
+       so it read as flush against the top edge. Flexbox centers it properly on both axes, matching
+       .itemFreeform's own approach just below. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: var(--cpd-font-size-heading-sm);
     padding: 5px;
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-    text-align: center;
     border-radius: 4px;
 
     &:hover {
@@ -363,17 +368,27 @@
 }
 
 .previewEmoji {
-    font-size: var(--cpd-font-size-heading-xl);
-    padding: var(--cpd-space-2x) var(--cpd-space-4x);
+    /* Haven: sized (and the shelf's own vertical padding trimmed) to actually use most of
+       .footer's 72px height instead of leaving most of it empty above/below a heading-xl glyph.
+       flex + centering is needed on top of .footer's own align-items:center - that only centers
+       this whole block as one of .footer's flex children, but a plain <img> inside a block is an
+       inline replaced element with its own baseline-driven gap below it (room for a descender that
+       doesn't exist), which pushed a custom pack emoji's image up against this box's own top edge
+       instead of sitting centered in it. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    padding: var(--cpd-space-1x) var(--cpd-space-4x);
 }
 
 /* Haven: a custom/pack emoji's own preview image - fixed square size rather than the unicode
    glyph's own font-size-driven sizing above, since an <img> has no intrinsic size to shrink to
-   fit the same way a single character does. Roughly matches the visual size heading-xl's own line
-   height gives a real glyph. */
+   fit the same way a single character does. Roughly matches the visual size .previewEmoji's own
+   font-size gives a real glyph now that both are sized to fill the shelf's height. */
 .previewEmojiImage {
-    width: 40px;
-    height: 40px;
+    width: 56px;
+    height: 56px;
     object-fit: contain;
 }
 
@@ -384,6 +399,13 @@
     padding-top: 1rem;
     padding-bottom: 1rem;
     flex-direction: column;
+}
+
+/* Haven: a freeform reaction's own .previewEmoji icon is skipped entirely (see Preview.tsx) - its
+   own space-4x horizontal padding was doing double duty as this text's left margin too, so that
+   has to move here instead of leaving the text flush against the shelf's edge. */
+.previewTextNoIcon {
+    padding-left: var(--cpd-space-4x);
 }
 
 .name {

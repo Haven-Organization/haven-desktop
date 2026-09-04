@@ -38,6 +38,12 @@ import {
     getCachedPackImageAnimated,
     useAnimatedImageCacheVersion,
 } from "../utils/PackImageAnimationCache";
+import {
+    ensureAnimatedThumbnailSupportChecked,
+    getAnimatedThumbnailUrl,
+    getCachedAnimatedThumbnailSupport,
+    useAnimatedThumbnailSupportVersion,
+} from "../utils/AnimatedThumbnailSupport";
 import dis from "../dispatcher/dispatcher";
 import { Action } from "../dispatcher/actions";
 import { UserTab } from "../components/views/dialogs/UserTab";
@@ -72,12 +78,17 @@ interface IProps {
     disableCustomEmoji?: boolean;
 }
 
-/** Haven: the grid cell a pack emoji/sticker actually renders into (see EmojiPicker.module.css's
- *  own .itemWrapper/.itemWrapperSticker) - used to request a properly-sized thumbnail rather than
- *  the original image (see buildPackCategories' own imageUrl doc for why this matters). A little
- *  larger than the CSS box itself for a bit of headroom; getSquareThumbnailHttp already accounts
- *  for devicePixelRatio on top of this. */
-const EMOJI_IMAGE_SIZE = 32;
+/** Haven: the SAME imageUrl this size produces is reused for two different on-screen sizes - the
+ *  actual grid cell itself (see EmojiPicker.module.css's own .itemWrapper/.itemWrapperSticker),
+ *  and the bigger 56px hover-preview shelf shown at the bottom of the picker (see its own
+ *  .previewEmojiImage - Preview.tsx renders the exact same PickerEmoji.imageUrl there, fetching no
+ *  separate, bigger image of its own). Sized for the larger of the two - a thumbnail a bit bigger
+ *  than the grid cell needs is imperceptible once downscaled slightly to fit it, but one sized
+ *  for the grid cell alone gets visibly, unavoidably upscale-blurred once shown at the preview's
+ *  own bigger size (confirmed live 2026-09-04: a real static, correctly-thumbnailed 32px pack
+ *  image looked blurry specifically in the preview shelf, not the grid, for exactly this reason).
+ *  getSquareThumbnailHttp already accounts for devicePixelRatio on top of this. */
+const EMOJI_IMAGE_SIZE = 64;
 const STICKER_IMAGE_SIZE = 76;
 
 /** Haven: a pack category's own icon in the rail (see EmojiPicker.module.css's own .anchorIcon) -
@@ -155,8 +166,18 @@ function buildPackCategories(
             const persistedAnimated = image.info?.["org.matrix.msc4230.is_animated"];
             if (persistedAnimated === undefined) ensurePackImageAnimatedChecked(image.url, room.client);
             const isAnimated = persistedAnimated ?? getCachedPackImageAnimated(image.url) ?? false;
+            // Haven: an animated image still gets a small, crisp thumbnail when this homeserver's
+            // own media repo actually honours it (see AnimatedThumbnailSupport.ts's own doc) -
+            // most don't (confirmed live against a real deployment), so this only kicks in once
+            // that's been genuinely confirmed, never assumed. Falls back to exactly today's
+            // existing behavior (the full original, softened by the browser's own 10-20x
+            // downscale into this tiny grid cell) otherwise.
+            if (isAnimated) ensureAnimatedThumbnailSupportChecked(image.url, room.client);
+            const animatedThumbnailSupported = getCachedAnimatedThumbnailSupport(room.client.baseUrl);
             const imageUrl = isAnimated
-                ? (mediaFromMxc(image.url, room.client).srcHttp ?? undefined)
+                ? animatedThumbnailSupported
+                    ? getAnimatedThumbnailUrl(image.url, room.client, imageSize)
+                    : (mediaFromMxc(image.url, room.client).srcHttp ?? undefined)
                 : thumbnailUrl(image.url, room.client, imageSize);
             return {
                 ...custom,
@@ -215,13 +236,16 @@ export function HavenEmojiPicker({
     const stickerMode = mode === "sticker";
     const packUsage: ImagePackUsage = stickerMode ? "sticker" : "emoticon";
     const packRoom = !stickerMode && disableCustomEmoji ? undefined : room;
-    // animatedCacheVersion has no direct effect of its own - it's a dependency purely so this memo
-    // recomputes (picking up a fresh getCachedPackImageAnimated answer) once a background check
-    // kicked off inside buildPackCategories resolves - see PackImageAnimationCache's own doc.
+    // animatedCacheVersion/animatedThumbnailSupportVersion have no direct effect of their own -
+    // they're dependencies purely so this memo recomputes (picking up a fresh
+    // getCachedPackImageAnimated/getCachedAnimatedThumbnailSupport answer) once a background check
+    // kicked off inside buildPackCategories resolves - see PackImageAnimationCache's and
+    // AnimatedThumbnailSupport's own docs.
     const animatedCacheVersion = useAnimatedImageCacheVersion();
+    const animatedThumbnailSupportVersion = useAnimatedThumbnailSupportVersion();
     const { categories: packCategories, dataByCategory: dataByPackCategory } = useMemo(
         () => buildPackCategories(packRoom, packUsage),
-        [packRoom, packUsage, animatedCacheVersion],
+        [packRoom, packUsage, animatedCacheVersion, animatedThumbnailSupportVersion],
     );
 
     // Haven: sticker mode has no unicode-emoji grid to fall back on, unlike emoji mode - with zero
