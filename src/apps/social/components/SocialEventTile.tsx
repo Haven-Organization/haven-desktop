@@ -835,12 +835,31 @@ function stripOtherAttachmentsTrailer<T extends { body?: string; formatted_body?
     return stripped;
 }
 
+/** Classifies a content's real media kind the same way this file's own rendering logic already
+ *  does for the main tile and repost/reply cards (fileMime/repostedMime/quotedMime further down) -
+ *  `info`/`file` mimetype first, msgtype only as a fallback when no mimetype is present. Many
+ *  ActivityPub bridges never implement m.video/m.audio and send every attachment as `m.file` with
+ *  the real type carried only in `info.mimetype` - since this file already renders such a post as
+ *  a native video/image player identically to one sent with the "correct" msgtype, verification
+ *  comparing raw msgtype strings was stricter than rendering itself, and flagged every such
+ *  bridged post's repost as a possible forgery even though the two rendered identically - confirmed
+ *  live against a genuine, unaltered `m.file`-with-video-mimetype repost. */
+function effectiveMediaKind(
+    content: { msgtype?: string; url?: string; file?: { url?: string }; info?: { mimetype?: string } } | undefined,
+): string {
+    const mimetype = content?.info?.mimetype;
+    if (mimetype) return mimetype.split("/")[0] ?? "";
+    const url = content?.url ?? content?.file?.url;
+    if (!url) return content?.msgtype ?? "";
+    return { "m.image": "image", "m.video": "video", "m.audio": "audio" }[content?.msgtype ?? ""] ?? "";
+}
+
 /** Compares an embedded repost/reply snapshot against a real fetched event's content, normalizing
  *  both sides the same way (resolvePostBody/stripHavenHeader/stripOtherAttachmentsTrailer) so
  *  legitimate structural differences don't false-positive as forgery. Only compares the fields that
- *  actually matter for "does this say/show what the card claims" - body, formatted_body, msgtype,
- *  and the media reference - not a full deep-equal, since unrelated metadata drifting apart isn't a
- *  sign of tampering.
+ *  actually matter for "does this say/show what the card claims" - body, formatted_body, media
+ *  kind, and the media reference - not a full deep-equal, since unrelated metadata drifting apart
+ *  isn't a sign of tampering.
  *
  *  `contentInline` is the same flag repostOf/replyCrossPostOf.content_inline carries — when true
  *  *and* the embedded snapshot has a media URL with no genuine MSC4501 body override, its raw
@@ -888,7 +907,7 @@ function repostContentMatches(
     return (
         (bodyIsWrapperFiller ||
             ((a?.body ?? "") === (b?.body ?? "") && (a?.formatted_body ?? "") === (b?.formatted_body ?? ""))) &&
-        (a?.msgtype ?? "") === (b?.msgtype ?? "") &&
+        effectiveMediaKind(a) === effectiveMediaKind(b) &&
         (aUrl === bUrl || (!!aUrl && !!bUrl && sameDimensionsAndType))
     );
 }
