@@ -49,6 +49,9 @@ interface ExtraMetadata extends Metadata {
     electron_protocol: string;
     electron_windows_cert_sn?: string;
     haven_full_version?: string;
+    author?: { name: string; email: string };
+    homepage?: string;
+    repository?: { type: string; url: string };
 }
 
 /**
@@ -146,6 +149,25 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         description: variant.description,
         electron_appId: variant.appId,
         electron_protocol: variant.protocols[0],
+        // Haven: package.json itself is part of the upstream-synced element-web/apps/desktop tree
+        // (still carries Element's own author/homepage/repository), so these are overridden here
+        // rather than in the file directly - same reasoning as productName/description above,
+        // avoids the override being silently reverted by the next upstream sync. Surfaces in every
+        // packaged format's own metadata (.deb control file, .pacman PKGINFO, etc.) - confirmed
+        // live via `pacman -Qip` showing stock "https://element.io"/"Element <support@element.io>"
+        // before this fix.
+        // fpm-based targets (deb/rpm/pacman) hard-require author.email to build at all
+        // ("Please specify author 'email'...", confirmed live) - not just cosmetic metadata, so
+        // this can't be omitted. Confirmed it must stay an object, not a "Name <email>" string -
+        // FpmTarget reads `a.email` off it directly (see fpm/FpmTarget.ts), it doesn't parse the
+        // combined-string form npm itself also accepts. Also confirmed extraMetadata deep-merges
+        // objects with package.json's own author field rather than replacing it wholesale, so
+        // `email` must be set explicitly here too - `{ name: "Haven" }` alone left the *original*
+        // "support@element.io" showing through untouched. TODO: replace with a real Haven contact
+        // address once one exists; this is still New Vector's own upstream address either way.
+        author: { name: "Haven", email: "support@element.io" },
+        homepage: "https://app.haven.software",
+        repository: { type: "git", url: "https://github.com/Haven-Organization/haven-desktop" },
     },
     linux: {
         target: ["tar.gz", "deb", "AppImage"],
