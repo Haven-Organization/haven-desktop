@@ -35,7 +35,7 @@ import { tryRouteSocialRoom, tryRouteSocialPermalink } from "../../../../src/app
 const COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 const MEDIA_API_MXC_REGEX = /\/_matrix\/media\/r0\/(?:download|thumbnail)\/(.+?)\/(.+?)(?:[?/]|$)/;
 
-export const transformTags: NonNullable<IOptions["transformTags"]> = {
+export const transformTags = {
     // custom to matrix
     // add blank targets to all hyperlinks except vector URLs
     "a": function (tagName: string, attribs: sanitizeHtml.Attributes) {
@@ -147,7 +147,7 @@ export const transformTags: NonNullable<IOptions["transformTags"]> = {
 
         return { tagName, attribs };
     },
-};
+} satisfies NonNullable<IOptions["transformTags"]>;
 
 export const sanitizeHtmlParams: IOptions = {
     allowedTags: [

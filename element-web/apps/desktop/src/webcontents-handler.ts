@@ -148,7 +148,7 @@ function onLinkContextMenu(ev: Event, params: ContextMenuParams, webContents: We
                     label: _t("right_click_menu|copy_email"),
                     accelerator: "a",
                     click(): void {
-                        clipboard.writeText(url.substr(MAILTO_PREFIX.length));
+                        void clipboard.writeText(url.substr(MAILTO_PREFIX.length));
                     },
                 }),
             );
@@ -160,7 +160,7 @@ function onLinkContextMenu(ev: Event, params: ContextMenuParams, webContents: We
                         : _t("right_click_menu|copy_link_url"),
                     accelerator: "a",
                     click(): void {
-                        clipboard.writeText(url);
+                        void clipboard.writeText(url);
                     },
                 }),
             );

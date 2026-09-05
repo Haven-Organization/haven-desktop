@@ -189,7 +189,7 @@ class RoomSettingsDialog extends React.Component<IProps, IState> {
                 />,
             ),
         );
-        if (this.state.room.getJoinRule() === "knock") {
+        if (SettingsStore.getValue("feature_ask_to_join") && this.state.room.getJoinRule() === "knock") {
             tabs.push(
                 new Tab(
                     RoomSettingsTab.People,

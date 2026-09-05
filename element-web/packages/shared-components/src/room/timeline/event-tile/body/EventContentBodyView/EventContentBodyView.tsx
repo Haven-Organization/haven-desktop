@@ -60,7 +60,7 @@ export interface EventContentBodyViewSnapshot {
     /**
      * CSS class names to apply to the container element.
      */
-    className: string;
+    className?: string;
     /**
      * The text direction attribute.
      * Always "auto" for divs, controlled by includeDir prop for spans.

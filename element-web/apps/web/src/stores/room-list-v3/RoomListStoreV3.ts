@@ -23,6 +23,7 @@ import { type SpaceKey, UPDATE_HOME_BEHAVIOUR, UPDATE_SELECTED_SPACE } from "../
 import { FavouriteFilter } from "./skip-list/filters/FavouriteFilter";
 import { UnreadFilter } from "./skip-list/filters/UnreadFilter";
 import { PeopleFilter } from "./skip-list/filters/PeopleFilter";
+import { PeopleSectionFilter } from "./skip-list/filters/PeopleSectionFilter";
 import { RoomsFilter } from "./skip-list/filters/RoomsFilter";
 import { InvitesFilter } from "./skip-list/filters/InvitesFilter";
 import { MentionsFilter } from "./skip-list/filters/MentionsFilter";
@@ -39,14 +40,7 @@ import { getTagsForRoom } from "../../utils/room/getTagsForRoom";
 import { ExcludeTagsFilter } from "./skip-list/filters/ExcludeTagsFilter";
 import { TagFilter } from "./skip-list/filters/TagFilter";
 import { filterBoolean } from "../../utils/arrays";
-import {
-    CHATS_TAG,
-    createSection,
-    deleteSection,
-    editSection,
-    getOrderedReorderableSections,
-    reorderSection,
-} from "./section";
+import { CHATS_TAG, createSection, deleteSection, editSection, getOrderedSectionTags, reorderSection } from "./section";
 import { DefaultTagID, type TagID } from "./skip-list/tag";
 import { SDKContextClass } from "../../contexts/SDKContextClass.ts";
 
@@ -148,10 +142,13 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
             this.onActiveSpaceChanged();
         });
         SDKContextClass.instance.spaceStore.on(UPDATE_HOME_BEHAVIOUR, () => this.onActiveSpaceChanged());
-        SettingsStore.watchSetting("RoomList.OrderedCustomSections", null, () => this.onOrderedCustomSectionsChange());
-        this.loadCustomSections();
+        SettingsStore.watchSetting("RoomList.OrderedCustomSections", null, () => this.onSectionsChange());
+        this.loadSections();
 
-        SettingsStore.watchSetting("RoomList.showSections", null, () => this.scheduleEmit());
+        // Both settings change which sections exist: disabling sections altogether also forces
+        // "RoomList.showPeopleSection" off, see its RequiresSettingsController.
+        SettingsStore.watchSetting("RoomList.showSections", null, () => this.onSectionsChange());
+        SettingsStore.watchSetting("RoomList.showPeopleSection", null, () => this.onSectionsChange());
         SettingsStore.watchSetting("Spaces.showPeopleInSpace", null, (_settingName, roomId) => {
             if (roomId === SDKContextClass.instance.spaceStore.activeSpace) this.onActiveSpaceChanged();
         });
@@ -533,12 +530,25 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     }
 
     /**
-     * Get the list of filters to be used in the skip list, including the tag filters for sectioning.
+     * Get the list of filters to be used in the skip list, including the section filters.
      */
     private getSkipListFilters(): Filter[] {
-        const tagsToExclude = this.sortedTags.filter((tag) => tag !== CHATS_TAG);
+        // The DM/People section is matched via PeopleSectionFilter (DMRoomMap-backed) rather than
+        // TagFilter, since DM-ness isn't a literal room.tags[DefaultTagID.DM] entry - see
+        // getTagsOfJoinedRoom, which only synthesizes that tag for display and never sets it on
+        // the room itself. It's also built last, from the other sections' own filters, so an
+        // explicitly tagged DM (e.g. also Favourite) lands in that tag's section instead - see
+        // PeopleSectionFilter's own doc.
+        const nonChatTags = this.sortedTags.filter((tag) => tag !== CHATS_TAG);
+        const sectionFilters = new Map<string, Filter>(
+            nonChatTags.filter((tag) => tag !== DefaultTagID.DM).map((tag) => [tag, new TagFilter(tag)]),
+        );
+        if (nonChatTags.includes(DefaultTagID.DM)) {
+            sectionFilters.set(DefaultTagID.DM, new PeopleSectionFilter([...sectionFilters.values()]));
+        }
+
         const tagFilters = this.sortedTags.map((tag) =>
-            tag === CHATS_TAG ? new ExcludeTagsFilter(tagsToExclude) : new TagFilter(tag),
+            tag === CHATS_TAG ? new ExcludeTagsFilter([...sectionFilters.values()]) : sectionFilters.get(tag)!,
         );
         this.sortedTags.forEach((tag, index) => this.filterByTag.set(tag, tagFilters[index]));
 
@@ -580,8 +590,8 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
      * Reloads the custom sections, updates the skip list filters to reflect the new order and emits an update.
      * Emit {@link LISTS_UPDATE_EVENT}.
      */
-    private onOrderedCustomSectionsChange(): void {
-        this.loadCustomSections();
+    private onSectionsChange(): void {
+        this.loadSections();
         if (!this.roomSkipList) return;
         this.roomSkipList.useNewFilters(this.getSkipListFilters());
         this.scheduleEmit();
@@ -650,13 +660,10 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     }
 
     /**
-     * Load the custom sections from the settings store and update the sorted tags.
+     * Load the sections to display from the settings store and update the sorted tags.
      */
-    private loadCustomSections(): void {
-        // Favourite is pinned to the top and LowPriority to the bottom. Everything in between
-        // (custom sections + Chats) is user-reorderable.
-        const reorderable = getOrderedReorderableSections();
-        this.sortedTags = [DefaultTagID.Favourite, ...reorderable, DefaultTagID.LowPriority];
+    private loadSections(): void {
+        this.sortedTags = getOrderedSectionTags();
     }
 }
 

@@ -23,6 +23,7 @@ import { useLocalEcho } from "../../../hooks/useLocalEcho";
 import dis from "../../../dispatcher/dispatcher";
 import { RoomSettingsTab } from "../dialogs/RoomSettingsDialog-tab";
 import { Action } from "../../../dispatcher/actions";
+import SettingsStore from "../../../settings/SettingsStore";
 import { type ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPayload";
 import { doesRoomVersionSupport, PreferredRoomVersions } from "../../../utils/PreferredRoomVersions";
 import LabelledCheckbox from "../elements/LabelledCheckbox";
@@ -52,6 +53,7 @@ const JoinRuleSettings: React.FC<JoinRuleSettingsProps> = ({
 }) => {
     const cli = room.client;
 
+    const askToJoinEnabled = SettingsStore.getValue("feature_ask_to_join");
     const roomSupportsKnock = doesRoomVersionSupport(room.getVersion(), PreferredRoomVersions.KnockRooms);
     const preferredKnockVersion = !roomSupportsKnock && promptUpgrade ? PreferredRoomVersions.KnockRooms : undefined;
 
@@ -321,7 +323,7 @@ const JoinRuleSettings: React.FC<JoinRuleSettingsProps> = ({
         });
     }
 
-    if (roomSupportsKnock || preferredKnockVersion) {
+    if (askToJoinEnabled && (roomSupportsKnock || preferredKnockVersion)) {
         definitions.splice(Math.max(0, definitions.length - 1), 0, {
             value: JoinRule.Knock,
             label: (

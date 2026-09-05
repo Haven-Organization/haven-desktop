@@ -1,0 +1,886 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`<PinnedMessageBanner /> > should display display a poll event 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="true"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          <span>
+            <strong>
+              Poll:
+            </strong>
+             Alice?
+          </span>
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should display the last message when the pinned event array changed 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="false"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator"
+            data-testid="banner-indicator"
+          />
+          <div
+            class="mx_PinnedMessageBanner_Indicator"
+            data-testid="banner-indicator"
+          />
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <div
+          class="mx_PinnedMessageBanner_title"
+          data-testid="banner-counter"
+        >
+          <span>
+            <span
+              class="mx_PinnedMessageBanner_title_counter"
+            >
+              3 of 3
+            </span>
+             Pinned messages
+          </span>
+        </div>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          Third pinned message
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        class="_button_1nw83_8 mx_PinnedMessageBanner_actions"
+        data-kind="tertiary"
+        data-size="lg"
+        role="button"
+        tabindex="0"
+      >
+        View all
+      </button>
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should display the m.audio event type 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="true"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          <span>
+            <strong>
+              Audio:
+            </strong>
+             Message with m.audio type
+          </span>
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should display the m.file event type 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="true"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          <span>
+            <strong>
+              File:
+            </strong>
+             Message with m.file type
+          </span>
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should display the m.image event type 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="true"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          <span>
+            <strong>
+              Image:
+            </strong>
+             Message with m.image type
+          </span>
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should display the m.video event type 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="true"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          <span>
+            <strong>
+              Video:
+            </strong>
+             Message with m.video type
+          </span>
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should render 2 pinned event 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="false"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator"
+            data-testid="banner-indicator"
+          />
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <div
+          class="mx_PinnedMessageBanner_title"
+          data-testid="banner-counter"
+        >
+          <span>
+            <span
+              class="mx_PinnedMessageBanner_title_counter"
+            >
+              2 of 2
+            </span>
+             Pinned messages
+          </span>
+        </div>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          Second pinned message
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        class="_button_1nw83_8 mx_PinnedMessageBanner_actions"
+        data-kind="tertiary"
+        data-size="lg"
+        role="button"
+        tabindex="0"
+      >
+        View all
+      </button>
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should render 4 pinned event 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="false"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--hidden"
+            data-testid="banner-indicator"
+          />
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--hidden"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <div
+          class="mx_PinnedMessageBanner_title"
+          data-testid="banner-counter"
+        >
+          <span>
+            <span
+              class="mx_PinnedMessageBanner_title_counter"
+            >
+              4 of 4
+            </span>
+             Pinned messages
+          </span>
+        </div>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          Fourth pinned message
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        class="_button_1nw83_8 mx_PinnedMessageBanner_actions"
+        data-kind="tertiary"
+        data-size="lg"
+        role="button"
+        tabindex="0"
+      >
+        View all
+      </button>
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`<PinnedMessageBanner /> > should render a single pinned event 1`] = `
+<DocumentFragment>
+  <div
+    aria-label="Pinned messages"
+    class="mx_PinnedMessageBanner"
+    data-single-message="true"
+    data-testid="pinned-message-banner"
+    role="region"
+  >
+    <button
+      aria-describedby="react-use-id-1"
+      aria-label="View the pinned message in the timeline and the newest pinned message here"
+      class="mx_PinnedMessageBanner_main"
+      type="button"
+    >
+      <div
+        class="mx_PinnedMessageBanner_content"
+        id="react-use-id-1"
+      >
+        <div
+          class="mx_PinnedMessageBanner_Indicators"
+        >
+          <div
+            class="mx_PinnedMessageBanner_Indicator mx_PinnedMessageBanner_Indicator--active"
+            data-testid="banner-indicator"
+          />
+        </div>
+        <svg
+          class="mx_PinnedMessageBanner_PinIcon"
+          fill="currentColor"
+          height="20px"
+          viewBox="0 0 24 24"
+          width="20px"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.769 2.857A.5.5 0 0 1 6.119 2h11.762a.5.5 0 0 1 .35.857L16.15 4.9a.5.5 0 0 0-.15.357v4.487a.5.5 0 0 0 .15.356l3.7 3.644a.5.5 0 0 1 .15.356v1.4a.5.5 0 0 1-.5.5H13v6a1 1 0 1 1-2 0v-6H4.5a.5.5 0 0 1-.5-.5v-1.4a.5.5 0 0 1 .15-.356l3.7-3.644A.5.5 0 0 0 8 9.744V5.257a.5.5 0 0 0-.15-.357z"
+          />
+        </svg>
+        <span
+          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          data-testid="banner-message"
+        >
+          First pinned message
+        </span>
+      </div>
+    </button>
+    <div
+      class="mx_PinnedMessageBanner_actionsGroup"
+    >
+      <button
+        aria-disabled="false"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        aria-label="Pinned messages banner options"
+        class="_icon-button_1215g_8"
+        data-kind="primary"
+        data-state="closed"
+        id="radix-react-use-id-2"
+        role="button"
+        style="--cpd-icon-button-size: 24px;"
+        tabindex="0"
+        type="button"
+      >
+        <div
+          class="_indicator-icon_147l5_17"
+          style="--cpd-icon-button-size: 100%;"
+        >
+          <svg
+            fill="currentColor"
+            height="1em"
+            viewBox="0 0 24 24"
+            width="1em"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6 14q-.824 0-1.412-.588A1.93 1.93 0 0 1 4 12q0-.825.588-1.412A1.93 1.93 0 0 1 6 10q.824 0 1.412.588Q8 11.175 8 12t-.588 1.412A1.93 1.93 0 0 1 6 14m6 0q-.825 0-1.412-.588A1.93 1.93 0 0 1 10 12q0-.825.588-1.412A1.93 1.93 0 0 1 12 10q.825 0 1.412.588Q14 11.175 14 12t-.588 1.412A1.93 1.93 0 0 1 12 14m6 0q-.824 0-1.413-.588A1.93 1.93 0 0 1 16 12q0-.825.587-1.412A1.93 1.93 0 0 1 18 10q.824 0 1.413.588Q20 11.175 20 12t-.587 1.412A1.93 1.93 0 0 1 18 14"
+            />
+          </svg>
+        </div>
+      </button>
+    </div>
+  </div>
+</DocumentFragment>
+`;

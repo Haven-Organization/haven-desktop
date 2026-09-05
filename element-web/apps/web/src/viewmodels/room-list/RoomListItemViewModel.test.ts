@@ -503,6 +503,7 @@ describe("RoomListItemViewModel", () => {
 
             await flushPromises();
 
+            expect(viewModel.getSnapshot().isDm).toBe(true);
             // DM rooms should not show copy room link option
             expect(viewModel.getSnapshot().canCopyRoomLink).toBe(false);
         });
@@ -515,6 +516,7 @@ describe("RoomListItemViewModel", () => {
 
             await flushPromises();
 
+            expect(viewModel.getSnapshot().isDm).toBe(false);
             expect(viewModel.getSnapshot().canCopyRoomLink).toBe(true);
         });
     });
