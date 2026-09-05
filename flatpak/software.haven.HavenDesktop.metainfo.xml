@@ -33,6 +33,25 @@
     <content_attribute id="social-info">mild</content_attribute>
   </content_rating>
   <releases>
+    <release version="0.8.0" date="2026-09-05">
+      <description>
+        <p>Sync with upstream Element, new Linux packaging, and fixes to Social's repost verification:</p>
+        <ul>
+          <li>Sync with the latest upstream Element</li>
+          <li>Add a pacman package for Arch Linux</li>
+          <li>Fix matrix-seshat (local encrypted-room message search) not actually working in any Linux build</li>
+          <li>Add a repost/reply source verification badge, fix cases where it falsely flagged genuine reposts as forgeries</li>
+          <li>Add right-click on a Social reaction pill to open the reactions dialog</li>
+          <li>Show MSC4144 per-message profiles in the room timeline and Social</li>
+          <li>Add a "Copy Pack" option and guard the settings dialog from closing with unsaved pack edits</li>
+          <li>Fix the emoji picker's Enter key, layout, and blurry pack image thumbnails</li>
+          <li>Increase reaction pill and tooltip sizes</li>
+          <li>Move "View Devices" into the developer-mode button list and show it on your own profile</li>
+          <li>Fix the Share dialog freezing under some browsers' canvas privacy protections</li>
+          <li>Fix SSO login using the wrong protocol on desktop</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.7.0" date="2026-08-26">
       <description>
         <p>Fixes and improvements across profiles, room navigation, and the emoji/sticker picker:</p>
