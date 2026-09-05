@@ -83,9 +83,17 @@ sed -i 's/shell: true,/shell: false,/g' element-web/apps/desktop/hak/matrix-sesh
 # that shebang line to exec bin/yarn at all - same missing-/bin/sh problem one level down, confirmed
 # live against a second real aarch64 CI failure ("Error: spawn yarn ENOENT" once shell: false alone
 # was in place). Routing both calls through `node yarn.js ...` directly sidesteps bin/yarn's shell
-# shebang entirely - node itself is a real ELF binary from the node24 SDK extension, no shebang
-# involved resolving it.
-sed -i 's#hakEnv\.spawn("yarn", \[#hakEnv.spawn("node", ["'"$ROOT"'/yarn-cli/package/bin/yarn.js", #g' \
+# shebang entirely.
+#
+# A literal "node" string still isn't enough, though (confirmed live against a *third* real aarch64
+# CI failure, "Error: spawn node ENOENT" - the yarn.js path in spawnargs was correct, proving this
+# sed itself worked). child_process.spawn's own PATH-based executable lookup for "node" failed even
+# though this exact script is already running under node right now, invoked successfully moments
+# earlier - some difference between the shell/pnpm-script PATH that launched *this* process and
+# whatever PATH child_process.spawn resolved "node" against here. Using process.execPath (node's own
+# absolute path to itself, always valid, no PATH lookup involved at all) sidesteps the question
+# entirely instead of chasing down that PATH discrepancy.
+sed -i 's#hakEnv\.spawn("yarn", \[#hakEnv.spawn(process.execPath, ["'"$ROOT"'/yarn-cli/package/bin/yarn.js", #g' \
     element-web/apps/desktop/hak/matrix-seshat/build.ts
 
 cd element-web/apps/desktop
