@@ -75,9 +75,18 @@ sed -i 's#hakEnv\.spawn("yarn", \["install"\]#hakEnv.spawn("yarn", ["install", "
 # a shell wrapper it doesn't actually need (neither command uses pipes/globs/redirects). Confirmed a
 # real Flathub aarch64 CI build failing here with "Error: spawn /bin/sh ENOENT" - that architecture's
 # build sandbox has no /bin/sh at all (x86_64 does, which is why this was never caught testing there).
-# Forcing shell: false sidesteps the missing-shell environment gap entirely rather than chasing down
-# why that one architecture's sandbox lacks /bin/sh.
 sed -i 's/shell: true,/shell: false,/g' element-web/apps/desktop/hak/matrix-seshat/build.ts
+
+# shell: false alone isn't enough on its own, though - the real npm "yarn" package's installed
+# bin/yarn (what PATH resolves "yarn" to) is *itself* a "#!/bin/sh" script (bin/yarn.js, its real JS
+# entry point, is "#!/usr/bin/env node" instead). Without a shell, the kernel still has to interpret
+# that shebang line to exec bin/yarn at all - same missing-/bin/sh problem one level down, confirmed
+# live against a second real aarch64 CI failure ("Error: spawn yarn ENOENT" once shell: false alone
+# was in place). Routing both calls through `node yarn.js ...` directly sidesteps bin/yarn's shell
+# shebang entirely - node itself is a real ELF binary from the node24 SDK extension, no shebang
+# involved resolving it.
+sed -i 's#hakEnv\.spawn("yarn", \[#hakEnv.spawn("node", ["'"$ROOT"'/yarn-cli/package/bin/yarn.js", #g' \
+    element-web/apps/desktop/hak/matrix-seshat/build.ts
 
 cd element-web/apps/desktop
 for hak_stage in check link build copy; do
