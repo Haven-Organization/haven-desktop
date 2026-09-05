@@ -96,24 +96,31 @@ sed -i 's/shell: true,/shell: false,/g' element-web/apps/desktop/hak/matrix-sesh
 sed -i 's#hakEnv\.spawn("yarn", \[#hakEnv.spawn(process.execPath, ["'"$ROOT"'/yarn-cli/package/bin/yarn.js", #g' \
     element-web/apps/desktop/hak/matrix-seshat/build.ts
 
-cd element-web/apps/desktop
+# The manifest's matrix-seshat sources (the pre-extracted npm tarball and its pinned yarn.lock -
+# see the manifest's own archive/file sources for element-web/apps/desktop/.hak/matrix-seshat/
+# x86_64-unknown-linux-gnu/build) have to hardcode one target triple in their dest path, because a
+# flatpak manifest source can't itself branch on which arch flatpak-builder happens to be building
+# for. hak's own moduleBuildDir (scripts/hak/index.ts) is built from hakEnv.getTargetId() instead,
+# which resolves per-arch at build time - x86_64-unknown-linux-gnu there too on an x86_64 build (so
+# this was never wrong locally or in any x86_64 CI run), but aarch64-unknown-linux-gnu on aarch64.
+# Confirmed via this file's own now-removed diagnostic block: the real root cause of the
+# "spawn ... ENOENT" failures chased across the last three releases was never the spawned
+# executable at all (node --version at that literal path worked fine) - it was hakEnv.spawn's own
+# cwd option (moduleInfo.moduleBuildDir) pointing at a directory that plain doesn't exist on
+# aarch64, since the manifest only ever populated the x86_64 one. Node's child_process.spawn
+# mis-reports a missing cwd as ENOENT against the executable path instead of the cwd itself - a
+# well known footgun - which is exactly why three straight, individually-correct fixes to *how*
+# the executable was being resolved (shell:true, the yarn wrapper script, a literal "node" string)
+# never actually did anything on aarch64: none of them touched the real problem. Relocating the
+# manifest's pre-populated directory to whatever this build's actual target triple resolves to
+# fixes every arch flatpak-builder might build for, not just aarch64.
+HAK_TARGET_TRIPLE="$(uname -m)-unknown-linux-gnu"
+if [ "$HAK_TARGET_TRIPLE" != "x86_64-unknown-linux-gnu" ]; then
+    mv element-web/apps/desktop/.hak/matrix-seshat/x86_64-unknown-linux-gnu \
+        element-web/apps/desktop/.hak/matrix-seshat/"$HAK_TARGET_TRIPLE"
+fi
 
-# Diagnostic only (2026-09-05, not a fix) - three consecutive guesses at this point (shell: false,
-# node yarn.js directly, process.execPath) each fixed the exact symptom the previous aarch64 CI
-# failure showed, only to hit a new one underneath. The latest, "spawn /usr/lib/sdk/node24/bin/node
-# ENOENT", means process.execPath itself resolved to that path but spawning that *exact* path still
-# failed - not a PATH/shebang/resolution question anymore, something more fundamental about whether
-# that file actually exists (or resolves) at that path on aarch64. No aarch64 hardware/emulation
-# available to test this directly, so printing hard facts here instead of guessing a fourth time.
-echo "=== aarch64 diagnostic: node24 SDK extension state ==="
-uname -m
-ls -la /usr/lib/sdk/node24/bin/ 2>&1 || echo "node24 bin dir listing failed"
-file /usr/lib/sdk/node24/bin/node 2>&1 || echo "file command on node failed"
-readlink -f /usr/lib/sdk/node24/bin/node 2>&1 || echo "readlink -f failed"
-command -v node 2>&1 || echo "command -v node failed"
-node --version 2>&1 || echo "node --version failed"
-echo "PATH=$PATH"
-echo "=== end diagnostic ==="
+cd element-web/apps/desktop
 
 for hak_stage in check link build copy; do
     HOME="$ROOT" CARGO_HOME="$ROOT/cargo" CARGO_NET_OFFLINE=true SQLCIPHER_BUNDLED=1 \
