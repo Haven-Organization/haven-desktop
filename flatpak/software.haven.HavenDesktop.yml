@@ -6,6 +6,9 @@ base: org.electronjs.Electron2.BaseApp
 base-version: '25.08'
 command: haven-desktop
 separate-locales: false
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node24
+  - org.freedesktop.Sdk.Extension.rust-stable
 
 finish-args:
   - --socket=fallback-x11
@@ -17,7 +20,6 @@ finish-args:
   - --talk-name=org.kde.StatusNotifierWatcher
   - --talk-name=org.freedesktop.ScreenSaver
   - --filesystem=xdg-run/keyring
-  - --filesystem=xdg-run/pipewire-0
   - --talk-name=org.freedesktop.secrets
   - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
   - --talk-name=com.canonical.Unity
@@ -25,38 +27,65 @@ finish-args:
 modules:
   - name: haven-desktop
     buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/node24/bin:/run/build/haven-desktop/pnpm-cli/bin
+      env:
+        XDG_CACHE_HOME: /run/build/haven-desktop/flatpak-node/cache
+        PNPM_HOME: /run/build/haven-desktop/flatpak-node/pnpm-home
+        HOME: /run/build/haven-desktop
+        COREPACK_ENABLE_STRICT: '0'
+        PNPM_CONFIG_PM_ON_FAIL: ignore
+        npm_config_pm_on_fail: ignore
+        NX_NO_CLOUD: 'true'
+        NX_SKIP_NX_CACHE: 'true'
+        NX_DAEMON: 'false'
     build-commands:
-      # Haven: unpacks a real release .deb (an `ar` archive containing control.tar.xz +
-      # data.tar.xz) - dpkg-deb isn't guaranteed present in the SDK image, so `ar`/`tar` (both in
-      # org.freedesktop.Sdk) do the extraction instead. Mirrors im.riot.Riot's own manifest in
-      # spirit (fetch a real release artifact rather than building from source). matrix-seshat is
-      # included as of the 0.7.0 .deb (see the source's own doc below) - the 0.6.5 release this
-      # comment used to reference did not have it.
-      - ar x haven-desktop.deb
-      - mkdir -p deb-data
-      - tar -xJf data.tar.xz -C deb-data
-      - mkdir -p /app/Haven
-      - cp -r deb-data/opt/Haven/* /app/Haven/
-      - install -Dm644 deb-data/usr/share/icons/hicolor/512x512/apps/haven-desktop.png /app/share/icons/hicolor/512x512/apps/software.haven.HavenDesktop.png
-      - install -Dm644 software.haven.HavenDesktop.svg /app/share/icons/hicolor/scalable/apps/software.haven.HavenDesktop.svg
-      - install -Dm755 haven-desktop.sh /app/bin/haven-desktop
-      - install -Dm644 software.haven.HavenDesktop.desktop /app/share/applications/software.haven.HavenDesktop.desktop
-      - install -Dm644 software.haven.HavenDesktop.metainfo.xml /app/share/metainfo/software.haven.HavenDesktop.metainfo.xml
+      - bash flatpak/build.sh
     sources:
+      # Haven: builds the current checkout directly (this manifest already lives inside the repo
+      # it builds), rather than a `type: git` fetch of a specific published tag/commit the way the
+      # Flathub submission's own copy of this manifest does - that's the right call for Flathub
+      # (a reproducible build must fetch a real, citable release, not a build machine's local
+      # working tree), but would only add friction here: testing a flatpak build of work still on
+      # this branch shouldn't require tagging and pushing a release first. Skips the things that
+      # would otherwise bloat/break the build sandbox copy - VCS metadata, installed node_modules
+      # (platform/host-specific, pnpm reinstalls from the offline store below anyway), and any
+      # previous build output.
+      - type: dir
+        path: ..
+        skip:
+          - .git
+          - "**/node_modules"
+          - element-web/apps/web/dist
+          - element-web/apps/web/webapp
+          - element-web/apps/desktop/dist
+          - element-web/apps/desktop/.hak
+      - generated-sources.json
+      - type: script
+        dest: pnpm-cli/bin
+        dest-filename: pnpm
+        commands:
+          - "#!/bin/sh"
+          - exec node /run/build/haven-desktop/pnpm-cli/package/bin/pnpm.mjs "$@"
       - type: file
-        url: https://github.com/Haven-Organization/haven-desktop/releases/download/haven-v0.7.0/haven-desktop_0.7.0_amd64.deb
-        sha256: 78d6fe3c26c59f6ef714e03dcb4870979722e44fb47aa6f06341ef336d4a39da
-        dest-filename: haven-desktop.deb
-        x-checker-data:
-          type: json
-          url: https://api.github.com/repos/Haven-Organization/haven-desktop/releases/latest
-          version-query: .tag_name | sub("^haven-v"; "")
-          url-query: .assets[] | select(.name | test("_amd64\\.deb$")) | .browser_download_url
+        url: https://registry.npmjs.org/pnpm/-/pnpm-11.23.0.tgz
+        sha256: 78dcbf44f40cef50d1f4b535ca9961a30edb4b13c420c360bf4068d424a41bc4
+        dest-filename: pnpm-11.23.0.tgz
+      - matrix-seshat-cargo-sources.json
+      - matrix-seshat-yarn-sources.json
       - type: file
-        path: haven-desktop.sh
+        url: https://registry.npmjs.org/yarn/-/yarn-1.22.22.tgz
+        sha256: c17d3797fb9a9115bf375e31bfd30058cac6bc9c3b8807a3d8cb2094794b51ca
+        dest-filename: yarn-1.22.22.tgz
+      - type: archive
+        url: https://registry.npmjs.org/matrix-seshat/-/matrix-seshat-5.0.0.tgz
+        sha256: 3c18369a320098b17e2539226d0e96619c9be4693186f376ed11b077a27c95ca
+        dest: element-web/apps/desktop/.hak/matrix-seshat/x86_64-unknown-linux-gnu/build
+      - type: archive
+        url: https://registry.npmjs.org/matrix-seshat/-/matrix-seshat-5.0.0.tgz
+        sha256: 3c18369a320098b17e2539226d0e96619c9be4693186f376ed11b077a27c95ca
+        dest: element-web/apps/desktop/.hak/hakModules/matrix-seshat
       - type: file
-        path: software.haven.HavenDesktop.svg
-      - type: file
-        path: software.haven.HavenDesktop.desktop
-      - type: file
-        path: software.haven.HavenDesktop.metainfo.xml
+        path: matrix-seshat-yarn.lock
+        dest: element-web/apps/desktop/.hak/matrix-seshat/x86_64-unknown-linux-gnu/build
+        dest-filename: yarn.lock

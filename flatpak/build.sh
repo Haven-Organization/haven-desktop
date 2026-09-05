@@ -3,7 +3,7 @@ set -e
 
 ROOT="$PWD"
 
-mkdir -p pnpm-cli && tar -xzf pnpm-11.22.0.tgz -C pnpm-cli
+mkdir -p pnpm-cli && tar -xzf pnpm-11.23.0.tgz -C pnpm-cli
 
 sed -i 's/minimumReleaseAgeStrict: true/minimumReleaseAgeStrict: false/' element-web/pnpm-workspace.yaml
 sed -i '/^trustLockfile:/d' element-web/pnpm-workspace.yaml
