@@ -97,6 +97,24 @@ sed -i 's#hakEnv\.spawn("yarn", \[#hakEnv.spawn(process.execPath, ["'"$ROOT"'/ya
     element-web/apps/desktop/hak/matrix-seshat/build.ts
 
 cd element-web/apps/desktop
+
+# Diagnostic only (2026-09-05, not a fix) - three consecutive guesses at this point (shell: false,
+# node yarn.js directly, process.execPath) each fixed the exact symptom the previous aarch64 CI
+# failure showed, only to hit a new one underneath. The latest, "spawn /usr/lib/sdk/node24/bin/node
+# ENOENT", means process.execPath itself resolved to that path but spawning that *exact* path still
+# failed - not a PATH/shebang/resolution question anymore, something more fundamental about whether
+# that file actually exists (or resolves) at that path on aarch64. No aarch64 hardware/emulation
+# available to test this directly, so printing hard facts here instead of guessing a fourth time.
+echo "=== aarch64 diagnostic: node24 SDK extension state ==="
+uname -m
+ls -la /usr/lib/sdk/node24/bin/ 2>&1 || echo "node24 bin dir listing failed"
+file /usr/lib/sdk/node24/bin/node 2>&1 || echo "file command on node failed"
+readlink -f /usr/lib/sdk/node24/bin/node 2>&1 || echo "readlink -f failed"
+command -v node 2>&1 || echo "command -v node failed"
+node --version 2>&1 || echo "node --version failed"
+echo "PATH=$PATH"
+echo "=== end diagnostic ==="
+
 for hak_stage in check link build copy; do
     HOME="$ROOT" CARGO_HOME="$ROOT/cargo" CARGO_NET_OFFLINE=true SQLCIPHER_BUNDLED=1 \
         pnpm run hak "$hak_stage" matrix-seshat
