@@ -14,7 +14,7 @@ python3 flatpak-node/populate_pnpm_store.py flatpak-node/pnpm-manifest.json flat
 sed -i '/^storeDir:/d' element-web/pnpm-workspace.yaml
 echo 'storeDir: '$PWD'/flatpak-node/pnpm-store' >> element-web/pnpm-workspace.yaml
 
-cd element-web && pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false && cd ..
+cd element-web && CI=true pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false && cd ..
 
 cd element-web/apps/web && HAVEN_INCLUDE_OLD_ROOM_LIST=1 pnpm build && cd ../../..
 

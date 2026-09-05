@@ -47,14 +47,19 @@ modules:
       # Flathub submission's own copy of this manifest does - that's the right call for Flathub
       # (a reproducible build must fetch a real, citable release, not a build machine's local
       # working tree), but would only add friction here: testing a flatpak build of work still on
-      # this branch shouldn't require tagging and pushing a release first. Skips the things that
-      # would otherwise bloat/break the build sandbox copy - VCS metadata, installed node_modules
-      # (platform/host-specific, pnpm reinstalls from the offline store below anyway), and any
-      # previous build output.
+      # this branch shouldn't require tagging and pushing a release first. `.git` is NOT skipped
+      # (confirmed live, 2026-09-04) despite looking like harmless VCS metadata to drop - build.sh's
+      # own compute-haven-version.sh needs a real, real `git log --merges`-capable repository to
+      # compute HAVEN_FULL_VERSION; without it, `git -C "$ROOT_DIR" log ...` fails outright with
+      # "fatal: not a git repository" (exit 128, silently swallowed by that script's own `2>/dev/null`
+      # then re-surfaced by `set -e`), aborting the whole build with no error message at all - a much
+      # harder failure than the shallow-clone/no-merge-commit case that script already falls back on
+      # gracefully. Skips only things that would otherwise bloat/break the build sandbox copy -
+      # installed node_modules (platform/host-specific, pnpm reinstalls from the offline store below
+      # anyway) and any previous build output.
       - type: dir
         path: ..
         skip:
-          - .git
           - "**/node_modules"
           - element-web/apps/web/dist
           - element-web/apps/web/webapp
