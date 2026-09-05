@@ -70,6 +70,15 @@ HOME="$ROOT" yarn config --offline set yarn-offline-mirror "$ROOT/flatpak-node/y
 sed -i 's#hakEnv\.spawn("yarn", \["install"\]#hakEnv.spawn("yarn", ["install", "--offline"]#' \
     element-web/apps/desktop/hak/matrix-seshat/build.ts
 
+# Both of this file's own hakEnv.spawn() calls (install, run build) pass shell: true unconditionally
+# - hakEnv.spawn's own default is shell: this.isWin() (false on Linux), so this file opts back into
+# a shell wrapper it doesn't actually need (neither command uses pipes/globs/redirects). Confirmed a
+# real Flathub aarch64 CI build failing here with "Error: spawn /bin/sh ENOENT" - that architecture's
+# build sandbox has no /bin/sh at all (x86_64 does, which is why this was never caught testing there).
+# Forcing shell: false sidesteps the missing-shell environment gap entirely rather than chasing down
+# why that one architecture's sandbox lacks /bin/sh.
+sed -i 's/shell: true,/shell: false,/g' element-web/apps/desktop/hak/matrix-seshat/build.ts
+
 cd element-web/apps/desktop
 for hak_stage in check link build copy; do
     HOME="$ROOT" CARGO_HOME="$ROOT/cargo" CARGO_NET_OFFLINE=true SQLCIPHER_BUNDLED=1 \
