@@ -21,7 +21,7 @@ jobs:
             # makepkg refuses to run as root at all.
             - name: Create an unprivileged build user
               run: |
-                  useradd -m builder
+                  useradd -m -s /bin/bash builder
                   chown -R builder:builder /home/builder
 
             - name: Configure SSH access to the AUR
@@ -40,40 +40,57 @@ jobs:
                   chmod 600 /home/builder/.ssh/config
                   chown -R builder:builder /home/builder/.ssh
 
-            - name: Refresh pkgver/.SRCINFO and push if changed
+            # Written as a real script file run via a simple path argument, not an inline
+            # `su builder -c '...multi-line string...'` - the previous version of this workflow
+            # failed with "sed: can't read PKGBUILD: No such file or directory" partway through
+            # for a reason that was never fully pinned down (never reproduced locally outside
+            # this container), and a single quoted multi-command string passed through `su -c`
+            # is much harder to debug blind than a real script with -x tracing. This form also
+            # sidesteps any quoting ambiguity between the outer YAML block and the inner script.
+            - name: Write the sync script
               run: |
-                  su builder -c '
-                      set -e
-                      cd /home/builder
-                      git clone ssh://aur@aur.archlinux.org/haven-desktop-git.git
-                      cd haven-desktop-git
+                  cat > /home/builder/sync-aur.sh <<'SCRIPT'
+                  #!/bin/bash
+                  set -ex
+                  cd /home/builder
+                  git clone ssh://aur@aur.archlinux.org/haven-desktop-git.git
+                  cd haven-desktop-git
+                  pwd
+                  ls -la
 
-                      # "makepkg --printsrcinfo" never actually runs pkgver() at all - confirmed
-                      # live it just dumps whatever static pkgver= is already written in the
-                      # PKGBUILD, completely ignoring both the real upstream commit and anything
-                      # already sitting in src/. The only thing that runs pkgver() for real is a
-                      # full makepkg -o/-f, which also drags in this PKGBUILDs own prepare()
-                      # (installs its own pinned yarn/pnpm via npm) purely to compute a version
-                      # string - confirmed live that failed outright here with a bare "npm:
-                      # command not found", since only git/openssh are installed in this
-                      # container. Compute the same version pkgver() would with plain git
-                      # instead, and just write it into PKGBUILD directly - avoids needing any
-                      # of this project's own build toolchain just to refresh a version string.
-                      git clone --branch develop --quiet https://github.com/Haven-Organization/haven-desktop.git src-check
-                      NEW_PKGVER=$(git -C src-check describe --tags --long | sed "s/^haven-v//;s/\([^-]*-g\)/r\1/;s/-/./g")
-                      rm -rf src-check
-                      sed -i "s/^pkgver=.*/pkgver=$NEW_PKGVER/" PKGBUILD
-                      makepkg --printsrcinfo > .SRCINFO.new
+                  # "makepkg --printsrcinfo" never actually runs pkgver() at all - confirmed live
+                  # it just dumps whatever static pkgver= is already written in the PKGBUILD,
+                  # completely ignoring both the real upstream commit and anything already
+                  # sitting in src/. The only thing that runs pkgver() for real is a full
+                  # makepkg -o/-f, which also drags in this PKGBUILD's own prepare() (installs
+                  # its own pinned yarn/pnpm via npm) purely to compute a version string -
+                  # confirmed live that failed outright here with a bare "npm: command not
+                  # found", since only git/openssh are installed in this container. Compute the
+                  # same version pkgver() would with plain git instead, and just write it into
+                  # PKGBUILD directly - avoids needing any of this project's own build toolchain
+                  # just to refresh a version string.
+                  git clone --branch develop https://github.com/Haven-Organization/haven-desktop.git /home/builder/src-check
+                  NEW_PKGVER=$(git -C /home/builder/src-check describe --tags --long | sed "s/^haven-v//;s/\([^-]*-g\)/r\1/;s/-/./g")
+                  echo "NEW_PKGVER=$NEW_PKGVER"
+                  rm -rf /home/builder/src-check
+                  pwd
+                  sed -i "s/^pkgver=.*/pkgver=$NEW_PKGVER/" PKGBUILD
+                  makepkg --printsrcinfo > .SRCINFO.new
 
-                      if diff -q .SRCINFO .SRCINFO.new > /dev/null; then
-                          echo "pkgver already up to date, nothing to push"
-                          exit 0
-                      fi
+                  if diff -q .SRCINFO .SRCINFO.new > /dev/null; then
+                      echo "pkgver already up to date, nothing to push"
+                      exit 0
+                  fi
 
-                      mv .SRCINFO.new .SRCINFO
-                      git config user.name "Haven CI"
-                      git config user.email "havensoftware@zohomail.com"
-                      git add PKGBUILD .SRCINFO
-                      git commit -m "Refresh pkgver to match latest develop commit"
-                      git push
-                  '
+                  mv .SRCINFO.new .SRCINFO
+                  git config user.name "Haven CI"
+                  git config user.email "havensoftware@zohomail.com"
+                  git add PKGBUILD .SRCINFO
+                  git commit -m "Refresh pkgver to match latest develop commit"
+                  git push
+                  SCRIPT
+                  chmod +x /home/builder/sync-aur.sh
+                  chown builder:builder /home/builder/sync-aur.sh
+
+            - name: Run the sync script as an unprivileged user
+              run: su builder -c /home/builder/sync-aur.sh
