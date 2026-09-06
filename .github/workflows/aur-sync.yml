@@ -1,0 +1,70 @@
+name: Sync AUR haven-desktop-git
+
+on:
+    push:
+        branches: [develop]
+
+jobs:
+    sync-aur:
+        name: Refresh haven-desktop-git .SRCINFO
+        runs-on: ubuntu-latest
+        container: archlinux:base-devel
+        steps:
+            # Full upgrade, not a partial `pacman -Sy git openssh` - a partial sync can pull in a
+            # newer glibc than whatever this container image already has for other packages,
+            # leaving mismatched shared libraries (confirmed live doing exactly this on a real
+            # machine while setting this whole AUR packaging effort up: a plain `pacman -Sy nodejs`
+            # left `node` needing a newer GLIBC_2.44 than the system's own still-2.43 libm/libc).
+            - name: Full system upgrade, then install git/openssh
+              run: pacman -Syu --noconfirm --needed git openssh
+
+            # makepkg refuses to run as root at all.
+            - name: Create an unprivileged build user
+              run: |
+                  useradd -m builder
+                  chown -R builder:builder /home/builder
+
+            - name: Configure SSH access to the AUR
+              env:
+                  AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+              run: |
+                  mkdir -p /home/builder/.ssh
+                  printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > /home/builder/.ssh/aur
+                  chmod 600 /home/builder/.ssh/aur
+                  ssh-keyscan -t ed25519 aur.archlinux.org >> /home/builder/.ssh/known_hosts
+                  cat > /home/builder/.ssh/config <<'EOF'
+                  Host aur.archlinux.org
+                      IdentityFile /home/builder/.ssh/aur
+                      User aur
+                  EOF
+                  chmod 600 /home/builder/.ssh/config
+                  chown -R builder:builder /home/builder/.ssh
+
+            - name: Refresh pkgver/.SRCINFO and push if changed
+              run: |
+                  su builder -c '
+                      set -e
+                      cd /home/builder
+                      git clone ssh://aur@aur.archlinux.org/haven-desktop-git.git
+                      cd haven-desktop-git
+
+                      # A bare "makepkg --printsrcinfo" reuses whatever source tree is already
+                      # extracted rather than refetching it - confirmed live doing this by hand:
+                      # skipping this step left .SRCINFO pinned to whatever commit existed the
+                      # last time sources happened to be extracted, not the commit that actually
+                      # triggered this run. "-o" forces a real fetch+extract first.
+                      makepkg -o --nodeps
+                      makepkg --printsrcinfo > .SRCINFO.new
+
+                      if diff -q .SRCINFO .SRCINFO.new > /dev/null; then
+                          echo "pkgver already up to date, nothing to push"
+                          exit 0
+                      fi
+
+                      mv .SRCINFO.new .SRCINFO
+                      git config user.name "Haven CI"
+                      git config user.email "havensoftware@zohomail.com"
+                      git add PKGBUILD .SRCINFO
+                      git commit -m "Refresh pkgver to match latest develop commit"
+                      git push
+                  '
