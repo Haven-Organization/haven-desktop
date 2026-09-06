@@ -9,6 +9,8 @@
 
 Try Haven at: https://app.haven.software
 
+Download from AUR at [haven-desktop-bin](https://aur.archlinux.org/packages/haven-desktop-bin) or [haven-desktop-git](https://aur.archlinux.org/packages/haven-desktop-git)
+
 [<img width="190" alt="Get it on Flathub" src="https://flathub.org/api/badge?locale=en">](https://flathub.org/apps/software.haven.HavenDesktop)
 
 Haven is a fork of [Element Web](https://github.com/element-hq/element-web) built around four goals:
@@ -44,15 +46,16 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 - Old room list re-added as an option
 - Optimized room list rendering for large lists
 
-## Got an empty Feed?
+## Install
 
-- If you're already in some Matrix rooms that would be a good fit, use the Filter button to add
-  them to your feed. Messages will display as posts.
-- Have your homeserver admin set up
-  [matrix-appservice-activitypub](https://github.com/Haven-Organization/matrix-appservice-activitypub)
-  to turn your Matrix server into a full ActivityPub instance. Following some active accounts will
-  fill your feed overnight. Supports importing your existing follow list from other ActivityPub
-  accounts.
+- **Flathub:** [software.haven.HavenDesktop](https://flathub.org/apps/software.haven.HavenDesktop)
+- **Arch Linux (AUR):** `yay -S haven-desktop-bin` (prebuilt) or `yay -S haven-desktop-git` (builds
+  from source)
+- **Debian:** grab the latest `.deb` from [Releases](https://github.com/Haven-Organization/haven-desktop/releases)
+  and install it (e.g. `sudo apt install ./haven-desktop_<version>_amd64.deb`)
+
+For Windows, AppImage, and more, see the
+[Releases](https://github.com/Haven-Organization/haven-desktop/releases) page.
 
 ## Build Quickstart
 
@@ -96,6 +99,16 @@ options shared by both.
 
 See [docs/configure.md](docs/configure.md) for every `config.json` option Haven adds (disabling
 apps, blockquote style, labs, the login/register footer links).
+
+## Got an empty Feed?
+
+- If you're already in some Matrix rooms that would be a good fit, use the Filter button to add
+  them to your feed. Messages will display as posts.
+- Have your homeserver admin set up
+  [matrix-appservice-activitypub](https://github.com/Haven-Organization/matrix-appservice-activitypub)
+  to turn your Matrix server into a full ActivityPub instance. Following some active accounts will
+  fill your feed overnight. Supports importing your existing follow list from other ActivityPub
+  accounts.
 
 ## MSC compliance
 
