@@ -48,12 +48,21 @@ jobs:
                       git clone ssh://aur@aur.archlinux.org/haven-desktop-git.git
                       cd haven-desktop-git
 
-                      # A bare "makepkg --printsrcinfo" reuses whatever source tree is already
-                      # extracted rather than refetching it - confirmed live doing this by hand:
-                      # skipping this step left .SRCINFO pinned to whatever commit existed the
-                      # last time sources happened to be extracted, not the commit that actually
-                      # triggered this run. "-o" forces a real fetch+extract first.
-                      makepkg -o --nodeps
+                      # "makepkg --printsrcinfo" never actually runs pkgver() at all - confirmed
+                      # live it just dumps whatever static pkgver= is already written in the
+                      # PKGBUILD, completely ignoring both the real upstream commit and anything
+                      # already sitting in src/. The only thing that runs pkgver() for real is a
+                      # full makepkg -o/-f, which also drags in this PKGBUILDs own prepare()
+                      # (installs its own pinned yarn/pnpm via npm) purely to compute a version
+                      # string - confirmed live that failed outright here with a bare "npm:
+                      # command not found", since only git/openssh are installed in this
+                      # container. Compute the same version pkgver() would with plain git
+                      # instead, and just write it into PKGBUILD directly - avoids needing any
+                      # of this project's own build toolchain just to refresh a version string.
+                      git clone --branch develop --quiet https://github.com/Haven-Organization/haven-desktop.git src-check
+                      NEW_PKGVER=$(git -C src-check describe --tags --long | sed "s/^haven-v//;s/\([^-]*-g\)/r\1/;s/-/./g")
+                      rm -rf src-check
+                      sed -i "s/^pkgver=.*/pkgver=$NEW_PKGVER/" PKGBUILD
                       makepkg --printsrcinfo > .SRCINFO.new
 
                       if diff -q .SRCINFO .SRCINFO.new > /dev/null; then
