@@ -174,6 +174,14 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         icon: "icon.png",
         executableName: variant.name, // element-desktop or element-desktop-nightly
     },
+    // Haven: build/after-install.tpl is upstream's own after-install.tpl (see FpmTarget.js) with
+    // one addition - a gtk-update-icon-cache call upstream's own version never had (confirmed via
+    // a real user's launcher never showing Haven's icon after an AUR install using this same
+    // fpm-generated script). afterInstall belongs to each fpm-based target's own config
+    // (LinuxTargetSpecificOptions - deb/rpm/pacman), not the shared "linux" block above
+    // (LinuxConfiguration doesn't have this field at all - confirmed by tsc rejecting it there).
+    // Applied to both deb and pacman since both go through the identical fpm template; rpm isn't
+    // an output format this project builds.
     deb: {
         packageCategory: "net",
         depends: [
@@ -191,6 +199,10 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         ],
         recommends: ["libsqlcipher0", "element-io-archive-keyring"],
         fpm: ["--deb-pre-depends", "libc6 (>= 2.31)"],
+        afterInstall: "build/after-install.tpl",
+    },
+    pacman: {
+        afterInstall: "build/after-install.tpl",
     },
     mac: {
         target: ["dmg", "zip"],
