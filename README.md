@@ -15,12 +15,12 @@ Download from AUR at [haven-desktop-bin](https://aur.archlinux.org/packages/have
 
 Haven is a fork of [Element Web](https://github.com/element-hq/element-web) built around four goals:
 
-- **Social.** A Matrix-native profile, feed, and group experience, closer to a normal social
-  network than a chat client. Standardizing social media event types on
+- **Matrix-native social networking.** Provide a profile, feed, and group experience closer to a social
+  network than a chat client. Standardize social media event types on
   Matrix. See
   [MSC4501](https://github.com/matrix-org/matrix-spec-proposals/pull/4501), the spec proposal this
   is built on.
-- **A more fun Element.** Prioritizing features the community wants rather than companies and governments.
+- **A more fun Element.** Prioritize features the community wants rather than companies and governments.
 - **Faster fixes.** Bugs and rough edges get patched here without waiting on the upstream release cycle.
 - **Apps.** Element's own room list, spaces, and messaging stay intact. Haven adds a pluggable
   apps layer on top of them, and Social is the first app built on that layer. More apps are meant to follow the same pattern.
@@ -51,11 +51,11 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 - **Flathub:** [software.haven.HavenDesktop](https://flathub.org/apps/software.haven.HavenDesktop)
 - **Arch Linux (AUR):** `yay -S haven-desktop-bin` (prebuilt) or `yay -S haven-desktop-git` (builds
   from source)
-- **Debian:** grab the latest `.deb` from [Releases](https://github.com/Haven-Organization/haven-desktop/releases)
-  and install it (e.g. `sudo apt install ./haven-desktop_<version>_amd64.deb`)
+- **Debian:** Grab the latest `.deb` from [Releases](https://github.com/Haven-Organization/haven-desktop/releases)
+  and install it using `sudo apt install ./haven-desktop_<version>_amd64.deb`
+- **Windows:** Grab the latest `.exe` from [Releases](https://github.com/Haven-Organization/haven-desktop/releases) and run it to install.
 
-For Windows, AppImage, and more, see the
-[Releases](https://github.com/Haven-Organization/haven-desktop/releases) page.
+All desktop versions as well as a self-hostable web version can be found at the [Releases](https://github.com/Haven-Organization/haven-desktop/releases) page.
 
 ## Build Quickstart
 
