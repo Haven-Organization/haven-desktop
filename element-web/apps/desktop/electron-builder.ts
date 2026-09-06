@@ -163,9 +163,8 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         // combined-string form npm itself also accepts. Also confirmed extraMetadata deep-merges
         // objects with package.json's own author field rather than replacing it wholesale, so
         // `email` must be set explicitly here too - `{ name: "Haven" }` alone left the *original*
-        // "support@element.io" showing through untouched. TODO: replace with a real Haven contact
-        // address once one exists; this is still New Vector's own upstream address either way.
-        author: { name: "Haven", email: "support@element.io" },
+        // "support@element.io" showing through untouched.
+        author: { name: "Haven Software", email: "havensoftware@zohomail.com" },
         homepage: "https://app.haven.software",
         repository: { type: "git", url: "https://github.com/Haven-Organization/haven-desktop" },
     },
