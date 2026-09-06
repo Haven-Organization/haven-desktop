@@ -19,7 +19,19 @@ $left-gutter: 64px;
     --event-tile-bubble-other-background: $eventbubble-others-bg;
     --event-tile-bubble-self-background: $eventbubble-self-bg;
     --event-tile-preview-hover-background: $panels;
-    --event-tile-preview-highlight-background: $alert;
+    /* Haven: upstream itself introduced this line (3028880631, "Fix/theme colors - Legacy color
+       overrides where not applied to EventTileView", PR #34865) with $alert here - a strong,
+       saturated critical/error *text* color ($alert: #ff5b55 or var(--cpd-color-text-critical-
+       primary) depending on theme), not a background tint. The sibling shared-components
+       EventTileView.module.css this value actually feeds defines its own default right next to
+       it as the properly subtle var(--cpd-color-bg-critical-subtle) (a pale pink) - Haven's
+       legacy-theme pass-through was clobbering that with a solid, jarring red block on every
+       mention-highlighted row wherever this variable is actually consumed (currently just the
+       new ThreadPanel list, via EventTileView's own ":has(...[data-notification-level=
+       'highlight'])::before" rule) - confirmed live, a real user's mentioned-thread row in
+       Threads was rendered as a solid red bar rather than a subtle highlight. Use the same
+       subtle token the shared component itself already defaults to, rather than $alert. */
+    --event-tile-preview-highlight-background: var(--cpd-color-bg-critical-subtle);
     --event-tile-preview-separator-color: $quinary-content;
     --EventTile_group_line-spacing-block-start: 1px;
     --EventTile_group_line-spacing-block-end: 3px;
