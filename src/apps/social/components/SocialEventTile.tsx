@@ -42,6 +42,7 @@ import {
 import MemberAvatar from "../../../../element-web/apps/web/src/components/views/avatars/MemberAvatar";
 import BaseAvatar from "../../../../element-web/apps/web/src/components/views/avatars/BaseAvatar";
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
+import { getHtmlText } from "../../../../element-web/apps/web/src/HtmlUtils";
 import Modal from "../../../../element-web/apps/web/src/Modal";
 import ImageView from "../../../../element-web/apps/web/src/components/views/elements/ImageView";
 import QuestionDialog from "../../../../element-web/apps/web/src/components/views/dialogs/QuestionDialog";
@@ -879,6 +880,33 @@ function effectiveMediaKind(
  *  original. A raw URL mismatch alone is no longer enough to call something a forgery; if the
  *  dimensions and mimetype in `info` also match, that's about as strong a signal of "same image"
  *  as is available without downloading and hashing the media itself on every verification. */
+function formattedBodiesMatch(
+    a: { body?: string; formatted_body?: string } | undefined,
+    b: { body?: string; formatted_body?: string } | undefined,
+): boolean {
+    const aFb = a?.formatted_body;
+    const bFb = b?.formatted_body;
+    if (aFb && bFb) {
+        // Both sides have real HTML - require exact structural equality rather than reducing to
+        // rendered text, so a forged repost can't smuggle in a different link/mention/style
+        // behind identical-looking visible text.
+        return aFb === bFb;
+    }
+    // At most one side has any HTML at all - the side without one has no richer representation
+    // to compare structurally against, so the only meaningful comparison left is visible text:
+    // reduce whichever side does have formatted_body to its own rendered text (getHtmlText, the
+    // same sanitize-html-based stripper HtmlUtils already uses elsewhere - not a hand-rolled
+    // regex, given this codebase's own prior ReDoS history in this exact area) and compare that
+    // against the other side's plain body. This is exactly what legitimately differs between a
+    // native Haven post (never sets formatted_body for plain, unformatted text) and a Fediverse
+    // bridge's repost snapshot (always wraps its social.formatted_body in <p>, even when the
+    // original had zero formatting) - confirmed live: a real repost of a plain-text Haven post
+    // was flagged as a possible forgery purely because of this, despite identical visible text.
+    const aText = (aFb ? getHtmlText(aFb) : (a?.body ?? "")).trim();
+    const bText = (bFb ? getHtmlText(bFb) : (b?.body ?? "")).trim();
+    return aText === bText;
+}
+
 function repostContentMatches(
     embeddedSource: Record<string, any> | undefined,
     realContent: Record<string, any> | undefined,
@@ -905,8 +933,7 @@ function repostContentMatches(
     );
     const bodyIsWrapperFiller = !!contentInline && !!aUrl && !hasPostBodyOverride(embeddedSource);
     return (
-        (bodyIsWrapperFiller ||
-            ((a?.body ?? "") === (b?.body ?? "") && (a?.formatted_body ?? "") === (b?.formatted_body ?? ""))) &&
+        (bodyIsWrapperFiller || ((a?.body ?? "") === (b?.body ?? "") && formattedBodiesMatch(a, b))) &&
         effectiveMediaKind(a) === effectiveMediaKind(b) &&
         (aUrl === bUrl || (!!aUrl && !!bUrl && sameDimensionsAndType))
     );
