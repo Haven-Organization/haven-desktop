@@ -34,6 +34,7 @@ import { Layout } from "./enums/Layout";
 import ReducedMotionController from "./controllers/ReducedMotionController";
 import IncompatibleController from "./controllers/IncompatibleController";
 import { ImageSize } from "./enums/ImageSize";
+import { ReactionPillSize } from "./enums/ReactionPillSize";
 import { MetaSpace } from "../stores/spaces";
 import SdkConfig from "../SdkConfig";
 import SlidingSyncController from "./controllers/SlidingSyncController";
@@ -388,6 +389,10 @@ export interface Settings {
     // the blurred-avatar image behind the room list/spaces bar/Social sidebar; 100 disables the
     // blur entirely. Applies to both the old and new room list.
     "Haven.roomListBackdropOpacity": IBaseSetting<number>;
+    // Haven: size of reaction pills (room timeline and Social both render through the same
+    // shared-components ReactionsRowButton) - see ReactionPillSizeSwitcher.tsx and
+    // ReactionsRowButton.module.css's own doc.
+    "Haven.reactionPillSize": IBaseSetting<ReactionPillSize>;
     // Haven: Social app - see social-actions.ts's own sendComment/crossPostReply.
     "Social.crossPostReplies": IBaseSetting<boolean>;
     // Haven: user-customized keyboard shortcuts, keyed by KeyBindingAction's own string value -
@@ -1414,6 +1419,11 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|appearance|room_list_backdrop_opacity"),
         default: 90,
+    },
+    "Haven.reactionPillSize": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
+        displayName: _td("settings|appearance|reaction_pill_size"),
+        default: ReactionPillSize.Large,
     },
     // Haven: widens the new room list's Unreads filter to match every room the room-list-v3 store's
     // own bold/dot indicators already treat as unread (see UnreadFilter.ts's own doc and

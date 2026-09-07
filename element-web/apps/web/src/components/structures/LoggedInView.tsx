@@ -30,6 +30,7 @@ import MediaDeviceHandler from "../../MediaDeviceHandler";
 import dis from "../../dispatcher/dispatcher";
 import { type IMatrixClientCreds } from "../../utils/createMatrixClient";
 import SettingsStore from "../../settings/SettingsStore";
+import { ReactionPillSize } from "../../settings/enums/ReactionPillSize";
 import { SettingLevel } from "../../settings/SettingLevel";
 import PlatformPeg from "../../PlatformPeg";
 import { hideToast as hideServerLimitToast, showToast as showServerLimitToast } from "../../toasts/ServerLimitToast";
@@ -115,6 +116,8 @@ interface IState {
     usageLimitEventContent?: IUsageLimit;
     usageLimitEventTs?: number;
     useCompactLayout: boolean;
+    // Haven: see _ReactionPillSize.pcss's own doc.
+    reactionPillSizeNormal: boolean;
     activeCalls: Array<MatrixCall>;
     backgroundImage?: string;
     // haven apps-framework patch: portal target rendered by LeftPanel next to the search bar, used
@@ -143,6 +146,8 @@ class LoggedInView extends React.Component<IProps, IState> {
     protected resizer?: Resizer<ICollapseConfig, CollapseItem>;
     protected layoutWatcherRef?: string;
     protected compactLayoutWatcherRef?: string;
+    // Haven: see _ReactionPillSize.pcss's own doc.
+    protected reactionPillSizeWatcherRef?: string;
     protected backgroundImageWatcherRef?: string;
     protected timezoneProfileUpdateRef?: string[];
 
@@ -158,6 +163,7 @@ class LoggedInView extends React.Component<IProps, IState> {
             syncErrorData: undefined,
             // use compact timeline view
             useCompactLayout: SettingsStore.getValue("useCompactLayout"),
+            reactionPillSizeNormal: SettingsStore.getValue("Haven.reactionPillSize") === ReactionPillSize.Normal,
             usageLimitDismissed: false,
             activeCalls: context.legacyCallHandler.getAllActiveCalls(),
         };
@@ -193,6 +199,11 @@ class LoggedInView extends React.Component<IProps, IState> {
             "useCompactLayout",
             null,
             this.onCompactLayoutChanged,
+        );
+        this.reactionPillSizeWatcherRef = SettingsStore.watchSetting(
+            "Haven.reactionPillSize",
+            null,
+            this.onReactionPillSizeChanged,
         );
         this.backgroundImageWatcherRef = SettingsStore.watchSetting(
             "RoomList.backgroundImage",
@@ -276,6 +287,7 @@ class LoggedInView extends React.Component<IProps, IState> {
         OwnProfileStore.instance.off(UPDATE_EVENT, this.refreshBackgroundImage);
         SettingsStore.unwatchSetting(this.layoutWatcherRef);
         SettingsStore.unwatchSetting(this.compactLayoutWatcherRef);
+        SettingsStore.unwatchSetting(this.reactionPillSizeWatcherRef);
         SettingsStore.unwatchSetting(this.backgroundImageWatcherRef);
         this.timezoneProfileUpdateRef?.forEach((s) => SettingsStore.unwatchSetting(s));
         this.disposeResizerViewModel();
@@ -394,6 +406,12 @@ class LoggedInView extends React.Component<IProps, IState> {
     private onCompactLayoutChanged = (): void => {
         this.setState({
             useCompactLayout: SettingsStore.getValue("useCompactLayout"),
+        });
+    };
+
+    private onReactionPillSizeChanged = (): void => {
+        this.setState({
+            reactionPillSizeNormal: SettingsStore.getValue("Haven.reactionPillSize") === ReactionPillSize.Normal,
         });
     };
 
@@ -794,6 +812,7 @@ class LoggedInView extends React.Component<IProps, IState> {
         const wrapperClasses = classNames({
             mx_MatrixChat_wrapper: true,
             mx_MatrixChat_useCompactLayout: this.state.useCompactLayout,
+            mx_MatrixChat_reactionPillSizeNormal: this.state.reactionPillSizeNormal,
         });
         const bodyClasses = classNames({
             "mx_MatrixChat": true,

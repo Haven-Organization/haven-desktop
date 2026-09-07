@@ -8,11 +8,15 @@
 .reactionsRowButton {
     all: unset;
     cursor: pointer;
-    /* Haven: bumped from heading-sm (20px) to heading-md (24px), with matching padding/image-size
-       bumps below - closer to Discord's own reaction pill size, which made ours look cramped by
-       comparison and left a custom pack emoji's image (see reactionsRowButtonContent's own doc in
-       the view) barely visible at its old 16px. */
-    line-height: var(--cpd-font-size-heading-md);
+    /* Haven: bumped from heading-sm (20px) to heading-md (24px) by default, with matching
+       padding/image-size bumps below - closer to Discord's own reaction pill size, which made
+       ours look cramped by comparison and left a custom pack emoji's image (see
+       reactionsRowButtonContent's own doc in the view) barely visible at its old 16px.
+       User-configurable via Settings > Appearance > Reaction Pill Size (Haven.reactionPillSize) -
+       see _ReactionPillSize.pcss's own doc for why this crosses the module boundary as a custom
+       property rather than a class. Falls back to the original Large value if that variable isn't
+       set at all (e.g. a context outside the main app shell that never applies the sizing class). */
+    line-height: var(--haven-reaction-pill-line-height, var(--cpd-font-size-heading-md));
     font-size: var(--cpd-font-size-body-md);
     padding: 2px var(--cpd-space-2x);
     border: 1px solid var(--cpd-color-gray-400);
@@ -59,8 +63,18 @@
        reads visibly smaller than a custom pack image reaction sat right next to it (22px) - same
        token ReactionsDialog.tsx's own rail/header already reach for to make an emoji glyph read
        bigger than plain text (see _ReactionsDialog.pcss's *_emoji rules). Not applied to freeform
-       text reactions, which stay at the base size. */
-    font-size: var(--cpd-font-size-heading-sm);
+       text reactions, which stay at the base size. Respects Haven.reactionPillSize the same way
+       the pill's own line-height does above - at Normal size this falls back to plain body-md,
+       i.e. no bump at all, matching stock Element's original (uniform) sizing. */
+    font-size: var(--haven-reaction-pill-emoji-font-size, var(--cpd-font-size-heading-sm));
+}
+
+.reactionsRowButtonContentImage {
+    /* Haven: see ReactionsRowButtonView.tsx's own doc - was a hardcoded width="22" height="22"
+       HTML attribute pair; moved here so Haven.reactionPillSize's Normal option (16px, stock
+       Element's original size) can actually take effect. */
+    width: var(--haven-reaction-pill-image-size, 22px);
+    height: var(--haven-reaction-pill-image-size, 22px);
 }
 
 .reactionsRowButtonCount {

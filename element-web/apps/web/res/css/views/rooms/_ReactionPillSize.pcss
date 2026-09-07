@@ -1,0 +1,22 @@
+/*
+Copyright 2026 Haven
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+/* Haven: reaction pills (room timeline and Social both render through the same shared-components
+   ReactionsRowButton) are a CSS Module there, so its own class names can't be targeted from a
+   plain stylesheet like this one - only its custom *properties* cross that boundary cleanly
+   (property values aren't module-scoped, only class/id selectors are). Same mechanism
+   _EventTile.pcss already uses to pass its own highlight color into the same shared component
+   tree - see that file's own comment. mx_MatrixChat_reactionPillSizeNormal is applied by
+   LoggedInView.tsx from the Haven.reactionPillSize setting, mirroring how
+   mx_MatrixChat_useCompactLayout already works for the layout setting. */
+.mx_MatrixChat_reactionPillSizeNormal {
+    /* Stock Element's own original values, before Haven's own bump to heading-md/22px/heading-sm -
+       see ReactionsRowButton.module.css's own doc on exactly what changed and why. */
+    --haven-reaction-pill-line-height: var(--cpd-font-size-heading-sm);
+    --haven-reaction-pill-image-size: 16px;
+    --haven-reaction-pill-emoji-font-size: var(--cpd-font-size-body-md);
+}

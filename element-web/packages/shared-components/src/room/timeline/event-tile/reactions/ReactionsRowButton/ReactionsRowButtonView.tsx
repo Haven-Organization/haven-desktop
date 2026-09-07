@@ -100,10 +100,16 @@ export function ReactionsRowButtonView({ vm }: Readonly<ReactionsRowButtonViewPr
     });
 
     const reactionContent = imageSrc ? (
-        // Haven: 22px, up from 16px - see ReactionsRowButton.module.css's own doc on the pill's
-        // overall size bump (line-height now 24px); a custom pack emoji's image was barely visible
-        // at the old size, noticeably smaller than the pill containing it.
-        <img className={styles.reactionsRowButtonContent} alt={imageAlt ?? ""} src={imageSrc} width="22" height="22" />
+        // Haven: sized via CSS (reactionsRowButtonContentImage), not hardcoded width/height
+        // attributes, so Haven.reactionPillSize's Normal/Large options actually take effect - see
+        // ReactionsRowButton.module.css's own doc on the pill's overall size bump (line-height now
+        // 24px by default); a custom pack emoji's image was barely visible at the old 16px,
+        // noticeably smaller than the pill containing it.
+        <img
+            className={classNames(styles.reactionsRowButtonContent, styles.reactionsRowButtonContentImage)}
+            alt={imageAlt ?? ""}
+            src={imageSrc}
+        />
     ) : (
         <span
             className={classNames(styles.reactionsRowButtonContent, {

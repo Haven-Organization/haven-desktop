@@ -1,0 +1,66 @@
+/*
+Copyright 2026 Haven
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+/* Modelled on _LayoutSwitcher.pcss's own mxLayoutSwitcher_LayoutSelector_LayoutRadio, but laid
+   out side by side (row, not column) and using dedicated class names throughout rather than
+   reusing LayoutSwitcher's own - this section's tiles are much shorter (a one-line preview, not
+   a full message tile) and changing LayoutSwitcher's own shared classes to fit this section would
+   risk affecting it too. */
+.mx_ReactionPillSizeSwitcher_selector {
+    /* !important on both - compound-web's own Root component ships a CSS-module default of
+       display:flex;flex-direction:column (same reason _LayoutSwitcher.pcss's sibling rule below
+       already needs !important on gap: a plain class selector here has no specificity advantage
+       over Root's own module class, so it only wins by being !important, not by source order or
+       specificity alone - confirmed live, this rule silently lost to Root's own column default
+       without it). */
+    display: flex !important;
+    flex-direction: row !important;
+    gap: var(--cpd-space-4x) !important;
+
+    .mx_ReactionPillSizeSwitcher_tile {
+        flex: 1;
+        border: 1px solid var(--cpd-color-border-interactive-primary);
+        border-radius: var(--cpd-space-2x);
+
+        .mx_ReactionPillSizeSwitcher_tile_inline {
+            display: flex;
+            gap: calc(var(--cpd-space-2x) + var(--cpd-space-0-5x));
+            align-items: center;
+        }
+
+        /* The actual "padding" for this tile - LayoutSwitcher's own tiles get theirs the same
+           way, margin on the inner content rather than padding on the tile itself, so the border
+           radius doesn't also need to be accounted for in each child's own corner rounding. */
+        .mx_ReactionPillSizeSwitcher_tile_inline,
+        .mx_ReactionPillSizeSwitcher_preview {
+            margin: var(--cpd-space-3x);
+        }
+
+        .mx_ReactionPillSizeSwitcher_tile_separator {
+            border-top: 0;
+            border-bottom: 1px solid var(--cpd-color-border-interactive-secondary);
+        }
+    }
+}
+
+.mx_ReactionPillSizeSwitcher_preview {
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cpd-space-2x);
+}
+
+.mx_ReactionPillSizeSwitcher_preview_message {
+    color: var(--cpd-color-text-primary);
+}
+
+.mx_ReactionPillSizeSwitcher_preview_reactions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+}
