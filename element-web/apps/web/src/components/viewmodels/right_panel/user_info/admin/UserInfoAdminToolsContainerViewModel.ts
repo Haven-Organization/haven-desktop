@@ -4,7 +4,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
 Please see LICENSE files in the repository root for full details.
 */
 
-import { type Room, type RoomMember, type IPowerLevelsContent } from "matrix-js-sdk/src/matrix";
+import { type Room, type RoomMember, type IPowerLevelsContent, EventType } from "matrix-js-sdk/src/matrix";
 
 import { useMatrixClientContext } from "../../../../../contexts/MatrixClientContext";
 
@@ -72,9 +72,21 @@ export const useUserInfoAdminToolsContainerViewModel = (
     const isMe = me.userId === member.userId;
     const canAffectUser = member.powerLevel < me.powerLevel || isMe;
 
+    // Haven: redacting your OWN messages is governed by a separate, much more permissive rule than
+    // the "redact" power level below (that one is specifically for redacting *other* members'
+    // events - see RolesRoomSettingsTab's own "Remove messages sent by others" vs "Remove messages
+    // sent by me"). Comparing against the stricter "redact" PL for the isMe case too meant this
+    // button silently never appeared on your own profile card in any room using the spec's own
+    // defaults (events_default 0, redact 50), even though you could already redact your own
+    // messages there. maySendEvent(EventType.RoomRedaction, ...) is exactly that self-redaction
+    // rule (events["m.room.redaction"], falling back to events_default) - same check RoomView.tsx's
+    // own canSelfRedact uses.
+    const canRedactOwnMessages = room.currentState.maySendEvent(EventType.RoomRedaction, me.userId);
+
     return {
         shouldShowKickButton: !isMe && canAffectUser && me.powerLevel >= kickPowerLevel,
-        shouldShowRedactButton: me.powerLevel >= redactPowerLevel && !room.isSpaceRoom(),
+        shouldShowRedactButton:
+            !room.isSpaceRoom() && (isMe ? canRedactOwnMessages : me.powerLevel >= redactPowerLevel),
         shouldShowBanButton: !isMe && canAffectUser && me.powerLevel >= banPowerLevel,
         shouldShowMuteButton: !isMe && canAffectUser && me.powerLevel >= Number(editPowerLevel) && !room.isSpaceRoom(),
         isCurrentUserInTheRoom,

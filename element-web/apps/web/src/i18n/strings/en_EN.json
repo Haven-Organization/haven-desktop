@@ -4034,6 +4034,8 @@
             "confirm_keep_state_explainer": "Uncheck if you also want to remove system messages on this user (e.g. membership change, profile change…)",
             "confirm_keep_state_label": "Preserve system messages",
             "confirm_title": "Remove recent messages by %(user)s",
+            "limit_label": "Number of messages to remove",
+            "limit_placeholder": "All",
             "no_recent_messages_description": "Try scrolling up in the timeline to see if there are any earlier ones.",
             "no_recent_messages_title": "No recent messages by %(user)s found"
         },

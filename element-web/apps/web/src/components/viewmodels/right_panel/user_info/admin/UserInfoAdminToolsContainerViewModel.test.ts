@@ -45,6 +45,11 @@ describe("UserInfoAdminToolsContainerViewModel", () => {
                 getStateEvents: vi.fn(),
                 on: vi.fn(),
                 off: vi.fn(),
+                // Haven: self-redaction permission check added for shouldShowRedactButton's own
+                // isMe branch - defaults to true (spec default events_default: 0 permits it) so
+                // existing tests below don't need to know about it unless they're specifically
+                // exercising it.
+                maySendEvent: vi.fn().mockReturnValue(true),
             },
             getEventReadUpTo: vi.fn(),
         } as unknown as Room);
@@ -135,6 +140,43 @@ describe("UserInfoAdminToolsContainerViewModel", () => {
                 shouldShowMuteButton: false,
                 shouldShowRedactButton: true,
             });
+        });
+
+        it("should show redact button for self at a low power level when the room allows self-redaction", () => {
+            // Haven: the "redact" power level (default 50) only governs redacting *other* users'
+            // events - a room using the spec's own defaults lets any joined member redact their
+            // OWN messages regardless of it, via a separate, much more permissive rule (see
+            // room.currentState.maySendEvent(EventType.RoomRedaction, ...), mocked true by default
+            // in beforeEach above). shouldShowRedactButton must reflect that for isMe, not the
+            // stricter "redact" PL below.
+            const mockMeMember = new RoomMember(mockRoom.roomId, "arbitraryId");
+            mockMeMember.powerLevel = 0;
+            mockRoom.getMember.mockReturnValueOnce(mockMeMember);
+
+            const { result } = renderAdminToolsContainerHook({
+                ...defaultContainerProps,
+                room: mockRoom,
+                member: mockMeMember,
+                powerLevels: mockPowerLevels, // redact: 50, well above mockMeMember's own PL of 0
+            });
+
+            expect(result.current.shouldShowRedactButton).toBe(true);
+        });
+
+        it("should not show redact button for self when the room blocks self-redaction", () => {
+            const mockMeMember = new RoomMember(mockRoom.roomId, "arbitraryId");
+            mockMeMember.powerLevel = 100;
+            mockRoom.getMember.mockReturnValueOnce(mockMeMember);
+            (mockRoom.currentState.maySendEvent as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+            const { result } = renderAdminToolsContainerHook({
+                ...defaultContainerProps,
+                room: mockRoom,
+                member: mockMeMember,
+                powerLevels: mockPowerLevels,
+            });
+
+            expect(result.current.shouldShowRedactButton).toBe(false);
         });
 
         it("returns mute toggle button if conditions met", () => {
