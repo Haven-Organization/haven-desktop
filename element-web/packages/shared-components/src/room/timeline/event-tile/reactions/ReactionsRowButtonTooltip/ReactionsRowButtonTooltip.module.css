@@ -43,6 +43,15 @@
     width: 48px;
     height: 48px;
     object-fit: contain;
+
+    /* Haven: only meaningfully focusable when it has its own onOpenImage click handler (see
+       ReactionsRowButtonTooltipView.tsx) - harmless to declare unconditionally here since a plain
+       <img> with no tabIndex is never reachable by keyboard focus in the first place. */
+    &:focus-visible {
+        outline: 2px solid var(--cpd-color-border-focused);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
 }
 
 .body {

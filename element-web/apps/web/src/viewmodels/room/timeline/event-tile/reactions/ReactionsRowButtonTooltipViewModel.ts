@@ -12,6 +12,8 @@ import {
     type ReactionsRowButtonTooltipViewModel as ReactionsRowButtonTooltipViewModelInterface,
 } from "@element-hq/web-shared-components";
 
+import Modal from "../../../../../Modal";
+import ImageView from "../../../../../components/views/elements/ImageView";
 import { mediaFromMxc } from "../../../../../customisations/Media";
 import { _t } from "../../../../../languageHandler";
 import { formatList } from "../../../../../utils/FormattingUtils";
@@ -99,6 +101,26 @@ export class ReactionsRowButtonTooltipViewModel
                 }
             }
 
+            // Haven: clicking the image itself opens it full-size instead of the popover's own
+            // "open ReactionsDialog" click - see onOpenImage's own doc on the shared-components
+            // snapshot interface. Only meaningful once imageSrc has actually resolved above; a
+            // fresh closure is fine to create on every computeSnapshot call (unlike onOpenDialog,
+            // which is compared by reference in setProps below) since onOpenImage deliberately
+            // isn't part of that comparison - it's fully determined by imageSrc, which is compared.
+            const resolvedImageSrc = imageSrc;
+            const resolvedImageAlt = imageAlt;
+            const onOpenImage = resolvedImageSrc
+                ? (): void => {
+                      Modal.createDialog(
+                          ImageView,
+                          { src: resolvedImageSrc, name: resolvedImageAlt },
+                          "mx_Dialog_lightbox",
+                          undefined,
+                          true,
+                      );
+                  }
+                : undefined;
+
             const knownShortcode = unicodeToShortcode(content);
             const shortName = knownShortcode || customReactionName;
             const formattedSenders = formatList(senders, 6);
@@ -126,6 +148,7 @@ export class ReactionsRowButtonTooltipViewModel
                 imageSrc,
                 imageAlt,
                 onOpenDialog,
+                onOpenImage,
             };
         }
 

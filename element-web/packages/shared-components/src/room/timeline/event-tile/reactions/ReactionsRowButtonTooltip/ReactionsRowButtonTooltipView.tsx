@@ -63,6 +63,14 @@ export interface ReactionsRowButtonTooltipViewSnapshot {
      * Called when the popover is clicked - opens ReactionsDialog with this reaction pre-selected.
      */
     onOpenDialog?: () => void;
+    /**
+     * Haven: only set when `imageSrc` is a real custom-emoji image. Clicking the image itself opens
+     * it full-size instead of falling through to `onOpenDialog` - the image is the more specific,
+     * more useful target to click directly on, and ReactionsDialog's own header already offers the
+     * exact same "view image" affordance for anyone who lands there some other way (right-click,
+     * keyboard-activating the popover elsewhere).
+     */
+    onOpenImage?: () => void;
 }
 
 export type ReactionsRowButtonTooltipViewModel = ViewModel<ReactionsRowButtonTooltipViewSnapshot>;
@@ -90,8 +98,17 @@ export function ReactionsRowButtonTooltipView({
     vm,
     children,
 }: Readonly<ReactionsRowButtonTooltipViewProps>): JSX.Element {
-    const { formattedSenders, caption, tooltipOpen, content, hasEmojiIcon, imageSrc, imageAlt, onOpenDialog } =
-        useViewModel(vm);
+    const {
+        formattedSenders,
+        caption,
+        tooltipOpen,
+        content,
+        hasEmojiIcon,
+        imageSrc,
+        imageAlt,
+        onOpenDialog,
+        onOpenImage,
+    } = useViewModel(vm);
     const arrowRef = useRef(null);
 
     const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
@@ -125,6 +142,15 @@ export function ReactionsRowButtonTooltipView({
     const handleOpenDialog = (): void => {
         setUncontrolledOpen(false);
         onOpenDialog?.();
+    };
+
+    // Haven: same "close before acting" as handleOpenDialog above - without this, the popover was
+    // left open behind the image lightbox (only dismissed later by the pointer physically leaving
+    // it), which also meant it could still be clicked afterwards to *also* open ReactionsDialog on
+    // top of the lightbox that was already open.
+    const handleOpenImage = (): void => {
+        setUncontrolledOpen(false);
+        onOpenImage?.();
     };
 
     return (
@@ -162,7 +188,32 @@ export function ReactionsRowButtonTooltipView({
                         {hasEmojiIcon && (
                             <div className={styles.icon}>
                                 {imageSrc ? (
-                                    <img src={imageSrc} alt={imageAlt} className={styles.iconImage} />
+                                    <img
+                                        src={imageSrc}
+                                        alt={imageAlt}
+                                        className={styles.iconImage}
+                                        // Haven: stopPropagation so this doesn't also fall through to
+                                        // the popover's own onClick (handleOpenDialog, on the
+                                        // ancestor role="button" div) - see onOpenImage's own doc on
+                                        // why the image gets its own, more specific click target.
+                                        {...(onOpenImage
+                                            ? {
+                                                  role: "button" as const,
+                                                  tabIndex: 0,
+                                                  onClick: (ev: React.MouseEvent): void => {
+                                                      ev.stopPropagation();
+                                                      handleOpenImage();
+                                                  },
+                                                  onKeyDown: (ev: React.KeyboardEvent): void => {
+                                                      if (ev.key === "Enter" || ev.key === " ") {
+                                                          ev.preventDefault();
+                                                          ev.stopPropagation();
+                                                          handleOpenImage();
+                                                      }
+                                                  },
+                                              }
+                                            : {})}
+                                    />
                                 ) : (
                                     content
                                 )}
