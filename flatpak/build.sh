@@ -147,7 +147,7 @@ mkdir -p /app/Haven
 cp -r element-web/apps/desktop/dist/linux*-unpacked/* /app/Haven/
 
 install -Dm644 assets/logo_512.png /app/share/icons/hicolor/512x512/apps/software.haven.HavenDesktop.png
-install -Dm644 flatpak/software.haven.HavenDesktop.svg /app/share/icons/hicolor/scalable/apps/software.haven.HavenDesktop.svg
+install -Dm644 assets/logo.svg /app/share/icons/hicolor/scalable/apps/software.haven.HavenDesktop.svg
 install -Dm755 flatpak/haven-desktop.sh /app/bin/haven-desktop
 install -Dm644 flatpak/software.haven.HavenDesktop.desktop /app/share/applications/software.haven.HavenDesktop.desktop
 install -Dm644 flatpak/software.haven.HavenDesktop.metainfo.xml /app/share/metainfo/software.haven.HavenDesktop.metainfo.xml
