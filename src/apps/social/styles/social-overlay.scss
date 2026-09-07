@@ -1314,6 +1314,45 @@
     }
 }
 
+// EmojiRenderingTextarea.tsx - see its own doc for the invisible-textarea-plus-overlay technique.
+// The wrapper just needs to behave like the plain <textarea> it's standing in for, layout-wise.
+.mx_EmojiRenderingTextarea {
+    display: block;
+    width: 100%;
+    position: relative;
+}
+
+.mx_EmojiRenderingTextarea_overlay {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    pointer-events: none;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    // Whichever composer class (.social_ComposeBox_input/.social_ReplyDialog_input) this shares
+    // also carries its own real background/border - without forcing both transparent here, this
+    // copy (rendered on top) would fully hide the real textarea underneath instead of just adding
+    // emoji images on top of its text.
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+.mx_EmojiRenderingTextarea_input {
+    position: relative;
+    // Only the glyphs disappear - the element itself (background, border, native caret and
+    // selection highlight) stays exactly as it would for a plain <textarea> of the same class.
+    color: transparent !important;
+    caret-color: $primary-content;
+}
+
+.mx_EmojiRenderingTextarea_emoji {
+    width: 1.2em;
+    height: 1.2em;
+    object-fit: contain;
+    vertical-align: bottom;
+}
+
 .social_ComposeBox_input {
     display: block;
     width: 100%;

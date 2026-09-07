@@ -62,6 +62,8 @@ import {
     SlashCommandAutocomplete,
     type SlashCommandAutocompleteHandle,
 } from "../components/SlashCommandAutocomplete";
+import { EmojiAutocomplete, type EmojiAutocompleteHandle } from "../components/EmojiAutocomplete";
+import { EmojiRenderingTextarea } from "../components/EmojiRenderingTextarea";
 import { SocialPostView } from "./SocialPostView";
 import {
     isSocialPostEventType,
@@ -344,6 +346,11 @@ export function SocialRoomView({
     // immediately after setPostBody wouldn't yet see the new value in the DOM.
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const autocompleteControlRef = useRef<SlashCommandAutocompleteHandle | null>(null);
+    // Same idea, for ":" emoji completions (see EmojiAutocomplete.tsx) - a separate control ref
+    // since at most one of the two ever has completions for a given cursor position (a slash
+    // command can only ever be the message's first word), but the textarea's own onKeyDown still
+    // needs to know which one, if either, to route arrow/Enter/Escape to.
+    const emojiAutocompleteControlRef = useRef<EmojiAutocompleteHandle | null>(null);
     const [selection, setSelection] = useState({ start: 0, end: 0 });
     const pendingCursorPos = useRef<number | null>(null);
     useEffect(() => {
@@ -1009,7 +1016,17 @@ export function SocialRoomView({
                             onCompletionsChange={() => {}}
                             controlRef={autocompleteControlRef}
                         />
-                        <textarea
+                        <EmojiAutocomplete
+                            room={room}
+                            query={postBody}
+                            selectionStart={selection.start}
+                            selectionEnd={selection.end}
+                            onConfirm={handleConfirmCompletion}
+                            onCompletionsChange={() => {}}
+                            controlRef={emojiAutocompleteControlRef}
+                        />
+                        <EmojiRenderingTextarea
+                            room={room}
                             ref={textareaRef}
                             className="social_ComposeBox_input"
                             placeholder="Write a post…"
@@ -1023,26 +1040,33 @@ export function SocialRoomView({
                             onKeyUp={(e) => updateSelectionFrom(e.currentTarget)}
                             onPaste={handleComposerPaste}
                             onKeyDown={(e) => {
-                                if (autocompleteControlRef.current?.hasCompletions()) {
+                                // At most one of these ever has completions for a given cursor
+                                // position - see emojiAutocompleteControlRef's own doc.
+                                const activeAutocomplete = autocompleteControlRef.current?.hasCompletions()
+                                    ? autocompleteControlRef.current
+                                    : emojiAutocompleteControlRef.current?.hasCompletions()
+                                      ? emojiAutocompleteControlRef.current
+                                      : null;
+                                if (activeAutocomplete) {
                                     if (e.key === "ArrowUp") {
                                         e.preventDefault();
-                                        autocompleteControlRef.current.moveSelection(-1);
+                                        activeAutocomplete.moveSelection(-1);
                                         return;
                                     }
                                     if (e.key === "ArrowDown") {
                                         e.preventDefault();
-                                        autocompleteControlRef.current.moveSelection(1);
+                                        activeAutocomplete.moveSelection(1);
                                         return;
                                     }
                                     if (e.key === "Enter" || e.key === "Tab") {
-                                        if (autocompleteControlRef.current.confirmSelection()) {
+                                        if (activeAutocomplete.confirmSelection()) {
                                             e.preventDefault();
                                             return;
                                         }
                                     }
                                     if (e.key === "Escape") {
                                         e.preventDefault();
-                                        autocompleteControlRef.current.close();
+                                        activeAutocomplete.close();
                                         return;
                                     }
                                 }

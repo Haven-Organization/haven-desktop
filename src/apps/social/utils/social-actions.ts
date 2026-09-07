@@ -365,7 +365,7 @@ export async function buildMediaMessageContent(
     // from socialSlashCommands.ts rather than defined here). Skipped entirely for an empty caption
     // (body falls back to the filename above, which was never meant to be markdown-processed).
     if (trimmedCaption) {
-        const formatted = applyMarkdownAndEmote(trimmedCaption);
+        const formatted = applyMarkdownAndEmote(trimmedCaption, client, roomId);
         content.body = formatted.body;
         if (formatted.formattedBody) {
             content.format = "org.matrix.custom.html";

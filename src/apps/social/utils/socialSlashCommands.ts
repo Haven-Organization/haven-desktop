@@ -12,14 +12,59 @@
  */
 
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
+import escapeHtml from "escape-html";
 
 import { getCommand, CommandCategories } from "../../../../element-web/apps/web/src/slash-commands/SlashCommands";
 import { runSlashCommand, shouldSendAnyway } from "../../../../element-web/apps/web/src/editor/commands";
 import { EMOTE_PREFIX } from "../../../../element-web/apps/web/src/components/views/rooms/wysiwyg_composer/utils/createMessageContent";
 import Markdown from "../../../../element-web/apps/web/src/Markdown";
 import SettingsStore from "../../../../element-web/apps/web/src/settings/SettingsStore";
+import { buildEmoticonShortcodeMap } from "../../../../element-web/apps/web/src/utils/ImagePacks";
 import { getBlockquoteStyle } from "../../framework/config";
 import { toGreentextHTML } from "../../framework/greentext";
+
+const SHORTCODE_RE = /(:[a-zA-Z0-9_-]+:)/g;
+
+/** Resolves any `:shortcode:` substrings found in `text` against `shortcodeMap`, HTML-escaping
+ *  everything else - used for the two paths (markdown disabled, or the message has no other
+ *  markdown-worthy syntax) where the message is going out as plain-ish text and never otherwise
+ *  passes through Markdown.toHTML()'s own HTML generation. Newlines become `<br/>` the same way
+ *  editor/serialize.ts's own non-markdown plain-text path does, since a real formatted_body (which
+ *  this always returns when `matched`) drops the plain body's `white-space: pre-wrap` rendering. */
+function substituteCustomEmojiAsPlainHtml(text: string, shortcodeMap: Map<string, string>): { html: string; matched: boolean } {
+    let matched = false;
+    const html = text
+        .split(SHORTCODE_RE)
+        .map((part) => {
+            const m = /^:([a-zA-Z0-9_-]+):$/.exec(part);
+            const mxcUrl = m && shortcodeMap.get(m[1]);
+            if (mxcUrl) {
+                matched = true;
+                // Haven: same `<img data-mx-emoticon>` convention editor/serialize.ts's own
+                // Type.CustomEmoji case uses for the rich composer - part's own charset
+                // ([a-zA-Z0-9_-:]) never needs escaping for alt/title.
+                return `<img data-mx-emoticon height="32" src="${mxcUrl}" alt="${part}" title="${part}" />`;
+            }
+            return escapeHtml(part).replace(/\n/g, "<br/>");
+        })
+        .join("");
+    return { html, matched };
+}
+
+/** Same idea as substituteCustomEmojiAsPlainHtml, but for an `html` string Markdown.toHTML()/
+ *  toGreentextHTML() already produced - the rest of the string is real HTML already, so this must
+ *  never re-escape it, just swap any literal `:shortcode:` plain text it still contains for the
+ *  real image tag. A shortcode's own charset has no HTML-special characters, so this can't
+ *  accidentally match inside an existing tag's attribute value in any way that would need
+ *  escaping - it would only ever produce another syntactically valid, harmless attribute-embedded
+ *  `<img>`-shaped substring in the (rare, pre-existing) case the shortcode text lands inside one. */
+function substituteCustomEmojiInHtml(html: string, shortcodeMap: Map<string, string>): string {
+    if (shortcodeMap.size === 0) return html;
+    return html.replace(/:([a-zA-Z0-9_-]+):/g, (full, shortcode: string) => {
+        const mxcUrl = shortcodeMap.get(shortcode);
+        return mxcUrl ? `<img data-mx-emoticon height="32" src="${mxcUrl}" alt="${full}" title="${full}" />` : full;
+    });
+}
 
 export type SlashCommandResult =
     /** Nothing left to post - either a pure room-action command ran (e.g. /invite), the command
@@ -52,8 +97,23 @@ export type SlashCommandResult =
  * buildMediaMessageContent can run a media post's caption through the same conversion - captions
  * never go through processSlashCommand itself (a media caption isn't a command), but still need
  * markdown/greentext formatting like any other post body.
+ *
+ * `client`/`roomId`, when given, resolve `:shortcode:` text in `message` against every image pack
+ * available in that room (see ImagePacks.ts's own buildEmoticonShortcodeMap) into a real
+ * `<img data-mx-emoticon>` reference in formattedBody - the plain-textarea equivalent of what the
+ * rich room composer's CustomEmojiPart already does at serialize time (editor/serialize.ts). This
+ * is the only place that conversion happens for Social: the composer itself just inserts/accepts
+ * plain `:shortcode:` text (see PostComposerButtons.tsx's addEmoji), whether typed by hand or
+ * chosen from the emoji picker, and it's resolved here, once, at send time - covering both cases
+ * identically instead of only the picker-click path. Optional (some call sites predate this and a
+ * media caption's own room is already known some other way) - falls back to leaving any
+ * `:shortcode:` text as a plain, unresolved literal when omitted, same as before this existed.
  */
-export function applyMarkdownAndEmote(message: string): { body: string; formattedBody?: string; isEmote: boolean } {
+export function applyMarkdownAndEmote(
+    message: string,
+    client?: MatrixClient,
+    roomId?: string,
+): { body: string; formattedBody?: string; isEmote: boolean } {
     let isEmote = false;
     if (message.startsWith(EMOTE_PREFIX)) {
         isEmote = true;
@@ -63,17 +123,23 @@ export function applyMarkdownAndEmote(message: string): { body: string; formatte
         message = message.slice(1);
     }
 
+    const room = client && roomId ? client.getRoom(roomId) : null;
+    const shortcodeMap = room ? buildEmoticonShortcodeMap(room) : new Map<string, string>();
+
     if (!SettingsStore.getValue("MessageComposerInput.useMarkdown")) {
-        return { body: message, isEmote };
+        const { html, matched } = substituteCustomEmojiAsPlainHtml(message, shortcodeMap);
+        return matched ? { body: message, formattedBody: html, isEmote } : { body: message, isEmote };
     }
     const md = new Markdown(message);
     if (md.isPlainText()) {
-        return { body: message, isEmote };
+        const { html, matched } = substituteCustomEmojiAsPlainHtml(message, shortcodeMap);
+        return matched ? { body: message, formattedBody: html, isEmote } : { body: message, isEmote };
     }
     // "haven.blockquote_style" (default "stock") decides which of the two renderers below actually
     // runs - toGreentextHTML only exists to override block_quote's rendering, so there's nothing to
     // gate inside it; the choice is made once, here, between it and stock's own Markdown.toHTML().
-    const formattedBody = getBlockquoteStyle() === "greentext" ? toGreentextHTML(message) : md.toHTML();
+    let formattedBody = getBlockquoteStyle() === "greentext" ? toGreentextHTML(message) : md.toHTML();
+    formattedBody = substituteCustomEmojiInHtml(formattedBody, shortcodeMap);
     return { body: message, formattedBody, isEmote };
 }
 
@@ -125,5 +191,7 @@ export async function processSlashCommand(
             if (!sendAnyway) return { handled: true, success: false };
         }
     }
-    return { handled: false, ...applyMarkdownAndEmote(message) };
+    // `roomId` is always a real, meaningful room here regardless of `hasRoom` - see this
+    // function's own doc; `hasRoom` only special-cases /devtools above, further up.
+    return { handled: false, ...applyMarkdownAndEmote(message, client, roomId) };
 }

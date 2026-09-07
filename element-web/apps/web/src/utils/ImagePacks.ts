@@ -164,6 +164,23 @@ export function imagesForUsage(pack: RoomImagePack, usage: ImagePackUsage): Pack
         .map(([shortcode, image]) => ({ shortcode, image }));
 }
 
+/** Haven: a plain `shortcode -> mxc://` lookup over every emoticon-usable pack image available in
+ *  a room (its own packs plus the sender's favorited packs, same pool getEmoticonPacks always
+ *  resolves) - built for callers with no rich EditorModel of their own (a plain `<textarea>`
+ *  composer, e.g. Social's) that still need to resolve a `:shortcode:` string typed or pasted into
+ *  plain text back to a real image at send time, mirroring what the rich composer's own
+ *  CustomEmojiPart already carries inline. First pack to define a given shortcode wins on a
+ *  collision, matching getEmoticonPacks's own room-packs-before-favorites ordering. */
+export function buildEmoticonShortcodeMap(room: Room): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const pack of getEmoticonPacks(room, "emoticon")) {
+        for (const { shortcode, image } of imagesForUsage(pack, "emoticon")) {
+            if (!map.has(shortcode)) map.set(shortcode, image.url);
+        }
+    }
+    return map;
+}
+
 /** True when `userId` can create/edit/delete packs in this room - MSC2545 has no per-pack
  *  permission of its own, just the blanket "can you send this state event type at all" check.
  *  Checked against the stable type only - a room that only grants power for the old unstable type

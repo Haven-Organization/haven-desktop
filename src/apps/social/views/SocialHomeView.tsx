@@ -75,6 +75,8 @@ import {
     SlashCommandAutocomplete,
     type SlashCommandAutocompleteHandle,
 } from "../components/SlashCommandAutocomplete";
+import { EmojiAutocomplete, type EmojiAutocompleteHandle } from "../components/EmojiAutocomplete";
+import { EmojiRenderingTextarea } from "../components/EmojiRenderingTextarea";
 import { FeedFilterDialog } from "../components/FeedFilterDialog";
 import { useWindowFileDrop } from "../utils/useWindowFileDrop";
 import { SocialPostView } from "./SocialPostView";
@@ -1482,6 +1484,11 @@ function FeedPane({
     // SocialRoomView.tsx, which has the full explanation of this state).
     const feedTextareaRef = useRef<HTMLTextAreaElement>(null);
     const feedAutocompleteControlRef = useRef<SlashCommandAutocompleteHandle | null>(null);
+    // Same idea, for ":" emoji completions (see EmojiAutocomplete.tsx and SocialRoomView.tsx's
+    // identical use) - a separate control ref since at most one of the two ever has completions
+    // for a given cursor position, but the textarea's own onKeyDown still needs to know which one,
+    // if either, to route arrow/Enter/Escape to.
+    const feedEmojiAutocompleteControlRef = useRef<EmojiAutocompleteHandle | null>(null);
     const [feedSelection, setFeedSelection] = useState({ start: 0, end: 0 });
     const feedPendingCursorPos = useRef<number | null>(null);
     useEffect(() => {
@@ -1713,7 +1720,19 @@ function FeedPane({
                                 controlRef={feedAutocompleteControlRef}
                             />
                         )}
-                        <textarea
+                        {selectedRoomForAutocomplete && (
+                            <EmojiAutocomplete
+                                room={selectedRoomForAutocomplete}
+                                query={postBody}
+                                selectionStart={feedSelection.start}
+                                selectionEnd={feedSelection.end}
+                                onConfirm={handleConfirmFeedCompletion}
+                                onCompletionsChange={() => {}}
+                                controlRef={feedEmojiAutocompleteControlRef}
+                            />
+                        )}
+                        <EmojiRenderingTextarea
+                            room={selectedRoomForAutocomplete ?? undefined}
                             ref={feedTextareaRef}
                             className="social_ComposeBox_input"
                             placeholder="What's on your mind?"
@@ -1727,26 +1746,33 @@ function FeedPane({
                             onKeyUp={(e) => updateFeedSelectionFrom(e.currentTarget)}
                             onPaste={handleComposerPaste}
                             onKeyDown={(e) => {
-                                if (feedAutocompleteControlRef.current?.hasCompletions()) {
+                                // At most one of these ever has completions for a given cursor
+                                // position - see feedEmojiAutocompleteControlRef's own doc.
+                                const activeAutocomplete = feedAutocompleteControlRef.current?.hasCompletions()
+                                    ? feedAutocompleteControlRef.current
+                                    : feedEmojiAutocompleteControlRef.current?.hasCompletions()
+                                      ? feedEmojiAutocompleteControlRef.current
+                                      : null;
+                                if (activeAutocomplete) {
                                     if (e.key === "ArrowUp") {
                                         e.preventDefault();
-                                        feedAutocompleteControlRef.current.moveSelection(-1);
+                                        activeAutocomplete.moveSelection(-1);
                                         return;
                                     }
                                     if (e.key === "ArrowDown") {
                                         e.preventDefault();
-                                        feedAutocompleteControlRef.current.moveSelection(1);
+                                        activeAutocomplete.moveSelection(1);
                                         return;
                                     }
                                     if (e.key === "Enter" || e.key === "Tab") {
-                                        if (feedAutocompleteControlRef.current.confirmSelection()) {
+                                        if (activeAutocomplete.confirmSelection()) {
                                             e.preventDefault();
                                             return;
                                         }
                                     }
                                     if (e.key === "Escape") {
                                         e.preventDefault();
-                                        feedAutocompleteControlRef.current.close();
+                                        activeAutocomplete.close();
                                         return;
                                     }
                                 }
