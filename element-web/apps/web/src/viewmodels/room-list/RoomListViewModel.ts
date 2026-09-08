@@ -40,7 +40,7 @@ import { hasCreateRoomRights } from "./utils";
 import { keepIfSame } from "../../utils/keepIfSame";
 import { DefaultTagID } from "../../stores/room-list-v3/skip-list/tag";
 import { RoomListSectionHeaderViewModel } from "./RoomListSectionHeaderViewModel";
-import { getCustomSectionData, isCustomSectionTag, CHATS_TAG } from "../../stores/room-list-v3/section";
+import { getCustomSectionData, isCustomSectionTag, isSectionExpanded, CHATS_TAG } from "../../stores/room-list-v3/section";
 import { tagRoom } from "../../utils/room/tagRoom";
 import { getSectionTagForRoom } from "../../utils/room/getSectionTagForRoom";
 import SettingsStore from "../../settings/SettingsStore";
@@ -201,8 +201,17 @@ export class RoomListViewModel
 
         const filterIds = getVisibleFilterIds();
 
-        // By default, all sections are expanded
-        const { sections, isFlatList } = computeSections(roomsResult, (tag) => true);
+        // Haven: read each section's real persisted expanded/collapsed state for this initial
+        // paint, instead of always starting "expanded" - this view model (and the Virtuoso list it
+        // feeds) gets recreated from scratch whenever RoomListView remounts (e.g. switching to the
+        // Social app and back, which unmounts the whole left panel). Starting "expanded" and then
+        // correcting to "collapsed" a moment later - once the real subscriptions/updateRoomListData
+        // run - visibly flashed every room into view and back out, and left stray room rows behind
+        // for previously-collapsed sections (confirmed live: header showed the collapsed chevron,
+        // but its rooms kept rendering underneath, matching the reported Social-app round-trip bug).
+        const { sections, isFlatList } = computeSections(roomsResult, (tag) =>
+            isSectionExpanded(roomsResult.spaceId, tag),
+        );
         const isRoomListEmpty = roomsResult.sections.every((section) => section.rooms.length === 0);
 
         super(props, {
