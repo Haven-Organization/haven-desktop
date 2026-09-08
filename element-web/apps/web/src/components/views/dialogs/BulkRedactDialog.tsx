@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { logger } from "matrix-js-sdk/src/logger";
 import {
     type MatrixClient,
@@ -24,7 +24,9 @@ import BaseDialog from "../dialogs/BaseDialog";
 import InfoDialog from "../dialogs/InfoDialog";
 import DialogButtons from "../elements/DialogButtons";
 import StyledCheckbox from "../elements/StyledCheckbox";
+import StyledRadioGroup from "../elements/StyledRadioGroup";
 import Field from "../elements/Field";
+import InlineSpinner from "../elements/InlineSpinner";
 
 interface Props {
     matrixClient: MatrixClient;
@@ -33,50 +35,148 @@ interface Props {
     onFinished(this: void, redact?: boolean): void;
 }
 
+/** Haven: events this dialog will never offer to redact, regardless of mode - unchanged from this
+ *  dialog's own original filter. */
+const EXCLUDED_TYPES = new Set<string>([EventType.RoomCreate, EventType.RoomServerAcl, EventType.RoomEncryption]);
+
+function isRedactableSenderEvent(event: MatrixEvent, userId: string): boolean {
+    return (
+        event.getSender() === userId &&
+        !event.isRedacted() &&
+        !event.isRedaction() &&
+        // Don't redact ACLs because that'll obliterate the room
+        // See https://github.com/matrix-org/synapse/issues/4042 for details.
+        // Redacting encryption events is equally bad.
+        !EXCLUDED_TYPES.has(event.getType())
+    );
+}
+
+/** Haven: gathers every one of `userId`'s redactable events already loaded into memory for this
+ *  room, across every backward-linked timeline segment - this dialog's own original (and only)
+ *  behaviour before "Custom" mode existed below. Never fetches anything from the homeserver, so
+ *  how far back it reaches depends entirely on how much of the room the client happened to have
+ *  already synced/paginated through for other reasons. */
+function gatherLoadedEvents(room: Room, userId: string): MatrixEvent[] {
+    let timeline: EventTimeline | null = room.getLiveTimeline();
+    let events: MatrixEvent[] = [];
+    while (timeline) {
+        events = [...events, ...timeline.getEvents().filter((event) => isRedactableSenderEvent(event, userId))];
+        timeline = timeline.getNeighbouringTimeline(EventTimeline.BACKWARDS);
+    }
+    return events;
+}
+
+// Haven: hard ceilings on the "Custom" mode search below, so a user with sparse matching messages
+// in a very long room can't spin the loop (and the homeserver requests it makes) forever.
+const MAX_PAGINATION_ITERATIONS = 50;
+const PAGINATION_PAGE_SIZE = 100;
+// Haven: real network round-trips per keystroke would be wasteful and janky - only actually start
+// paginating once the user has paused typing for this long.
+const SEARCH_DEBOUNCE_MS = 400;
+
+type Mode = "recent" | "custom";
+
+/** Haven: actively paginates `room`'s timeline backward via the homeserver (not just already-loaded
+ *  timeline segments - see gatherLoadedEvents's own doc on why that's not enough for "Custom" mode's
+ *  whole point) until at least `wanted` of `userId`'s redactable events have been found, or the
+ *  start of the room's history is reached, or MAX_PAGINATION_ITERATIONS is hit. `keepStateEvents`
+ *  is applied as part of the search itself (not filtered afterward) so the search keeps going until
+ *  it finds `wanted` messages that actually match what will be redacted. */
+async function searchBackForEvents(
+    cli: MatrixClient,
+    room: Room,
+    userId: string,
+    wanted: number,
+    keepStateEvents: boolean,
+    isCancelled: () => boolean,
+): Promise<{ events: MatrixEvent[]; reachedRoomStart: boolean }> {
+    const timeline = room.getLiveTimeline();
+    const seenEventIds = new Set<string>();
+    const matched: MatrixEvent[] = [];
+    let reachedRoomStart = false;
+
+    for (let i = 0; i < MAX_PAGINATION_ITERATIONS && matched.length < wanted; i++) {
+        if (isCancelled()) break;
+        for (const event of timeline.getEvents()) {
+            const id = event.getId();
+            if (!id || seenEventIds.has(id)) continue;
+            seenEventIds.add(id);
+            if (isRedactableSenderEvent(event, userId) && !(keepStateEvents && event.isState())) {
+                matched.push(event);
+            }
+        }
+        if (matched.length >= wanted || isCancelled()) break;
+
+        let more: boolean;
+        try {
+            more = await cli.paginateEventTimeline(timeline, { backwards: true, limit: PAGINATION_PAGE_SIZE });
+        } catch (err) {
+            logger.error("BulkRedactDialog: pagination failed while searching for messages to redact", err);
+            more = false;
+        }
+        if (!more) {
+            reachedRoomStart = true;
+            break;
+        }
+    }
+
+    matched.sort((a, b) => b.getTs() - a.getTs());
+    return { events: matched, reachedRoomStart };
+}
+
 const BulkRedactDialog: React.FC<Props> = (props) => {
     const { matrixClient: cli, room, member, onFinished } = props;
 
-    let timeline: EventTimeline | null = room.getLiveTimeline();
-    let allEventsToRedact: MatrixEvent[] = [];
-    while (timeline) {
-        allEventsToRedact = [
-            ...allEventsToRedact,
-            ...timeline.getEvents().filter(
-                (event) =>
-                    event.getSender() === member.userId &&
-                    !event.isRedacted() &&
-                    !event.isRedaction() &&
-                    event.getType() !== EventType.RoomCreate &&
-                    // Don't redact ACLs because that'll obliterate the room
-                    // See https://github.com/matrix-org/synapse/issues/4042 for details.
-                    event.getType() !== EventType.RoomServerAcl &&
-                    // Redacting encryption events is equally bad
-                    event.getType() !== EventType.RoomEncryption,
-            ),
-        ];
-        timeline = timeline.getNeighbouringTimeline(EventTimeline.BACKWARDS);
-    }
-    // Haven: newest-first, so limiting below to fewer than every loaded message redacts an
-    // intuitive "most recent N messages" set - the raw concatenation order above is only
-    // chronological *within* each backward timeline chunk, not across the whole array (the live
-    // timeline's own block comes first, followed by however much older history happens to already
-    // be paginated into memory).
-    allEventsToRedact.sort((a, b) => b.getTs() - a.getTs());
+    const allLoadedEvents = gatherLoadedEvents(room, member.userId);
 
     const [keepStateEvents, setKeepStateEvents] = useState(true);
-    // Haven: "how many messages to remove" - left blank by default (keeping this dialog's only
-    // prior behaviour, every one of this user's messages currently loaded in this room's timeline)
-    // for the existing mod-removing-someone-else's-messages usage, since that's a deliberate,
-    // already-considered action. Defaulted to a conservative 25 when removing your OWN messages
-    // instead - "Remove messages" now also appears on your own profile card (see
-    // UserInfoAdminToolsContainerViewModel's own self-redaction fix), and leaving it unlimited
-    // there risked wiping way more of your own history than intended on a first, exploratory
-    // click. Either way, blank/non-numeric input falls back to the full count below rather than
-    // being treated as "remove 0".
-    const isMe = member.userId === cli.getUserId();
-    const [limitInput, setLimitInput] = useState(isMe ? "25" : "");
+    // Haven: "Recent" (this dialog's own original, only-ever behaviour) vs "Custom" - see this
+    // component's own module-level doc for why "Recent" alone can silently redact far fewer
+    // messages than a user asks for (it never fetches more history than whatever's already
+    // loaded), which is exactly what "Custom" mode's active backward pagination fixes.
+    const [mode, setMode] = useState<Mode>("recent");
+    // Haven: always a real number, for both "remove my own messages" and "remove someone else's"
+    // - blank/zero has no sensible meaning once "unlimited" is its own separate "Recent" mode
+    // instead of the field's own empty state.
+    const [customCountInput, setCustomCountInput] = useState("25");
+    const [customEvents, setCustomEvents] = useState<MatrixEvent[] | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
+    const [reachedRoomStart, setReachedRoomStart] = useState(false);
 
-    if (allEventsToRedact.length === 0) {
+    const parsedCustomCount = (() => {
+        const n = parseInt(customCountInput, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    })();
+
+    useEffect(() => {
+        if (mode !== "custom" || parsedCustomCount === null) {
+            setCustomEvents(null);
+            setIsSearching(false);
+            setReachedRoomStart(false);
+            return;
+        }
+
+        let cancelled = false;
+        setIsSearching(true);
+        const timeoutId = window.setTimeout(() => {
+            void searchBackForEvents(cli, room, member.userId, parsedCustomCount, keepStateEvents, () => cancelled).then(
+                (result) => {
+                    if (cancelled) return;
+                    setCustomEvents(result.events);
+                    setReachedRoomStart(result.reachedRoomStart);
+                    setIsSearching(false);
+                },
+            );
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timeoutId);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, parsedCustomCount, keepStateEvents, cli, room, member.userId]);
+
+    if (allLoadedEvents.length === 0) {
         return (
             <InfoDialog
                 onFinished={onFinished}
@@ -89,12 +189,10 @@ const BulkRedactDialog: React.FC<Props> = (props) => {
             />
         );
     } else {
-        const eligibleEventsToRedact = allEventsToRedact.filter((event) => !(keepStateEvents && event.isState()));
-        const totalCount = eligibleEventsToRedact.length;
-        const parsedLimit = parseInt(limitInput, 10);
-        const limit =
-            Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, totalCount) : totalCount;
-        const eventsToRedact = eligibleEventsToRedact.slice(0, limit);
+        const recentEligibleEvents = allLoadedEvents.filter((event) => !(keepStateEvents && event.isState()));
+        const searching = mode === "custom" && isSearching;
+        const eventsToRedact =
+            mode === "custom" ? (customEvents ?? []).slice(0, parsedCustomCount ?? 0) : recentEligibleEvents;
         const count = eventsToRedact.length;
         const user = member.name;
 
@@ -135,20 +233,44 @@ const BulkRedactDialog: React.FC<Props> = (props) => {
                 contentId="mx_Dialog_content"
             >
                 <div className="mx_Dialog_content" id="mx_Dialog_content">
-                    <p>{_t("user_info|redact|confirm_description_1", { count, user })}</p>
+                    {searching && (
+                        <p className="mx_BulkRedactDialog_searching">
+                            <InlineSpinner size={16} /> {_t("user_info|redact|searching_status", { user })}
+                        </p>
+                    )}
                     <p>{_t("user_info|redact|confirm_description_2")}</p>
+                    <StyledRadioGroup<Mode>
+                        name="mx_BulkRedactDialog_mode"
+                        value={mode}
+                        onChange={setMode}
+                        definitions={[
+                            {
+                                value: "recent",
+                                label: _t("user_info|redact|mode_recent_label"),
+                                description: _t("user_info|redact|mode_recent_description"),
+                            },
+                            {
+                                value: "custom",
+                                label: _t("user_info|redact|mode_custom_label"),
+                                description: _t("user_info|redact|mode_custom_description"),
+                            },
+                        ]}
+                    />
                     <Field
                         id="mx_BulkRedactDialog_limit"
                         element="input"
                         type="number"
                         min={1}
-                        max={totalCount}
-                        value={limitInput}
+                        value={customCountInput}
                         label={_t("user_info|redact|limit_label")}
-                        placeholder={_t("user_info|redact|limit_placeholder")}
-                        usePlaceholderAsHint
-                        onChange={(e) => setLimitInput(e.target.value)}
+                        disabled={mode !== "custom"}
+                        onChange={(e) => setCustomCountInput(e.target.value)}
                     />
+                    {mode === "custom" && !isSearching && reachedRoomStart && (
+                        <p className="mx_BulkRedactDialog_reachedStart">
+                            {_t("user_info|redact|reached_start_of_room", { count: customEvents?.length ?? 0 })}
+                        </p>
+                    )}
                     <StyledCheckbox
                         description={_t("user_info|redact|confirm_keep_state_explainer")}
                         checked={keepStateEvents}
@@ -160,7 +282,7 @@ const BulkRedactDialog: React.FC<Props> = (props) => {
                 <DialogButtons
                     primaryButton={_t("user_info|redact|confirm_button", { count })}
                     primaryButtonClass="danger"
-                    primaryDisabled={count === 0}
+                    primaryDisabled={count === 0 || (mode === "custom" && (parsedCustomCount === null || searching))}
                     onPrimaryButtonClick={() => {
                         setTimeout(redact, 0);
                         onFinished(true);

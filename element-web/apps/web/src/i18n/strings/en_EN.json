@@ -4026,18 +4026,22 @@
                 "one": "Remove 1 message",
                 "other": "Remove %(count)s messages"
             },
-            "confirm_description_1": {
-                "one": "You are about to remove %(count)s message by %(user)s. This will remove them permanently for everyone in the conversation. Do you wish to continue?",
-                "other": "You are about to remove %(count)s messages by %(user)s. This will remove them permanently for everyone in the conversation. Do you wish to continue?"
-            },
             "confirm_description_2": "For a large amount of messages, this might take some time. Please don't refresh your client in the meantime.",
             "confirm_keep_state_explainer": "Uncheck if you also want to remove system messages on this user (e.g. membership change, profile change…)",
             "confirm_keep_state_label": "Preserve system messages",
             "confirm_title": "Remove recent messages by %(user)s",
             "limit_label": "Number of messages to remove",
-            "limit_placeholder": "All",
+            "mode_custom_description": "Searches further back in the room's history if needed.",
+            "mode_custom_label": "Custom",
+            "mode_recent_description": "Only messages already loaded in this conversation.",
+            "mode_recent_label": "Recent",
             "no_recent_messages_description": "Try scrolling up in the timeline to see if there are any earlier ones.",
-            "no_recent_messages_title": "No recent messages by %(user)s found"
+            "no_recent_messages_title": "No recent messages by %(user)s found",
+            "reached_start_of_room": {
+                "one": "Reached the start of the room - only found 1 message.",
+                "other": "Reached the start of the room - only found %(count)s messages."
+            },
+            "searching_status": "Searching %(user)s's message history…"
         },
         "redact_button": "Remove messages",
         "revoke_invite": "Revoke invite",
