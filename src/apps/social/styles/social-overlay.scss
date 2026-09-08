@@ -1336,6 +1336,11 @@
     // emoji images on top of its text.
     background: transparent !important;
     border-color: transparent !important;
+    // Whichever composer class this shares may also set `resize: vertical`/`both` for the real
+    // textarea below - since this overlay also has its own `overflow: hidden` above, browsers will
+    // happily draw a resize grip on it too (any box with non-visible overflow is resizable, not
+    // just textareas) - only the real textarea underneath should ever show one.
+    resize: none !important;
 }
 
 .mx_EmojiRenderingTextarea_input {

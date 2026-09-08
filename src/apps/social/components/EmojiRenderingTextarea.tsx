@@ -82,10 +82,6 @@ export const EmojiRenderingTextarea = forwardRef<HTMLTextAreaElement, Props>(fun
 
     return (
         <div className="mx_EmojiRenderingTextarea">
-            <div ref={overlayRef} className={`mx_EmojiRenderingTextarea_overlay ${className ?? ""}`} aria-hidden="true">
-                {segments}
-                {text.endsWith("\n") ? "​" : null}
-            </div>
             <textarea
                 {...rest}
                 value={value}
@@ -100,6 +96,13 @@ export const EmojiRenderingTextarea = forwardRef<HTMLTextAreaElement, Props>(fun
                     else if (forwardedRef) (forwardedRef as React.RefObject<HTMLTextAreaElement | null>).current = el;
                 }}
             />
+            {/* Rendered after (so painted on top of) the real textarea above - see this file's own
+             *  doc for why: this overlay is the only thing that's supposed to be visible, with the
+             *  real textarea's caret/selection showing through its transparent background. */}
+            <div ref={overlayRef} className={`mx_EmojiRenderingTextarea_overlay ${className ?? ""}`} aria-hidden="true">
+                {segments}
+                {text.endsWith("\n") ? "​" : null}
+            </div>
         </div>
     );
 }) as (props: Props & React.RefAttributes<HTMLTextAreaElement>) => JSX.Element;
