@@ -3689,6 +3689,7 @@
         },
         "m.sticker": "%(senderDisplayName)s sent a sticker.",
         "m.video": {
+            "error": "Unable to play video due to error",
             "error_decrypting": "Error decrypting video",
             "show_video": "Show video"
         },

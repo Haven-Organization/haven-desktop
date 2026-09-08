@@ -69,9 +69,18 @@ interface InternalState {
      */
     decryptedBlob: Blob | null;
     /**
-     * Last media-processing error, if any.
+     * Last media-processing error, if any (download/decrypt failures - happen before playback
+     * ever starts).
      */
     error: unknown | null;
+    /**
+     * Whether the video element itself hit a runtime playback error (e.g. the browser's decoder
+     * rejecting a malformed frame partway through a file that otherwise downloaded/decrypted
+     * fine) - kept separate from `error` above since it can only ever happen after playback has
+     * already started, and unlike a decrypt failure doesn't mean `onPlay`'s own decrypt-and-retry
+     * path should be skipped were the user to somehow trigger it again.
+     */
+    playbackError: boolean;
     /**
      * Whether an on-demand media fetch is in progress.
      */
@@ -127,6 +136,7 @@ export class VideoBodyViewModel
             decryptedThumbnailUrl: null,
             decryptedBlob: null,
             error: null,
+            playbackError: false,
             posterLoading: false,
             blurhashUrl: null,
             imageSize: SettingsStore.getValue("Images.size"),
@@ -210,6 +220,16 @@ export class VideoBodyViewModel
             };
         }
 
+        if (state.playbackError) {
+            return {
+                state: VideoBodyViewState.ERROR,
+                errorLabel: _t("timeline|m.video|error"),
+                maxWidth,
+                maxHeight,
+                aspectRatio,
+            };
+        }
+
         if (!props.mediaVisible) {
             return {
                 state: VideoBodyViewState.HIDDEN,
@@ -281,6 +301,7 @@ export class VideoBodyViewModel
             decryptedThumbnailUrl: null,
             decryptedBlob: null,
             error: null,
+            playbackError: false,
             fetchingData: false,
             posterLoading: false,
             blurhashUrl: null,
@@ -477,6 +498,27 @@ export class VideoBodyViewModel
 
     public onPreviewClick = (): void => {
         this.props.onPreviewClick?.();
+    };
+
+    // Fires on any native HTMLMediaElement `error` event on the <video> itself - in practice this
+    // is almost always MEDIA_ERR_DECODE (code 3): the file downloaded/decrypted fine (playback
+    // had already started) but the browser's own decoder rejected a malformed frame partway
+    // through. Confirmed live against a real-world file from a fediverse bridge: Chromium's strict
+    // decoder aborts the whole player on one bad packet where a mobile client's more tolerant
+    // decoder (e.g. ExoPlayer) just plays through it - nothing in this codebase can fix the
+    // decoder's own strictness or the source file's encoding, but the player silently going quiet
+    // with zero indication (previously: no `error` handler existed here at all) is fixable.
+    public onError = (): void => {
+        if (this.state.playbackError) {
+            return;
+        }
+
+        logger.warn("Video playback error", this.props.videoRef.current?.error);
+        this.state = {
+            ...this.state,
+            playbackError: true,
+        };
+        this.updateSnapshotFromState();
     };
 
     public onPlay = async (): Promise<void> => {
