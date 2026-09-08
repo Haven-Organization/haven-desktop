@@ -541,6 +541,9 @@ importers:
       '@element-hq/web-shared-components':
         specifier: workspace:*
         version: link:../../packages/shared-components
+      '@floating-ui/react':
+        specifier: ^0.27.0
+        version: 0.27.17(react-dom@19.2.8)(react@19.2.8)
       '@fontsource/fira-code':
         specifier: ^5
         version: 5.3.0
@@ -27016,8 +27019,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.5)
-      picomatch: 4.0.5
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
 
   tinypool@2.1.0: {}
 
@@ -27488,7 +27491,7 @@ snapshots:
   vite@8.2.2(@types/node@25.9.3)(esbuild@0.27.4)(jiti@2.7.0)(sugarss@5.0.1)(terser@5.49.0)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.33.0
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       postcss: 8.5.26
       rolldown: 1.2.4
       tinyglobby: 0.2.17
