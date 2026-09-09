@@ -82,6 +82,19 @@ interface InternalState {
      */
     playbackError: boolean;
     /**
+     * True for the entire span from `onPlay` first being asked to fetch-and-decrypt through to
+     * its own deferred `play()` retry actually landing on the real `src` - see `onPlay`'s own doc
+     * for why this window exists at all. `onError` ignores anything that happens while this is
+     * true: the very act of pressing play on the lazy-load placeholder `data:` URL makes the
+     * browser genuinely attempt (and fail) to load it, and that failure is asynchronous enough
+     * that it can arrive *after* the real `src` has already been committed to the DOM - so even
+     * checking the live element's current `src` at error time isn't a reliable way to tell "this
+     * error is about the placeholder" from "this error is about the real content" apart. Confirmed
+     * live: a real encrypted video, confirmed independently to be entirely valid and playable,
+     * still triggered `onError` under the DOM-src-only version of this guard.
+     */
+    awaitingRealSource: boolean;
+    /**
      * Whether an on-demand media fetch is in progress.
      */
     fetchingData: boolean;
@@ -137,6 +150,7 @@ export class VideoBodyViewModel
             decryptedBlob: null,
             error: null,
             playbackError: false,
+            awaitingRealSource: false,
             posterLoading: false,
             blurhashUrl: null,
             imageSize: SettingsStore.getValue("Images.size"),
@@ -302,6 +316,7 @@ export class VideoBodyViewModel
             decryptedBlob: null,
             error: null,
             playbackError: false,
+            awaitingRealSource: false,
             fetchingData: false,
             posterLoading: false,
             blurhashUrl: null,
@@ -513,6 +528,18 @@ export class VideoBodyViewModel
             return;
         }
 
+        // An encrypted video that isn't autoplaying is deliberately given a stub `data:` URL as
+        // its `src` until the user actually clicks play (see `downloadVideo`'s "NOT preloading"
+        // branch) - pressing play against that placeholder makes the browser genuinely attempt
+        // (and fail) to load it, and `onPlay` below is what's actually responsible for swapping in
+        // the real, decrypted `src` in response to that same press. See `awaitingRealSource`'s own
+        // doc for why a plain "is the error about the placeholder or the real content" check can't
+        // be answered reliably by inspecting src/state at error-dispatch time, and why this spans
+        // the whole `onPlay` operation instead of just checking `hasContentUrl()`.
+        if (this.state.awaitingRealSource) {
+            return;
+        }
+
         logger.warn("Video playback error", this.props.videoRef.current?.error);
         this.state = {
             ...this.state,
@@ -529,6 +556,11 @@ export class VideoBodyViewModel
         this.state = {
             ...this.state,
             fetchingData: true,
+            // Set here, not just once the real src is actually ready below - the very press that
+            // triggered this `onPlay` is itself, right now, asking the browser to play whatever
+            // `src` the element currently has (the lazy-load placeholder), and that attempt's own
+            // failure is what `awaitingRealSource` needs to cover. See its own doc for the rest.
+            awaitingRealSource: true,
         };
 
         if (!this.props.mediaEventHelper?.media.isEncrypted) {
@@ -536,6 +568,7 @@ export class VideoBodyViewModel
                 ...this.state,
                 error: "No file given in content",
                 fetchingData: false,
+                awaitingRealSource: false,
             };
             this.updateSnapshotFromState();
             return;
@@ -563,7 +596,23 @@ export class VideoBodyViewModel
                 fetchingData: false,
             };
             this.updateSnapshotFromState();
-            void this.props.videoRef.current?.play();
+            // Haven: `updateSnapshotFromState` only queues the re-render that will give the real
+            // <video> element its actual `src` - React hasn't committed that to the DOM yet at
+            // this point in the synchronous call stack. Calling `play()` immediately here used to
+            // run it against whatever `src` the element still actually had (the lazy-load
+            // placeholder `data:` URL from `downloadVideo`'s "NOT preloading" branch), which is
+            // invalid and fails outright - confirmed live against a real encrypted video whose
+            // content, decrypted and checked by hand, was itself entirely valid. Deferring to the
+            // next animation frame - after the browser has painted the pending commit - lets this
+            // call land on the real `src` instead.
+            requestAnimationFrame(() => {
+                if (this.isDisposed || currentEvent !== this.props.mxEvent) return;
+                void this.props.videoRef.current?.play();
+                // Only now, after this retry has landed, is any subsequent `error` event
+                // unambiguously about the real content rather than the original placeholder press.
+                this.state = { ...this.state, awaitingRealSource: false };
+                this.updateSnapshotFromState();
+            });
         } catch (error) {
             if (
                 this.isDisposed ||
@@ -576,6 +625,7 @@ export class VideoBodyViewModel
             logger.warn("Unable to decrypt attachment: ", error);
             this.state = {
                 ...this.state,
+                awaitingRealSource: false,
                 error,
                 fetchingData: false,
             };
