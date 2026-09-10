@@ -420,6 +420,14 @@ export default class ThreadView extends React.Component<IProps, IState> {
                 threadId={this.state.thread?.id}
                 liveTimeline={this.state?.thread?.timelineSet?.getLiveTimeline()}
                 narrow={this.state.narrow}
+                // Haven: without this, RoomUploadContextProvider below reads whatever
+                // replyToEvent the *main timeline* happened to have (via the spread `this.context`
+                // above) rather than this thread's own pending reply - MessageComposer gets the
+                // right value as its own explicit prop further down (so typing a reply-with-text
+                // works fine), but a file/attachment upload triggered from this thread's own
+                // composer/drag-drop reads it from context instead, silently losing the reply
+                // relation entirely.
+                replyToEvent={this.state.replyToEvent}
             >
                 <RoomUploadContextProvider threadRelation={this.threadRelation}>
                     <BaseCard
