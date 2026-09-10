@@ -787,6 +787,18 @@ export function SocialRoomView({
                     setThreadEvent(e);
                     setHighlightThreadEvent(false);
                 }}
+                // Haven: without this, clicking a repost/cross-room-reply card from *this* post's
+                // own dedicated page (reached via a permalink/direct room+event URL, as opposed to
+                // SocialHomeView's own thread-view stack, which does wire this) silently did
+                // nothing - SocialPostView's handleViewThread only calls onFocusEvent above when
+                // the target is in the *same* room, falling back to onNavigateToThread for a
+                // cross-room target (reposts routinely cross rooms), which was never passed here at
+                // all. See threadRoom's own doc above for the matching room-tracking half of this.
+                onNavigateToThread={(e, r) => {
+                    setThreadEvent(e);
+                    setThreadRoom(r);
+                    setHighlightThreadEvent(false);
+                }}
                 highlightFocusedPost={highlightThreadEvent}
                 pillsGeneration={pillsGeneration}
                 onViewUser={onViewUser}
