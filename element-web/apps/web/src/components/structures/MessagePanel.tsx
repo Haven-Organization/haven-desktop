@@ -463,9 +463,11 @@ export default class MessagePanel extends React.Component<IProps, IState> {
      * pixelOffset gives the number of pixels *above* the offsetBase that the
      * node (specifically, the bottom of it) will be positioned. If omitted, it
      * defaults to 0.
+     *
+     * sticky - see ScrollPanel.scrollToToken's own doc.
      */
-    public scrollToEvent(eventId: string, pixelOffset?: number, offsetBase?: number): void {
-        this.scrollPanel.current?.scrollToToken(eventId, pixelOffset, offsetBase);
+    public scrollToEvent(eventId: string, pixelOffset?: number, offsetBase?: number, sticky?: boolean): void {
+        this.scrollPanel.current?.scrollToToken(eventId, pixelOffset, offsetBase, sticky);
     }
 
     public scrollToEventIfNeeded(eventId: string): void {

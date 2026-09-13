@@ -183,6 +183,19 @@ export default class ScrollPanel extends React.Component<IProps> {
     private minListHeight!: number;
     private heightUpdateInProgress = false;
     public divScroll: HTMLDivElement | null = null;
+    // Haven: set by scrollToToken's own `sticky` param (used for a "jump to this specific
+    // highlighted event" navigation, e.g. clicking a notification/permalink) - while this matches
+    // scrollState.trackedScrollToken, saveScrollState() below keeps tracking *this* node instead of
+    // silently re-picking "whichever message is bottom-most in the viewport" the way it normally
+    // does on every scroll. Without this, that re-pick happens the instant any other tile's media
+    // (an image, a link preview) finishes loading and changes height, even if the highlighted event
+    // itself never moved - updateHeight's own scroll-compensation then protects the *wrong* node's
+    // screen position, which is what visibly pushed the highlighted message out of view (confirmed
+    // live: landing on a notification's target message, then watching it scroll away as other
+    // images in the timeline loaded in). Cleared on the user's own next wheel/touch scroll (see
+    // onUserScrollIntent below) - only the initial landing needs protecting, not every scroll
+    // forever after.
+    private stickyScrollToken: string | null = null;
 
     public static contextType = SDKContext;
     declare public context: React.ContextType<typeof SDKContext>;
@@ -230,6 +243,16 @@ export default class ScrollPanel extends React.Component<IProps> {
         this.updatePreventShrinking();
         this.props.onScroll?.(ev);
         void this.checkFillState();
+    };
+
+    // Haven: releases stickyScrollToken's pin (see its own doc) on the user's own next wheel/touch
+    // scroll - genuine input, as opposed to the plain `scroll` events onScroll above also sees,
+    // which fire just as readily for the corrective scrollBy() updateHeight does to compensate for
+    // other tiles resizing. Only the initial landing on a highlighted event needs protecting from
+    // that; once the user scrolls under their own power they've clearly moved on; the normal
+    // "track whatever's at the bottom of the viewport" behaviour should resume from here.
+    private onUserScrollIntent = (): void => {
+        this.stickyScrollToken = null;
     };
 
     private onResize = (): void => {
@@ -604,13 +627,20 @@ export default class ScrollPanel extends React.Component<IProps> {
      * pixelOffset gives the number of pixels *above* the offsetBase that the
      * node (specifically, the bottom of it) will be positioned. If omitted, it
      * defaults to 0.
+     *
+     * sticky, when true, keeps saveScrollState() pinned to this exact node (see
+     * stickyScrollToken's own doc) until the user's next manual scroll - for a "jump to this one
+     * highlighted event and keep it in view" navigation, as opposed to every other caller of this
+     * method (e.g. jumping to the read marker), which should keep the normal
+     * "track whatever's at the bottom of the viewport" behaviour.
      */
-    public scrollToToken = (scrollToken: string, pixelOffset = 0, offsetBase = 0): void => {
+    public scrollToToken = (scrollToken: string, pixelOffset = 0, offsetBase = 0, sticky = false): void => {
         // set the trackedScrollToken, so we can get the node through getTrackedNode
         this.scrollState = {
             stuckAtBottom: false,
             trackedScrollToken: scrollToken,
         };
+        this.stickyScrollToken = sticky ? scrollToken : null;
         const trackedNode = this.getTrackedNode();
         const scrollNode = this.getScrollNode();
         if (trackedNode) {
@@ -635,6 +665,28 @@ export default class ScrollPanel extends React.Component<IProps> {
 
         const scrollNode = this.getScrollNode();
         const viewportBottom = scrollNode.scrollHeight - (scrollNode.scrollTop + scrollNode.clientHeight);
+
+        // Haven: see stickyScrollToken's own doc - while a highlighted-event jump is pinned, skip
+        // the "whichever message is bottom-most in the viewport" re-pick entirely and keep tracking
+        // the pinned node itself, as long as it's still actually rendered. getTrackedNode() reads
+        // off scrollState.trackedScrollToken, which - since nothing below has overwritten it yet -
+        // is still the pinned token at this point.
+        if (this.stickyScrollToken) {
+            const pinnedNode = this.getTrackedNode();
+            if (pinnedNode) {
+                const bottomOffset = this.topFromBottom(pinnedNode);
+                this.scrollState = {
+                    stuckAtBottom: false,
+                    trackedNode: pinnedNode,
+                    trackedScrollToken: this.stickyScrollToken,
+                    bottomOffset,
+                    pixelOffset: bottomOffset - viewportBottom,
+                };
+                return;
+            }
+            // No longer rendered (paged away, or the event was removed) - nothing left to pin.
+            this.stickyScrollToken = null;
+        }
 
         const itemlist = this.itemlist.current;
         if (!itemlist) return;
@@ -936,6 +988,8 @@ export default class ScrollPanel extends React.Component<IProps> {
             <AutoHideScrollbar
                 wrappedRef={this.collectScroll}
                 onScroll={this.onScroll}
+                onWheel={this.onUserScrollIntent}
+                onTouchStart={this.onUserScrollIntent}
                 className={`mx_AutoHideScrollbar mx_ScrollPanel ${this.props.className}`}
                 style={this.props.style}
             >

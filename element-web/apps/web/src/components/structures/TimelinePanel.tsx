@@ -1418,7 +1418,12 @@ class TimelinePanel extends React.Component<IProps, IState> {
                         "% + " +
                         pixelOffset,
                 );
-                this.messagePanel.current.scrollToEvent(eventId, pixelOffset, offsetBase);
+                // sticky: true - this is always the "jump to a specific (usually highlighted)
+                // event" path (scrollIntoView's only caller, from loadTimeline/initTimeline), never
+                // a "jump to whatever's currently at the bottom" one - see
+                // ScrollPanel.scrollToToken's own doc for why this matters once other tiles' media
+                // finishes loading around it.
+                this.messagePanel.current.scrollToEvent(eventId, pixelOffset, offsetBase, true);
             } else {
                 debuglog("TimelinePanel scrolling to bottom");
                 this.messagePanel.current.scrollToBottom();
