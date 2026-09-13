@@ -252,6 +252,7 @@ function showJoinToFollowModal(
     fallbackEvent: MatrixEvent | undefined,
     onViewThread: (event: MatrixEvent, room: Room) => void,
     summary: { name?: string; avatar_url?: string; num_joined_members?: number },
+    via?: string[],
 ): void {
     Modal.createDialog(QuestionDialog, {
         title: "Follow to see this post",
@@ -271,7 +272,11 @@ function showJoinToFollowModal(
             if (!ok) return;
             void (async () => {
                 try {
-                    await client.joinRoom(roomId);
+                    // Haven: without viaServers, joining a room this homeserver hasn't already
+                    // federated with (the common case for a repost/cross-reply pointing at a room
+                    // the viewer has never interacted with before) fails outright - see
+                    // resolveAndOpenPost's own doc on threading `via` through for the full story.
+                    await client.joinRoom(roomId, { viaServers: via });
                 } catch {
                     showCannotPreviewError();
                     return;
@@ -306,6 +311,7 @@ interface KnockToFollowDialogProps {
     onViewThread: (event: MatrixEvent, room: Room) => void;
     summary: { name?: string; avatar_url?: string; num_joined_members?: number };
     onFinished: () => void;
+    via?: string[];
 }
 
 /** Stays open through the whole knock, rather than closing immediately like a plain QuestionDialog
@@ -323,6 +329,7 @@ function KnockToFollowDialog({
     onViewThread,
     summary,
     onFinished,
+    via,
 }: KnockToFollowDialogProps): JSX.Element {
     const [state, setState] = useState<"idle" | "sending" | "sent" | "accepting" | "error">("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -341,7 +348,7 @@ function KnockToFollowDialog({
         acceptingRef.current = true;
         setState("accepting");
         try {
-            await client.joinRoom(roomId);
+            await client.joinRoom(roomId, { viaServers: via });
         } catch {
             acceptingRef.current = false;
             return; // stay on the current state - the invite is still there to act on manually
@@ -367,7 +374,7 @@ function KnockToFollowDialog({
         }
         if (targetEvent) onViewThread(targetEvent, joinedRoom);
         onFinished();
-    }, [client, roomId, eventId, fallbackEvent, onViewThread, onFinished]);
+    }, [client, roomId, eventId, fallbackEvent, onViewThread, onFinished, via]);
 
     // Listens for the whole lifetime of the dialog, not just once state reaches "sent" - a real
     // ghost/bot account can approve a knock near-instantly, sometimes fast enough that the invite
@@ -400,7 +407,7 @@ function KnockToFollowDialog({
     const handleSend = useCallback(async () => {
         setState("sending");
         try {
-            await client.knockRoom(roomId);
+            await client.knockRoom(roomId, { viaServers: via });
         } catch (err) {
             // A knock rejected specifically because you're already invited (see the listener
             // effect's own doc for how that can happen even on a genuinely first attempt) isn't a
@@ -423,7 +430,7 @@ function KnockToFollowDialog({
             return;
         }
         setState("sent");
-    }, [client, roomId, acceptAndOpen]);
+    }, [client, roomId, acceptAndOpen, via]);
 
     const busy = state === "sending" || state === "sent" || state === "accepting";
     const primaryLabel =
@@ -466,8 +473,9 @@ function showKnockToFollowModal(
     fallbackEvent: MatrixEvent | undefined,
     onViewThread: (event: MatrixEvent, room: Room) => void,
     summary: { name?: string; avatar_url?: string; num_joined_members?: number },
+    via?: string[],
 ): void {
-    Modal.createDialog(KnockToFollowDialog, { client, roomId, eventId, fallbackEvent, onViewThread, summary });
+    Modal.createDialog(KnockToFollowDialog, { client, roomId, eventId, fallbackEvent, onViewThread, summary, via });
 }
 
 /**
@@ -487,6 +495,20 @@ export function resolveAndOpenPost(
     eventId: string,
     fallbackEvent: MatrixEvent | undefined,
     onViewThread: (event: MatrixEvent, room: Room) => void,
+    // Haven: the repost/reply relation's own `via` server list (MSC4501's relates_to.via) -
+    // without it, a room this homeserver hasn't already federated with (the common case for a
+    // repost pointing somewhere the viewer has never interacted with) can't be resolved at all:
+    // getRoomSummary genuinely can't find it (MSC3266's summary endpoint needs via hints to reach
+    // an unknown room over federation), so this fell straight through to "Private profile" even
+    // for a room that's actually public/world-readable - confirmed live, a room with join_rule
+    // "knock" and no local membership showed "This user's profile is private" instead of the
+    // correct follow-request prompt purely because the summary lookup itself failed unresolved.
+    // peekInRoom has no via parameter at all (a hard limitation of the legacy initialSync endpoint
+    // it's built on - see its own call below), so this can't make a genuinely-unknown room
+    // directly peekable without any click; what it *can* fix is correctly identifying such a room
+    // as public/knockable/etc. instead of wrongly private, and letting Follow/Send Request
+    // actually succeed once clicked (joinRoom/knockRoom take the same via hints below).
+    via?: string[],
 ): void {
     void (async () => {
         const existingRoom = client.getRoom(roomId);
@@ -541,7 +563,7 @@ export function resolveAndOpenPost(
 
         let summary;
         try {
-            summary = await client.getRoomSummary(roomId);
+            summary = await client.getRoomSummary(roomId, via);
         } catch {
             showPrivateProfileModal();
             return;
@@ -549,9 +571,9 @@ export function resolveAndOpenPost(
         const joinRule = summary.join_rule as unknown as string | undefined;
 
         if (joinRule === JoinRule.Public) {
-            showJoinToFollowModal(client, roomId, eventId, fallbackEvent, onViewThread, summary);
+            showJoinToFollowModal(client, roomId, eventId, fallbackEvent, onViewThread, summary, via);
         } else if (joinRule === JoinRule.Knock || joinRule === "knock_restricted") {
-            showKnockToFollowModal(client, roomId, eventId, fallbackEvent, onViewThread, summary);
+            showKnockToFollowModal(client, roomId, eventId, fallbackEvent, onViewThread, summary, via);
         } else {
             showPrivateProfileModal();
         }
@@ -707,6 +729,8 @@ interface BoostedIndicatorProps {
      *  own doc on when hover is/isn't available. */
     embedded?: EmbeddedRelationPreview;
     onViewThread?: (event: MatrixEvent, room: Room) => void;
+    /** repostOf.via — see resolveAndOpenPost's own doc for why this needs to reach it. */
+    via?: string[];
 }
 
 function BoostedIndicator({
@@ -715,6 +739,7 @@ function BoostedIndicator({
     originalSenderName,
     embedded,
     onViewThread,
+    via,
 }: BoostedIndicatorProps): JSX.Element {
     const client = useMatrixClientContext();
     const targetRoom = client.getRoom(roomId) ?? undefined;
@@ -740,7 +765,7 @@ function BoostedIndicator({
                 // Boosted content is almost always from a room the viewer hasn't joined - that's
                 // the whole point of a boost - see resolveAndOpenPost for the full
                 // peek/join/knock/private resolution.
-                resolveAndOpenPost(client, roomId, eventId, undefined, onViewThread);
+                resolveAndOpenPost(client, roomId, eventId, undefined, onViewThread, via);
             }}
         />
     );
@@ -760,6 +785,8 @@ interface RepliedToProfileIndicatorProps {
     originalSenderName: string;
     embedded?: EmbeddedRelationPreview;
     onViewThread?: (event: MatrixEvent, room: Room) => void;
+    /** replyCrossPostOf.via — see resolveAndOpenPost's own doc for why this needs to reach it. */
+    via?: string[];
 }
 
 function RepliedToProfileIndicator({
@@ -768,6 +795,7 @@ function RepliedToProfileIndicator({
     originalSenderName,
     embedded,
     onViewThread,
+    via,
 }: RepliedToProfileIndicatorProps): JSX.Element {
     const client = useMatrixClientContext();
     const targetRoom = client.getRoom(roomId) ?? undefined;
@@ -784,7 +812,7 @@ function RepliedToProfileIndicator({
                 if (!onViewThread) return;
                 // Same fix as BoostedIndicator's own onNavigate above - the original post being
                 // replied to is often in a room the viewer hasn't joined.
-                resolveAndOpenPost(client, roomId, eventId, undefined, onViewThread);
+                resolveAndOpenPost(client, roomId, eventId, undefined, onViewThread, via);
             }}
         />
     );
@@ -1313,6 +1341,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             // below for the fallback to the outer event's own content in that case.
             content?: Record<string, unknown>;
             content_inline?: boolean;
+            // Per MSC4501, the server(s) a resolver should try when room_id isn't already known
+            // locally - see resolveAndOpenPost's own doc for why this needs to reach getRoomSummary/
+            // joinRoom/knockRoom, not just get parsed here and dropped.
+            via?: string[];
         };
         "m.relates_to"?: {
             rel_type?: string;
@@ -1642,6 +1674,20 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // unencrypted m.room.message media shape (content.url + content.info.mimetype for msgtypes
     // m.image/m.video/m.audio/m.file).
     const fileUrl = content.file?.url ?? content.url;
+    // Haven: some bridges (e.g. the ActivityPub bridge) copy the reposted/cross-replied-to post's
+    // own attachment onto this outer wrapper event's content too - not just into
+    // repost_of.content/reply_of.content - purely so a plain room-timeline view or a non-MSC4501
+    // client still shows the image. isBoost's own suppression above only catches this for a *pure*
+    // boost (no real caption); a quote-post/cross-reply with genuine commentary alongside the same
+    // duplicated attachment isn't a boost at all, so it fell through and rendered the same image
+    // twice - once here, once in the repost/reply card further down. Compared by mxc:// URL
+    // (whichever of content.file.url/content.url either side actually uses) rather than by
+    // reference, since these are two independently-parsed content objects that happen to describe
+    // the same upload.
+    const embeddedFileUrl = (c: { url?: string; file?: { url: string } } | undefined): string | undefined =>
+        c?.file?.url ?? c?.url;
+    const outerFileDuplicatesEmbedded =
+        !!fileUrl && (fileUrl === embeddedFileUrl(repostOfContent) || fileUrl === embeddedFileUrl(replyCrossPostOfContent));
     // Per the m.room.message media spec, `filename` holds the original file name and `body`
     // becomes a user-supplied caption when it differs from `filename`. Older clients that don't
     // support captions omit `filename` and just put the file name straight in `body`. Checked
@@ -2100,6 +2146,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 <RepliedToProfileIndicator
                     eventId={replyCrossPostOf.event_id}
                     roomId={replyCrossPostOf.room_id}
+                    via={replyCrossPostOf.via}
                     originalSenderName={replyCrossPostOf.displayname ?? replyCrossPostOf.sender}
                     embedded={
                         replyCrossPostOfContent
@@ -2150,6 +2197,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 <BoostedIndicator
                     eventId={repostOf.event_id}
                     roomId={repostOf.room_id}
+                    via={repostOf.via}
                     originalSenderName={repostedSenderProfile?.displayName || repostOf.displayname || "unknown"}
                     embedded={
                         repostOfContent
@@ -2216,7 +2264,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     // unconditionally up front prevents that regardless of what
                     // resolveAndOpenPost below ends up doing (peek/join/knock/private modal).
                     e.stopPropagation();
-                    resolveAndOpenPost(client, repostOf.room_id, repostOf.event_id, repostedMockEvent, onViewThread);
+                    resolveAndOpenPost(client, repostOf.room_id, repostOf.event_id, repostedMockEvent, onViewThread, repostOf.via);
                 };
                 return (
                     <div
@@ -2351,6 +2399,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         replyCrossPostOf.event_id,
                         replyCrossPostMockEvent,
                         onViewThread,
+                        replyCrossPostOf.via,
                     );
                 };
                 return (
@@ -2425,12 +2474,11 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 );
             })()}
 
-            {/* Embedded media or download link — suppressed for a detected boost, since some
-                bridges (e.g. the ActivityPub bridge) copy the boosted event's own attachment onto
-                the outer event's content too, not just into repost_of.content, which would
-                otherwise render the same image/video twice: once here, once in the repost card
-                above. */}
-            {!isBoost && fileNode}
+            {/* Embedded media or download link — suppressed for a detected boost (see isBoost's own
+                doc) or whenever the outer attachment is a duplicate of the one already shown in
+                the repost/reply card above (see outerFileDuplicatesEmbedded's own doc) - either
+                way, showing it here too would just be the same image/video rendered twice. */}
+            {!isBoost && !outerFileDuplicatesEmbedded && fileNode}
 
             {/* Rich URL preview when no file is attached */}
             {!isBoost && firstUrl && <UrlPreview url={firstUrl} ts={ts} />}

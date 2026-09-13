@@ -67,6 +67,12 @@ export function tryRouteSocialRoom(
     roomIdOrAlias: string,
     eventId: string | null,
     onNotSocial: () => void,
+    // Haven: server candidates from the permalink's own ?via= (MatrixToPermalinkConstructor's
+    // encodeServerCandidates) - without these, getRoomSummary below can't resolve a room this
+    // homeserver hasn't already federated with (MSC3266's summary endpoint needs via hints to
+    // reach an unknown room), wrongly treating a perfectly reachable room as unclassifiable. Same
+    // root cause as resolveAndOpenPost's own via parameter in SocialEventTile.tsx - see its doc.
+    via?: string[] | null,
 ): boolean {
     if (event.shiftKey) return false;
 
@@ -88,7 +94,7 @@ export function tryRouteSocialRoom(
     // Not known locally (or referenced by alias) - resolve via room summary (MSC3266, accepts
     // either a room ID or an alias) before deciding. The caller treats this as "handled" even
     // though the actual decision finishes asynchronously.
-    void client.getRoomSummary(roomIdOrAlias).then(
+    void client.getRoomSummary(roomIdOrAlias, via ?? undefined).then(
         (summary) => {
             if (isProfileRoomType(summary.room_type) || isGroupRoomType(summary.room_type)) {
                 routeToSocial(summary.room_id, eventId);
@@ -106,9 +112,15 @@ export function tryRouteSocialPermalink(event: { shiftKey?: boolean }, href: str
     if (!parsed?.roomIdOrAlias) return false;
 
     const localHref = tryTransformPermalinkToLocalHref(href);
-    return tryRouteSocialRoom(event, parsed.roomIdOrAlias, parsed.eventId, () => {
-        if (localHref !== href) window.location.hash = localHref;
-    });
+    return tryRouteSocialRoom(
+        event,
+        parsed.roomIdOrAlias,
+        parsed.eventId,
+        () => {
+            if (localHref !== href) window.location.hash = localHref;
+        },
+        parsed.viaServers,
+    );
 }
 
 /**
