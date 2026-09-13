@@ -16,7 +16,10 @@ import React, {
     type ReactNode,
     type RefObject,
     type JSX,
+    type ChangeEventHandler,
+    useCallback,
     useEffect,
+    useState,
 } from "react";
 import classNames from "classnames";
 import {
@@ -38,7 +41,10 @@ import {
     type ISearchResults,
     THREAD_RELATION_TYPE,
     type MatrixClient,
+    Preset,
+    Direction,
 } from "matrix-js-sdk/src/matrix";
+import { Form, SettingsToggleInput } from "@vector-im/compound-web";
 import { KnownMembership } from "matrix-js-sdk/src/types";
 import { logger } from "matrix-js-sdk/src/logger";
 import { type CallState, type MatrixCall } from "matrix-js-sdk/src/webrtc/call";
@@ -74,6 +80,8 @@ import { E2EStatus, shieldStatusForRoom } from "../../utils/ShieldUtils";
 import { Action } from "../../dispatcher/actions";
 import { type IMatrixClientCreds } from "../../utils/createMatrixClient";
 import { useMatrixClientContext } from "../../contexts/MatrixClientContext";
+import { privateShouldBeEncrypted } from "../../utils/rooms";
+import { checkUserIsAllowedToChangeEncryption } from "../../createRoom";
 import ScrollPanel from "./ScrollPanel";
 import TimelinePanel from "./TimelinePanel";
 import ErrorBoundary from "../views/elements/ErrorBoundary";
@@ -308,6 +316,12 @@ interface LocalRoomViewProps {
     permalinkCreator: RoomPermalinkCreator;
     roomView: RefObject<HTMLElement | null>;
     e2eStatus?: E2EStatus;
+    // Haven: called after the pre-send encryption toggle changes localRoom's encryption state, so the
+    // owning RoomView can recompute isRoomEncrypted/e2eStatus - LocalRoom.setEncrypted()'s own
+    // RoomStateEvent.Update emit only reaches listeners on the LocalRoom instance itself (unlike a real
+    // synced room, it never goes through matrix-js-sdk's client-level re-emit wiring in sync.js), so
+    // without this the composer's "unencrypted message" placeholder/banner would stay stale.
+    onEncryptionChanged: () => void;
 }
 
 /**
@@ -319,11 +333,54 @@ interface LocalRoomViewProps {
 function LocalRoomView(props: LocalRoomViewProps): ReactElement {
     const context = useScopedRoomContext("room");
     const room = context.room as LocalRoom;
-    const encryptionEvent = props.localRoom.currentState.getStateEvents(EventType.RoomEncryption)[0];
+    const cli = useMatrixClientContext();
+    const encryptionEvent = props.localRoom
+        .getLiveTimeline()
+        .getState(Direction.Forward)
+        ?.getStateEvents(EventType.RoomEncryption)[0];
     let encryptionTile: ReactNode;
 
     if (encryptionEvent) {
         encryptionTile = <EncryptionEventWrappedView mxEvent={encryptionEvent} />;
+    }
+
+    // Haven: pre-send encryption toggle - lets the user override the DM's encryption default
+    // (io.element.e2ee well-known if present, else on - see privateShouldBeEncrypted()) before the
+    // first message is sent, matching CreateRoomDialog's own "Enable end-to-end encryption" toggle
+    // (same component, label, help copy and forced/disabled handling).
+    const [isEncrypted, setIsEncrypted] = useState<boolean>(props.localRoom.encrypted);
+    const [canChangeEncryption, setCanChangeEncryption] = useState(false);
+
+    const applyEncrypted = useCallback(
+        (value: boolean): void => {
+            setIsEncrypted(value);
+            props.localRoom.setEncrypted(cli, value);
+            props.onEncryptionChanged();
+        },
+        [cli, props.localRoom, props.onEncryptionChanged],
+    );
+
+    useEffect(() => {
+        applyEncrypted(privateShouldBeEncrypted(cli));
+        void checkUserIsAllowedToChangeEncryption(cli, Preset.PrivateChat).then(({ allowChange, forcedValue }) => {
+            setCanChangeEncryption(allowChange);
+            if (forcedValue !== undefined) applyEncrypted(forcedValue);
+        });
+        // Only re-run if the local room itself changes, not on every applyEncrypted identity change.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.localRoom]);
+
+    const onEncryptedChange: ChangeEventHandler<HTMLInputElement> = (evt): void => {
+        applyEncrypted(evt.target.checked);
+    };
+
+    let encryptionMicrocopy: string;
+    if (privateShouldBeEncrypted(cli)) {
+        encryptionMicrocopy = canChangeEncryption
+            ? _t("create_room|encrypted_warning")
+            : _t("create_room|encryption_forced");
+    } else {
+        encryptionMicrocopy = _t("settings|security|e2ee_default_disabled_warning");
     }
 
     let statusBar: ReactElement | null = null;
@@ -353,6 +410,16 @@ function LocalRoomView(props: LocalRoomViewProps): ReactElement {
                             <ScrollPanel className="mx_RoomView_messagePanel">
                                 {encryptionTile}
                                 <NewRoomIntro />
+                                <Form.Root onSubmit={(e): void => e.preventDefault()}>
+                                    <SettingsToggleInput
+                                        name="local-room-encryption-toggle"
+                                        label={_t("create_room|encryption_label")}
+                                        onChange={onEncryptedChange}
+                                        checked={isEncrypted}
+                                        disabled={!canChangeEncryption}
+                                        helpMessage={encryptionMicrocopy}
+                                    />
+                                </Form.Root>
                             </ScrollPanel>
                         </div>
                         {statusBar}
@@ -1653,7 +1720,12 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
         this.setState({
             isRoomEncrypted,
             showUrlPreview: this.getPreviewUrlVisibility(isRoomEncrypted),
-            ...(newE2EStatus && { e2eStatus: newE2EStatus }),
+            // Haven: was `...(newE2EStatus && { e2eStatus: newE2EStatus })`, which never clears a stale
+            // e2eStatus once set - harmless for a real room (encryption can't be turned back off there),
+            // but the pre-send DM encryption toggle (LocalRoomView) can genuinely flip a LocalRoom from
+            // encrypted back to unencrypted, and MessageComposer's placeholder/banner key off truthiness
+            // of e2eStatus alone - so it must actually go back to undefined here.
+            e2eStatus: newE2EStatus ?? undefined,
         });
     }
 
@@ -2161,6 +2233,7 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
                     resizeNotifier={this.context.resizeNotifier}
                     permalinkCreator={this.permalinkCreator}
                     roomView={this.roomView}
+                    onEncryptionChanged={(): void => void this.updateRoomEncrypted(localRoom)}
                 />
             </ScopedRoomContextProvider>
         );

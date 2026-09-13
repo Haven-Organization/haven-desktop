@@ -13,9 +13,11 @@ import {
     MatrixEvent,
     Direction,
     EventType,
+    RoomStateEvent,
 } from "matrix-js-sdk/src/matrix";
 
 import { type Member } from "../utils/direct-messages";
+import { MEGOLM_ENCRYPTION_ALGORITHM } from "../utils/crypto";
 
 export const LOCAL_ROOM_ID_PREFIX = "local+";
 
@@ -72,5 +74,46 @@ export class LocalRoom extends Room {
         // if there is an encryption state event, it is encrypted.
         // Regardless of the content/algorithm, we assume it is encrypted.
         return stateEvents[0] instanceof MatrixEvent;
+    }
+
+    /**
+     * Haven: change whether the real room this LocalRoom stands in for should be created encrypted,
+     * driven by an explicit user toggle on the pre-send DM screen (see LocalRoomView in RoomView.tsx)
+     * rather than only the automatic determineCreateRoomEncryptionOption() check createDmLocalRoom()
+     * runs up front. Keeps `encrypted` (read by createRoomFromLocalRoom/startDm at actual send time)
+     * and this local room's own `m.room.encryption` state event (read by isEncryptionEnabled() above,
+     * and by RoomView.tsx directly for the "Encryption enabled" timeline tile) in sync, then emits
+     * RoomStateEvent.Update so anything reactively watching room state - namely
+     * EncryptionEventViewModel - refreshes immediately.
+     */
+    public setEncrypted(client: MatrixClient, encrypted: boolean): void {
+        this.encrypted = encrypted;
+
+        const roomState = this.getLiveTimeline().getState(Direction.Forward);
+        if (!roomState) return;
+
+        if (encrypted) {
+            if (roomState.getStateEvents(EventType.RoomEncryption).length === 0) {
+                const userId = client.getUserId()!;
+                const event = new MatrixEvent({
+                    event_id: `~${this.roomId}:${client.makeTxnId()}`,
+                    type: EventType.RoomEncryption,
+                    content: { algorithm: MEGOLM_ENCRYPTION_ALGORITHM },
+                    sender: userId,
+                    state_key: "",
+                    room_id: this.roomId,
+                    origin_server_ts: Date.now(),
+                });
+                roomState.setStateEvents([event]);
+            }
+        } else {
+            // There's no protocol-level "unset a state event" - real rooms never do this - but this
+            // room only ever exists client-side, so it's safe to drop it back out of the state map
+            // directly rather than leave a stale encryption event whose presence would otherwise keep
+            // isEncryptionEnabled()/the timeline tile permanently "on" once ever toggled on.
+            roomState.events.get(EventType.RoomEncryption)?.delete("");
+        }
+
+        this.emit(RoomStateEvent.Update, roomState);
     }
 }

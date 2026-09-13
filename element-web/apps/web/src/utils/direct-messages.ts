@@ -76,7 +76,10 @@ export async function createRoomFromLocalRoom(client: MatrixClient, localRoom: L
     localRoom.state = LocalRoomState.CREATING;
     client.emit(ClientEvent.Room, localRoom);
 
-    return startDm(client, localRoom.targets, false).then(
+    // Haven: localRoom.encrypted reflects whatever the pre-send DM screen's encryption toggle was
+    // last set to (see LocalRoomView in RoomView.tsx) - pass it through explicitly so startDm()
+    // honours the user's choice instead of silently recomputing its own default.
+    return startDm(client, localRoom.targets, false, localRoom.encrypted).then(
         (roomId) => {
             if (!roomId) throw new Error(`startDm for local room ${localRoom.roomId} didn't return a room Id`);
 

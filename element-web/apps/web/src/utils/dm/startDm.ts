@@ -21,9 +21,18 @@ import createRoom, { type IOpts } from "../../createRoom";
 /**
  * Start a DM.
  *
+ * @param encryptionOverride - Haven: when set, use this instead of running
+ *   determineCreateRoomEncryptionOption() - lets createRoomFromLocalRoom() honour an explicit
+ *   encryption choice the user made on the pre-send DM screen's toggle (see LocalRoomView in
+ *   RoomView.tsx / LocalRoom.setEncrypted()) instead of silently recomputing the default.
  * @returns {Promise<string | null} Resolves to the room id.
  */
-export async function startDm(client: MatrixClient, targets: Member[], showSpinner = true): Promise<string | null> {
+export async function startDm(
+    client: MatrixClient,
+    targets: Member[],
+    showSpinner = true,
+    encryptionOverride?: boolean,
+): Promise<string | null> {
     const targetIds = targets.map((t) => t.userId);
 
     // Check if there is already a DM with these people and reuse it if possible.
@@ -46,7 +55,9 @@ export async function startDm(client: MatrixClient, targets: Member[], showSpinn
 
     const createRoomOptions: IOpts = { inlineErrors: true };
 
-    if (await determineCreateRoomEncryptionOption(client, targets)) {
+    const shouldEncrypt =
+        encryptionOverride !== undefined ? encryptionOverride : await determineCreateRoomEncryptionOption(client, targets);
+    if (shouldEncrypt) {
         createRoomOptions.encryption = true;
     }
 
