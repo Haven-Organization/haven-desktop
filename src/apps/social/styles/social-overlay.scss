@@ -1349,6 +1349,22 @@
     // selection highlight) stays exactly as it would for a plain <textarea> of the same class.
     color: transparent !important;
     caret-color: $primary-content;
+    // Haven: Compound's own base stylesheet force-sets `body { letter-spacing:
+    // var(--cpd-font-letter-spacing-body-md) !important; }` - the overlay div picks that up like
+    // any other normal element via plain inheritance, but a <textarea> doesn't: confirmed live,
+    // `letter-spacing: inherit` here still computed to "normal" on the real textarea even though
+    // its own parent div correctly computed the inherited body value - inherit's dynamic ancestor
+    // lookup just doesn't resolve the same way for this property on a form control in this engine,
+    // where an explicit value does (also confirmed live). Left unset (or left as `inherit`), the
+    // real (invisible) textarea's own text - and so its native caret, positioned according to that
+    // text's own layout - runs very slightly wider per character than the visible overlay text
+    // sitting on top of it, and the gap compounds across a whole line: the caret visibly landed to
+    // the right of where the last visible character actually ended. Every current composer this
+    // component is used inside (.social_ComposeBox_input, .social_ReplyDialog_input) sets its own
+    // font from --cpd-font-body-md-regular and never overrides letter-spacing itself, so the
+    // overlay's own actual value is always this same body-level default - matching it directly
+    // here (rather than chasing inherit further) keeps the two in lockstep.
+    letter-spacing: var(--cpd-font-letter-spacing-body-md);
 }
 
 .mx_EmojiRenderingTextarea_emoji {
