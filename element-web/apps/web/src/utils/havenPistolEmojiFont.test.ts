@@ -151,7 +151,8 @@ describe("Haven gun emoji @font-face rules in _fonts.pcss", () => {
     const faces = [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map((match) => {
         const body = match[1];
         return {
-            family: body.match(/font-family:\s*"([^"]+)"/)?.[1],
+            // Upstream writes the family unquoted (Twemoji), Haven's own faces quoted ("Haven Handgun") - accept both.
+            family: body.match(/font-family:\s*"?([^";]+)"?\s*;/)?.[1],
             weight: body.match(/font-weight:\s*(\d+)/)?.[1],
             range: body.match(/unicode-range:\s*([^;]+);/)?.[1].trim(),
             src: body.match(/url\("([^"]+)"\)/)?.[1],

@@ -12,6 +12,8 @@ Please see LICENSE files in the repository root for full details.
     height: 100vh;
     width: 100%;
     overflow: hidden;
+    /* Haven: --lp-background-blur is set at runtime on the root element (see BackdropPanel.tsx), not in CSS */
+    /* stylelint-disable-next-line csstools/value-no-unknown-custom-properties */
     filter: blur(var(--lp-background-blur));
     /* Force a new layer for the backdropPanel so it's better hardware supported */
     transform: translateZ(0);

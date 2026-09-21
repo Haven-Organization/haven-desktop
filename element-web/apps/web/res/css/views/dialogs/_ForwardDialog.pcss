@@ -35,9 +35,11 @@ Please see LICENSE files in the repository root for full details.
         /* When forwarding messages from encrypted rooms, EventTile will complain */
         /* that our preview is unencrypted, which doesn't actually matter */
         /* We also hide download links to not encourage users to try interacting */
+        /* The file tile's inline download and open actions go for the same reason */
         .mx_ReadReceiptGroup,
         .mx_E2ePadlock,
-        .mx_MFileBody [data-type="download"] {
+        .mx_MFileBody [data-type="download"],
+        .mx_MFileBody [data-type="actions"] {
             display: none;
         }
     }
@@ -59,7 +61,7 @@ Please see LICENSE files in the repository root for full details.
                not just the checkbox/label text inside it - this affordance should read that way. */
             cursor: pointer;
 
-            &_disabled {
+            &.mx_ForwardDialog_attachmentOption_disabled {
                 opacity: 0.5;
                 cursor: default;
             }

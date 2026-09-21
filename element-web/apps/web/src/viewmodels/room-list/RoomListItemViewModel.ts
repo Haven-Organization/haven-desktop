@@ -13,7 +13,7 @@ import {
     type Section,
     type UserStatus,
 } from "@element-hq/web-shared-components";
-import { ClientEvent, RoomEvent } from "matrix-js-sdk/src/matrix";
+import { ClientEvent, KnownMembership, RoomEvent } from "matrix-js-sdk/src/matrix";
 import { CallType } from "matrix-js-sdk/src/webrtc/call";
 import { logger } from "matrix-js-sdk/src/logger";
 
@@ -271,11 +271,12 @@ export class RoomListItemViewModel
 
     /**
      * The room-list section tag this room is currently displayed under. Mirrors the same
-     * precedence TagFilter/ExcludeTagsFilter use to build sections in RoomListStoreV3.getSections:
-     * the first section tag (in display order) whose tag is set on the room, falling back to the
-     * Chats catch-all if none apply.
+     * precedence SectionFilter uses to build sections in RoomListStoreV3.getSections: a pending
+     * invitation always wins (the Invites section), then the first section tag (in display order)
+     * whose tag is set on the room, falling back to the Chats catch-all if none apply.
      */
     private getSectionTag(): string {
+        if (this.props.room.getMyMembership() === KnownMembership.Invite) return DefaultTagID.Invite;
         const roomTags = this.props.room.tags;
         const tag = RoomListStoreV3.instance.orderedSectionTags.find((tag) => tag !== CHATS_TAG && roomTags[tag]);
         return tag ?? CHATS_TAG;
@@ -404,6 +405,10 @@ export class RoomListItemViewModel
         // never had this item at all.
         const canOpenDevtools = SettingsStore.getValue("developerMode");
 
+        // A room with a pending invitation always sits in the Invites section, so it can't be moved
+        // to another one, by dragging it or through the menu entries that assign a section.
+        const canChangeSection = room.getMyMembership() !== KnownMembership.Invite;
+
         return {
             id: room.roomId,
             room,
@@ -435,6 +440,7 @@ export class RoomListItemViewModel
             sections,
             areSectionsEnabled,
             canOpenDevtools,
+            canChangeSection,
         };
     }
 
@@ -538,14 +544,14 @@ export class RoomListItemViewModel
     };
 
     public onToggleSection = (tag: string): void => {
-        tagRoom(this.props.room, tag);
+        tagRoom(this.props.room, tag, true);
     };
 
     public onRemoveFromSection = (): void => {
         const roomTags = this.props.room.tags;
         const sectionTag = RoomListStoreV3.instance.orderedSectionTags.find((tag) => Boolean(roomTags[tag]));
         if (sectionTag) {
-            tagRoom(this.props.room, sectionTag);
+            tagRoom(this.props.room, sectionTag, true);
         }
     };
 

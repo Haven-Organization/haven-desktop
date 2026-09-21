@@ -104,6 +104,11 @@ export interface RoomListItemViewSnapshot {
     /** Haven: whether the "Dev Tools" more-options item should be shown - gated on the
      *  "developerMode" setting, matching the legacy room list's own context menu. */
     canOpenDevtools: boolean;
+    /**
+     * Whether the room can be moved to another section, by dragging it or through the menu entries
+     * that assign a section (Favourited, Low priority and "Move to").
+     */
+    canChangeSection: boolean;
 }
 
 /**

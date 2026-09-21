@@ -15,6 +15,7 @@ import { type JsonDocument, type JsonValue } from "shared-types";
 import { _t, _td, type EmojiSkinTone } from "@element-hq/web-shared-components";
 
 import { type MediaPreviewConfig } from "../@types/media_preview.ts";
+import { type PdfViewerState } from "../@types/pdf-viewer.ts";
 import DeviceIsolationModeController from "./controllers/DeviceIsolationModeController.ts";
 import {
     NotificationBodyEnabledController,
@@ -31,6 +32,7 @@ import { type KeyCombo } from "../KeyBindingsManager";
 import UIFeatureController from "./controllers/UIFeatureController";
 import { UIFeature } from "./UIFeature";
 import { Layout } from "./enums/Layout";
+import { TokenizerMode } from "./enums/TokenizerMode";
 import ReducedMotionController from "./controllers/ReducedMotionController";
 import IncompatibleController from "./controllers/IncompatibleController";
 import { ImageSize } from "./enums/ImageSize";
@@ -235,7 +237,9 @@ export interface Settings {
     "feature_location_share_live": IFeature;
     "feature_dynamic_room_predecessors": IFeature;
     "feature_render_reaction_images": IFeature;
+    "feature_pdf_viewer": IFeature;
     "feature_retention": IFeature;
+    "feature_new_timeline": IFeature;
     "feature_ask_to_join": IFeature;
     "feature_notifications": IFeature;
     "feature_msc4362_encrypted_state_events": IFeature;
@@ -305,6 +309,7 @@ export interface Settings {
     "breadcrumb_rooms": IBaseSetting<string[]>;
     "recent_emoji": IBaseSetting<RecentEmojiData>;
     "showMediaEventIds": IBaseSetting<{ [eventId: string]: boolean }>;
+    "pdfViewerState": IBaseSetting<{ [mxcUri: string]: PdfViewerState }>;
     "SpotlightSearch.recentSearches": IBaseSetting<string[]>;
     "SpotlightSearch.showNsfwPublicRooms": IBaseSetting<boolean>;
     "room_directory_servers": IBaseSetting<string[]>;
@@ -320,6 +325,7 @@ export interface Settings {
     "blacklistUnverifiedDevices": IBaseSetting<boolean>;
     "urlPreviewsEnabled": IBaseSetting<boolean>;
     "urlPreviewsEnabled_e2ee": IBaseSetting<boolean>;
+    "urlPreviewsEnabled_e2ee_bundled_only": IBaseSetting<boolean>;
     "notificationsEnabled": IBaseSetting<boolean>;
     "deviceNotificationsEnabled": IBaseSetting<boolean>;
     "notificationSound": IBaseSetting<NotificationSound | false>;
@@ -358,6 +364,7 @@ export interface Settings {
     "RightPanel.phases": IBaseSetting<IRightPanelForRoomStored | null>;
     "enableEventIndexing": IBaseSetting<boolean>;
     "crawlerSleepTime": IBaseSetting<number>;
+    "tokenizerMode": IBaseSetting<TokenizerMode>;
     "ircDisplayNameWidth": IBaseSetting<number>;
     "layout": IBaseSetting<Layout>;
     "Images.size": IBaseSetting<ImageSize>;
@@ -696,6 +703,24 @@ export const SETTINGS: Settings = {
         supportedLevelsAreOrdered: true,
         default: false,
     },
+    "feature_new_timeline": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        labsGroup: LabGroup.Ui,
+        displayName: _td("labs|new_timeline"),
+        description: _td("labs|currently_experimental"),
+        isFeature: true,
+        default: false,
+        controller: new ReloadOnChangeController(),
+    },
+    "feature_pdf_viewer": {
+        isFeature: true,
+        labsGroup: LabGroup.Messaging,
+        displayName: _td("labs|pdf_viewer"),
+        description: _td("labs|pdf_viewer_description"),
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        supportedLevelsAreOrdered: true,
+        default: false,
+    },
     "feature_login_with_qr": {
         supportedLevels: [SettingLevel.CONFIG],
         labsGroup: LabGroup.Ui,
@@ -771,7 +796,10 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
         displayName: _td("settings|activityIsUnread"),
         default: false,
-        controller: new RequiresSettingsController(["Notifications.showbold"]),
+        controller: [
+            new AnalyticsController("WebSettingsActivityIsUnreadToggle"),
+            new RequiresSettingsController(["Notifications.showbold"]),
+        ],
     },
     "Notifications.tac_only_notifications": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
@@ -828,7 +856,7 @@ export const SETTINGS: Settings = {
             true,
             true,
         ),
-        default: false,
+        default: true,
     },
     "feature_retention": {
         isFeature: true,
@@ -1115,6 +1143,13 @@ export const SETTINGS: Settings = {
         // Exports event IDs
         shouldExportToRageshake: false,
     },
+    "pdfViewerState": {
+        // not really a setting
+        supportedLevels: [SettingLevel.DEVICE],
+        default: {}, // MXC URI => where the reader had got to in that PDF
+        // Exports MXC URIs
+        shouldExportToRageshake: false,
+    },
     "SpotlightSearch.showNsfwPublicRooms": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|show_nsfw_content"),
@@ -1202,6 +1237,19 @@ export const SETTINGS: Settings = {
         displayName: _td("settings|inline_url_previews_encrypted"),
         default: false,
         controller: new RequiresSettingsController([UIFeature.URLPreviews, "urlPreviewsEnabled"]),
+    },
+    "urlPreviewsEnabled_e2ee_bundled_only": {
+        // Can only be enabled per-device to ensure neither the homeserver nor client config
+        // can impact the user's choices.
+        supportedLevels: [SettingLevel.DEVICE],
+        supportedLevelsAreOrdered: true,
+        displayName: _td("settings|inline_url_previews_encrypted_bundled_only"),
+        default: true,
+        controller: new RequiresSettingsController([
+            UIFeature.URLPreviews,
+            "feature_msc4095_url_preview_bundle",
+            "urlPreviewsEnabled_e2ee",
+        ]),
     },
     "notificationsEnabled": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
@@ -1301,12 +1349,16 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         default: true,
         displayName: _td("settings|show_sections"),
+        controller: new AnalyticsController("WebRoomListSectionToggle"),
     },
     "RoomList.showPeopleSection": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         default: true,
         displayName: _td("settings|show_people_sections"),
-        controller: new RequiresSettingsController(["RoomList.showSections"]),
+        controller: [
+            new AnalyticsController("WebRoomListPeopleSectionToggle"),
+            new RequiresSettingsController(["RoomList.showSections"]),
+        ],
     },
     "composerUrlPreviewCollapsed": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
@@ -1329,6 +1381,11 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
         displayName: _td("settings|security|message_search_sleep_time"),
         default: 3000,
+    },
+    "tokenizerMode": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
+        displayName: _td("settings|security|tokenizer_mode"),
+        default: TokenizerMode.Language,
     },
     "ircDisplayNameWidth": {
         // We specifically want to have room-device > device so that users may set a device default

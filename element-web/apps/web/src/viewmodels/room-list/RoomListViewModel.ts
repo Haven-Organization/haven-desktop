@@ -40,7 +40,12 @@ import { hasCreateRoomRights } from "./utils";
 import { keepIfSame } from "../../utils/keepIfSame";
 import { DefaultTagID } from "../../stores/room-list-v3/skip-list/tag";
 import { RoomListSectionHeaderViewModel } from "./RoomListSectionHeaderViewModel";
-import { getCustomSectionData, isCustomSectionTag, isSectionExpanded, CHATS_TAG } from "../../stores/room-list-v3/section";
+import {
+    getCustomSectionData,
+    isCustomSectionTag,
+    isSectionExpanded,
+    CHATS_TAG,
+} from "../../stores/room-list-v3/section";
 import { tagRoom } from "../../utils/room/tagRoom";
 import { getSectionTagForRoom } from "../../utils/room/getSectionTagForRoom";
 import SettingsStore from "../../settings/SettingsStore";
@@ -82,16 +87,16 @@ const filterKeyToIdMap: Map<FilterEnum, FilterId> = new Map([
 ]);
 
 /**
- * Filters that are redundant when sections are enabled: Favourites and Low Priority rooms
+ * Filters that are redundant when sections are enabled: Invites, Favourites and Low Priority rooms
  * already have their own sections, so these filters are only shown as chips when sectioning
  * is disabled (see {@link getVisibleFilterIds}).
  */
-const SECTION_ONLY_FILTER_IDS: ReadonlySet<FilterId> = new Set<FilterId>(["favourite", "low_priority"]);
+const SECTION_ONLY_FILTER_IDS: ReadonlySet<FilterId> = new Set<FilterId>(["favourite", "low_priority", "invites"]);
 
 /**
  * Compute the filter ids to display as primary filter chips.
- * When sections are enabled, the Favourites and Low Priority filters are hidden because those
- * rooms are surfaced as dedicated sections instead.
+ * When sections are enabled, the Invites, Favourites and Low Priority filters are hidden because
+ * those rooms are surfaced as dedicated sections instead.
  */
 function getVisibleFilterIds(): FilterId[] {
     const areSectionsEnabled = SettingsStore.getValue("RoomList.showSections");
@@ -105,6 +110,8 @@ function getVisibleFilterIds(): FilterId[] {
  */
 function getSectionTitle(tag: string): string {
     switch (tag) {
+        case DefaultTagID.Invite:
+            return _t("room_list|section|invites");
         case DefaultTagID.Favourite:
             return _t("room_list|section|favourites");
         case DefaultTagID.LowPriority:
@@ -191,6 +198,16 @@ export class RoomListViewModel
      * given item index into view in response to user actions.
      */
     private scrollToIndex?: (index: number) => void;
+
+    /**
+     * A room waiting to be scrolled into view. Selecting a room in another space switches the
+     * active space asynchronously, so the room is not in {@link roomsResult} yet when the request
+     * arrives; it is retried each time the list settles, for as long as it stays the active room.
+     */
+    private roomIdToScroll?: string;
+
+    /** Guards {@link scrollToRequestedRoom} against the list update it can trigger itself. */
+    private isResolvingRoomIdToScroll = false;
 
     public constructor(props: RoomListViewModelProps) {
         const activeSpace = props.spaceStore.activeSpaceRoom;
@@ -542,6 +559,8 @@ export class RoomListViewModel
      */
     public setScrollToIndex = (scrollToIndex: ((index: number) => void) | undefined): void => {
         this.scrollToIndex = scrollToIndex;
+        // A room asked for before the view was ready could not be scrolled to at the time.
+        if (scrollToIndex) void this.retryScrollRoomIntoView();
     };
 
     /**
@@ -556,23 +575,62 @@ export class RoomListViewModel
     /**
      * Scroll a room into view, expanding its section first if it is collapsed so the tile can
      * actually be shown.
+     *
+     * @returns whether the room was found and scrolled to.
      */
-    private async scrollRoomIntoView(roomId: string): Promise<void> {
+    private async scrollRoomIntoView(roomId: string): Promise<boolean> {
         // Look in the full (pre-collapse) sections so we can find rooms hidden in collapsed sections.
         const section = this.roomsResult.sections.find((s) => s.rooms.some((room) => room.roomId === roomId));
         // Room not found
-        if (!section) return;
+        if (!section) return false;
 
-        const headerViewModel = this.roomSectionHeaderViewModels.get(section.tag);
-        // Expand and rebuild the section
-        if (headerViewModel && !headerViewModel.isExpanded) {
-            headerViewModel.isExpanded = true;
-            await this.updateRoomListData();
+        if (!this.snapshot.current.isFlatList) {
+            // Expand and rebuild the section
+            const headerViewModel = this.getSectionHeaderViewModel(section.tag);
+            if (!headerViewModel.isExpanded) {
+                headerViewModel.isExpanded = true;
+                await this.updateRoomListData();
+            }
         }
 
         // Scroll to the room
         const index = this.getRoomEntryIndex(roomId);
-        if (index !== undefined) this.scrollToIndex?.(index);
+        if (index === undefined || !this.scrollToIndex) return false;
+        this.scrollToIndex(index);
+        return true;
+    }
+
+    /** Ask for a room to be scrolled into view. A newer request replaces any earlier one. */
+    private async requestScrollRoomIntoView(roomId: string): Promise<void> {
+        this.roomIdToScroll = roomId;
+        await this.scrollToRequestedRoom();
+    }
+
+    /**
+     * Try {@link roomIdToScroll} again now that the list has settled or the view has become ready,
+     * so a room that only appears once its space has finished switching is still scrolled to.
+     */
+    private async retryScrollRoomIntoView(): Promise<void> {
+        if (this.roomIdToScroll === this.props.roomViewStore.getRoomId()) {
+            await this.scrollToRequestedRoom();
+        } else {
+            this.roomIdToScroll = undefined;
+        }
+    }
+
+    /** Carry out {@link roomIdToScroll}, clearing it once the room has been scrolled to. */
+    private async scrollToRequestedRoom(): Promise<void> {
+        const roomId = this.roomIdToScroll;
+        if (roomId === undefined || this.isResolvingRoomIdToScroll) return;
+
+        this.isResolvingRoomIdToScroll = true;
+        try {
+            const scrolled = await this.scrollRoomIntoView(roomId);
+            // A newer request may have replaced ours while we were waiting; leave that one alone.
+            if (scrolled && this.roomIdToScroll === roomId) this.roomIdToScroll = undefined;
+        } finally {
+            this.isResolvingRoomIdToScroll = false;
+        }
     }
 
     /**
@@ -622,7 +680,10 @@ export class RoomListViewModel
             this.roomsResult = RoomListStoreV3.instance.getSortedRoomsInActiveSpace(filterKeys);
             // When the active room changes, update the room list data to reflect the new selected room
             // Pass isRoomChange=true so sticky logic doesn't prevent the index from updating
-            void this.updateRoomListData(true);
+            await this.updateRoomListData(true);
+            // Show the room wherever it was opened from: the global search, a permalink, a
+            // notification. A tile that is already fully visible is left alone by the list.
+            if (payload.newRoomId) await this.requestScrollRoomIntoView(payload.newRoomId);
         } else if (payload.action === Action.ViewRoomDelta) {
             // Handle keyboard navigation shortcuts (Alt+ArrowUp/Down)
             // This was previously handled by useRoomListNavigation hook
@@ -636,7 +697,7 @@ export class RoomListViewModel
             // above, since pendingRoomId would still point at the keyboard cursor's target.
             this.pendingRoomId = payload.room_id;
             if (payload.show_room_tile) {
-                await this.scrollRoomIntoView(payload.room_id);
+                await this.requestScrollRoomIntoView(payload.room_id);
             }
         } else if (payload.action === Action.RoomListCollapseAllSections) {
             this.onCollapseAllSections(false);
@@ -978,6 +1039,9 @@ export class RoomListViewModel
 
         // Ensure the room list updates its filters based on the new rooms data
         RoomListStoreV3.instance.updateRoomSkipList();
+
+        // The list has settled, so a scroll waiting on a space switch can now happen.
+        void this.retryScrollRoomIntoView();
     }
 
     /**
@@ -1103,7 +1167,7 @@ export class RoomListViewModel
         // Room is already in the section
         if (currentTag === tag) return;
 
-        tagRoom(room, tag);
+        tagRoom(room, tag, true);
     };
 }
 

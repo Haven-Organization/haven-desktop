@@ -1,0 +1,104 @@
+/*
+Copyright 2024 New Vector Ltd.
+Copyright 2022 The Matrix.org Foundation C.I.C.
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+// @vitest-environment happy-dom
+
+import { describe, it, expect, vi, beforeEach, afterEach, type MockedObject } from "vitest";
+import { PendingEventOrdering, Room, RoomStateEvent } from "matrix-js-sdk/src/matrix";
+import { KnownMembership } from "matrix-js-sdk/src/types";
+import { Widget } from "matrix-widget-api";
+
+import type { MatrixClient } from "matrix-js-sdk/src/matrix";
+import {
+    stubClient,
+    setupAsyncStoreWithClient,
+    useMockedCalls,
+    MockedCall,
+    useMockMediaDevices,
+} from "test-utils";
+import { MatrixClientPeg } from "../../../MatrixClientPeg";
+import DMRoomMap from "../../../utils/DMRoomMap";
+import { DefaultTagID } from "../../../stores/room-list-v3/skip-list/tag";
+import { SortAlgorithm, ListAlgorithm } from "./models";
+import "../RoomListStore"; // must be imported before Algorithm to avoid cycles
+import { Algorithm } from "./Algorithm";
+import { CallStore } from "../../../stores/CallStore";
+import { WidgetMessagingStore } from "../../../stores/widgets/WidgetMessagingStore";
+import { ConnectionState } from "../../../models/Call";
+import { type WidgetMessaging } from "../../../stores/widgets/WidgetMessaging";
+
+describe("Algorithm", () => {
+    useMockedCalls();
+
+    let client: MockedObject<MatrixClient>;
+    let algorithm: Algorithm;
+
+    beforeEach(() => {
+        useMockMediaDevices();
+        stubClient();
+        client = vi.mocked(MatrixClientPeg.safeGet());
+        DMRoomMap.makeShared(client);
+
+        algorithm = new Algorithm();
+        algorithm.start();
+        algorithm.populateTags(
+            { [DefaultTagID.Untagged]: SortAlgorithm.Alphabetic },
+            { [DefaultTagID.Untagged]: ListAlgorithm.Natural },
+        );
+    });
+
+    afterEach(() => {
+        algorithm.stop();
+    });
+
+    it("sticks rooms with calls to the top when they're connected", async () => {
+        const room = new Room("!1:example.org", client, "@alice:example.org", {
+            pendingEventOrdering: PendingEventOrdering.Detached,
+        });
+        const roomWithCall = new Room("!2:example.org", client, "@alice:example.org", {
+            pendingEventOrdering: PendingEventOrdering.Detached,
+        });
+
+        client.getRoom.mockImplementation((roomId) => {
+            switch (roomId) {
+                case room.roomId:
+                    return room;
+                case roomWithCall.roomId:
+                    return roomWithCall;
+                default:
+                    return null;
+            }
+        });
+        client.getRooms.mockReturnValue([room, roomWithCall]);
+        client.reEmitter.reEmit(room, [RoomStateEvent.Events]);
+        client.reEmitter.reEmit(roomWithCall, [RoomStateEvent.Events]);
+
+        for (const room of client.getRooms()) vi.spyOn(room, "getMyMembership").mockReturnValue(KnownMembership.Join);
+        algorithm.setKnownRooms(client.getRooms());
+
+        setupAsyncStoreWithClient(CallStore.instance, client);
+        setupAsyncStoreWithClient(WidgetMessagingStore.instance, client);
+
+        MockedCall.create(roomWithCall, "1");
+        const call = CallStore.instance.getCall(roomWithCall.roomId);
+        if (!(call instanceof MockedCall)) throw new Error("Failed to create call");
+
+        const widget = new Widget(call.widget);
+        WidgetMessagingStore.instance.storeMessaging(widget, roomWithCall.roomId, {
+            stop: () => {},
+        } as unknown as WidgetMessaging);
+
+        // End of setup
+
+        expect(algorithm.getOrderedRooms()[DefaultTagID.Untagged]).toEqual([room, roomWithCall]);
+        call.setConnectionState(ConnectionState.Connected);
+        expect(algorithm.getOrderedRooms()[DefaultTagID.Untagged]).toEqual([roomWithCall, room]);
+        await call.disconnect();
+        expect(algorithm.getOrderedRooms()[DefaultTagID.Untagged]).toEqual([room, roomWithCall]);
+    });
+});

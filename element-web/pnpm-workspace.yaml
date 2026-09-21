@@ -22,19 +22,16 @@ catalog:
     "@types/react": ^19.2.10
     "@types/react-dom": ^19.2.3
     # playwright
-    "@playwright/test": 1.61.1
-    "playwright-core": 1.61.1
+    "@playwright/test": 1.63.0
+    "playwright-core": 1.63.0
     serve: 14.2.6
     # Compound
     "@vector-im/compound-design-tokens": 10.2.1
-    # Haven: held back at 9.9.0 (rather than following upstream's own move to 10.0.1) - this exact
-    # version has a Haven-only Tooltip performance patch (see patchedDependencies below) and is what
-    # the top-left avatar crop/aliasing fix (haven-organization/haven-desktop#3) was diagnosed and
-    # verified against, down to specific behavior of this version's own Avatar.tsx. Bumping compound-
-    # web is a real, separate piece of work (re-verifying/re-deriving the Tooltip patch, re-checking
-    # every place Haven's own CSS reaches into compound-web's internals) that deserves its own
-    # dedicated sync, not folding it into this one blind.
-    "@vector-im/compound-web": 9.9.0
+    # Haven: bumped to upstream's 10.1.0 (Haven previously held this back at 9.9.0) because upstream's
+    # own code now needs it: Tooltip's maxWidth/maxLines and the new user status picker. Haven's Tooltip
+    # (closed label tooltips no longer run floating-ui autoUpdate forever) and Menu `modal` patch is
+    # re-applied on top - see patchedDependencies below.
+    "@vector-im/compound-web": 10.1.0
     # i18n
     matrix-web-i18n: 3.6.0
     # emojibase
@@ -45,15 +42,16 @@ catalog:
     vite: 8.2.2
     vite-plugin-node-polyfills: 0.28.0
     vite-plugin-svgr: 5.2.0
-    vitest: 4.1.11
-    "@vitest/spy": 4.1.11
-    "@vitest/coverage-v8": 4.1.11
-    "@vitest/browser-playwright": 4.1.11
-    "@vitest/browser": 4.1.11
+    vitest: 5.0.0
+    "@vitest/coverage-v8": 5.0.0
+    "@vitest/browser-playwright": 5.0.0
+    "@vitest/browser": 5.0.0
+    "@vitest/spy": 5.0.1
+    "@vitest/ui": 5.0.0
     "@vitejs/plugin-react": 6.1.1
-    unplugin-dts: 1.0.1
+    unplugin-dts: 1.1.0
     # nx
-    nx: 23.1.2
+    nx: 23.2.1
 
 catalogs:
     ts6:
@@ -77,9 +75,10 @@ packageExtensions:
             vite: "^8.0.0"
 
 allowBuilds:
-    # Needed to make the git dependency in layered.sh happy
     matrix-js-sdk: true
+    # Needed to make the git dependency in layered.sh happy
     "matrix-js-sdk@git+https://github.com/matrix-org/matrix-js-sdk.git": true
+    "matrix-js-sdk@file:matrix-js-sdk/matrix-js-sdk.tgz": true
     # Installs the CLI, which we do not need
     "@sentry/cli": false
     # Installs nx cloud client, which we do not need
@@ -107,6 +106,8 @@ allowBuilds:
     "matrix-js-sdk@https://codeload.github.com/matrix-org/matrix-js-sdk/tar.gz/88c0896baccbbe75c617c3d1717ceb5209fb355f": true
     # Optionally builds itself from source if a specific environment variable is present, which we do not need
     "@parcel/watcher": false
+    # Builds native bindings, which we do not need as they are handled by `electron-builder install-app-deps`
+    pkcs11js: false
 
 patchedDependencies:
     # Workaround for missing types export
@@ -115,16 +116,8 @@ patchedDependencies:
     react-blurhash: patches/react-blurhash.patch
     # Workaround for https://github.com/nfrasser/linkifyjs/issues/429
     linkify-html: patches/linkify-html.patch
-    # Workaround for typescript incompatibilities in an archived dependency - soon to be deleted
-    "@matrix-org/react-sdk-module-api": patches/@matrix-org__react-sdk-module-api.patch
     # Workaround to access a private API
     "@types/auto-launch": patches/@types__auto-launch.patch
-    # Workaround for jest still using commonjs and not being able to use the ESM version of await-lock
-    await-lock: patches/await-lock.patch
-    # Workaround for global type mismatches
-    jest-fixed-jsdom: patches/jest-fixed-jsdom.patch
-    # Workaround for jsdom being super opinionated and making it hard to tweak global properties
-    jsdom: patches/jsdom.patch
     # Workaround for missing return types
     postcss-mixins: patches/postcss-mixins.patch
     # Workaround for some babel rules being false positively flagged
@@ -133,9 +126,12 @@ patchedDependencies:
     plist: patches/plist.patch
     # Workaround for type fails
     "@arcmantle/vite-plugin-import-css-sheet": patches/@arcmantle__vite-plugin-import-css-sheet.patch
-    '@vector-im/compound-web@9.9.0': patches/@vector-im__compound-web@9.9.0.patch
+    '@vector-im/compound-web@10.1.0': patches/@vector-im__compound-web@10.1.0.patch
     # Workaround for scroll anchoring landing on transient placeholder rows (pending upstream)
     "@tanstack/virtual-core@3": patches/@tanstack__virtual-core@3.patch
+    # Tweaks to record screenshot diffs as vitest artifacts
+    vitest-plugin-vis@5.1.1: patches/vitest-plugin-vis@5.1.1.patch
+    storybook-addon-vis@4.2.3: patches/storybook-addon-vis@4.2.3.patch
 
 peerDependencyRules:
     allowedVersions:
@@ -152,8 +148,13 @@ overrides:
     pretty-format@30>react-is: 19.2.8
     "@types/react": "catalog:"
     "@types/react-dom": "catalog:"
-    caniuse-lite: 1.0.30001806
+    caniuse-lite: 1.0.30001810
+
+    # Make sure we only have one instance of the widget API in the build;
+    # failure to do so results in (unspecified) breakage in downstream builds
+    # cf https://github.com/element-hq/element-web/pull/31851
     matrix-widget-api: "^1.18.0"
+
     "@types/node": 25.9.3
     config-file-ts: 0.2.8-rc1
     node-abi: 4.35.0
@@ -222,9 +223,6 @@ overrides:
     # Hold some things back from ts7
     "@arcmantle/vite-plugin-import-css-sheet>typescript": "catalog:ts6"
     "react-docgen-typescript>typescript": "catalog:ts6"
-    # Haven: links the already-built native module in (see apps/desktop/.hak/hakModules/matrix-seshat)
-    # so the desktop build can require() real local message search instead of the no-op stub.
-    matrix-seshat: link:apps/desktop/.hak/hakModules/matrix-seshat
 
 minimumReleaseAgeExclude:
     - "matrix-js-sdk"

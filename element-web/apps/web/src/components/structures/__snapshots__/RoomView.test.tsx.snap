@@ -571,11 +571,13 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 />
               </svg>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-3"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Messages in this room are not end-to-end encrypted
                 </span>
@@ -780,11 +782,13 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-4"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Attachment
                 </span>
@@ -882,11 +886,13 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
               />
             </svg>
             <span
-              class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+              class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
               style="position: absolute;"
             >
               <span
+                class="_clamp_6bwuf_28"
                 id="react-use-id-1"
+                style="--cpd-tooltip-max-lines: 2;"
               >
                 New members see history
               </span>
@@ -1224,11 +1230,13 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-4"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Attachment
                 </span>

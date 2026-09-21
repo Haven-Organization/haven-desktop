@@ -41,8 +41,9 @@ interface CompletionComponentProps {
 }
 
 describe("EmojiProvider", function () {
-    const testRoom = mkStubRoom(undefined, undefined, undefined);
-    stubClient();
+    // Haven: the room needs the client (getEmoticonPacks reads the user's favorite image packs off room.client).
+    const client = stubClient();
+    const testRoom = mkStubRoom(undefined, undefined, client);
     MatrixClientPeg.safeGet();
 
     it.each(EMOJI_SHORTCODES)("Returns consistent results after final colon %s", async function (emojiShortcode) {

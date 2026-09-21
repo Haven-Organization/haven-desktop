@@ -374,6 +374,7 @@ describe("RoomView", () => {
             instance.messagePanel = {
                 sendReadReceipts: sendReadReceiptsSpy,
                 updateReadMarker: updateReadMarkerSpy,
+                getScrollState: vi.fn(),
             };
 
             // Find the main RoomView div and trigger focus
@@ -793,6 +794,12 @@ describe("RoomView", () => {
 
                 it("should match the snapshot", async () => {
                     const { container } = await renderRoomView();
+                    // Haven: wait for the pre-send encryption toggle to settle (it becomes enabled once the
+                    // permission check resolves) so waitFor doesn't retry the snapshot against a changing DOM -
+                    // each retry consumes a snapshot number, which made this one's count vary from run to run.
+                    await waitFor(() =>
+                        expect(screen.getByRole("switch", { name: "Enable end-to-end encryption" })).toBeEnabled(),
+                    );
                     await waitFor(() => expect(container).toMatchSnapshot());
                 });
             });
@@ -1193,12 +1200,6 @@ describe("RoomView", () => {
 
             await expect(findByPlaceholderText("Search messages…")).resolves.toHaveValue("search term");
         });
-    });
-
-    it("fires Action.RoomLoaded", async () => {
-        vi.spyOn(defaultDispatcher, "dispatch");
-        await mountRoomView();
-        expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({ action: Action.RoomLoaded });
     });
 
     // Regression test for https://github.com/element-hq/element-web/issues/29072

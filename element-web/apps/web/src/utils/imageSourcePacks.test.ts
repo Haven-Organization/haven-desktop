@@ -12,7 +12,7 @@ import {
 import { Type, type Part } from "../editor/parts";
 import type EditorModel from "../editor/model";
 import SettingsStore from "../settings/SettingsStore";
-import { mkStubRoom, mkEvent } from "../../test/test-utils/test-utils";
+import { mkStubRoom, mkEvent } from "../test/test-utils/test-utils";
 
 vi.mock("../settings/SettingsStore");
 vi.mock("./permalinks/Permalinks", () => ({

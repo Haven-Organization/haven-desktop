@@ -50,7 +50,6 @@ import { logger } from "matrix-js-sdk/src/logger";
 import { type CallState, type MatrixCall } from "matrix-js-sdk/src/webrtc/call";
 import { debounce, throttle } from "lodash";
 import { CryptoEvent } from "matrix-js-sdk/src/crypto-api";
-import { type ViewRoomOpts } from "@matrix-org/react-sdk-module-api/lib/lifecycles/RoomViewLifecycle";
 import { type RoomViewProps } from "@element-hq/element-web-module-api";
 import {
     EncryptionEventView,
@@ -84,6 +83,7 @@ import { privateShouldBeEncrypted } from "../../utils/rooms";
 import { checkUserIsAllowedToChangeEncryption } from "../../createRoom";
 import ScrollPanel from "./ScrollPanel";
 import TimelinePanel from "./TimelinePanel";
+import { NewTimelinePanel } from "./NewTimelinePanel";
 import ErrorBoundary from "../views/elements/ErrorBoundary";
 import RoomPreviewBar from "../views/rooms/RoomPreviewBar";
 import RoomPreviewCard from "../views/rooms/RoomPreviewCard";
@@ -306,8 +306,6 @@ export interface IRoomState {
 
     canAskToJoin: boolean;
     promptAskToJoin: boolean;
-
-    viewRoomOpts: ViewRoomOpts;
 }
 
 interface LocalRoomViewProps {
@@ -582,7 +580,6 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             msc3946ProcessDynamicPredecessor: SettingsStore.getValue("feature_dynamic_room_predecessors"),
             canAskToJoin: this.askToJoinEnabled,
             promptAskToJoin: false,
-            viewRoomOpts: { buttons: [] },
             isRoomEncrypted: null,
         };
     }
@@ -712,7 +709,6 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
         const shouldPeek = this.state.matrixClientIsReady && roomViewStore.shouldPeek();
         const wasContextSwitch = roomViewStore.getWasContextSwitch();
         const promptAskToJoin = roomViewStore.promptAskToJoin();
-        const viewRoomOpts = roomViewStore.getViewRoomOpts();
         const room = this.context.client?.getRoom(roomId ?? undefined) ?? undefined;
 
         const newState: Partial<IRoomState> = {
@@ -734,7 +730,6 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             initialEventId: undefined, // default to clearing this, will get set later in the method if needed
             showRightPanel: roomId ? this.context.rightPanelStore.isOpenForRoom(roomId) : false,
             promptAskToJoin: promptAskToJoin,
-            viewRoomOpts: viewRoomOpts,
         };
 
         if (
@@ -1570,8 +1565,6 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             tombstone: this.getRoomTombstone(room),
             liveTimeline: room.getLiveTimeline(),
         });
-
-        defaultDispatcher.dispatch<ActionPayload>({ action: Action.RoomLoaded });
     };
 
     private onRoomTimelineReset = (room?: Room): void => {
@@ -2644,7 +2637,26 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
         }
 
         let messagePanel: JSX.Element | undefined;
-        if (!isRoomEncryptionLoading) {
+        if (!isRoomEncryptionLoading && SettingsStore.getValue("feature_new_timeline")) {
+            // New MVVM timeline behind the Labs flag. It manages its own scrolling, read
+            // receipts and read marker, so none of TimelinePanel's plumbing is mounted.
+            // The `messagePanel` ref stays null; every RoomView use of it is null-guarded.
+            messagePanel = (
+                <EventPresentationContextProvider layout={this.state.layout}>
+                    <NewTimelinePanel
+                        key={this.state.room.roomId}
+                        room={this.state.room}
+                        hidden={hideMessagePanel}
+                        highlightedEventId={highlightedEventId}
+                        layout={this.state.layout}
+                        permalinkCreator={this.permalinkCreator}
+                        showUrlPreview={this.state.showUrlPreview}
+                        showReactions={true}
+                        editState={this.state.editState}
+                    />
+                </EventPresentationContextProvider>
+            );
+        } else if (!isRoomEncryptionLoading) {
             messagePanel = (
                 <EventPresentationContextProvider layout={this.state.layout}>
                     <TimelinePanel
@@ -2825,11 +2837,7 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
                                 data-layout={this.state.layout}
                             >
                                 {!this.props.hideHeader && (
-                                    <RoomHeader
-                                        room={this.state.room}
-                                        legacyAdditionalButtons={this.state.viewRoomOpts.buttons}
-                                        extraButtons={<>{extraButtons}</>}
-                                    />
+                                    <RoomHeader room={this.state.room} extraButtons={<>{extraButtons}</>} />
                                 )}
                                 {mainSplitBody}
                             </div>

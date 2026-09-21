@@ -164,6 +164,7 @@ export const Tabs: React.FC<Props> = ({
         populatedKeyRef.current = categoryIdsKey;
         tabRefs.current = {};
         for (const category of categories) {
+            // oxlint-disable-next-line react/immutability
             tabRefs.current[category.id] = React.createRef<HTMLButtonElement>();
         }
     }

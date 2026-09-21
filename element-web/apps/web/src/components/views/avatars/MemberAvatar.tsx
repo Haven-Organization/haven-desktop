@@ -15,7 +15,6 @@ import { Action } from "../../../dispatcher/actions";
 import BaseAvatar from "./BaseAvatar";
 import { mediaFromMxc } from "../../../customisations/Media";
 import { CardContext } from "../right_panel/context";
-import UserIdentifierCustomisations from "../../../customisations/UserIdentifier";
 import { useRoomMemberProfile } from "../../../hooks/room/useRoomMemberProfile";
 import { _t } from "../../../languageHandler";
 import MatrixClientContext from "../../../contexts/MatrixClientContext.tsx";
@@ -89,10 +88,7 @@ export default function MemberAvatar({
     }
 
     if (member?.name && !title) {
-        title =
-            UserIdentifierCustomisations.getDisplayUserIdentifier(member?.userId ?? "", {
-                roomId: member?.roomId ?? "",
-            }) ?? fallbackUserId;
+        title = member?.userId ?? fallbackUserId;
     }
 
     return (

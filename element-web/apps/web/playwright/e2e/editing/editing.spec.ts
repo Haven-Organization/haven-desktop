@@ -305,6 +305,28 @@ test.describe("Editing", () => {
         await expect(page.getByRole("textbox", { name: "Edit message" })).not.toBeVisible();
     });
 
+    test("should show the emoji autocomplete above the edit composer", async ({ page, app, room }) => {
+        await page.goto(`#/room/${room.roomId}`);
+
+        await sendEvent(app, room.roomId);
+
+        const tile = page.locator(".mx_RoomView_body .mx_EventTile").last();
+        await expect(tile.getByText("Message", { exact: true })).toBeVisible();
+        const line = tile.locator(".mx_EventTile_line");
+        await line.hover();
+        await line.getByRole("button", { name: "Edit", exact: true }).click();
+
+        const editComposer = page.getByRole("textbox", { name: "Edit message" });
+        await editComposer.press("End");
+        await editComposer.pressSequentially(" :+1");
+
+        const autocomplete = page.locator("#mx_Autocomplete");
+        await expect(autocomplete).toBeVisible();
+        await autocomplete.locator(".mx_Autocomplete_Completion_title", { hasText: ":+1:" }).click();
+        // The inserted emoji may carry a trailing variation selector, so match on the emoji alone.
+        await expect(editComposer).toContainText("Message 👍");
+    });
+
     test("should correctly display events which are edited, where we lack the edit event", async ({
         page,
         user,
@@ -358,11 +380,17 @@ test.describe("Editing", () => {
 
         // now have the cypress user join the room, jump to the original event, and wait for the event to be visible
         await app.client.joinRoom(testRoomId);
-        await app.viewRoomByName("TestRoom");
+        // joinRoom is a bare API call, so wait for the join to arrive over sync before the client can
+        // know the room (getRoom() below is null until then). Do not open the room in the UI to achieve
+        // this: that starts a scroll-to-bottom which races the permalink's scroll-to-event and can
+        // unmount the target tile from the virtualised timeline. See element-hq/element-web#30579.
+        await app.client.awaitRoomMembership(testRoomId);
         await page.goto(`#/room/${testRoomId}/${originalEventId}`);
 
         const messageTile = page.locator(`[data-event-id="${originalEventId}"]`);
-        // at this point, the edit event should still be unknown
+        // At this point the edit event should still be unknown to the client: it sits ten padding
+        // events before the end of the timeline, outside the window this permalink loaded. That is the
+        // premise of the test - the edited text below has to come from the server's bundled aggregation.
         const timeline = await app.client.evaluate(
             (cli, { testRoomId, editEventId }) => cli.getRoom(testRoomId)!.getTimelineForEvent(editEventId),
             { testRoomId, editEventId },

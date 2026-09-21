@@ -13,24 +13,29 @@
 # produced 1037 raw conflicts this way, most of them this exact class, and was aborted rather than
 # resolved blind.
 #
-# The fix: build a throwaway commit whose tree is origin/develop's current tree, reparented under
-# element-web/ (matching Haven's own layout), and merge THAT instead of origin/develop directly.
-# Both sides of the merge then use the same path prefix, so git's normal rename detection works
-# the way it would in any ordinary repo. This does NOT rewrite any real history - the throwaway
-# commit is only ever used as the other side of one merge, never pushed or kept.
+# The fix, in two steps:
+#  1. Shift trees: rebuild BOTH the last-merged upstream commit (the merge-base of HEAD and
+#     origin/develop, i.e. the last unmodified upstream state we merged) and the new origin/develop tip
+#     under element-web/, matching Haven's own layout.
+#  2. Merge with that base explicitly (git merge-recursive <shifted-base> -- HEAD <shifted-tip>) so the
+#     three sides share one path prefix and git sees only what upstream really changed between the two
+#     upstream states. Merging just the shifted tip instead (the earlier version of this script) let git
+#     compare it against the unshifted merge-base, so it re-derived the whole prefix move by rename
+#     detection and matched near-identical files (e.g. every module's vitest.config.ts) against each
+#     other: 2026-09-21 that produced ~1,100 phantom conflicts for a 132-commit gap, versus 43 real ones
+#     with the explicit base.
+# No real history is rewritten: the shifted trees are only ever inputs to this one merge, and the merge
+# commit is recorded against the real origin/develop tip, not against anything synthetic.
 #
-# Verified 2026-08-26 via `git merge-tree` (a dry-run 3-way merge, no working-tree changes) against
-# the same 162-commit gap: CONFLICT (file location) dropped from the dominant conflict type to 5,
-# CONFLICT (directory rename split) dropped to 0. What's left afterward is mostly CONFLICT
-# (rename/rename) - which for identical content (Haven never touched that file, only its own
-# directory-move renamed it once; upstream renamed it again independently, e.g. its own jest ->
-# colocated-vitest test migration) is safely auto-resolvable by keeping upstream's new path - plus
-# a much smaller set of genuine content conflicts and rename/delete cases that still need a real
-# per-file decision. This script does the shift-and-merge only; it does NOT auto-resolve conflicts
-# for you - resolve them the same way you would after any other merge (see
+# Afterwards, resolve the remaining conflicts by comparing the two upstream states, not just ours vs
+# theirs: `git diff <shifted-base> <shifted-tip> -- <path>` is what upstream changed, and
+# `git diff <shifted-base> HEAD -- <path>` is what Haven changed. This script prints both tree ids and
+# writes the lists of files each side touched, plus the overlap (the files that need a real look), to
+# .git/sync-upstream/. Keep Haven's behavior, take upstream's surrounding changes, and check whether
+# upstream implemented something Haven had already added before keeping both. See
 # [[feedback-auto-sync-upstream-develop]] in Claude's own memory for the known sharp edges: silently
 # spliced conflict markers outside a flagged UU, stale string references with no textual conflict,
-# pnpm-lock.yaml regeneration, etc.)
+# pnpm-lock.yaml regeneration, upstream removing a helper Haven still uses, etc.
 #
 # Only run this on an otherwise-clean working tree - stash or commit first.
 
@@ -52,27 +57,60 @@ git fetch --tags origin develop
 BASE="$(git merge-base HEAD origin/develop)"
 echo "==> Merge-base: $BASE"
 
-echo "==> Building a throwaway commit: origin/develop's tree, shifted under element-web/"
-TMP_INDEX="$(mktemp -u)"
-trap 'rm -f "$TMP_INDEX"' EXIT
-GIT_INDEX_FILE="$TMP_INDEX" git read-tree --prefix=element-web/ origin/develop
-SHIFTED_TREE="$(GIT_INDEX_FILE="$TMP_INDEX" git write-tree)"
-SHIFTED_COMMIT="$(git commit-tree "$SHIFTED_TREE" -m "shifted origin/develop under element-web/ (throwaway, not for history)" -p "$(git rev-parse origin/develop)")"
-echo "    Shifted commit: $SHIFTED_COMMIT"
+UPSTREAM_TIP="$(git rev-parse origin/develop)"
 
-echo "==> Merging"
-git merge "$SHIFTED_COMMIT" --no-edit || true
+echo "==> Shifting the last-merged upstream state and the new tip under element-web/"
+shifted_tree() {
+    local tmp_index tree
+    tmp_index="$(mktemp -u)"
+    GIT_INDEX_FILE="$tmp_index" git read-tree --prefix=element-web/ "$1"
+    tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree)"
+    rm -f "$tmp_index"
+    echo "$tree"
+}
+BASE_TREE="$(shifted_tree "$BASE")"
+TIP_TREE="$(shifted_tree "$UPSTREAM_TIP")"
+echo "    shifted base tree: $BASE_TREE"
+echo "    shifted tip tree:  $TIP_TREE"
 
-# Swap MERGE_HEAD from the throwaway shifted commit to the real origin/develop tip before anyone
-# commits. Without this, `git commit` would record $SHIFTED_COMMIT itself - message and all - as a
-# permanent second parent of the merge commit, instead of leaving it truly unreachable as intended.
-if [ -f .git/MERGE_HEAD ]; then
-    git rev-parse origin/develop > .git/MERGE_HEAD
-    echo "    MERGE_HEAD repointed at the real origin/develop ($(git rev-parse origin/develop)) -"
-    echo "    resolve conflicts as usual, then a plain 'git commit' will parent correctly."
-fi
+echo "==> Working out what each side changed since the base"
+REPORT_DIR="$(git rev-parse --git-dir)/sync-upstream"
+mkdir -p "$REPORT_DIR"
+echo "$BASE_TREE" > "$REPORT_DIR/base-tree"
+echo "$TIP_TREE" > "$REPORT_DIR/tip-tree"
+git diff --name-status -M "$BASE_TREE" "$TIP_TREE" > "$REPORT_DIR/upstream-changes.txt"
+git diff --name-status -M "$BASE_TREE" HEAD -- element-web > "$REPORT_DIR/haven-changes.txt"
+python3 - "$REPORT_DIR" <<'PYEOF'
+import sys, os
+d = sys.argv[1]
+def paths(name):
+    out = {}
+    for line in open(os.path.join(d, name)):
+        parts = line.rstrip("\n").split("\t")
+        for p in parts[1:]:
+            out[p] = parts[0][0]
+    return out
+up, hv = paths("upstream-changes.txt"), paths("haven-changes.txt")
+both = sorted(set(up) & set(hv))
+with open(os.path.join(d, "overlap.txt"), "w") as f:
+    for p in both:
+        f.write(f"upstream={up[p]} haven={hv[p]}\t{p}\n")
+print(f"    upstream changed {len(up)} files, Haven differs from the base in {len(hv)}, both touched {len(both)}")
+PYEOF
+echo "    (lists in $REPORT_DIR/{upstream-changes,haven-changes,overlap}.txt)"
+
+echo "==> Merging (explicit base)"
+git merge-recursive "$BASE_TREE" -- HEAD "$TIP_TREE" || true
+
+# merge-recursive only stages the result; give it a real MERGE_HEAD/MERGE_MSG so a plain 'git commit'
+# records a two-parent merge against the actual upstream tip.
+echo "$UPSTREAM_TIP" > .git/MERGE_HEAD
+printf 'Sync element-web with upstream origin/develop (%s commits)\n' "$(git rev-list --count "$BASE..$UPSTREAM_TIP")" > .git/MERGE_MSG
+echo "    MERGE_HEAD set to the real origin/develop ($UPSTREAM_TIP) -"
+echo "    resolve conflicts as usual, then a plain 'git commit' will parent correctly."
 
 echo
 echo "==> Done (or stopped for conflicts - check git status)."
-echo "    Once fully resolved and committed, it's fine that $SHIFTED_COMMIT is unreachable from any"
-echo "    branch - it was only ever needed as the other side of this one merge."
+echo "    After resolving, run scripts/sync-check-lost-lines.py to list Haven-added lines the merge dropped."
+echo "    Compare while resolving:  git diff $BASE_TREE $TIP_TREE -- <path>   (what upstream changed)"
+echo "                              git diff $BASE_TREE HEAD -- <path>        (what Haven changed)"

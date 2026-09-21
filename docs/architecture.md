@@ -74,17 +74,31 @@ new Haven-authored stylesheet that header (and export a Haven-only component lik
 ## Keeping up to date with upstream
 
 Because `element-web/` is real git history rather than a pinned submodule checkout, pulling in new
-upstream Element Web commits is a normal git merge, not a patch-regeneration step:
+upstream Element Web commits is a merge, not a patch-regeneration step. Run it through the script,
+not a bare `git merge origin/develop`:
 
 ```
-git fetch origin        # origin = https://github.com/element-hq/element-web
-git merge origin/develop # or a specific release tag
+./scripts/sync-upstream.sh   # on a clean working tree
 ```
 
-Conflicts will surface on whatever lines the comment markers above flag as Haven's own — resolve
-those by hand, keeping Haven's hook while taking upstream's surrounding change. A conflict-free
-merge on a marked file is worth a second look; it usually means upstream moved the code Haven hooks
-into somewhere the merge didn't notice, not that nothing needs attention.
+Upstream's tree lives at the repo root of `origin/develop` while Haven's lives under `element-web/`, so
+the script rebuilds both the last-merged upstream commit (the merge-base) and the new upstream tip under
+`element-web/` and merges with that base given explicitly. Git then only sees what upstream really changed
+between the two upstream states, instead of guessing at a whole-tree rename (a plain merge produced over a
+thousand phantom conflicts on a 132-commit gap; this produces only the real ones).
+
+To resolve what is left, compare the two upstream states rather than just "ours vs theirs": for each file,
+`git diff <base-tree> <tip-tree> -- <path>` is what upstream changed and `git diff <base-tree> HEAD -- <path>`
+is what Haven changed (the script prints both tree ids and writes the lists of files each side touched, and
+the overlap, to `.git/sync-upstream/`). Keep Haven's behavior, take upstream's surrounding changes, and check
+whether upstream implemented something Haven had already added before keeping both. Afterwards run
+`scripts/sync-check-lost-lines.py` to list Haven-added lines the merge dropped without any conflict marker.
+
+Things a sync tends to break without a textual conflict: Haven code still using a helper upstream removed,
+tests that expected Haven's rendering (compound-web bumps change CSS-module class hashes in snapshots, and
+Haven's Tooltip patch renders closed label tooltips differently from upstream, so those snapshots are
+Haven-owned), and the lockfile (`pnpm install --no-frozen-lockfile`, never hand-merged). Also re-run the gate
+in `.github/workflows/tests.yml` and a production build before committing.
 
 ## Apps framework (`src/apps/framework/`)
 

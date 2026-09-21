@@ -56,6 +56,7 @@ const meta = {
         canBeReordered: true,
         activeSortOption: "recent",
         isMessagePreviewEnabled: true,
+        acceptedRoomKind: "any",
         onClick: fn(),
         editSection: fn(),
         removeSection: fn(),

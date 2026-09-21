@@ -1,0 +1,200 @@
+diff --git a/dist/components/Menu/Menu.cjs b/dist/components/Menu/Menu.cjs
+index 9cfb1174720f75406c7826f1d92ecec04c044147..c63a768f17d19705b63f60fa2ac74f3de4f1868f 100644
+--- a/dist/components/Menu/Menu.cjs
++++ b/dist/components/Menu/Menu.cjs
+@@ -47,7 +47,7 @@ var DropdownSubMenuWrapper = ({ trigger, children, open: openProp, onOpenChange
+ /**
+ * A menu opened by pressing a button.
+ */
+-var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center" }) => {
++var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center", modal }) => {
+ 	const platform = require_platform.getPlatform();
+ 	const drawer = platform === "android" || platform === "ios";
+ 	const context = (0, react.useMemo)(() => ({
+@@ -75,6 +75,7 @@ var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, c
+ 	}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(_radix_ui_react_dropdown_menu.Root, {
+ 		open,
+ 		onOpenChange,
++		modal,
+ 		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_radix_ui_react_dropdown_menu.Trigger, {
+ 			asChild: true,
+ 			children: trigger
+diff --git a/dist/components/Menu/Menu.d.ts b/dist/components/Menu/Menu.d.ts
+index 3d84f7db1a9958b2f6abcb71c05bf560c401499d..4ba5221f65d6767f12e29ca6c8a6c6fa826aa11b 100644
+--- a/dist/components/Menu/Menu.d.ts
++++ b/dist/components/Menu/Menu.d.ts
+@@ -46,6 +46,13 @@ interface Props {
+      * @default center
+      */
+     align?: "start" | "center" | "end";
++    /**
++     * Haven: forwarded to Radix's DropdownMenu.Root - defaults to Radix's own default (true) when
++     * omitted, so every existing caller keeps its current modal (focus-trapping, scroll-locking)
++     * behavior unchanged. Pass false for a lightweight menu that shouldn't lock page/container
++     * scroll or trap focus while open.
++     */
++    modal?: boolean;
+ }
+ /**
+  * A menu opened by pressing a button.
+diff --git a/dist/components/Menu/Menu.js b/dist/components/Menu/Menu.js
+index c992f7b274a562bb8ba4b63d1ddd195b70f301da..6cde01637ee919ef078a9f35532c74dd0e5135bc 100644
+--- a/dist/components/Menu/Menu.js
++++ b/dist/components/Menu/Menu.js
+@@ -44,7 +44,7 @@ var DropdownSubMenuWrapper = ({ trigger, children, open: openProp, onOpenChange
+ /**
+ * A menu opened by pressing a button.
+ */
+-var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center" }) => {
++var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, children: childrenProp, side = "bottom", align = "center", modal }) => {
+ 	const platform = getPlatform();
+ 	const drawer = platform === "android" || platform === "ios";
+ 	const context = useMemo(() => ({
+@@ -72,6 +72,7 @@ var Menu = ({ className, title, showTitle = true, open, onOpenChange, trigger, c
+ 	}) : /* @__PURE__ */ jsxs(Root, {
+ 		open,
+ 		onOpenChange,
++		modal,
+ 		children: [/* @__PURE__ */ jsx(Trigger, {
+ 			asChild: true,
+ 			children: trigger
+diff --git a/dist/components/Tooltip/Tooltip.cjs b/dist/components/Tooltip/Tooltip.cjs
+index a282d34afb4172398f9433cb257bfb0748b52c44..5ec8752c80aea3e095f2eadad69c4359ee611b59 100644
+--- a/dist/components/Tooltip/Tooltip.cjs
++++ b/dist/components/Tooltip/Tooltip.cjs
+@@ -53,7 +53,12 @@ function Caption() {
+ */
+ function TooltipContent({ children }) {
+ 	const { context: floatingContext, open, arrowRef, purpose, maxWidth, ...rest } = require_TooltipContext.useTooltipContext();
+-	if (!open && purpose !== "label") return null;
++	if (!open && purpose === "label") return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
++		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, require_Tooltip_module.default.invisible),
++		style: { position: "absolute" },
++		children
++	});
++	if (!open) return null;
+ 	const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+ 	return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_floating_ui_react.FloatingPortal, { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+ 		ref: rest.refs.setFloating,
+@@ -63,7 +68,7 @@ function TooltipContent({ children }) {
+ 		},
+ 		...rest.tooltipProps,
+ 		...rest.getFloatingProps(),
+-		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, { [require_Tooltip_module.default.invisible]: purpose === "label" && !open || escaped }),
++		className: (0, classnames.default)(require_Tooltip_module.default.tooltip, { [require_Tooltip_module.default.invisible]: escaped }),
+ 		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_floating_ui_react.FloatingArrow, {
+ 			ref: arrowRef,
+ 			context: floatingContext,
+diff --git a/dist/components/Tooltip/Tooltip.js b/dist/components/Tooltip/Tooltip.js
+index fcbf7f4c98383e319f32c8d5e3c91c540bd9e63e..a09ab054f9c73a5804f342b6c33d8d70d0290afe 100644
+--- a/dist/components/Tooltip/Tooltip.js
++++ b/dist/components/Tooltip/Tooltip.js
+@@ -50,7 +50,12 @@ function Caption() {
+ */
+ function TooltipContent({ children }) {
+ 	const { context: floatingContext, open, arrowRef, purpose, maxWidth, ...rest } = useTooltipContext();
+-	if (!open && purpose !== "label") return null;
++	if (!open && purpose === "label") return /* @__PURE__ */ jsx("span", {
++		className: classNames(Tooltip_module_default.tooltip, Tooltip_module_default.invisible),
++		style: { position: "absolute" },
++		children
++	});
++	if (!open) return null;
+ 	const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+ 	return /* @__PURE__ */ jsx(FloatingPortal, { children: /* @__PURE__ */ jsxs("div", {
+ 		ref: rest.refs.setFloating,
+@@ -60,7 +65,7 @@ function TooltipContent({ children }) {
+ 		},
+ 		...rest.tooltipProps,
+ 		...rest.getFloatingProps(),
+-		className: classNames(Tooltip_module_default.tooltip, { [Tooltip_module_default.invisible]: purpose === "label" && !open || escaped }),
++		className: classNames(Tooltip_module_default.tooltip, { [Tooltip_module_default.invisible]: escaped }),
+ 		children: [/* @__PURE__ */ jsx(FloatingArrow, {
+ 			ref: arrowRef,
+ 			context: floatingContext,
+diff --git a/src/components/Menu/Menu.tsx b/src/components/Menu/Menu.tsx
+index 2322345aa3bffe937e912c8bf02533f14b095843..dfaaa6fdd4077f8b2d5149943047fb9382be5dd6 100644
+--- a/src/components/Menu/Menu.tsx
++++ b/src/components/Menu/Menu.tsx
+@@ -84,6 +84,15 @@ interface Props {
+    * @default center
+    */
+   align?: "start" | "center" | "end";
++  /**
++   * Haven: forwarded to Radix's DropdownMenu.Root - defaults to Radix's own default (true) when
++   * omitted, so every existing caller keeps its current modal (focus-trapping, scroll-locking)
++   * behavior unchanged. Pass false for a lightweight menu that shouldn't lock page/container
++   * scroll or trap focus while open - e.g. a small "..." menu where that's more disruptive than
++   * helpful, and where scroll-locking a still-visible scrollable container can visibly shift its
++   * own layout by however much width its now-hidden scrollbar was occupying.
++   */
++  modal?: boolean;
+ }
+ 
+ const DropdownMenuItemWrapper: FC<MenuItemWrapperProps> = ({
+@@ -151,6 +160,7 @@ export const Menu: FC<Props> = ({
+   children: childrenProp,
+   side = "bottom",
+   align = "center",
++  modal,
+ }) => {
+   // Normally, the menu takes the form of a floating box. But on Android and
+   // iOS, the menu should morph into a drawer
+@@ -179,7 +189,7 @@ export const Menu: FC<Props> = ({
+       </Drawer.Portal>
+     </Drawer.Root>
+   ) : (
+-    <Root open={open} onOpenChange={onOpenChange}>
++    <Root open={open} onOpenChange={onOpenChange} modal={modal}>
+       <Trigger asChild>{trigger}</Trigger>
+       <Portal>
+         <Content asChild side={side} align={align} sideOffset={8}>
+diff --git a/src/components/Tooltip/Tooltip.tsx b/src/components/Tooltip/Tooltip.tsx
+index fdadb33671356c0dbaec7f429ef7e00491f13a44..bc8d19c6deb7fcc8de29cfe7df203cf63545984a 100644
+--- a/src/components/Tooltip/Tooltip.tsx
++++ b/src/components/Tooltip/Tooltip.tsx
+@@ -135,8 +135,33 @@ function TooltipContent({
+     ...rest
+   } = useTooltipContext();
+ 
+-  // Label tooltips are kept in the DOM even when not visually open
+-  if (!open && purpose !== "label") return null;
++  // Label tooltips need a stable, always-present element for aria-labelledby to keep resolving
++  // even while closed - but that doesn't require the full floating-positioned apparatus. Render a
++  // plain, non-floating copy while closed instead of the real FloatingPortal/refs.setFloating-
++  // connected node: floating-ui's `whileElementsMounted: autoUpdate` (see useTooltip.ts) only
++  // starts once BOTH the reference and floating elements are mounted, so never attaching
++  // `refs.setFloating` here means autoUpdate's own scroll/resize-driven position recalculation
++  // never runs for a tooltip nobody is looking at. Previously this rendered the real floating node
++  // (just visually clipped) unconditionally for every label tooltip for as long as it stayed
++  // mounted, each one independently recomputing its position on every scroll - cheap for one
++  // tooltip, expensive once dozens are mounted at once (e.g. a feed of many posts, each with
++  // several icon-only action buttons).
++  if (!open && purpose === "label") {
++    // position: absolute takes this out of normal document flow, same as the real FloatingPortal
++    // node effectively was (portaled to document.body, so never a layout sibling of its own
++    // trigger). Without this, this placeholder - clipped to zero *visible* area but not zero
++    // *layout* area - was still a real flex sibling wherever the tooltip's trigger sits, inflating
++    // any flex row it's in by its own text content's width (found 2026-08-11: room list hover
++    // menu buttons, each wrapped in a label tooltip via IconButton's `tooltip` prop, were
++    // overflowing their row and squeezing the room name down to zero width).
++    return (
++      <span className={classNames(styles.tooltip, styles.invisible)} style={{ position: "absolute" }}>
++        {children}
++      </span>
++    );
++  }
++
++  if (!open) return null;
+ 
+   // Hide the tooltip if it has escaped its boundary (when `boundary` prop is set)
+   const escaped = floatingContext.middlewareData?.hide?.escaped ?? false;
+@@ -149,7 +174,7 @@ function TooltipContent({
+         {...rest.tooltipProps}
+         {...rest.getFloatingProps()}
+         className={classNames(styles.tooltip, {
+-          [styles.invisible]: (purpose === "label" && !open) || escaped,
++          [styles.invisible]: escaped,
+         })}
+       >
+         <FloatingArrow

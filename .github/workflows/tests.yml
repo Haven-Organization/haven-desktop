@@ -50,6 +50,12 @@ jobs:
             # type-check below and apps/web's own vitest run fail outright with "Cannot find module".
             # packages/playwright-common and packages/shared-types have no build target (consumed
             # directly from source) so don't need this.
+            # shared-utils is a new upstream package (sanitize-html and friends, split out of apps/web) that
+            # apps/web and shared-components both import as a built package too.
+            - name: Build shared-utils
+              working-directory: element-web/packages/shared-utils
+              run: npx vite build
+
             - name: Build shared-components
               working-directory: element-web/packages/shared-components
               run: npx vite build
@@ -71,7 +77,7 @@ jobs:
                   npm_config_pm_on_fail: ignore
               run: pnpm exec tsc --noEmit
 
-            # Scoped intentionally: this repo's full historical jest/vitest suites have substantial
+            # Scoped intentionally: this repo's full historical test suites have substantial
             # pre-existing failures unrelated to Haven's own code (165 failing legacy jest tests, and
             # a fresh-checkout-only module resolution issue that crashes most of the wider vitest
             # suite) - tracked separately, not something to hard-gate on yet. This list is every
@@ -88,6 +94,7 @@ jobs:
                   npx vitest run --retry 2
                   src/HtmlUtils.test.ts
                   src/createRoom.test.ts
+                  src/accessibility/Toolbar.test.tsx
                   src/autocomplete/EmojiProvider.skinTone.test.ts
                   src/components/structures/LocalRoomView.test.tsx
                   src/components/structures/ScrollPanel.test.tsx
@@ -97,6 +104,7 @@ jobs:
                   src/components/views/dialogs/ReactionsDialog.test.tsx
                   src/components/views/emojipicker/ReactionPicker.test.tsx
                   src/components/views/emojipicker/customEmoji.test.ts
+                  src/components/views/rooms/EmojiButton.test.tsx
                   src/components/views/rooms/EventTile/ActionBarAdapter.test.tsx
                   src/components/views/rooms/EventTile/ReactionsRowAdapter.test.tsx
                   src/components/views/settings/EmojiPreferenceSwitchers.test.tsx
@@ -104,6 +112,7 @@ jobs:
                   src/components/views/settings/tabs/room/EmojiStickersRoomSettingsTab.test.tsx
                   src/emojipicker/HavenEmojiPicker.test.tsx
                   src/emojipicker/useEmojiSkinTone.test.tsx
+                  src/legacy-room-list
                   src/models/LocalRoom.test.ts
                   src/settings/controllers/SystemFontController.test.ts
                   src/settings/havenEmojiSettings.test.ts

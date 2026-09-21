@@ -60,11 +60,13 @@ exports[`AppTile > destroys non-persisted right panel widget on room change 1`] 
           </div>
         </button>
         <span
-          class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+          class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
           style="position: absolute;"
         >
           <span
+            class="_clamp_6bwuf_28"
             id="react-use-id-2"
+            style="--cpd-tooltip-max-lines: 2;"
           >
             Close
           </span>
@@ -380,16 +382,18 @@ exports[`AppTile > for a pinned widget > should render permission request 1`] = 
                 </svg>
               </div>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-3"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Any of the following data may be shared:
                 </span>
                 <div
-                  class="_caption_1nqnq_28 cpd-theme-dark"
+                  class="_caption_6bwuf_36 cpd-theme-dark"
                   id="react-use-id-2"
                 >
                   <ul>

@@ -11,14 +11,13 @@ import { EventType, MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 import { VideoBodyViewState } from "@element-hq/web-shared-components";
 import { decode } from "blurhash";
-import { type Media } from "@element-hq/element-web-module-api";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import SettingsStore from "../../settings/SettingsStore";
 import { _t } from "../../languageHandler";
 import enStrings from "../../i18n/strings/en_EN.json";
 import { ImageSize } from "../../settings/enums/ImageSize";
-import { mediaFromContent } from "../../customisations/Media";
+import { type Media, mediaFromContent } from "../../customisations/Media";
 import { BLURHASH_FIELD } from "../../utils/image-media";
 import { type MediaEventHelper } from "../../utils/MediaEventHelper";
 import { VideoBodyViewModel } from "./VideoBodyViewModel";

@@ -8,6 +8,8 @@ Please see LICENSE files in the repository root for full details.
 
 import { arrayDiff, arrayUnion, arrayIntersection } from "./arrays";
 
+// Haven: upstream removed objectExcluding (nothing of theirs uses it any more), but Haven's legacy room
+// list (src/legacy-room-list, RoomSublist) and objectWithOnly below still do, so it stays.
 type ObjectExcluding<O extends object, P extends (keyof O)[]> = { [k in Exclude<keyof O, P[number]>]: O[k] };
 
 /**

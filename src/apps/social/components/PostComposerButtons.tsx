@@ -205,7 +205,6 @@ export function PostComposerButtons({
                 msc3946ProcessDynamicPredecessor={false}
                 canAskToJoin={false}
                 promptAskToJoin={false}
-                viewRoomOpts={{ buttons: [] }}
                 isRoomEncrypted={null}
                 roomViewStore={undefined as any}
             >

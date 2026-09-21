@@ -40,11 +40,13 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
             </div>
           </button>
           <span
-            class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+            class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
             style="position: absolute;"
           >
             <span
+              class="_clamp_6bwuf_28"
               id="react-use-id-1"
+              style="--cpd-tooltip-max-lines: 2;"
             >
               Copy
             </span>
@@ -85,11 +87,13 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
             </div>
           </button>
           <span
-            class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+            class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
             style="position: absolute;"
           >
             <span
+              class="_clamp_6bwuf_28"
               id="react-use-id-2"
+              style="--cpd-tooltip-max-lines: 2;"
             >
               Copy
             </span>
@@ -162,11 +166,13 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-3"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Copy
                 </span>
@@ -207,11 +213,13 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-4"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Copy
                 </span>
@@ -275,11 +283,13 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
             </div>
           </button>
           <span
-            class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+            class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
             style="position: absolute;"
           >
             <span
+              class="_clamp_6bwuf_28"
               id="react-use-id-1"
+              style="--cpd-tooltip-max-lines: 2;"
             >
               Copy
             </span>
@@ -320,11 +330,13 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
             </div>
           </button>
           <span
-            class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+            class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
             style="position: absolute;"
           >
             <span
+              class="_clamp_6bwuf_28"
               id="react-use-id-2"
+              style="--cpd-tooltip-max-lines: 2;"
             >
               Copy
             </span>
@@ -397,11 +409,13 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-3"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Copy
                 </span>
@@ -442,11 +456,13 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-4"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Copy
                 </span>
@@ -510,11 +526,13 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
             </div>
           </button>
           <span
-            class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+            class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
             style="position: absolute;"
           >
             <span
+              class="_clamp_6bwuf_28"
               id="react-use-id-1"
+              style="--cpd-tooltip-max-lines: 2;"
             >
               Copy
             </span>
@@ -555,11 +573,13 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
             </div>
           </button>
           <span
-            class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+            class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
             style="position: absolute;"
           >
             <span
+              class="_clamp_6bwuf_28"
               id="react-use-id-2"
+              style="--cpd-tooltip-max-lines: 2;"
             >
               Copy
             </span>
@@ -634,11 +654,13 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-3"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Copy
                 </span>
@@ -679,11 +701,13 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
                 </div>
               </button>
               <span
-                class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
                 style="position: absolute;"
               >
                 <span
+                  class="_clamp_6bwuf_28"
                   id="react-use-id-4"
+                  style="--cpd-tooltip-max-lines: 2;"
                 >
                   Copy
                 </span>
@@ -747,11 +771,13 @@ exports[`<Users /> > should render a single user 1`] = `
             </div>
           </button>
           <span
-            class="_tooltip_1nqnq_8 _invisible_1nqnq_21"
+            class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
             style="position: absolute;"
           >
             <span
+              class="_clamp_6bwuf_28"
               id="react-use-id-1"
+              style="--cpd-tooltip-max-lines: 2;"
             >
               Copy
             </span>

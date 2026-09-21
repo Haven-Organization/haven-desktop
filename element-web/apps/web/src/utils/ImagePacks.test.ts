@@ -28,7 +28,7 @@ import {
     type ImagePackContent,
     type RoomImagePack,
 } from "./ImagePacks";
-import { mkStubRoom, mkEvent } from "../../test/test-utils/test-utils";
+import { mkStubRoom, mkEvent } from "../test/test-utils/test-utils";
 
 // Haven: MSC2545 (Image Packs) core data layer - regression coverage for the parts most likely to
 // silently break during an upstream merge conflict: the stable/unstable event-type merge (stable

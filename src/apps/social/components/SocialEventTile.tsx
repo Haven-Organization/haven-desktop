@@ -42,7 +42,7 @@ import {
 import MemberAvatar from "../../../../element-web/apps/web/src/components/views/avatars/MemberAvatar";
 import BaseAvatar from "../../../../element-web/apps/web/src/components/views/avatars/BaseAvatar";
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
-import { getHtmlText } from "../../../../element-web/apps/web/src/HtmlUtils";
+import { sanitizeHtmlText } from "../../../../element-web/apps/web/src/HtmlUtils";
 import Modal from "../../../../element-web/apps/web/src/Modal";
 import ImageView from "../../../../element-web/apps/web/src/components/views/elements/ImageView";
 import QuestionDialog from "../../../../element-web/apps/web/src/components/views/dialogs/QuestionDialog";
@@ -934,7 +934,7 @@ function formattedBodiesMatch(
     }
     // At most one side has any HTML at all - the side without one has no richer representation
     // to compare structurally against, so the only meaningful comparison left is visible text:
-    // reduce whichever side does have formatted_body to its own rendered text (getHtmlText, the
+    // reduce whichever side does have formatted_body to its own rendered text (sanitizeHtmlText, the
     // same sanitize-html-based stripper HtmlUtils already uses elsewhere - not a hand-rolled
     // regex, given this codebase's own prior ReDoS history in this exact area) and compare that
     // against the other side's plain body. This is exactly what legitimately differs between a
@@ -942,8 +942,8 @@ function formattedBodiesMatch(
     // bridge's repost snapshot (always wraps its social.formatted_body in <p>, even when the
     // original had zero formatting) - confirmed live: a real repost of a plain-text Haven post
     // was flagged as a possible forgery purely because of this, despite identical visible text.
-    const aText = (aFb ? getHtmlText(aFb) : (a?.body ?? "")).trim();
-    const bText = (bFb ? getHtmlText(bFb) : (b?.body ?? "")).trim();
+    const aText = (aFb ? sanitizeHtmlText(aFb) : (a?.body ?? "")).trim();
+    const bText = (bFb ? sanitizeHtmlText(bFb) : (b?.body ?? "")).trim();
     return aText === bText;
 }
 
