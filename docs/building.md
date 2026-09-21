@@ -69,3 +69,31 @@ not before `setup.sh`:
   Haven at the OS level (taskbar name, protocol registration, etc.) - the desktop-specific
   counterpart to `HAVEN_NO_BRANDING` above, which only covers the web app's own visual assets, not
   the desktop package's own metadata.
+
+### Linux AppImage
+
+The AppImage is built with electron-builder's static type-2 runtime (`toolsets.appimage` in
+`element-web/apps/desktop/electron-builder.ts`), not its default legacy one - the legacy runtime
+needs the long-unmaintained `libfuse2` system package just to start, which most current distros no
+longer install. The static runtime doesn't, but does still need a `fusermount3` or `fusermount`
+binary on the user's `PATH`, which every desktop distro ships.
+
+The finished AppImage also advertises where its updates live, so AppImageUpdate, AM, AppManager and
+AppImageLauncher can update it by downloading only the changed blocks:
+
+```
+gh-releases-zsync|Haven-Organization|haven-desktop|latest|Haven-*.AppImage.zsync
+```
+
+That string is only a pointer (embedded by `scripts/appimage-update-info.ts`, run as electron-
+builder's `afterAllArtifactBuild` hook). The deltas themselves are worked out on the user's machine
+from a `.zsync` control file, so **every release must publish `Haven-<version>.AppImage.zsync` as an
+asset next to the AppImage**, or update attempts will fail. The build generates it with `zsyncmake`
+(Arch: `pacman -S zsync`, Debian/Ubuntu: `apt install zsync`); if that isn't installed the build
+still succeeds but prints a loud warning and no `.zsync` file is produced. It only runs for Haven's
+own default build - not when `VARIANT_PATH` selects another identity.
+
+One known wrinkle: electron-builder writes `latest-linux.yml` (its `electron-updater` metadata)
+after that hook runs, so its recorded AppImage checksum predates the update information being
+filled in. Nothing reads it - Haven ships no `electron-updater` on Linux - but it would need
+revisiting if that ever changes.

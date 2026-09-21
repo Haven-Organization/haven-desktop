@@ -11,6 +11,7 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { type Configuration as BaseConfiguration, type BeforeBuildContext, log } from "electron-builder";
 import { LogMessageByKey } from "app-builder-lib/out/node-module-collector/moduleManager.js";
+import { createAppImageUpdateInfoHook } from "./scripts/appimage-update-info.js";
 
 /**
  * This script has different outputs depending on your os platform.
@@ -236,9 +237,26 @@ const config: Omit<Writable<Configuration>, "electronFuses"> & {
         name: variant.productName,
         schemes: variant.protocols,
     },
+    // Haven: build AppImages with electron-builder's static type-2 runtime instead of its default
+    // legacy one (toolsets.appimage unset == "0.0.0"), which dlopen()s libfuse.so.2 at start-up and
+    // dies with "AppImages require FUSE to run" on any system without the (long unmaintained, and
+    // no longer installed by default on most distros) libfuse2 package. The static runtime has no
+    // libfuse2 dependency; it still needs a `fusermount`/`fusermount3` binary, which every desktop
+    // distro ships. electron-builder still labels these toolsets beta - 1.0.3 is the newest this
+    // electron-builder version accepts and includes a fix the first one (1.0.2) lacked. Its AppRun
+    // no longer gets a blanket --no-sandbox either; it probes for unprivileged user namespaces and
+    // only adds it when they're unavailable.
+    toolsets: { appimage: "1.0.3" },
     nativeRebuilder: "sequential",
     nodeGypRebuild: false,
     npmRebuild: true,
+    // Haven: embeds AppImage update information (so AppImageUpdate/AM/AppManager can delta-update it)
+    // and generates the .zsync file that has to be published next to it - see
+    // scripts/appimage-update-info.ts. Only for Haven's own build: another VARIANT_PATH (e.g. an
+    // Element-branded build) must never advertise Haven's releases as its update source.
+    afterAllArtifactBuild: process.env.VARIANT_PATH
+        ? undefined
+        : createAppImageUpdateInfoHook("Haven-Organization", "haven-desktop"),
     beforeBuild: async (context: BeforeBuildContext) => {
         // Assert that the webapp.asar file exists
         try {

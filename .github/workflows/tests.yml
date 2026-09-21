@@ -126,6 +126,13 @@ jobs:
               working-directory: element-web/apps/web
               run: npx vitest run --retry 2 src/components/structures/RoomView.test.tsx -t "for a local room"
 
+            # electron-builder.ts is upstream-owned; this is what notices a merge dropping Haven's
+            # AppImage settings (static runtime so it runs without libfuse2, and the hook that embeds
+            # update information + generates the .zsync) - see scripts/appimage-update-info.ts.
+            - name: Unit tests - vitest (Haven AppImage build, apps/desktop)
+              working-directory: element-web/apps/desktop
+              run: npx vitest run src/appimage-update-info.test.ts
+
             # shared-components' "unit" vitest project renders through a real browser (chromium via
             # Playwright), not happy-dom/jsdom - needs its browser binary installed first.
             - name: Install Playwright browser
