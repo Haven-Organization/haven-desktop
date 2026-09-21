@@ -330,7 +330,8 @@ interface LocalRoomViewProps {
  * @param {LocalRoomViewProps} props Room view props
  * @returns {ReactElement}
  */
-function LocalRoomView(props: LocalRoomViewProps): ReactElement {
+// Haven: exported (was module-private) so LocalRoomView.test.tsx can cover the pre-send encryption toggle.
+export function LocalRoomView(props: LocalRoomViewProps): ReactElement {
     const context = useScopedRoomContext("room");
     const room = context.room as LocalRoom;
     const cli = useMatrixClientContext();

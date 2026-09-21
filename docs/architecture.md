@@ -65,7 +65,11 @@ that fails if it disappears, added to the explicit file list in `.github/workflo
 list is the merge gate (the wider suites have known unrelated failures and aren't gated on). Changes
 that are pure assets/CSS with no code path to unit-test still get one: see
 `element-web/apps/web/src/utils/havenPistolEmojiFont.test.ts`, which reads the font and `@font-face`
-rules directly.
+rules directly. The same goes for Haven's own stylesheets: `src/settings/havenEmojiSettings.test.ts`
+checks that every `.pcss` file carrying a Haven copyright header is still imported by
+`res/css/_components.pcss`, which is upstream-owned and easy to lose an import from in a merge. Give a
+new Haven-authored stylesheet that header (and export a Haven-only component like `LocalRoomView` or
+`BoostedIndicator` rather than testing it through its whole parent) so this holds automatically.
 
 ## Keeping up to date with upstream
 

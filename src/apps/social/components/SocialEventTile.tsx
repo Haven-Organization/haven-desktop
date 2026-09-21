@@ -77,6 +77,12 @@ import {
     MSC4501_FORMATTED_BODY_KEY,
     isSocialPostEventType,
 } from "../utils/room-classifier";
+import {
+    resolveNestedRepost,
+    showsMiddleRepostBody,
+    showsMiddleRepostMedia,
+    withoutWrapperOnlyFields,
+} from "../utils/nestedRepost";
 import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
@@ -737,7 +743,8 @@ interface BoostedIndicatorProps {
     targetKind?: "post" | "repost";
 }
 
-function BoostedIndicator({
+// Haven: exported so BoostedIndicator.test.tsx can cover the "reposted X's post" / "reposted X's repost" wording.
+export function BoostedIndicator({
     eventId,
     roomId,
     originalSenderName,
@@ -1417,11 +1424,6 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // relevant now that the icon is sourced from a live profile lookup keyed off the correct
     // sender (repostOf.sender/replyCrossPostOf.sender) rather than off this content object at all,
     // see repostedSenderProfile/replyCrossPostSenderProfile below.
-    const withoutWrapperOnlyFields = <T extends Record<string, any> | undefined>(c: T): T => {
-        if (!c || !(MSC4501_RELATES_TO_KEY in c)) return c;
-        const { [MSC4501_RELATES_TO_KEY]: _relatesTo, ...rest } = c;
-        return rest as T;
-    };
     const repostOfSourceContent = repostOf?.content_inline ? withoutWrapperOnlyFields(content) : repostOf?.content;
     const repostOfContent = stripHavenHeader(resolvePostBody(repostOfSourceContent));
     const replyCrossPostOfSourceContent = replyCrossPostOf?.content_inline
@@ -1438,21 +1440,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // "reposted X's post" line. Only ever one level deep - whatever the nested post itself might
     // be reposting is deliberately never looked at (nestedRepostRelation is only read off
     // repostOfSourceContent, never off nestedRepostSourceContent).
-    const nestedRepostCandidate = repostOf
-        ? (repostOfSourceContent as { [MSC4501_RELATES_TO_KEY]?: typeof relatesTo } | undefined)?.[
-              MSC4501_RELATES_TO_KEY
-          ]
-        : undefined;
-    const nestedRepostRelation =
-        nestedRepostCandidate?.rel_type === MSC4501_REL_TYPE_REPOST ? nestedRepostCandidate : undefined;
-    const nestedRepostSourceContent = nestedRepostRelation
-        ? nestedRepostRelation.content_inline
-            ? withoutWrapperOnlyFields(repostOfSourceContent)
-            : nestedRepostRelation.content
-        : undefined;
+    const nestedRepost = repostOf ? resolveNestedRepost(repostOfSourceContent) : undefined;
+    const nestedRepostRelation = nestedRepost?.relation;
+    const nestedRepostSourceContent = nestedRepost?.sourceContent;
     // Only worth splitting out when there's actually a snapshot of the nested post to show - a
-    // nested relation with no content at all falls back to the plain single-card rendering.
-    const isNestedRepost = !!nestedRepostRelation && !!nestedRepostSourceContent;
+    // nested relation with no content at all falls back to the plain single-card rendering
+    // (resolveNestedRepost returns undefined for that).
+    const isNestedRepost = !!nestedRepost;
     const nestedRepostContent = isNestedRepost
         ? stripHavenHeader(resolvePostBody(nestedRepostSourceContent))
         : undefined;
@@ -1460,7 +1454,6 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // content_inline - then its own caption/media sit alongside (not inside) the nested post's.
     // When content_inline, the whole snapshot *is* the nested post's content, all of which renders
     // in the nested card instead.
-    const middleRepostOwnContent = isNestedRepost && !nestedRepostRelation!.content_inline;
     // The outer event's own content can carry the same redundant header (e.g. a cross-posted
     // reply's own body opening with "⤵️ Reply to X's post:") when it's rendered directly as this
     // tile's main body below — Haven's own RepliedToProfileIndicator/PostRelationHeaderLine already
@@ -2396,11 +2389,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             reposter's - the snapshot's own body/media are the nested original's
                             (rendered in the nested card below instead), except for a genuine caption
                             the middle reposter added themselves alongside a non-content_inline
-                            relation (middleRepostOwnContent + an actual MSC4501 body override, never
+                            relation (middleHasOwnContent + an actual MSC4501 body override, never
                             the stock permalink fallback). */}
                         {repostedMedia.body &&
-                            (!isNestedRepost ||
-                                (middleRepostOwnContent && hasPostBodyOverride(repostOfSourceContent))) &&
+                            showsMiddleRepostBody(nestedRepost, repostOfSourceContent) &&
                             (!repostOf.content_inline ||
                                 !repostedFileUrl ||
                                 hasPostBodyOverride(repostOfSourceContent)) && (
@@ -2409,7 +2401,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             </div>
                         )}
                         {repostedHttpUrl &&
-                            (!isNestedRepost || middleRepostOwnContent) &&
+                            showsMiddleRepostMedia(nestedRepost) &&
                             (repostedMime.startsWith("image/") ? (
                                 <div className="social_EventTile_repostCard_media">
                                     <img

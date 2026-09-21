@@ -89,6 +89,7 @@ jobs:
                   src/HtmlUtils.test.ts
                   src/createRoom.test.ts
                   src/autocomplete/EmojiProvider.skinTone.test.ts
+                  src/components/structures/LocalRoomView.test.tsx
                   src/components/structures/ScrollPanel.test.tsx
                   src/components/views/context_menus/MessageContextMenu.test.tsx
                   src/components/views/dialogs/AddToPackDialog.test.tsx
@@ -105,6 +106,7 @@ jobs:
                   src/emojipicker/useEmojiSkinTone.test.tsx
                   src/models/LocalRoom.test.ts
                   src/settings/controllers/SystemFontController.test.ts
+                  src/settings/havenEmojiSettings.test.ts
                   src/settings/watchers/FontWatcher.test.ts
                   src/settings/watchers/RoomListBackdropWatcher.test.ts
                   src/stores/right-panel/RightPanelStore.test.ts
