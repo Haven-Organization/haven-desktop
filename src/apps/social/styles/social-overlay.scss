@@ -1948,6 +1948,18 @@
             background: color-mix(in srgb, $accent 4%, $system);
         }
     }
+
+    // A repost of a repost's inner card (see nestedRepostRelation in SocialEventTile.tsx) - sits
+    // inside the middle reposter's own card, so it drops the bottom margin the outer card uses to
+    // space itself from what follows (the outer card's own padding already does that here).
+    &--nested {
+        margin-bottom: 0;
+    }
+}
+
+// Wraps the nested "reposted X's post" line + its card inside the middle reposter's card.
+.social_EventTile_repostCard_nestedWrap {
+    margin-top: var(--cpd-space-3x);
 }
 
 .social_RepostVerificationBadge {

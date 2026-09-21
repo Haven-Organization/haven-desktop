@@ -731,6 +731,10 @@ interface BoostedIndicatorProps {
     onViewThread?: (event: MatrixEvent, room: Room) => void;
     /** repostOf.via — see resolveAndOpenPost's own doc for why this needs to reach it. */
     via?: string[];
+    /** What the reposted event itself is - "repost" when it's a repost of something else in turn
+     *  (see nestedRepostRelation in the main render below), so the line doesn't read as though the
+     *  named person authored whatever's ultimately being shown. */
+    targetKind?: "post" | "repost";
 }
 
 function BoostedIndicator({
@@ -740,6 +744,7 @@ function BoostedIndicator({
     embedded,
     onViewThread,
     via,
+    targetKind = "post",
 }: BoostedIndicatorProps): JSX.Element {
     const client = useMatrixClientContext();
     const targetRoom = client.getRoom(roomId) ?? undefined;
@@ -750,7 +755,7 @@ function BoostedIndicator({
             text={
                 originalSenderName && originalSenderName !== "unknown" ? (
                     <>
-                        reposted <strong>{originalSenderName}</strong>'s post
+                        reposted <strong>{originalSenderName}</strong>'s {targetKind}
                     </>
                 ) : (
                     "reposted"
@@ -1423,6 +1428,39 @@ export const SocialEventTile = React.memo(function SocialEventTile({
         ? withoutWrapperOnlyFields(content)
         : replyCrossPostOf?.content;
     const replyCrossPostOfContent = stripHavenHeader(resolvePostBody(replyCrossPostOfSourceContent));
+    // Haven: a repost of a repost. The embedded snapshot (repostOfSourceContent) is itself a post
+    // that reposted something else - its own relates_to survives inside the snapshot when this
+    // tile's relation is a normal (non-content_inline) one, since only content_inline strips the
+    // wrapper's own relation (withoutWrapperOnlyFields above). Rendered flat, the snapshot's own
+    // text/media - which, for a boost, is really the *original* author's - ends up under the
+    // middle reposter's name, as though they'd said it. So it's split out instead: the card shows
+    // the middle reposter, and the original post renders in a second, nested card under its own
+    // "reposted X's post" line. Only ever one level deep - whatever the nested post itself might
+    // be reposting is deliberately never looked at (nestedRepostRelation is only read off
+    // repostOfSourceContent, never off nestedRepostSourceContent).
+    const nestedRepostCandidate = repostOf
+        ? (repostOfSourceContent as { [MSC4501_RELATES_TO_KEY]?: typeof relatesTo } | undefined)?.[
+              MSC4501_RELATES_TO_KEY
+          ]
+        : undefined;
+    const nestedRepostRelation =
+        nestedRepostCandidate?.rel_type === MSC4501_REL_TYPE_REPOST ? nestedRepostCandidate : undefined;
+    const nestedRepostSourceContent = nestedRepostRelation
+        ? nestedRepostRelation.content_inline
+            ? withoutWrapperOnlyFields(repostOfSourceContent)
+            : nestedRepostRelation.content
+        : undefined;
+    // Only worth splitting out when there's actually a snapshot of the nested post to show - a
+    // nested relation with no content at all falls back to the plain single-card rendering.
+    const isNestedRepost = !!nestedRepostRelation && !!nestedRepostSourceContent;
+    const nestedRepostContent = isNestedRepost
+        ? stripHavenHeader(resolvePostBody(nestedRepostSourceContent))
+        : undefined;
+    // The middle reposter's own snapshot only has anything of its own to show when it wasn't
+    // content_inline - then its own caption/media sit alongside (not inside) the nested post's.
+    // When content_inline, the whole snapshot *is* the nested post's content, all of which renders
+    // in the nested card instead.
+    const middleRepostOwnContent = isNestedRepost && !nestedRepostRelation!.content_inline;
     // The outer event's own content can carry the same redundant header (e.g. a cross-posted
     // reply's own body opening with "⤵️ Reply to X's post:") when it's rendered directly as this
     // tile's main body below — Haven's own RepliedToProfileIndicator/PostRelationHeaderLine already
@@ -1572,6 +1610,41 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     useEffect(() => {
         repostedBodyVm.setEventContent(repostedMockEvent, repostOfContent ?? {});
     }, [repostedMockEvent, repostOfContent, repostedBodyVm]);
+
+    // Same again for the nested original of a repost-of-a-repost (see nestedRepostRelation above) -
+    // always called (hooks can't be conditional), just with an empty stand-in when there's no
+    // nested post to actually show.
+    const nestedSenderProfile = useLiveUserProfile(client, nestedRepostRelation?.sender);
+    const nestedRepostImgRef = useRef<HTMLImageElement>(null);
+    const nestedMockEvent = useMemo(
+        () =>
+            new MatrixEvent({
+                type: "m.room.message",
+                sender: nestedRepostRelation?.sender,
+                content: nestedRepostContent ?? {},
+                event_id: nestedRepostRelation?.event_id,
+                room_id: nestedRepostRelation?.room_id,
+                origin_server_ts: event.getTs(),
+            }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [nestedRepostRelation, nestedRepostContent],
+    );
+    const nestedBodyVm = useCreateAutoDisposedViewModel(
+        () =>
+            new EventContentBodyViewModel({
+                as: "div",
+                includeDir: false,
+                mxEvent: nestedMockEvent,
+                content: nestedRepostContent ?? {},
+                stripReply: false,
+                linkify: true,
+                renderMentionPills: true,
+                client,
+            }),
+    );
+    useEffect(() => {
+        nestedBodyVm.setEventContent(nestedMockEvent, nestedRepostContent ?? {});
+    }, [nestedMockEvent, nestedRepostContent, nestedBodyVm]);
 
     // Same idea as repostedMockEvent/repostedBodyVm above, but for a reply cross-posted into a
     // profile feed (rel_type: m.social.reply) — renders the original post being replied to, above
@@ -2198,6 +2271,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     eventId={repostOf.event_id}
                     roomId={repostOf.room_id}
                     via={repostOf.via}
+                    targetKind={isNestedRepost ? "repost" : "post"}
                     originalSenderName={repostedSenderProfile?.displayName || repostOf.displayname || "unknown"}
                     embedded={
                         repostOfContent
@@ -2318,7 +2392,15 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             Wrongly hiding this too (matching the media case) is what made a
                             plain-text repost's card show just the sender name with no content
                             underneath. */}
+                        {/* For a repost of a repost (isNestedRepost), this card is the middle
+                            reposter's - the snapshot's own body/media are the nested original's
+                            (rendered in the nested card below instead), except for a genuine caption
+                            the middle reposter added themselves alongside a non-content_inline
+                            relation (middleRepostOwnContent + an actual MSC4501 body override, never
+                            the stock permalink fallback). */}
                         {repostedMedia.body &&
+                            (!isNestedRepost ||
+                                (middleRepostOwnContent && hasPostBodyOverride(repostOfSourceContent))) &&
                             (!repostOf.content_inline ||
                                 !repostedFileUrl ||
                                 hasPostBodyOverride(repostOfSourceContent)) && (
@@ -2327,6 +2409,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             </div>
                         )}
                         {repostedHttpUrl &&
+                            (!isNestedRepost || middleRepostOwnContent) &&
                             (repostedMime.startsWith("image/") ? (
                                 <div className="social_EventTile_repostCard_media">
                                     <img
@@ -2360,6 +2443,146 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                     />
                                 </div>
                             ) : null)}
+                        {/* Repost of a repost: the nested original, one level deep - see
+                            nestedRepostRelation's own doc. Same header line + card treatment as the
+                            outer relation, just inside this card. */}
+                        {isNestedRepost && nestedRepostRelation && (() => {
+                            const nestedMedia = (nestedRepostContent ?? {}) as {
+                                body?: string;
+                                url?: string;
+                                filename?: string;
+                                info?: { mimetype?: string; w?: number; h?: number };
+                                file?: { url: string; name: string; mimetype: string };
+                            };
+                            const nestedFileUrl = nestedMedia.file?.url ?? nestedMedia.url;
+                            const nestedHttpUrl = nestedFileUrl ? client.mxcUrlToHttp(nestedFileUrl) : null;
+                            const nestedMime = nestedMedia.file?.mimetype ?? nestedMedia.info?.mimetype ?? "";
+                            const nestedAspectRatioStyle: React.CSSProperties | undefined =
+                                nestedMedia.info?.w &&
+                                nestedMedia.info?.h &&
+                                nestedMedia.info.w > 0 &&
+                                nestedMedia.info.h > 0
+                                    ? { aspectRatio: `${nestedMedia.info.w} / ${nestedMedia.info.h}` }
+                                    : undefined;
+                            const nestedPerMessageProfile = getPerMessageProfileFromContent(nestedRepostContent);
+                            const nestedPerMessageAvatarUrl = resolvePerMessageAvatarUrl(nestedPerMessageProfile);
+                            const handleNestedCardClick = (e: React.MouseEvent): void => {
+                                // Always stop here - this card sits inside the middle reposter's own
+                                // clickable card, whose handler would otherwise navigate to *that* post.
+                                e.stopPropagation();
+                                if (!onViewThread) return;
+                                resolveAndOpenPost(
+                                    client,
+                                    nestedRepostRelation.room_id,
+                                    nestedRepostRelation.event_id,
+                                    nestedMockEvent,
+                                    onViewThread,
+                                    nestedRepostRelation.via,
+                                );
+                            };
+                            return (
+                                <div className="social_EventTile_repostCard_nestedWrap">
+                                    <BoostedIndicator
+                                        eventId={nestedRepostRelation.event_id}
+                                        roomId={nestedRepostRelation.room_id}
+                                        via={nestedRepostRelation.via}
+                                        originalSenderName={
+                                            nestedSenderProfile?.displayName ||
+                                            nestedRepostRelation.displayname ||
+                                            "unknown"
+                                        }
+                                        embedded={{
+                                            sender: nestedRepostRelation.sender,
+                                            displayname: nestedRepostRelation.displayname,
+                                            body:
+                                                nestedRepostRelation.content_inline &&
+                                                !hasPostBodyOverride(nestedRepostSourceContent) &&
+                                                nestedFileUrl
+                                                    ? undefined
+                                                    : nestedMedia.body,
+                                        }}
+                                        onViewThread={onViewThread}
+                                    />
+                                    <div
+                                        className={`social_EventTile_repostCard social_EventTile_repostCard--nested${onViewThread ? " social_EventTile_repostCard--clickable" : ""}`}
+                                        onClick={handleNestedCardClick}
+                                    >
+                                        <RepostVerificationBadge
+                                            client={client}
+                                            roomId={nestedRepostRelation.room_id}
+                                            eventId={nestedRepostRelation.event_id}
+                                            embeddedSource={nestedRepostSourceContent}
+                                            contentInline={nestedRepostRelation.content_inline}
+                                            autoVerify={isFocused}
+                                        />
+                                        <div className="social_EventTile_repostCard_header">
+                                            {nestedPerMessageAvatarUrl !== undefined
+                                                ? nestedPerMessageAvatarUrl && (
+                                                      <img
+                                                          className="social_EventTile_repostCard_avatar"
+                                                          src={client.mxcUrlToHttp(nestedPerMessageAvatarUrl, 24, 24, "crop") ?? ""}
+                                                          alt=""
+                                                      />
+                                                  )
+                                                : nestedSenderProfile?.avatarUrl && (
+                                                      <img
+                                                          className="social_EventTile_repostCard_avatar"
+                                                          src={client.mxcUrlToHttp(nestedSenderProfile.avatarUrl, 24, 24, "crop") ?? ""}
+                                                          alt=""
+                                                      />
+                                                  )}
+                                            <span className="social_EventTile_repostCard_sender">
+                                                {nestedPerMessageProfile?.displayname ||
+                                                    nestedSenderProfile?.displayName ||
+                                                    nestedRepostRelation.displayname ||
+                                                    nestedRepostRelation.sender}
+                                            </span>
+                                            <ExternalHandleIcon externalHandle={nestedSenderProfile?.externalHandle} />
+                                        </div>
+                                        {nestedMedia.body &&
+                                            (!nestedRepostRelation.content_inline ||
+                                                !nestedFileUrl ||
+                                                hasPostBodyOverride(nestedRepostSourceContent)) && (
+                                            <div className="social_EventTile_repostCard_body" onClick={handleBodyClick}>
+                                                <EventContentBodyView vm={nestedBodyVm} as="div" />
+                                            </div>
+                                        )}
+                                        {nestedHttpUrl &&
+                                            (nestedMime.startsWith("image/") ? (
+                                                <div className="social_EventTile_repostCard_media">
+                                                    <img
+                                                        ref={nestedRepostImgRef}
+                                                        src={nestedHttpUrl}
+                                                        alt={nestedMedia.file?.name ?? nestedMedia.filename ?? ""}
+                                                        className="social_EventTile_repostCard_image"
+                                                        onClick={(e) =>
+                                                            openImageLightbox(
+                                                                e,
+                                                                nestedHttpUrl,
+                                                                nestedMedia.file?.name ?? nestedMedia.filename ?? nestedMedia.body ?? "Image",
+                                                                nestedMockEvent,
+                                                                nestedRepostImgRef,
+                                                            )
+                                                        }
+                                                        style={nestedAspectRatioStyle}
+                                                    />
+                                                </div>
+                                            ) : nestedMime.startsWith("video/") ? (
+                                                <div className="social_EventTile_repostCard_media">
+                                                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                                                    <video
+                                                        src={nestedHttpUrl}
+                                                        controls
+                                                        className="social_EventTile_repostCard_video"
+                                                        style={nestedAspectRatioStyle}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
+                                            ) : null)}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 );
             })()}
