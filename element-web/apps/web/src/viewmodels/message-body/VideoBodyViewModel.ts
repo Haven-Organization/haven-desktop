@@ -74,27 +74,6 @@ interface InternalState {
      */
     error: unknown | null;
     /**
-     * Whether the video element itself hit a runtime playback error (e.g. the browser's decoder
-     * rejecting a malformed frame partway through a file that otherwise downloaded/decrypted
-     * fine) - kept separate from `error` above since it can only ever happen after playback has
-     * already started, and unlike a decrypt failure doesn't mean `onPlay`'s own decrypt-and-retry
-     * path should be skipped were the user to somehow trigger it again.
-     */
-    playbackError: boolean;
-    /**
-     * True for the entire span from `onPlay` first being asked to fetch-and-decrypt through to
-     * its own deferred `play()` retry actually landing on the real `src` - see `onPlay`'s own doc
-     * for why this window exists at all. `onError` ignores anything that happens while this is
-     * true: the very act of pressing play on the lazy-load placeholder `data:` URL makes the
-     * browser genuinely attempt (and fail) to load it, and that failure is asynchronous enough
-     * that it can arrive *after* the real `src` has already been committed to the DOM - so even
-     * checking the live element's current `src` at error time isn't a reliable way to tell "this
-     * error is about the placeholder" from "this error is about the real content" apart. Confirmed
-     * live: a real encrypted video, confirmed independently to be entirely valid and playable,
-     * still triggered `onError` under the DOM-src-only version of this guard.
-     */
-    awaitingRealSource: boolean;
-    /**
      * Whether an on-demand media fetch is in progress.
      */
     fetchingData: boolean;
@@ -149,8 +128,6 @@ export class VideoBodyViewModel
             decryptedThumbnailUrl: null,
             decryptedBlob: null,
             error: null,
-            playbackError: false,
-            awaitingRealSource: false,
             posterLoading: false,
             blurhashUrl: null,
             imageSize: SettingsStore.getValue("Images.size"),
@@ -234,16 +211,6 @@ export class VideoBodyViewModel
             };
         }
 
-        if (state.playbackError) {
-            return {
-                state: VideoBodyViewState.ERROR,
-                errorLabel: _t("timeline|m.video|error"),
-                maxWidth,
-                maxHeight,
-                aspectRatio,
-            };
-        }
-
         if (!props.mediaVisible) {
             return {
                 state: VideoBodyViewState.HIDDEN,
@@ -315,8 +282,6 @@ export class VideoBodyViewModel
             decryptedThumbnailUrl: null,
             decryptedBlob: null,
             error: null,
-            playbackError: false,
-            awaitingRealSource: false,
             fetchingData: false,
             posterLoading: false,
             blurhashUrl: null,
@@ -515,39 +480,6 @@ export class VideoBodyViewModel
         this.props.onPreviewClick?.();
     };
 
-    // Fires on any native HTMLMediaElement `error` event on the <video> itself - in practice this
-    // is almost always MEDIA_ERR_DECODE (code 3): the file downloaded/decrypted fine (playback
-    // had already started) but the browser's own decoder rejected a malformed frame partway
-    // through. Confirmed live against a real-world file from a fediverse bridge: Chromium's strict
-    // decoder aborts the whole player on one bad packet where a mobile client's more tolerant
-    // decoder (e.g. ExoPlayer) just plays through it - nothing in this codebase can fix the
-    // decoder's own strictness or the source file's encoding, but the player silently going quiet
-    // with zero indication (previously: no `error` handler existed here at all) is fixable.
-    public onError = (): void => {
-        if (this.state.playbackError) {
-            return;
-        }
-
-        // An encrypted video that isn't autoplaying is deliberately given a stub `data:` URL as
-        // its `src` until the user actually clicks play (see `downloadVideo`'s "NOT preloading"
-        // branch) - pressing play against that placeholder makes the browser genuinely attempt
-        // (and fail) to load it, and `onPlay` below is what's actually responsible for swapping in
-        // the real, decrypted `src` in response to that same press. See `awaitingRealSource`'s own
-        // doc for why a plain "is the error about the placeholder or the real content" check can't
-        // be answered reliably by inspecting src/state at error-dispatch time, and why this spans
-        // the whole `onPlay` operation instead of just checking `hasContentUrl()`.
-        if (this.state.awaitingRealSource) {
-            return;
-        }
-
-        logger.warn("Video playback error", this.props.videoRef.current?.error);
-        this.state = {
-            ...this.state,
-            playbackError: true,
-        };
-        this.updateSnapshotFromState();
-    };
-
     public onPlay = async (): Promise<void> => {
         if (this.hasContentUrl() || this.state.fetchingData || this.state.error !== null) {
             return;
@@ -556,11 +488,6 @@ export class VideoBodyViewModel
         this.state = {
             ...this.state,
             fetchingData: true,
-            // Set here, not just once the real src is actually ready below - the very press that
-            // triggered this `onPlay` is itself, right now, asking the browser to play whatever
-            // `src` the element currently has (the lazy-load placeholder), and that attempt's own
-            // failure is what `awaitingRealSource` needs to cover. See its own doc for the rest.
-            awaitingRealSource: true,
         };
 
         if (!this.props.mediaEventHelper?.media.isEncrypted) {
@@ -568,7 +495,6 @@ export class VideoBodyViewModel
                 ...this.state,
                 error: "No file given in content",
                 fetchingData: false,
-                awaitingRealSource: false,
             };
             this.updateSnapshotFromState();
             return;
@@ -608,10 +534,6 @@ export class VideoBodyViewModel
             requestAnimationFrame(() => {
                 if (this.isDisposed || currentEvent !== this.props.mxEvent) return;
                 void this.props.videoRef.current?.play();
-                // Only now, after this retry has landed, is any subsequent `error` event
-                // unambiguously about the real content rather than the original placeholder press.
-                this.state = { ...this.state, awaitingRealSource: false };
-                this.updateSnapshotFromState();
             });
         } catch (error) {
             if (
@@ -625,7 +547,6 @@ export class VideoBodyViewModel
             logger.warn("Unable to decrypt attachment: ", error);
             this.state = {
                 ...this.state,
-                awaitingRealSource: false,
                 error,
                 fetchingData: false,
             };

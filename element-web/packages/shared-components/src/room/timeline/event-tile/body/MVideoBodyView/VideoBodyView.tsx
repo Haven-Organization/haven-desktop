@@ -100,12 +100,6 @@ export interface VideoBodyViewActions {
      * Invoked when the video starts playing.
      */
     onPlay?: ReactEventHandler<HTMLVideoElement>;
-    /**
-     * Invoked when the video element hits a runtime playback error (e.g. the browser's decoder
-     * rejecting a malformed frame partway through - distinct from a decrypt/download failure,
-     * which happens before playback ever starts and is instead surfaced via the ERROR state).
-     */
-    onError?: ReactEventHandler<HTMLVideoElement>;
 }
 
 export type VideoBodyViewModel = ViewModel<VideoBodyViewSnapshot, VideoBodyViewActions>;
@@ -230,7 +224,6 @@ export function VideoBodyView({
                     autoPlay={autoPlay}
                     poster={poster}
                     onPlay={vm.onPlay}
-                    onError={vm.onError}
                 />
             </div>
             {children}
