@@ -13,8 +13,9 @@ vi.mock("../app", () => ({ socialApp: { id: "social" } }));
 vi.mock("./socialHistoryOrigin", () => ({ getLastPopStateOrigin: vi.fn() }));
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
+import { MatrixClientPeg } from "../../../../element-web/apps/web/src/MatrixClientPeg";
 import { getLastPopStateOrigin } from "./socialHistoryOrigin";
-import { tryRouteSocialHashScreen } from "./permalinkRouting";
+import { tryRouteSocialHashScreen, tryRouteSocialRoom, tryRouteSocialPermalink } from "./permalinkRouting";
 import { SOCIAL_HOME_ACTION } from "../homeAction";
 import { consumePendingViewPost } from "./pendingViewPost";
 import { consumePendingFeedThread } from "./pendingFeedThread";
@@ -106,5 +107,43 @@ describe("tryRouteSocialHashScreen", () => {
     it("an empty room id is rejected outright", () => {
         expect(tryRouteSocialHashScreen("social/room/")).toBe(false);
         expect(defaultDispatcher.dispatch).not.toHaveBeenCalled();
+    });
+});
+
+// Haven: regression coverage for threading a permalink's own ?via= server hints into the room
+// summary lookup. Without them, MSC3266's summary endpoint can't resolve a room this homeserver
+// hasn't already federated with, so a perfectly reachable public/knockable room was wrongly treated
+// as unclassifiable (and the click fell through to the "Private profile" path). Upstream merges
+// don't touch this file, but it's the same class of "quietly stops passing an optional argument"
+// regression the other tests here guard against.
+describe("via server hints for room-summary lookups", () => {
+    const getRoomSummary = vi.fn();
+
+    beforeEach(() => {
+        getRoomSummary.mockReset().mockResolvedValue({ room_id: "!room:example.org", room_type: undefined });
+        vi.spyOn(MatrixClientPeg, "get").mockReturnValue({
+            getRoom: () => null,
+            getRoomSummary,
+        } as any);
+    });
+
+    it("tryRouteSocialRoom passes the via list through to getRoomSummary for a room not known locally", () => {
+        const onNotSocial = vi.fn();
+        expect(tryRouteSocialRoom({}, "!room:example.org", null, onNotSocial, ["a.example", "b.example"])).toBe(true);
+        expect(getRoomSummary).toHaveBeenCalledWith("!room:example.org", ["a.example", "b.example"]);
+    });
+
+    it("tryRouteSocialRoom without any via still calls getRoomSummary, with undefined (not null)", () => {
+        tryRouteSocialRoom({}, "!room:example.org", null, vi.fn());
+        tryRouteSocialRoom({}, "!room:example.org", null, vi.fn(), null);
+        expect(getRoomSummary).toHaveBeenNthCalledWith(1, "!room:example.org", undefined);
+        expect(getRoomSummary).toHaveBeenNthCalledWith(2, "!room:example.org", undefined);
+    });
+
+    it("tryRouteSocialPermalink forwards the permalink's own ?via= servers", () => {
+        expect(
+            tryRouteSocialPermalink({}, "https://matrix.to/#/!room:example.org/$event?via=a.example&via=b.example"),
+        ).toBe(true);
+        expect(getRoomSummary).toHaveBeenCalledWith("!room:example.org", ["a.example", "b.example"]);
     });
 });

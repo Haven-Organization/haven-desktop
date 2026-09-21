@@ -198,5 +198,23 @@ describe("direct-messages", () => {
                 );
             });
         });
+
+        // Haven: the pre-send DM screen's encryption toggle (LocalRoomView in RoomView.tsx) writes its
+        // choice to localRoom.encrypted - this is the only place that choice gets handed to startDm(),
+        // which otherwise recomputes its own default and ignores it.
+        describe("encryption choice from the pre-send DM screen's toggle", () => {
+            beforeEach(() => {
+                vi.mocked(waitForRoomReadyAndApplyAfterCreateCallbacks).mockResolvedValue(room1.roomId);
+                vi.mocked(startDm).mockResolvedValue(room1.roomId);
+            });
+
+            it.each([true, false])("passes localRoom.encrypted (%s) through to startDm as the override", async (encrypted) => {
+                localRoom.encrypted = encrypted;
+
+                await dmModule.createRoomFromLocalRoom(mockClient, localRoom);
+
+                expect(startDm).toHaveBeenCalledWith(mockClient, localRoom.targets, false, encrypted);
+            });
+        });
     });
 });

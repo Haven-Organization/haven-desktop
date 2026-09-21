@@ -746,6 +746,9 @@ describe("RoomView", () => {
         let localRoom: LocalRoom;
 
         beforeEach(async () => {
+            // Haven: LocalRoomView's encryption toggle asks the server whether encryption is forced for
+            // private chats (checkUserIsAllowedToChangeEncryption, same as CreateRoomDialog) on mount.
+            cli.doesServerForceEncryptionForPreset = vi.fn().mockResolvedValue(false);
             localRoom = room = await createDmLocalRoom(cli, [new DirectoryMember({ user_id: "@user:example.com" })]);
             rooms.set(localRoom.roomId, localRoom);
             cli.store.storeRoom(room);
@@ -792,6 +795,122 @@ describe("RoomView", () => {
                     const { container } = await renderRoomView();
                     await waitFor(() => expect(container).toMatchSnapshot());
                 });
+            });
+        });
+
+        // Haven: regression coverage for LocalRoomView's "Enable end-to-end encryption" toggle on the
+        // pre-send DM screen (see LocalRoomView in RoomView.tsx) - matches CreateRoomDialog's own toggle
+        // for default/forced handling, and has to push every change through to LocalRoom.setEncrypted
+        // (what createRoomFromLocalRoom actually reads) and back up into RoomView's own isRoomEncrypted /
+        // e2eStatus state (what the composer's encrypted/unencrypted wording keys off).
+        describe("encryption toggle", () => {
+            const toggleName = "Enable end-to-end encryption";
+            const getToggle = (): HTMLInputElement => screen.getByRole("switch", { name: toggleName });
+            const unencryptedComposer = (container: HTMLElement): Element | null =>
+                container.querySelector('[aria-label="Send an unencrypted message…"]');
+
+            beforeEach(() => {
+                // Same crypto stubbing as "that is encrypted" above - RoomView only computes isRoomEncrypted /
+                // e2eStatus at all when a crypto API is available.
+                vi.spyOn(cli, "getCrypto").mockReturnValue(crypto);
+                vi.spyOn(cli.getCrypto()!, "isEncryptionEnabledInRoom").mockResolvedValue(false);
+                vi.spyOn(cli.getCrypto()!, "getUserVerificationStatus").mockResolvedValue(
+                    new UserVerificationStatus(false, false, false),
+                );
+            });
+
+            it("renders directly under the room intro, inside its own form", async () => {
+                await renderRoomView();
+                const toggle = await screen.findByRole("switch", { name: toggleName });
+
+                // Compared by class rather than element identity - happy-dom won't hand back the same
+                // object for a <form> reached via closest() and via sibling traversal.
+                const form = toggle.closest("form");
+                expect(form).not.toBeNull();
+                expect(form!.previousElementSibling?.classList.contains("mx_NewRoomIntro")).toBe(true);
+            });
+
+            it("defaults to on, and toggleable, when the server doesn't say otherwise", async () => {
+                await renderRoomView();
+
+                await waitFor(() => expect(getToggle()).toBeEnabled());
+                expect(getToggle()).toBeChecked();
+                expect(localRoom.encrypted).toBe(true);
+                expect(localRoom.isEncryptionEnabled()).toBe(true);
+            });
+
+            it("defaults to off when the well-known sets io.element.e2ee default to false", async () => {
+                vi.spyOn(cli, "getClientWellKnown").mockReturnValue({ "io.element.e2ee": { default: false } });
+
+                const { container } = await renderRoomView();
+
+                await waitFor(() => expect(getToggle()).toBeEnabled());
+                expect(getToggle()).not.toBeChecked();
+                expect(localRoom.encrypted).toBe(false);
+                expect(localRoom.isEncryptionEnabled()).toBe(false);
+                await waitFor(() => expect(unencryptedComposer(container)).not.toBeNull());
+            });
+
+            it("is locked on when the server forces encryption for private chats", async () => {
+                cli.doesServerForceEncryptionForPreset = vi.fn().mockResolvedValue(true);
+                vi.spyOn(cli, "getClientWellKnown").mockReturnValue({ "io.element.e2ee": { default: false } });
+
+                await renderRoomView();
+
+                await waitFor(() => expect(getToggle()).toBeDisabled());
+                expect(getToggle()).toBeChecked();
+                expect(localRoom.encrypted).toBe(true);
+            });
+
+            it("is locked off when the well-known force-disables encryption", async () => {
+                vi.spyOn(cli, "getClientWellKnown").mockReturnValue({
+                    "io.element.e2ee": { default: false, force_disable: true },
+                });
+
+                await renderRoomView();
+
+                await waitFor(() => expect(getToggle()).toBeDisabled());
+                expect(getToggle()).not.toBeChecked();
+                expect(localRoom.encrypted).toBe(false);
+            });
+
+            it("pushes each change through to LocalRoom.setEncrypted and the composer", async () => {
+                const setEncrypted = vi.spyOn(localRoom, "setEncrypted");
+                const { container } = await renderRoomView();
+                await waitFor(() => expect(getToggle()).toBeEnabled());
+                expect(getToggle()).toBeChecked();
+
+                fireEvent.click(getToggle());
+
+                await waitFor(() => expect(getToggle()).not.toBeChecked());
+                expect(setEncrypted).toHaveBeenLastCalledWith(cli, false);
+                expect(localRoom.encrypted).toBe(false);
+                expect(localRoom.isEncryptionEnabled()).toBe(false);
+                await waitFor(() => expect(unencryptedComposer(container)).not.toBeNull());
+
+                fireEvent.click(getToggle());
+
+                await waitFor(() => expect(getToggle()).toBeChecked());
+                expect(setEncrypted).toHaveBeenLastCalledWith(cli, true);
+                expect(localRoom.encrypted).toBe(true);
+                expect(localRoom.isEncryptionEnabled()).toBe(true);
+                await waitFor(() => expect(unencryptedComposer(container)).toBeNull());
+            });
+
+            it("clears RoomView's e2eStatus once the room is toggled back to unencrypted", async () => {
+                // updateRoomEncrypted() used to only ever set e2eStatus, never clear it - harmless for a real
+                // room (encryption can't be switched back off there) but a toggle can, and the composer keys
+                // off e2eStatus being truthy alone.
+                const ref = createRef<RoomView>();
+                await mountRoomView(ref);
+                await waitFor(() => expect(getToggle()).toBeEnabled());
+                await waitFor(() => expect(ref.current!.state.e2eStatus).toBeDefined());
+                expect(ref.current!.state.isRoomEncrypted).toBe(true);
+
+                fireEvent.click(getToggle());
+
+                await waitFor(() => expect(ref.current!.state.isRoomEncrypted).toBe(false));
+                expect(ref.current!.state.e2eStatus).toBeUndefined();
             });
         });
 

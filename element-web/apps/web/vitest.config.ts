@@ -20,7 +20,9 @@ export default defineProject({
             // happy-dom environment, unlike plain "node") refuses to serve src/apps/**/*.test.ts
             // files at all ("Cannot find module /@fs/...") - they sit outside apps/web/'s own
             // filesystem boundary, one level above the repo root this config's own __dirname is in.
-            allow: [resolve(__dirname, "../../..")],
+            // (Not resolve() above - that helper takes a single module specifier, so passing it a
+            // second argument silently allowed apps/web itself instead of the repo root.)
+            allow: [fileURLToPath(new URL("../../../", import.meta.url))],
         },
     },
     resolve: {

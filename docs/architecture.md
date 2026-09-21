@@ -37,7 +37,8 @@ needs to hook into something Element's own code owns: routing a Social deep link
 apps section of the space bar and UserMenu, adding a room banner to the settings/right-panel/room
 header, exporting a previously-private component so an app can reuse it, and similar. Every such
 edit is marked with a `// haven apps-framework patch` (or `// haven patch`, for something more
-one-off) comment at the point of change — a plain code comment, not an actual patch file. Its job
+one-off) comment at the point of change — or, as most edits do in practice, a `// Haven:` comment
+that also says why — a plain code comment, not an actual patch file. Its job
 is to make Haven's edits visually distinguishable from upstream's own code when reading a file, and
 to make merging in new upstream commits easier: a conflict on a marked line is expected and means
 "reconcile Haven's hook with whatever upstream changed here"; a conflict anywhere else is a sign
@@ -47,7 +48,8 @@ To see the current, live list of every upstream file Haven touches, don't rely o
 doc (it will drift) — ask git directly:
 
 ```
-grep -rl "haven apps-framework patch\|haven patch" element-web/ --include="*.ts" --include="*.tsx" --include="*.pcss"
+grep -rlE "haven apps-framework patch|haven patch|Haven:" element-web/apps element-web/packages \
+    --include="*.ts" --include="*.tsx" --include="*.pcss" --include="*.scss" --include="*.css"
 ```
 
 As of this writing that list spans routing (`vector/routing.ts`), the main layout components
@@ -56,6 +58,14 @@ As of this writing that list spans routing (`vector/routing.ts`), the main layou
 devtools, bridge settings), theme `.pcss` files (each imports `src/apps/*/styles/*.scss`), and the
 desktop Electron builder config. New apps will likely add to this list; that's expected and fine —
 keep marking edits with the same comment convention rather than letting them blend in silently.
+
+An edit to an upstream file is the kind of change an upstream merge can quietly undo (a conflict-free
+merge, or a conflict resolved toward upstream), so each one should come with a colocated vitest test
+that fails if it disappears, added to the explicit file list in `.github/workflows/tests.yml` — that
+list is the merge gate (the wider suites have known unrelated failures and aren't gated on). Changes
+that are pure assets/CSS with no code path to unit-test still get one: see
+`element-web/apps/web/src/utils/havenPistolEmojiFont.test.ts`, which reads the font and `@font-face`
+rules directly.
 
 ## Keeping up to date with upstream
 

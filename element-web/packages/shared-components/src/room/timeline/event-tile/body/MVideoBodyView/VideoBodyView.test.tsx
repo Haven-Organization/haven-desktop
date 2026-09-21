@@ -8,7 +8,7 @@
 import React from "react";
 import { composeStories } from "@storybook/react-vite";
 import { fireEvent, render, screen } from "@test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { MockViewModel } from "../../../../../core/viewmodel/MockViewModel";
 import * as stories from "./VideoBodyView.stories";
@@ -125,5 +125,49 @@ describe("VideoBodyView", () => {
 
         fireEvent.play(video);
         expect(onPlay).toHaveBeenCalledTimes(1);
+    });
+
+    // Haven: regression coverage for the removal of the runtime playback-error overlay. A native
+    // <video> `error` event used to be wired through vm.onError to swap the whole player for an
+    // "Unable to play video due to error" label - it false-positived (e.g. right after a video
+    // played through to the end), so the wiring was dropped. An upstream merge that brings back an
+    // onError prop on the <video>, or on VideoBodyViewActions, fails here.
+    describe("Haven: no runtime playback-error overlay", () => {
+        const readySnapshot: VideoBodyViewSnapshot = {
+            state: VideoBodyViewState.READY,
+            videoLabel: "Product demo video",
+            maxWidth: 320,
+            maxHeight: 180,
+            aspectRatio: "16/9",
+            src: "https://example.org/demo.mp4",
+            controls: true,
+        };
+
+        it("keeps rendering the video when the <video> element dispatches an error event", () => {
+            const vm = new TestVideoBodyViewModel(readySnapshot);
+            render(<VideoBodyView vm={vm} />);
+            const video = screen.getByLabelText("Product demo video");
+
+            fireEvent.error(video);
+
+            expect(screen.getByLabelText("Product demo video")).toBeInTheDocument();
+            expect(screen.getByLabelText("Product demo video")).toBe(video);
+            expect(screen.queryByText(/unable to play video/i)).not.toBeInTheDocument();
+        });
+
+        it("does not call an onError handler on the view model, even if one is present", () => {
+            const vm = new TestVideoBodyViewModel(readySnapshot);
+            const onError = vi.fn();
+            Object.assign(vm, { onError });
+            render(<VideoBodyView vm={vm} />);
+
+            fireEvent.error(screen.getByLabelText("Product demo video"));
+
+            expect(onError).not.toHaveBeenCalled();
+        });
+
+        it("has no onError in VideoBodyViewActions", () => {
+            expectTypeOf<VideoBodyViewActions>().not.toHaveProperty("onError");
+        });
     });
 });

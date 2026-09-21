@@ -15,6 +15,8 @@ import { type Media } from "@element-hq/element-web-module-api";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import SettingsStore from "../../settings/SettingsStore";
+import { _t } from "../../languageHandler";
+import enStrings from "../../i18n/strings/en_EN.json";
 import { ImageSize } from "../../settings/enums/ImageSize";
 import { mediaFromContent } from "../../customisations/Media";
 import { BLURHASH_FIELD } from "../../utils/image-media";
@@ -135,8 +137,22 @@ describe("VideoBodyViewModel", () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
         imageSizeWatcher = undefined;
     });
+
+    // Haven: queues requestAnimationFrame callbacks instead of running them, so a test can assert
+    // what has (and hasn't) happened before the next frame, then run exactly the frames it wants.
+    const stubAnimationFrames = (): { frames: FrameRequestCallback[]; flush: () => void } => {
+        const frames: FrameRequestCallback[] = [];
+        vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => frames.push(cb));
+        return {
+            frames,
+            flush: (): void => {
+                while (frames.length) frames.shift()!(0);
+            },
+        };
+    };
 
     it("computes the initial hidden snapshot from props", () => {
         const vm = createVm();
@@ -303,11 +319,14 @@ describe("VideoBodyViewModel", () => {
             videoRef: { current: { play } } as any,
         });
         vm.loadInitialMediaIfVisible();
+        const { flush } = stubAnimationFrames();
 
         await flushPromises();
         await vm.onPlay();
 
         expect(vm.getSnapshot().src).toBe("blob:played-video");
+        // Haven: play() is deferred to the next animation frame (see the regression block below).
+        flush();
         expect(play).toHaveBeenCalledTimes(1);
     });
 
@@ -463,5 +482,143 @@ describe("VideoBodyViewModel", () => {
         vm.setOnPreviewClick(onPreviewClick);
 
         expect(listener).not.toHaveBeenCalled();
+    });
+
+    // Haven: regression coverage for the removal of the runtime playback-error overlay (a native
+    // <video> `error` event used to swap the whole player for "Unable to play video due to error" -
+    // it false-positived, e.g. right after a video played through to the end, so the feature was
+    // dropped) and for the deferred play() retry that stays in its place. An upstream merge
+    // re-introducing an error handler, or losing the requestAnimationFrame deferral, fails here.
+    describe("Haven: no runtime playback-error overlay, deferred play() after decrypt", () => {
+        const createEncryptedLazyVm = (
+            overrides: Partial<ConstructorParameters<typeof VideoBodyViewModel>[0]> & {
+                sourceUrl?: string | Promise<string | null>;
+            } = {},
+        ): VideoBodyViewModel => {
+            const { sourceUrl = "blob:played-video", ...rest } = overrides;
+            return createVm({
+                mxEvent: createEvent({ content: { file: { url: "mxc://server/encrypted-video" } } }),
+                mediaEventHelper: createMediaEventHelper({ encrypted: true, thumbnailUrl: null, sourceUrl }),
+                mediaVisible: true,
+                ...rest,
+            });
+        };
+
+        it("exposes no error handler and keeps no playback-error state", () => {
+            const vm = createVm({ mediaVisible: true });
+
+            expect((vm as any).onError).toBeUndefined();
+            expect("onError" in vm).toBe(false);
+            expect((vm as any).state).not.toHaveProperty("playbackError");
+            expect((vm as any).state).not.toHaveProperty("awaitingRealSource");
+        });
+
+        it("no longer ships the 'Unable to play video due to error' string", () => {
+            expect(JSON.stringify(enStrings)).not.toContain("Unable to play video due to error");
+            expect((enStrings as any).timeline["m.video"]).not.toHaveProperty("error");
+            // the genuine download/decrypt failure label is untouched
+            expect((enStrings as any).timeline["m.video"].error_decrypting).toBe("Error decrypting video");
+        });
+
+        it("stays READY when the <video> element itself dispatches an error event", () => {
+            const videoEl = document.createElement("video");
+            const vm = createVm({ mediaVisible: true, videoRef: { current: videoEl } });
+            const listener = vi.fn();
+            vm.subscribe(listener);
+            expect(vm.getSnapshot().state).toBe(VideoBodyViewState.READY);
+
+            videoEl.dispatchEvent(new Event("error"));
+
+            expect(vm.getSnapshot().state).toBe(VideoBodyViewState.READY);
+            expect(vm.getSnapshot().errorLabel).toBeUndefined();
+            expect(listener).not.toHaveBeenCalled();
+        });
+
+        it("still shows the error state, with the decrypt label, for a real preload decrypt failure", async () => {
+            vi.spyOn(logger, "warn").mockImplementation(vi.fn());
+            const vm = createVm({
+                mxEvent: createEvent({ content: { file: { url: "mxc://server/encrypted-video" } } }),
+                mediaEventHelper: createMediaEventHelper({
+                    encrypted: true,
+                    thumbnailUrl: Promise.reject(new Error("decrypt failed")),
+                }),
+                mediaVisible: true,
+            });
+            vm.loadInitialMediaIfVisible();
+            await flushPromises();
+
+            expect(vm.getSnapshot().state).toBe(VideoBodyViewState.ERROR);
+            expect(vm.getSnapshot().errorLabel).toBe(_t("timeline|m.video|error_decrypting"));
+        });
+
+        it("still shows the decrypt error, and never plays, when decrypting on click fails", async () => {
+            vi.spyOn(logger, "warn").mockImplementation(vi.fn());
+            const play = vi.fn();
+            const { flush } = stubAnimationFrames();
+            const vm = createEncryptedLazyVm({
+                sourceUrl: Promise.reject(new Error("decrypt failed")),
+                videoRef: { current: { play } } as any,
+            });
+            vm.loadInitialMediaIfVisible();
+            await flushPromises();
+
+            await vm.onPlay();
+            flush();
+
+            expect(vm.getSnapshot().state).toBe(VideoBodyViewState.ERROR);
+            expect(vm.getSnapshot().errorLabel).toBe(_t("timeline|m.video|error_decrypting"));
+            expect(play).not.toHaveBeenCalled();
+        });
+
+        it("defers play() to the next animation frame instead of calling it synchronously", async () => {
+            const play = vi.fn();
+            const { frames, flush } = stubAnimationFrames();
+            const vm = createEncryptedLazyVm({ videoRef: { current: { play } } as any });
+            vm.loadInitialMediaIfVisible();
+            await flushPromises();
+            expect(vm.getSnapshot().src).toBe("data:video/mp4,");
+
+            await vm.onPlay();
+
+            // The real src is set (so the pending React commit can give <video> its src)...
+            expect(vm.getSnapshot().src).toBe("blob:played-video");
+            // ...but play() must wait for that commit, not run against the placeholder src.
+            expect(play).not.toHaveBeenCalled();
+            expect(frames).toHaveLength(1);
+
+            flush();
+            expect(play).toHaveBeenCalledTimes(1);
+        });
+
+        it("skips the deferred play() if the view model was disposed before the frame ran", async () => {
+            const play = vi.fn();
+            const { flush } = stubAnimationFrames();
+            const vm = createEncryptedLazyVm({ videoRef: { current: { play } } as any });
+            vm.loadInitialMediaIfVisible();
+            await flushPromises();
+
+            await vm.onPlay();
+            vm.dispose();
+            flush();
+
+            expect(play).not.toHaveBeenCalled();
+        });
+
+        it("skips the deferred play() if the event changed before the frame ran", async () => {
+            const play = vi.fn();
+            const { flush } = stubAnimationFrames();
+            const vm = createEncryptedLazyVm({ videoRef: { current: { play } } as any });
+            vm.loadInitialMediaIfVisible();
+            await flushPromises();
+
+            await vm.onPlay();
+            vm.setEvent(
+                createEvent({ body: "other video", content: { file: { url: "mxc://server/other-video" } } }),
+                createMediaEventHelper({ encrypted: true, thumbnailUrl: null }),
+            );
+            flush();
+
+            expect(play).not.toHaveBeenCalled();
+        });
     });
 });
