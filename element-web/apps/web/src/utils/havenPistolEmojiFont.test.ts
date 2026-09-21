@@ -10,14 +10,24 @@ import { brotliDecompressSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 
-// Haven: regression coverage for drawing U+1F52B as a real pistol instead of the water pistol the
-// bundled Twemoji Mozilla font carries. It's pure static assets + CSS (no code path to unit-test),
+// SettingsStore first: FontWatcher and Settings.tsx import each other, and loading FontWatcher on its own
+// hits that cycle from the wrong end (Settings.tsx reading FontWatcher.DEFAULT_DELTA before it's defined).
+import "../settings/SettingsStore";
+import { FontWatcher } from "../settings/watchers/FontWatcher";
+import { GunEmojiStyle } from "../settings/enums/GunEmojiStyle";
+
+// Haven: regression coverage for drawing U+1F52B as a real gun (a handgun or a revolver, the user's
+// choice - see the "Haven.gunEmojiStyle" setting) instead of the water pistol the bundled Twemoji
+// Mozilla font carries. It's pure static assets + CSS (no code path to unit-test),
 // which is exactly why an upstream merge could undo it without a single conflict or test failure:
 // res/themes/light/css/_fonts.pcss is an upstream-owned file, and the override only works because
 // of where its rules sit in that file. So this checks the assets and the CSS directly.
 
 const RES = fileURLToPath(new URL("../../res/", import.meta.url));
-const PISTOL_FONT = `${RES}fonts/Haven/HavenPistol-colr.woff2`;
+const GUN_FONTS = [
+    { style: GunEmojiStyle.Handgun, family: "Haven Handgun", file: `${RES}fonts/Haven/HavenHandgun-colr.woff2` },
+    { style: GunEmojiStyle.Revolver, family: "Haven Revolver", file: `${RES}fonts/Haven/HavenRevolver-colr.woff2` },
+];
 const BUNDLED_FONT = `${RES}fonts/Twemoji_Mozilla/TwemojiMozilla-colr.woff2`;
 const FONTS_PCSS = `${RES}themes/light/css/_fonts.pcss`;
 
@@ -107,68 +117,74 @@ function metricsOf(tables: Record<string, Buffer>): Record<string, number> {
     };
 }
 
-describe("Haven pistol emoji font asset", () => {
+describe.each(GUN_FONTS)("Haven $family font asset", ({ file }) => {
     it("exists and is a COLR color font (not a plain outline font)", () => {
-        expect(existsSync(PISTOL_FONT)).toBe(true);
-        const tables = readWoff2Tables(readFileSync(PISTOL_FONT));
+        expect(existsSync(file)).toBe(true);
+        const tables = readWoff2Tables(readFileSync(file));
         expect(Object.keys(tables)).toEqual(expect.arrayContaining(["COLR", "CPAL", "cmap", "glyf"]));
     });
 
     it("covers U+1F52B and nothing else that could shadow ordinary text", () => {
-        const { cmap } = readWoff2Tables(readFileSync(PISTOL_FONT));
+        const { cmap } = readWoff2Tables(readFileSync(file));
         expect(glyphFor(cmap, PISTOL)).toBeDefined();
         expect(glyphFor(cmap, 0x20)).toBeUndefined();
         expect(glyphFor(cmap, 0x1f52a)).toBeUndefined(); // the knife next to it stays the bundled font's
     });
 
     it("has the same em size, line metrics and advance as the bundled Twemoji font, so it can't change line heights", () => {
-        const pistol = metricsOf(readWoff2Tables(readFileSync(PISTOL_FONT)));
+        const gun = metricsOf(readWoff2Tables(readFileSync(file)));
         const bundled = metricsOf(readWoff2Tables(readFileSync(BUNDLED_FONT)));
-        expect(pistol).toEqual(bundled);
+        expect(gun).toEqual(bundled);
     });
+});
 
-    it("is credited (CC-BY 4.0 requires attribution) next to the asset", () => {
+describe("Haven gun emoji fonts' attribution", () => {
+    it("is credited (CC-BY 4.0 requires attribution) next to the assets", () => {
         const readme = readFileSync(`${RES}fonts/Haven/README.txt`, "utf8");
         expect(readme).toContain("CC-BY 4.0");
         expect(readme).toContain("github.com/twitter/twemoji");
     });
 });
 
-describe("Haven pistol emoji @font-face override in _fonts.pcss", () => {
+describe("Haven gun emoji @font-face rules in _fonts.pcss", () => {
     const css = readFileSync(FONTS_PCSS, "utf8");
-    const faces = [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map((match, index) => {
+    const faces = [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map((match) => {
         const body = match[1];
         return {
-            index,
             family: body.match(/font-family:\s*"([^"]+)"/)?.[1],
             weight: body.match(/font-weight:\s*(\d+)/)?.[1],
             range: body.match(/unicode-range:\s*([^;]+);/)?.[1].trim(),
             src: body.match(/url\("([^"]+)"\)/)?.[1],
         };
     });
-    const twemoji = faces.filter((face) => face.family === "Twemoji");
-    const overrides = twemoji.filter((face) => face.range?.toUpperCase() === "U+1F52B");
-    const base = twemoji.filter((face) => !face.range);
 
     it("still has the three full-range bundled Twemoji faces", () => {
+        const base = faces.filter((face) => face.family === "Twemoji");
         expect(base.map((face) => face.weight)).toEqual(["400", "600", "700"]);
         expect(base.every((face) => face.src === "/res/fonts/Twemoji_Mozilla/TwemojiMozilla-colr.woff2")).toBe(true);
+        expect(base.every((face) => !face.range)).toBe(true);
     });
 
-    it("overrides U+1F52B in the same Twemoji family for all three weights", () => {
-        expect(overrides.map((face) => face.weight)).toEqual(["400", "600", "700"]);
-        expect(overrides.every((face) => face.src === "/res/fonts/Haven/HavenPistol-colr.woff2")).toBe(true);
+    describe.each(GUN_FONTS)("$family", ({ family, file }) => {
+        const own = faces.filter((face) => face.family === family);
+
+        it("is declared for all three weights, limited to U+1F52B", () => {
+            expect(own.map((face) => face.weight)).toEqual(["400", "600", "700"]);
+            expect(own.every((face) => face.range?.toUpperCase() === "U+1F52B")).toBe(true);
+        });
+
+        it("points at its own font file, which exists", () => {
+            expect(own.every((face) => face.src === `/res/fonts/Haven/${file.split("/").pop()}`)).toBe(true);
+            expect(existsSync(file)).toBe(true);
+        });
     });
 
-    it("declares the overrides after every full-range face (for overlapping ranges the later face wins)", () => {
-        const lastBase = Math.max(...base.map((face) => face.index));
-        expect(Math.min(...overrides.map((face) => face.index))).toBeGreaterThan(lastBase);
-    });
-
-    it("points every override at a file that actually exists", () => {
-        for (const face of overrides) {
-            expect(existsSync(`${RES}${face.src!.replace(/^\/res\//, "")}`)).toBe(true);
+    it("matches the families FontWatcher puts ahead of Twemoji for each style", () => {
+        for (const { style, family } of GUN_FONTS) {
+            expect(FontWatcher.GUN_EMOJI_FONTS[style]).toBe(`"${family}"`);
         }
+        // Water pistol is Twemoji's own glyph, so it needs no override.
+        expect(FontWatcher.GUN_EMOJI_FONTS[GunEmojiStyle.WaterPistol]).toBeUndefined();
     });
 });
 

@@ -13,3 +13,4 @@ export {
     categoryName,
 } from "./EmojiPicker";
 export { type PickerEmoji } from "./Emoji";
+export { type EmojiSkinTone, EMOJI_SKIN_TONES, applySkinTone, stripSkinTone, skinToneModifier } from "./skinTone";

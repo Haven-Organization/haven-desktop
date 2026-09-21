@@ -192,6 +192,78 @@
     }
 }
 
+/* Haven: wraps the search box so the skin tone button can sit to its right. Without the button
+   (no handler, or sticker mode) it is display: contents, so .search lays out in .main exactly as if
+   the wrapper weren't there. */
+.searchRow {
+    display: contents;
+}
+
+.searchRowWithSkinTone {
+    display: flex;
+    align-items: center;
+    margin: 8px;
+    gap: var(--cpd-space-2x);
+
+    .search {
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+.skinTone {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.skinToneButton,
+.skinToneOption {
+    border: 1px solid transparent;
+    background-color: transparent;
+    border-radius: 4px;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    font-size: var(--cpd-font-size-heading-sm);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+        background-color: var(--cpd-color-bg-subtle-secondary);
+    }
+}
+
+.skinToneButton {
+    border-color: var(--cpd-color-border-interactive-secondary);
+    background-color: var(--cpd-color-bg-canvas-default);
+}
+
+.skinToneMenu {
+    position: absolute;
+    top: calc(100% + var(--cpd-space-1x));
+    right: 0;
+    z-index: 1;
+    display: flex;
+    gap: 2px;
+    padding: var(--cpd-space-1x);
+    border-radius: 6px;
+    border: 1px solid var(--cpd-color-border-interactive-secondary);
+    background-color: var(--cpd-color-bg-canvas-default);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.skinToneOptionSelected {
+    border-color: var(--cpd-color-border-accent);
+    background-color: var(--cpd-color-bg-subtle-secondary);
+}
+
 .searchIcon {
     width: 18px;
     margin: var(--cpd-space-2x);

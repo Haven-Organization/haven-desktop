@@ -8,6 +8,7 @@
 import React, { useMemo } from "react";
 import { EmojiPicker, type EmojiPickerProps } from "@element-hq/web-shared-components";
 import * as recent from "./recent";
+import { useEmojiSkinTone } from "./useEmojiSkinTone";
 import { getWebRovingAction } from "../accessibility/RovingTabIndex";
 
 /**
@@ -33,6 +34,7 @@ export function EmojiPickerWithRecents({
     // There isn't anything for us to key the memoisation off here. This will just
     // update when the component mounts which is probably good enough.
     const recentEmojis = useMemo(() => recent.get(), []);
+    const skinToneProps = useEmojiSkinTone();
 
     return (
         <EmojiPicker
@@ -46,6 +48,7 @@ export function EmojiPickerWithRecents({
             onFilterChange={onFilterChange}
             belowSearch={belowSearch}
             onFreeformEnter={onFreeformEnter}
+            {...skinToneProps}
             stockLayout
         />
     );

@@ -23,6 +23,7 @@ export default class SystemFontController extends SettingController {
             useBundledEmojiFont: this.settingsStore.getValue("useBundledEmojiFont"),
             useSystemFont: this.settingsStore.getValue("useSystemFont"),
             font: this.settingsStore.getValue("systemFont"),
+            gunEmojiStyle: this.settingsStore.getValue("Haven.gunEmojiStyle"),
         });
     }
 }

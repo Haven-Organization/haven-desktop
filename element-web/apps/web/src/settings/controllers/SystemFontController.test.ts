@@ -23,12 +23,14 @@ describe("SystemFontController", () => {
             if (settingName === "useBundledEmojiFont") return false;
             if (settingName === "useSystemFont") return true;
             if (settingName === "systemFont") return "Comic Sans MS";
+            if (settingName === "Haven.gunEmojiStyle") return "revolver";
         });
         controller.onChange();
 
         expect(dispatchSpy).toHaveBeenCalledWith({
             action: Action.UpdateSystemFont,
             useBundledEmojiFont: false,
+            gunEmojiStyle: "revolver",
             useSystemFont: true,
             font: "Comic Sans MS",
         });

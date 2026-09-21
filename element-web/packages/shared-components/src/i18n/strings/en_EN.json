@@ -87,7 +87,14 @@
     "emoji_picker": {
         "cancel_search_label": "Cancel search",
         "emoji_picker": "Emoji picker",
-        "open_settings": "Open settings"
+        "open_settings": "Open settings",
+        "skin_tone": "Skin tone",
+        "skin_tone_dark": "Dark skin tone",
+        "skin_tone_light": "Light skin tone",
+        "skin_tone_medium": "Medium skin tone",
+        "skin_tone_medium_dark": "Medium-dark skin tone",
+        "skin_tone_medium_light": "Medium-light skin tone",
+        "skin_tone_none": "Default skin tone"
     },
     "keyboard": {
         "shift": "Shift"

@@ -13,6 +13,7 @@ import { toPx } from "../../utils/units";
 import { Action } from "../../dispatcher/actions";
 import { type UpdateSystemFontPayload } from "../../dispatcher/payloads/UpdateSystemFontPayload";
 import { type ActionPayload } from "../../dispatcher/payloads";
+import { GunEmojiStyle } from "../enums/GunEmojiStyle";
 
 export class FontWatcher implements IWatcher {
     /**
@@ -61,6 +62,7 @@ export class FontWatcher implements IWatcher {
             useBundledEmojiFont: SettingsStore.getValue("useBundledEmojiFont"),
             useSystemFont: SettingsStore.getValue("useSystemFont"),
             font: SettingsStore.getValue("systemFont"),
+            gunEmojiStyle: SettingsStore.getValue("Haven.gunEmojiStyle"),
         });
     }
 
@@ -76,6 +78,7 @@ export class FontWatcher implements IWatcher {
                 useBundledEmojiFont: false,
                 useSystemFont: false,
                 font: "",
+                gunEmojiStyle: GunEmojiStyle.WaterPistol,
             });
         } else if (payload.action === Action.OnLoggedIn) {
             // Font size can be saved on the account, so grab value when logging in
@@ -97,11 +100,36 @@ export class FontWatcher implements IWatcher {
     public static readonly EMOJI_FONT_FAMILY_CUSTOM_PROPERTY = "--emoji-font-family";
     public static readonly BUNDLED_EMOJI_FONT = "Twemoji";
 
+    /**
+     * Haven: the one-glyph font family (see res/themes/light/css/_fonts.pcss) that draws the 🔫
+     * emoji in each non-default style. Water pistol has none: it's what BUNDLED_EMOJI_FONT itself
+     * draws.
+     */
+    public static readonly GUN_EMOJI_FONTS: Partial<Record<GunEmojiStyle, string>> = {
+        [GunEmojiStyle.Handgun]: '"Haven Handgun"',
+        [GunEmojiStyle.Revolver]: '"Haven Revolver"',
+    };
+
+    /**
+     * Haven: the bundled emoji font stack for a gun emoji style - the style's own one-glyph font
+     * (if it has one) ahead of BUNDLED_EMOJI_FONT, so it replaces just that one glyph and everything
+     * else still comes from the bundled font.
+     */
+    public static bundledEmojiFontStack(gunEmojiStyle: GunEmojiStyle): string {
+        return [FontWatcher.GUN_EMOJI_FONTS[gunEmojiStyle], FontWatcher.BUNDLED_EMOJI_FONT]
+            .filter(Boolean)
+            .join(", ");
+    }
+
     private setSystemFont = ({
         useBundledEmojiFont,
         useSystemFont,
         font,
-    }: Pick<UpdateSystemFontPayload, "useBundledEmojiFont" | "useSystemFont" | "font">): void => {
+        gunEmojiStyle,
+    }: Pick<
+        UpdateSystemFontPayload,
+        "useBundledEmojiFont" | "useSystemFont" | "font" | "gunEmojiStyle"
+    >): void => {
         if (useSystemFont) {
             let fontString = font
                 .split(",")
@@ -115,7 +143,7 @@ export class FontWatcher implements IWatcher {
                 .join(",");
 
             if (useBundledEmojiFont) {
-                fontString += ", " + FontWatcher.BUNDLED_EMOJI_FONT;
+                fontString += ", " + FontWatcher.bundledEmojiFontStack(gunEmojiStyle);
             }
 
             /**
@@ -129,7 +157,7 @@ export class FontWatcher implements IWatcher {
             if (useBundledEmojiFont) {
                 document.body.style.setProperty(
                     FontWatcher.EMOJI_FONT_FAMILY_CUSTOM_PROPERTY,
-                    FontWatcher.BUNDLED_EMOJI_FONT,
+                    FontWatcher.bundledEmojiFontStack(gunEmojiStyle),
                 );
             } else {
                 document.body.style.removeProperty(FontWatcher.EMOJI_FONT_FAMILY_CUSTOM_PROPERTY);

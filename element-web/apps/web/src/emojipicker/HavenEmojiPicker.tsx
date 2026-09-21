@@ -18,6 +18,7 @@ import {
 import { type MatrixClient, type Room } from "matrix-js-sdk/src/matrix";
 
 import * as recent from "./recent";
+import { useEmojiSkinTone } from "./useEmojiSkinTone";
 import { getWebRovingAction } from "../accessibility/RovingTabIndex";
 import { _t } from "../languageHandler";
 import AccessibleButton from "../components/views/elements/AccessibleButton";
@@ -232,6 +233,7 @@ export function HavenEmojiPicker({
 }: IProps): React.ReactNode {
     const [filter, setFilter] = useState("");
     const recentEmojis = useMemo(() => recent.get(), []);
+    const skinToneProps = useEmojiSkinTone();
 
     const stickerMode = mode === "sticker";
     const packUsage: ImagePackUsage = stickerMode ? "sticker" : "emoticon";
@@ -389,6 +391,7 @@ export function HavenEmojiPicker({
             renderEmptyStateCategory={renderEmptyStateCategory}
             onFilterChange={setFilter}
             onFreeformEnter={allowFreeformReaction ? onClickFreeformReact : undefined}
+            {...skinToneProps}
             belowSearch={
                 allowFreeformReaction &&
                 filter.trim() && (

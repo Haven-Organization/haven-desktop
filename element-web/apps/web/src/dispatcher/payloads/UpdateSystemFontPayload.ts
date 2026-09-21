@@ -8,6 +8,7 @@ Please see LICENSE files in the repository root for full details.
 
 import { type ActionPayload } from "../payloads";
 import { type Action } from "../actions";
+import { type GunEmojiStyle } from "../../settings/enums/GunEmojiStyle";
 
 export interface UpdateSystemFontPayload extends ActionPayload {
     action: Action.UpdateSystemFont;
@@ -26,4 +27,10 @@ export interface UpdateSystemFontPayload extends ActionPayload {
      * The system font to use
      */
     font: string;
+
+    /**
+     * Haven: which design to draw the 🔫 emoji with - see GunEmojiStyle. Only takes effect while
+     * useBundledEmojiFont is set.
+     */
+    gunEmojiStyle: GunEmojiStyle;
 }

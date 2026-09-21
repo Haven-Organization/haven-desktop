@@ -15,6 +15,7 @@ import { uniq, sortBy, uniqBy, type ListIteratee } from "lodash";
 import EMOTICON_REGEX from "emojibase-regex/emoticon";
 import { type Room } from "matrix-js-sdk/src/matrix";
 import { EMOJI, type Emoji, getEmojiFromUnicode } from "@matrix-org/emojibase-bindings";
+import { applySkinTone } from "@element-hq/web-shared-components";
 
 import { _t } from "../languageHandler";
 import AutocompleteProvider from "./AutocompleteProvider";
@@ -180,6 +181,7 @@ export default class EmojiProvider extends AutocompleteProvider {
             completions = recentlyUsedAutocomplete.concat(completions);
             completions = uniqBy(completions, "emoji");
 
+            const tone = SettingsStore.getValue("Haven.emojiSkinTone");
             return completions.map((c) => {
                 if (isCustomEmoji(c.emoji)) {
                     const custom: CustomEmojiLike = c.emoji;
@@ -203,11 +205,14 @@ export default class EmojiProvider extends AutocompleteProvider {
                         range: range!,
                     };
                 }
+                // Haven: insert the emoji in the user's chosen skin tone (a no-op for emoji without
+                // skin variants, and when the tone is "none").
+                const { unicode } = applySkinTone(c.emoji, tone);
                 return {
-                    completion: c.emoji.unicode,
+                    completion: unicode,
                     component: (
-                        <PillCompletion title={`:${c.emoji.shortcodes[0]}:`} aria-label={c.emoji.unicode}>
-                            <span>{c.emoji.unicode}</span>
+                        <PillCompletion title={`:${c.emoji.shortcodes[0]}:`} aria-label={unicode}>
+                            <span>{unicode}</span>
                         </PillCompletion>
                     ),
                     range: range!,

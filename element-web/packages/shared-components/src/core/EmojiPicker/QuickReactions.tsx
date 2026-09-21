@@ -7,13 +7,14 @@
  * Please see LICENSE files in the repository root for full details.
  */
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { getEmojiFromUnicode, type Emoji as IEmoji } from "@matrix-org/emojibase-bindings";
 import classNames from "classnames";
 
 import { _t } from "../i18n/i18n";
 import { Toolbar, type RovingTabIndexProviderProps } from "../roving";
 import { Emoji } from "./Emoji";
+import { applySkinTone, type EmojiSkinTone } from "./skinTone";
 import { type ButtonEvent } from "./RovingButton";
 import styles from "./EmojiPicker.module.css";
 import { Heading } from "@vector-im/compound-web";
@@ -44,12 +45,17 @@ interface IProps {
      * When omitted, a default mapping based on `KeyboardEvent.key` is used.
      */
     getAction?: RovingTabIndexProviderProps["getAction"];
+    /**
+     * Haven: skin tone applied to the quick reactions that have variants (👍, 👎, ...). Defaults to none.
+     */
+    skinTone?: EmojiSkinTone;
 }
 
 /**
  * A row of quick reaction emojis at the bottom of the emoji picker.
  */
-export const QuickReactions: React.FC<IProps> = ({ selectedEmojis, onClick, getAction }) => {
+export const QuickReactions: React.FC<IProps> = ({ selectedEmojis, onClick, getAction, skinTone = "none" }) => {
+    const reactions = useMemo(() => QUICK_REACTIONS.map((emoji) => applySkinTone(emoji, skinTone)), [skinTone]);
     const [hover, setHover] = useState<IEmoji | undefined>(undefined);
 
     const onMouseEnter = useCallback((emoji: IEmoji): void => {
@@ -73,7 +79,7 @@ export const QuickReactions: React.FC<IProps> = ({ selectedEmojis, onClick, getA
                 )}
             </Heading>
             <Toolbar className={styles.list} aria-label={_t("emoji|quick_reactions")} getAction={getAction}>
-                {QUICK_REACTIONS.map((emoji) => (
+                {reactions.map((emoji) => (
                     // Haven: .itemWrapper belongs on its own wrapping div, not passed straight through
                     // as Emoji's own className - that puts it on the same element as Emoji's internal
                     // RovingButton, whose .itemButton class (see EmojiPicker.module.css's own doc)

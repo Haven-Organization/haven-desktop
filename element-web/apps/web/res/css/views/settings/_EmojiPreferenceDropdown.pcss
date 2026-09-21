@@ -1,0 +1,53 @@
+/*
+Copyright 2026 Haven
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+/* A settings row with a dropdown instead of a toggle: title and description on the left (typography
+   matching SettingsToggleInput's own label/help text), the dropdown on the right. */
+.mx_EmojiPreferenceDropdown {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--cpd-space-6x);
+
+    .mx_EmojiPreferenceDropdown_text {
+        flex: 1;
+        min-width: 0;
+        /* Line the text up with the toggles' own titles above (past their switch). */
+        padding-inline-start: var(--cpd-space-12x);
+    }
+
+    .mx_EmojiPreferenceDropdown_label {
+        display: block;
+        font: var(--cpd-font-body-md-medium);
+        color: var(--cpd-color-text-primary);
+    }
+
+    .mx_EmojiPreferenceDropdown_description {
+        font: var(--cpd-font-body-sm-regular);
+        color: var(--cpd-color-text-secondary);
+    }
+
+    .mx_Dropdown {
+        flex: 0 0 auto;
+    }
+
+    .mx_Dropdown_input {
+        width: 200px;
+    }
+}
+
+.mx_EmojiPreferenceDropdown_option {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+}
+
+.mx_EmojiPreferenceDropdown_preview {
+    display: inline-block;
+    min-width: 1.5em;
+    text-align: center;
+}

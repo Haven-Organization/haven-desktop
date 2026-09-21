@@ -20,30 +20,49 @@
 }
 
 /*
- * Haven: 🔫 (U+1F52B) drawn as a real pistol instead of the water pistol the Twemoji Mozilla font
- * above still carries (Twemoji swapped the art in 2.6, April 2018). Same "Twemoji" family, but a
- * later @font-face with a narrower unicode-range takes priority over earlier faces for the
- * codepoints they both cover - so this only ever replaces that one glyph, everything else still
- * comes from the faces above. Only applies while the bundled emoji font is on (it's what puts
- * "Twemoji" in the font stack in the first place). Same three weights as above for the same
- * Chrome-on-Windows reason. Font built from Twemoji's own assets/svg/1f52b.svg at commit a6f943b95
- * (CC-BY 4.0) - see res/fonts/Haven/README.txt.
+ * Haven: alternative designs for the 🔫 emoji (U+1F52B). The bundled Twemoji font above draws the
+ * water pistol Twemoji switched to in 2.6 (April 2018); these one-glyph fonts draw the modern
+ * handgun from Twemoji's repository and the pre-2018 revolver instead. Each family covers only
+ * that one codepoint, so a family placed ahead of "Twemoji" in the emoji font stack replaces just
+ * that glyph and leaves everything else to Twemoji - FontWatcher builds that stack from the
+ * "Haven.gunEmojiStyle" setting (the water pistol option adds neither, it's simply Twemoji's own).
+ * Only takes effect while the bundled emoji font is on, since that's what puts these in the stack
+ * at all. Same three weights as above for the same Chrome-on-Windows reason. Graphics are Twemoji's
+ * own (CC-BY 4.0) - see res/fonts/Haven/README.txt.
  */
 @font-face {
-    font-family: "Twemoji";
+    font-family: "Haven Handgun";
     font-weight: 400;
     unicode-range: U+1F52B;
-    src: url("/res/fonts/Haven/HavenPistol-colr.woff2") format("woff2");
+    src: url("/res/fonts/Haven/HavenHandgun-colr.woff2") format("woff2");
 }
 @font-face {
-    font-family: "Twemoji";
+    font-family: "Haven Handgun";
     font-weight: 600;
     unicode-range: U+1F52B;
-    src: url("/res/fonts/Haven/HavenPistol-colr.woff2") format("woff2");
+    src: url("/res/fonts/Haven/HavenHandgun-colr.woff2") format("woff2");
 }
 @font-face {
-    font-family: "Twemoji";
+    font-family: "Haven Handgun";
     font-weight: 700;
     unicode-range: U+1F52B;
-    src: url("/res/fonts/Haven/HavenPistol-colr.woff2") format("woff2");
+    src: url("/res/fonts/Haven/HavenHandgun-colr.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Haven Revolver";
+    font-weight: 400;
+    unicode-range: U+1F52B;
+    src: url("/res/fonts/Haven/HavenRevolver-colr.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Haven Revolver";
+    font-weight: 600;
+    unicode-range: U+1F52B;
+    src: url("/res/fonts/Haven/HavenRevolver-colr.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Haven Revolver";
+    font-weight: 700;
+    unicode-range: U+1F52B;
+    src: url("/res/fonts/Haven/HavenRevolver-colr.woff2") format("woff2");
 }

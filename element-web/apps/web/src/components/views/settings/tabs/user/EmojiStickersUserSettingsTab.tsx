@@ -36,6 +36,7 @@ import {
 import { PackEditor } from "../../emojistickers/PackEditor";
 import Modal from "../../../../../Modal";
 import CopyPackDialog from "../../../dialogs/CopyPackDialog";
+import { EmojiSkinToneSwitcher, GunEmojiStyleSwitcher } from "../../EmojiPreferenceSwitchers";
 
 function packKey(pack: { roomId: string; stateKey: string }): string {
     return `${pack.roomId} ${pack.stateKey}`;
@@ -115,7 +116,10 @@ export default function EmojiStickersUserSettingsTab({ closeSettingsFn }: Props)
                 <SettingsSubsection formWrap>
                     <SettingsFlag name="Haven.sendImagePackReferences" level={SettingLevel.ACCOUNT} />
                     <SettingsFlag name="Haven.disableCustomEmojiPicker" level={SettingLevel.ACCOUNT} />
+                    <EmojiSkinToneSwitcher />
+                    <GunEmojiStyleSwitcher />
                 </SettingsSubsection>
+                {/* Haven: keep Favorite Packs last - the long list (and its Save bar) belongs at the bottom. */}
                 <SettingsSubsection
                     heading={_t("settings|emoji_stickers|favorite_packs")}
                     description={_t("settings|emoji_stickers|favorite_packs_description")}

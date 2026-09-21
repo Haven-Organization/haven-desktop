@@ -26,6 +26,8 @@ import { Tabs } from "./Tabs";
 import { Search } from "./Search";
 import { Preview } from "./Preview";
 import { QuickReactions } from "./QuickReactions";
+import { SkinToneSelector } from "./SkinToneSelector";
+import { applySkinTone, stripSkinTone, type EmojiSkinTone } from "./skinTone";
 import { Emoji, type PickerEmoji } from "./Emoji";
 import { type ButtonEvent } from "./RovingButton";
 import styles from "./EmojiPicker.module.css";
@@ -243,6 +245,16 @@ export interface EmojiPickerProps {
      * (e.g. EmojiButton.tsx's own composer usage, which has no freeform option to prefer instead).
      */
     onFreeformEnter?: () => void;
+    /**
+     * Haven: the user's preferred skin tone. Emoji that have skin tone variants are shown (and
+     * chosen, and recorded as recents) in this tone. Ignored in "sticker" mode. Defaults to none.
+     */
+    skinTone?: EmojiSkinTone;
+    /**
+     * Haven: when given (and not in "sticker" mode), a skin tone button is shown to the right of the
+     * search box, and picking a tone from it calls this.
+     */
+    onSkinToneChange?: (tone: EmojiSkinTone) => void;
 }
 
 /** Haven: a previously-sent freeform (non-emoji) reaction (see HavenEmojiPicker.tsx's
@@ -264,13 +276,18 @@ function makeFreeformEmoji(text: string): PickerEmoji {
  *  that isn't a real known emoji is a previously-sent freeform reaction - kept (as a stand-in
  *  PickerEmoji, see makeFreeformEmoji) rather than dropped like an actual unknown/removed emoji
  *  would be. */
-function resolveRecentEmojis(recentEmojis: string[] | undefined): PickerEmoji[] {
+function resolveRecentEmojis(recentEmojis: string[] | undefined, tone: EmojiSkinTone): PickerEmoji[] {
     const seen = new Set<string>();
     const result: PickerEmoji[] = [];
     for (const entry of recentEmojis ?? []) {
-        if (seen.has(entry)) continue;
-        seen.add(entry);
-        result.push(getEmojiFromUnicode(entry) ?? makeFreeformEmoji(entry));
+        // Haven: a recent that was picked in some other tone (👍🏽) isn't a base emoji, so look up
+        // its base (👍) and re-apply the current tone - otherwise it would show as a freeform entry
+        // and the same emoji would appear once per tone it was ever used in.
+        const known = getEmojiFromUnicode(entry) ?? getEmojiFromUnicode(stripSkinTone(entry));
+        const emoji: PickerEmoji = known ? applySkinTone(known, tone) : makeFreeformEmoji(entry);
+        if (seen.has(emoji.unicode)) continue;
+        seen.add(emoji.unicode);
+        result.push(emoji);
     }
     return result;
 }
@@ -349,6 +366,8 @@ export function EmojiPicker({
     belowSearch,
     stockLayout = false,
     onFreeformEnter,
+    skinTone,
+    onSkinToneChange,
 }: EmojiPickerProps): React.ReactNode {
     const [filter, setFilter] = useState("");
     const [previewEmoji, setPreviewEmoji] = useState<PickerEmoji | undefined>(undefined);
@@ -361,7 +380,10 @@ export function EmojiPicker({
     const searchRef = useRef<HTMLInputElement>(null);
     const virtuosoRef = useRef<VirtuosoHandle>(null);
 
-    const recentlyUsed = useMemo(() => resolveRecentEmojis(recentEmojis), [recentEmojis]);
+    // Haven: stickers have no skin tones, so none of this applies in sticker mode.
+    const tone: EmojiSkinTone = mode === "sticker" ? "none" : (skinTone ?? "none");
+
+    const recentlyUsed = useMemo(() => resolveRecentEmojis(recentEmojis, tone), [recentEmojis, tone]);
 
     const lcFilter = filter.toLowerCase().trim(); // filter is case insensitive
 
@@ -395,7 +417,12 @@ export function EmojiPicker({
                       dataByStickerCategory?.[cat.id] ??
                       DATA_BY_CATEGORY[cat.id as keyof typeof DATA_BY_CATEGORY] ??
                       []);
-            const emojis = filterEmojis(source, lcFilter);
+            // Haven: only the stock unicode categories are toned here - "recent" already was (see
+            // resolveRecentEmojis), and a pack's own images have no skin variants to apply.
+            const isStock =
+                cat.id !== "recent" && !dataByExtraCategory?.[cat.id] && !dataByStickerCategory?.[cat.id];
+            const filtered = filterEmojis(source, lcFilter);
+            const emojis = isStock ? filtered.map((emoji) => applySkinTone(emoji, tone)) : filtered;
             dataByCategory[cat.id] = emojis;
             if (emojis.length > 0) {
                 enabledCategories.push(cat.id);
@@ -403,7 +430,7 @@ export function EmojiPicker({
         }
 
         return { dataByCategory, enabledCategories };
-    }, [activeCategoryConfig, lcFilter, recentlyUsed, dataByExtraCategory, dataByStickerCategory]);
+    }, [activeCategoryConfig, lcFilter, recentlyUsed, dataByExtraCategory, dataByStickerCategory, tone]);
 
     const [selectedCategory, setSelectedCategory] = useState<CategoryKey>(
         activeCategoryConfig[0]?.id ?? "recent",
@@ -667,6 +694,8 @@ export function EmojiPicker({
 
     const pickerBodyId = useId();
 
+    const showSkinToneSelector = mode !== "sticker" && onSkinToneChange !== undefined;
+
     return (
         <RovingGridIndexProvider
             getGridCell={getGridcell}
@@ -697,15 +726,24 @@ export function EmojiPicker({
                     {/* Haven: everything but the rail (Tabs above) stacked in its own column - see
                         .main/.picker's own doc in EmojiPicker.module.css. */}
                     <div className={classNames(styles.main, { [styles.mainStock]: stockLayout })}>
-                        <Search
-                            query={filter}
-                            onChange={onChangeFilter}
-                            onEnter={onEnterFilter}
-                            onTab={onFreeformEnter ? onTabToGrid : undefined}
-                            onKeyDown={onKeyDownHandler}
-                            inputRef={searchRef}
-                            controlsId={pickerBodyId}
-                        />
+                        {/* Haven: wraps the search box so the skin tone button can share its row - without
+                            a button the wrapper is display: contents, i.e. not there as far as layout goes. */}
+                        <div
+                            className={classNames(styles.searchRow, {
+                                [styles.searchRowWithSkinTone]: showSkinToneSelector,
+                            })}
+                        >
+                            <Search
+                                query={filter}
+                                onChange={onChangeFilter}
+                                onEnter={onEnterFilter}
+                                onTab={onFreeformEnter ? onTabToGrid : undefined}
+                                onKeyDown={onKeyDownHandler}
+                                inputRef={searchRef}
+                                controlsId={pickerBodyId}
+                            />
+                            {showSkinToneSelector && <SkinToneSelector tone={tone} onChange={onSkinToneChange} />}
+                        </div>
                         {belowSearch}
                         <AutoHideScrollbar
                             id={pickerBodyId}
@@ -734,6 +772,7 @@ export function EmojiPicker({
                                     onClick={onClickEmoji}
                                     selectedEmojis={selectedEmojis}
                                     getAction={getAction}
+                                    skinTone={tone}
                                 />
                             ))}
                     </div>

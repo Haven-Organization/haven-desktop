@@ -12,7 +12,7 @@ import React, { type ReactNode } from "react";
 import { STABLE_MSC4133_EXTENDED_PROFILES, UNSTABLE_MSC4133_EXTENDED_PROFILES } from "matrix-js-sdk/src/matrix";
 import { type JsonDocument, type JsonValue } from "shared-types";
 // Import these directly from shared-components to avoid circular deps
-import { _t, _td } from "@element-hq/web-shared-components";
+import { _t, _td, type EmojiSkinTone } from "@element-hq/web-shared-components";
 
 import { type MediaPreviewConfig } from "../@types/media_preview.ts";
 import DeviceIsolationModeController from "./controllers/DeviceIsolationModeController.ts";
@@ -35,6 +35,7 @@ import ReducedMotionController from "./controllers/ReducedMotionController";
 import IncompatibleController from "./controllers/IncompatibleController";
 import { ImageSize } from "./enums/ImageSize";
 import { ReactionPillSize } from "./enums/ReactionPillSize";
+import { GunEmojiStyle } from "./enums/GunEmojiStyle";
 import { MetaSpace } from "../stores/spaces";
 import SdkConfig from "../SdkConfig";
 import SlidingSyncController from "./controllers/SlidingSyncController";
@@ -374,6 +375,12 @@ export interface Settings {
     // Haven: escape hatch back to the plain shared-components picker - see this key's own doc
     // further down for the full explanation.
     "Haven.disableCustomEmojiPicker": IBaseSetting<boolean>;
+    // Haven: which design the bundled emoji font draws for the 🔫 emoji - see GunEmojiStyle.ts and
+    // FontWatcher.setSystemFont's own doc.
+    "Haven.gunEmojiStyle": IBaseSetting<GunEmojiStyle>;
+    // Haven: preferred skin tone for emoji that have one - see EmojiSkinTone's own doc in
+    // shared-components' skinTone.ts. Applied by the emoji picker and emoji autocomplete.
+    "Haven.emojiSkinTone": IBaseSetting<EmojiSkinTone>;
     // Haven: widens the new room list's Unreads filter to include plain activity unreads - see
     // UnreadFilter.ts's own doc.
     "Haven.showAllUnreadRoomsInUnreadsFilter": IBaseSetting<boolean>;
@@ -1459,6 +1466,24 @@ export const SETTINGS: Settings = {
         displayName: _td("settings|emoji_stickers|disable_custom_emoji_picker"),
         description: _td("settings|emoji_stickers|disable_custom_emoji_picker_description"),
         default: false,
+    },
+    // Haven: see GunEmojiStyle.ts. Device-only like "useBundledEmojiFont" itself, which this only
+    // does anything while enabled. The SystemFontController is what pushes a change through to
+    // FontWatcher, which is what actually rewrites the emoji font stack.
+    "Haven.gunEmojiStyle": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
+        displayName: _td("settings|emoji_stickers|gun_emoji_style"),
+        description: _td("settings|emoji_stickers|gun_emoji_style_description"),
+        default: GunEmojiStyle.Handgun,
+        controller: new SystemFontController(),
+    },
+    // Haven: see EmojiSkinTone in shared-components' skinTone.ts. Account-level so it follows the
+    // user to every device.
+    "Haven.emojiSkinTone": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|emoji_stickers|emoji_skin_tone"),
+        description: _td("settings|emoji_stickers|emoji_skin_tone_description"),
+        default: "none" satisfies EmojiSkinTone,
     },
     // Haven: Social app - see social-actions.ts's own sendComment/crossPostReply. On by default
     // (matches the behavior this setting was added to make optional).

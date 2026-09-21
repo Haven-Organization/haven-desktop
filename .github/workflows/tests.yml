@@ -77,7 +77,7 @@ jobs:
             # suite) - tracked separately, not something to hard-gate on yet. This list is every
             # Haven-authored/extended test file added for emoji-picker/reactions/room-list coverage,
             # plus the pre-send DM encryption toggle, highlighted-event scroll anchoring, the removed
-            # video error overlay, the pistol emoji font override, and Social/framework's own
+            # video error overlay, the gun emoji fonts + style/skin tone settings, and Social/framework's own
             # src/apps tests (repo-root, picked up via vitest.config.ts's own include) - each
             # individually verified green - a real, reliable regression gate for the features
             # most likely to break in an upstream merge, without pretending the rest of the suite is
@@ -88,6 +88,7 @@ jobs:
                   npx vitest run --retry 2
                   src/HtmlUtils.test.ts
                   src/createRoom.test.ts
+                  src/autocomplete/EmojiProvider.skinTone.test.ts
                   src/components/structures/ScrollPanel.test.tsx
                   src/components/views/context_menus/MessageContextMenu.test.tsx
                   src/components/views/dialogs/AddToPackDialog.test.tsx
@@ -97,10 +98,14 @@ jobs:
                   src/components/views/emojipicker/customEmoji.test.ts
                   src/components/views/rooms/EventTile/ActionBarAdapter.test.tsx
                   src/components/views/rooms/EventTile/ReactionsRowAdapter.test.tsx
+                  src/components/views/settings/EmojiPreferenceSwitchers.test.tsx
                   src/components/views/settings/emojistickers/PackEditor.test.tsx
                   src/components/views/settings/tabs/room/EmojiStickersRoomSettingsTab.test.tsx
                   src/emojipicker/HavenEmojiPicker.test.tsx
+                  src/emojipicker/useEmojiSkinTone.test.tsx
                   src/models/LocalRoom.test.ts
+                  src/settings/controllers/SystemFontController.test.ts
+                  src/settings/watchers/FontWatcher.test.ts
                   src/settings/watchers/RoomListBackdropWatcher.test.ts
                   src/stores/right-panel/RightPanelStore.test.ts
                   src/stores/room-list-v3/RoomListStoreV3.test.ts
@@ -144,5 +149,7 @@ jobs:
               run: >
                   npx vitest run
                   src/core/EmojiPicker/EmojiPicker.test.tsx
+                  src/core/EmojiPicker/EmojiPicker.skinTone.test.tsx
+                  src/core/EmojiPicker/skinTone.test.ts
                   src/room/timeline/event-tile/body/MVideoBodyView/VideoBodyView.test.tsx
                   src/room/timeline/event-tile/reactions/ReactionsRowButton/ReactionsRowButton.test.tsx
