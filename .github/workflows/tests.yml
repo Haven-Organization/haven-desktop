@@ -115,6 +115,7 @@ jobs:
                   src/legacy-room-list
                   src/models/LocalRoom.test.ts
                   src/settings/controllers/SystemFontController.test.ts
+                  src/settings/havenBackdropBlur.test.ts
                   src/settings/havenEmojiSettings.test.ts
                   src/settings/watchers/FontWatcher.test.ts
                   src/settings/watchers/RoomListBackdropWatcher.test.ts

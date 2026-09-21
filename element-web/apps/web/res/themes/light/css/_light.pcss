@@ -1,4 +1,8 @@
 :root {
+    /* Haven: blur amount for the room list / spaces bar backdrop. BackdropPanel.tsx reads this off the root
+       element to blur the avatar image behind those panels. Upstream removed the definition when it dropped its
+       own blurred left panel, but Haven's backdrop still needs it (havenBackdropBlur.test.ts guards it). */
+    --lp-background-blur: 40px;
     /* This is set to Twemoji when the user opts into the bundled emoji font */
     --emoji-font-family: "";
 }

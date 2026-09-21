@@ -295,3 +295,10 @@ body {
         radial-gradient(100% 100% at 0% 0%, hsl(250deg, 100%, 88%, 0.3) 0%, hsl(0deg, 100%, 86%, 0) 100%),
         radial-gradient(106.35% 96.26% at 100% 0%, hsl(25deg, 100%, 88%, 0.4) 0%, hsl(167deg, 76%, 82%, 0) 100%) !important;
 }
+
+/* Haven: blur amount for the room list / spaces bar backdrop. BackdropPanel.tsx reads this off the root
+   element to blur the avatar image behind those panels. Upstream removed the definition when it dropped its
+   own blurred left panel, but Haven's backdrop still needs it (havenBackdropBlur.test.ts guards it). */
+:root {
+    --lp-background-blur: 45px;
+}
