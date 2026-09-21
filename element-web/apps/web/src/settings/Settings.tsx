@@ -1531,7 +1531,7 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
         displayName: _td("settings|emoji_stickers|gun_emoji_style"),
         description: _td("settings|emoji_stickers|gun_emoji_style_description"),
-        default: GunEmojiStyle.Handgun,
+        default: GunEmojiStyle.Revolver,
         controller: new SystemFontController(),
     },
     // Haven: see EmojiSkinTone in shared-components' skinTone.ts. Account-level so it follows the

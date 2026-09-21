@@ -53,7 +53,7 @@ describe("FontWatcher", function () {
         await setSystemFont("Font Name");
         expect(getFontFamily()).toMatchInlineSnapshot(`""`);
         await watcher.start();
-        expect(getFontFamily()).toMatchInlineSnapshot(`""Font Name", "Haven Handgun", Twemoji"`);
+        expect(getFontFamily()).toMatchInlineSnapshot(`""Font Name", "Haven Revolver", Twemoji"`);
     });
 
     it("should load font on Action.OnLoggedIn", async () => {
@@ -61,14 +61,14 @@ describe("FontWatcher", function () {
         await new FontWatcher().start();
         document.body.style.removeProperty(FontWatcher.FONT_FAMILY_CUSTOM_PROPERTY); // clear the fontFamily which was  by start which we tested already
         defaultDispatcher.fire(Action.OnLoggedIn, true);
-        expect(getFontFamily()).toMatchInlineSnapshot(`""Font Name", "Haven Handgun", Twemoji"`);
+        expect(getFontFamily()).toMatchInlineSnapshot(`""Font Name", "Haven Revolver", Twemoji"`);
     });
 
     it("should reset font on Action.OnLoggedOut", async () => {
         await setSystemFont("Font Name");
         const watcher = new FontWatcher();
         await watcher.start();
-        expect(getFontFamily()).toMatchInlineSnapshot(`""Font Name", "Haven Handgun", Twemoji"`);
+        expect(getFontFamily()).toMatchInlineSnapshot(`""Font Name", "Haven Revolver", Twemoji"`);
         defaultDispatcher.fire(Action.OnLoggedOut, true);
         expect(getFontFamily()).toMatchInlineSnapshot(`""`);
     });
@@ -85,15 +85,15 @@ describe("FontWatcher", function () {
 
         it("encloses the fonts by double quotes and sets them as the system font", async () => {
             await setSystemFont("Fira Sans Thin, Commodore 64");
-            expect(getFontFamily()).toMatchInlineSnapshot(`""Fira Sans Thin","Commodore 64", "Haven Handgun", Twemoji"`);
+            expect(getFontFamily()).toMatchInlineSnapshot(`""Fira Sans Thin","Commodore 64", "Haven Revolver", Twemoji"`);
         });
         it("does not add double quotes if already present and sets the font as the system font", async () => {
             await setSystemFont(`"Commodore 64"`);
-            expect(getFontFamily()).toMatchInlineSnapshot(`""Commodore 64", "Haven Handgun", Twemoji"`);
+            expect(getFontFamily()).toMatchInlineSnapshot(`""Commodore 64", "Haven Revolver", Twemoji"`);
         });
         it("trims whitespace, encloses the fonts by double quotes, and sets them as the system font", async () => {
             await setSystemFont(`  Fira Code  ,  "Commodore 64" `);
-            expect(getFontFamily()).toMatchInlineSnapshot(`""Fira Code","Commodore 64", "Haven Handgun", Twemoji"`);
+            expect(getFontFamily()).toMatchInlineSnapshot(`""Fira Code","Commodore 64", "Haven Revolver", Twemoji"`);
         });
     });
 
@@ -109,7 +109,7 @@ describe("FontWatcher", function () {
         });
 
         it("by default adds Twemoji font", async () => {
-            expect(getEmojiFontFamily()).toMatchInlineSnapshot(`""Haven Handgun", Twemoji"`);
+            expect(getEmojiFontFamily()).toMatchInlineSnapshot(`""Haven Revolver", Twemoji"`);
         });
         it("does not add Twemoji font when disabled", async () => {
             await setUseBundledEmojiFont(false);
@@ -118,33 +118,33 @@ describe("FontWatcher", function () {
         it("works in conjunction with useSystemFont", async () => {
             await setSystemFont(`"Commodore 64"`);
             await setUseBundledEmojiFont(true);
-            expect(getFontFamily()).toMatchInlineSnapshot(`""Commodore 64", "Haven Handgun", Twemoji"`);
+            expect(getFontFamily()).toMatchInlineSnapshot(`""Commodore 64", "Haven Revolver", Twemoji"`);
         });
 
         // Haven: the gun emoji style puts its own single-glyph font ahead of Twemoji so it replaces just U+1F52B.
         describe("gun emoji style", () => {
             afterEach(async () => {
-                await setGunEmojiStyle(GunEmojiStyle.Handgun);
+                await setGunEmojiStyle(GunEmojiStyle.Revolver);
             });
 
-            it("puts the revolver font ahead of Twemoji", async () => {
-                await setGunEmojiStyle(GunEmojiStyle.Revolver);
-                expect(getEmojiFontFamily()).toMatchInlineSnapshot(`""Haven Revolver", Twemoji"`);
+            it("puts the handgun font ahead of Twemoji", async () => {
+                await setGunEmojiStyle(GunEmojiStyle.Handgun);
+                expect(getEmojiFontFamily()).toMatchInlineSnapshot(`""Haven Handgun", Twemoji"`);
             });
             it("adds nothing for the water pistol, which is what Twemoji itself draws", async () => {
                 await setGunEmojiStyle(GunEmojiStyle.WaterPistol);
                 expect(getEmojiFontFamily()).toMatchInlineSnapshot(`"Twemoji"`);
             });
             it("is ignored when the bundled emoji font is disabled", async () => {
-                await setGunEmojiStyle(GunEmojiStyle.Revolver);
+                await setGunEmojiStyle(GunEmojiStyle.Handgun);
                 await setUseBundledEmojiFont(false);
                 expect(getEmojiFontFamily()).toMatchInlineSnapshot(`""`);
                 await setUseBundledEmojiFont(true);
             });
             it("applies to the system font stack too", async () => {
                 await setSystemFont(`"Commodore 64"`);
-                await setGunEmojiStyle(GunEmojiStyle.Revolver);
-                expect(getFontFamily()).toMatchInlineSnapshot(`""Commodore 64", "Haven Revolver", Twemoji"`);
+                await setGunEmojiStyle(GunEmojiStyle.Handgun);
+                expect(getFontFamily()).toMatchInlineSnapshot(`""Commodore 64", "Haven Handgun", Twemoji"`);
             });
         });
     });

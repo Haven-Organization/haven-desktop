@@ -29,9 +29,9 @@ const CSS_ROOT = resolve(import.meta.dirname, "../../res/css") + "/";
 describe("Haven.gunEmojiStyle setting", () => {
     const setting = SETTINGS["Haven.gunEmojiStyle"];
 
-    it("is defined, defaulting to the handgun", () => {
+    it("is defined, defaulting to the revolver", () => {
         expect(setting).toBeDefined();
-        expect(setting.default).toBe(GunEmojiStyle.Handgun);
+        expect(setting.default).toBe(GunEmojiStyle.Revolver);
     });
 
     it("is stored per device, like the bundled emoji font setting it depends on", () => {
@@ -48,10 +48,10 @@ describe("Haven.gunEmojiStyle setting", () => {
     });
 
     it("round-trips through the settings store", async () => {
-        await SettingsStore.setValue("Haven.gunEmojiStyle", null, SettingLevel.DEVICE, GunEmojiStyle.Revolver);
-        expect(SettingsStore.getValue("Haven.gunEmojiStyle")).toBe(GunEmojiStyle.Revolver);
         await SettingsStore.setValue("Haven.gunEmojiStyle", null, SettingLevel.DEVICE, GunEmojiStyle.Handgun);
         expect(SettingsStore.getValue("Haven.gunEmojiStyle")).toBe(GunEmojiStyle.Handgun);
+        await SettingsStore.setValue("Haven.gunEmojiStyle", null, SettingLevel.DEVICE, GunEmojiStyle.Revolver);
+        expect(SettingsStore.getValue("Haven.gunEmojiStyle")).toBe(GunEmojiStyle.Revolver);
     });
 });
 
