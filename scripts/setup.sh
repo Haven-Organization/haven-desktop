@@ -45,6 +45,22 @@ ELEMENT_WEB_DIR="$ROOT_DIR/element-web"
 # instead of a separate patch/asset-copy step now that Haven's code lives directly in this repo. If
 # branding is touched again in a later commit, that commit's own changes obviously won't be covered
 # by this revert - update BRANDING_COMMIT (or switch to a range) if that happens.
+#
+# For a TEXT file, "revert to pre-branding content" means reverse-applying just this commit's own
+# diff for that path (see the loop below) - not restoring the whole file to its BRANDING_COMMIT^
+# snapshot. A whole-file restore brings back everything else in the file as it was back then too,
+# which for a file that keeps evolving is almost never what's wanted: confirmed live 2026-09-21,
+# webpack.config.ts's BRANDING_COMMIT^ content still imported "./components.json" and referenced the
+# legacy Module/Customisation API, both removed by upstream since - restoring the whole file broke
+# the unbranded build outright ("Unable to load 'webpack.config.ts'", since that stale import chain
+# no longer resolves). The same whole-file-staleness problem had already forced three earlier
+# one-off patches to this file alone (the resolve.alias/legacy-room-list fix, the .svg?react loader
+# shape fix, the postcss-easings import removal - all in this script's own prior history) before
+# finally breaking hard enough to be caught here instead of shipping silently broken. Reverting only
+# the actual branding lines, via a real patch, can't reintroduce content upstream has since deleted
+# elsewhere in the same file - it never touches those lines in the first place - so this eliminates
+# the whole bug class rather than fixing the latest instance of it, and all three of those one-off
+# patches are gone now (nothing left for them to counteract).
 BRANDING_COMMIT="e92aa1bd70d07a9e9ffba574bf21ee637d57faaf"
 
 # BRANDING_COMMIT bundled in a couple of non-branding fixes alongside the actual rebrand, which
@@ -74,6 +90,25 @@ BRANDING_COMMIT="e92aa1bd70d07a9e9ffba574bf21ee637d57faaf"
 #   rather glowers element just show the same informative "haven-vX.Y.Z+element-vA.B.C-N-gHASH"
 #   string every other build gets than try to hide "haven" from a Settings > Help string that isn't
 #   really user-facing branding the way logos/icons are - so package.sh no longer reverts at all.
+# - SdkConfig.ts: upstream dropped the `DEFAULTS: DeepReadonly<IConfigOptions>` type annotation in
+#   d4f72dfa69 ("Start consolidating shared types in the monorepo"), a type-only refactor unrelated
+#   to branding, merged into this fork well after BRANDING_COMMIT was made against an older upstream
+#   tree that still had it. That puts current develop's own line and BRANDING_COMMIT's own diff
+#   context on a permanent collision course: reverse-applying the branding diff here always produces
+#   a real 3-way conflict (confirmed live 2026-09-21), forever, since neither side is going to move
+#   again on its own. A one-time hand resolution wouldn't stay resolved - the same conflict reappears
+#   on the very next unbranded build - so this file gets the same kind of direct, targeted patch as
+#   electron-builder.ts's AppImage line below instead of going through the generic revert loop at all.
+# - BackgroundAudio.ts: this file's *entire* diff in the branding commit is a real feature with
+#   nothing cosmetic about it - `play()` gained an optional `maxDurationSeconds` that cuts off
+#   playback early, added so a user-uploaded custom notification sound (unlike the bundled ones)
+#   can't play indefinitely. Notifier.ts (a different file, untouched by BRANDING_COMMIT so never
+#   reverted) calls `play()` with that third argument unconditionally - reverting this file back to
+#   the old two-argument signature doesn't just lose the cap, it leaves Notifier.ts's own call site
+#   passing an argument `play()` no longer accepts, which is a compile error, not a quiet regression
+#   (confirmed live 2026-09-21, caught by the "Unbranded build stays buildable" CI step this same fix
+#   added). Same reasoning as AppImage packaging below: a real, unrelated capability bundled into the
+#   branding commit, kept for an unbranded build the same as a branded one.
 #
 # Excluded from the revert loop below rather than folded into BRANDING_COMMIT^'s content, so an
 # unbranded build keeps these fixes; only the *visual identity* (logos/icons/backgrounds/copy)
@@ -88,16 +123,28 @@ BRANDING_REVERT_EXCLUDE=(
     "element-web/apps/web/res/themes/light-high-contrast/css/light-high-contrast.pcss"
     "element-web/apps/web/src/components/views/auth/AuthFooter.tsx"
     "element-web/apps/web/scripts/package.sh"
+    "element-web/apps/web/src/SdkConfig.ts"
+    "element-web/apps/web/src/audio/BackgroundAudio.ts"
 )
 
 if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
     echo "==> HAVEN_NO_BRANDING set - reverting to stock Element branding"
-    # Files the branding commit modified existed before it too, so `git checkout <parent> --
-    # <path>` restores their pre-branding content. Files it added (e.g. the Haven-specific desktop
-    # build variant) don't exist at <parent> at all, so the same checkout would fail on them -
-    # those instead need removing outright. [ -e "$path" ] guards that removal so re-running this
-    # against an already-reverted tree (e.g. building twice in a row without switching branding
-    # back in between) doesn't fail trying to `git rm` a path that's already gone.
+    # Files the branding commit added (e.g. the Haven-specific desktop build variant) don't exist at
+    # <parent> at all, so removing them outright is the correct "revert" for those - no diff to
+    # reverse-apply, the file simply shouldn't exist. [ -e "$path" ] guards that removal so
+    # re-running this against an already-reverted tree (e.g. building twice in a row without
+    # switching branding back in between) doesn't fail trying to `git rm` a path that's already gone.
+    #
+    # For every other (modified) file: a binary asset (icon/logo/background/sound) has no text diff
+    # to reverse-apply at all, and never changes again once Haven replaces it once, so reverting the
+    # whole blob to its pre-branding content is exactly right - `git diff --numstat` reports "-" for
+    # both counts on a binary file, which is what picks that path out below. A text file instead gets
+    # `git show BRANDING_COMMIT -- <path> | git apply -R --3way` - reverse-applying just this commit's
+    # own lines for that path as a 3-way merge, rather than restoring the whole file's BRANDING_COMMIT^
+    # content (see this script's own comment above BRANDING_COMMIT for why). If upstream's own later
+    # changes happen to touch the exact same lines Haven's branding did, `git apply` leaves real
+    # conflict markers and exits non-zero, which this script's own `set -e` turns into a hard stop
+    # instead of silently shipping a broken revert - resolve the conflict by hand if that ever happens.
     while IFS=$'\t' read -r status path; do
         skip=0
         for excluded_file in "${BRANDING_REVERT_EXCLUDE[@]}"; do
@@ -105,249 +152,41 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
         done
         [ "$skip" -eq 1 ] && continue
         case "$status" in
-            A) [ -e "$ROOT_DIR/$path" ] && git -C "$ROOT_DIR" rm -q -f -- "$path" ;;
-            *) git -C "$ROOT_DIR" checkout "${BRANDING_COMMIT}^" -- "$path" ;;
+            A)
+                [ -e "$ROOT_DIR/$path" ] && git -C "$ROOT_DIR" rm -q -f -- "$path"
+                ;;
+            *)
+                added="$(git -C "$ROOT_DIR" diff --numstat "${BRANDING_COMMIT}^" "$BRANDING_COMMIT" -- "$path" | cut -f1)"
+                if [ "$added" = "-" ]; then
+                    git -C "$ROOT_DIR" checkout "${BRANDING_COMMIT}^" -- "$path"
+                elif ! git -C "$ROOT_DIR" show "$BRANDING_COMMIT" -- "$path" | git -C "$ROOT_DIR" apply -R --3way; then
+                    echo "HAVEN_NO_BRANDING: reverting '$path' conflicts with changes made to it since $BRANDING_COMMIT - resolve the <<<<<<< markers left in the file by hand" >&2
+                    exit 1
+                fi
+                ;;
         esac
     done < <(git -C "$ROOT_DIR" diff --name-status "${BRANDING_COMMIT}^" "$BRANDING_COMMIT")
 
-    # Unlike AuthFooter.tsx/the theme .pcss files above, electron-builder.ts's branding-relevant
-    # content can't just be excluded wholesale - its own DEFAULT_VARIANT genuinely needs to revert
-    # back to "element.io/release/build.json" (the Haven-specific "haven/release/build.json" it'd
-    # otherwise still point at was just removed above, per its own "A" status). But it also had a
-    # real, non-branding fix land in the same commit, patched back in here rather than lost: its own
-    # linux.target dropped AppImage entirely on revert (silently losing that packaging format for an
-    # unbranded desktop build, not just a cosmetic difference). This sed pattern matches text that's
-    # only ever present in the file's stock (reverted-to) form, so it's a no-op if this block doesn't
-    # run (HAVEN_NO_BRANDING unset).
+    # electron-builder.ts's own branding-commit diff bundled in a real, non-branding improvement
+    # alongside the actual rebrand (its DEFAULT_VARIANT line) - AppImage packaging support, added in
+    # the same commit. Reverse-applying that commit's diff undoes that too, same as it undoes the
+    # variant path, since both are genuinely part of what that commit changed on this exact line;
+    # unlike the webpack.config.ts staleness this script used to work around (see BRANDING_COMMIT's
+    # own comment above), this one isn't a bug to fix so much as a choice - keep AppImage packaging
+    # even in an unbranded build - patched back in here. This sed pattern matches text that's only
+    # ever present right after the revert above ran, so it's a no-op otherwise (HAVEN_NO_BRANDING
+    # unset, or this line changes shape again upstream).
     sed -i 's/target: \["tar.gz", "deb"\],/target: ["tar.gz", "deb", "AppImage"],/' \
         "$ROOT_DIR/element-web/apps/desktop/electron-builder.ts"
 
-    # webpack.config.ts's own branding-commit diff is the same kind of mix as the two files above -
-    # can't be excluded wholesale (the OG image URL default and VERSION string scheme genuinely are
-    # branding and should revert), but it also bundled in an unrelated dependency swap that reverting
-    # otherwise silently undoes: the stock "oidc-client-ts" resolve.alias comes back (a package this
-    # fork doesn't actually have installed - HAVEN_INCLUDE_OLD_ROOM_LIST or not, this alone breaks
-    # every unbranded build outright), and Haven's own "legacy-room-list" alias (see that env var's
-    # own comment above) disappears - an unbranded build with HAVEN_INCLUDE_OLD_ROOM_LIST=1 would
-    # fail to resolve that specifier at all. Confirmed live 2026-07-22 building "glowers element"
-    # with the old room list flag together for the first time - this combination had never actually
-    # been exercised before. Patched back in here the same way as the sed call above; a no-op
-    # if this block doesn't run.
-    python3 - "$ROOT_DIR/element-web/apps/web/webpack.config.ts" <<'PYEOF'
-import sys
-
-path = sys.argv[1]
-with open(path) as f:
-    content = f.read()
-
-old = (
-    '                "matrix-widget-api": getPackageRoot("matrix-widget-api"),\n'
-    '                "oidc-client-ts": getPackageRoot("oidc-client-ts"),\n'
-    "\n"
-    "                // Make shared-components imports resolve to EW deps\n"
-    '                "@vector-im/compound-web": getPackageRoot("@vector-im/compound-web", ""),\n'
-    "            },"
-)
-new = (
-    '                "matrix-widget-api": getPackageRoot("matrix-widget-api"),\n'
-    "\n"
-    "                // Make shared-components imports resolve to EW deps\n"
-    '                "@vector-im/compound-web": getPackageRoot("@vector-im/compound-web", ""),\n'
-    "\n"
-    "                // Haven: the legacy room list is only bundled in at all when explicitly asked for\n"
-    "                // at build time (off by default) - callers only ever import the \"legacy-room-list\"\n"
-    "                // specifier, never a relative path into src/legacy-room-list directly, so this\n"
-    "                // alias is the single point deciding whether the real ~40-file subsystem or a tiny\n"
-    "                // always-present stub ends up in the output. See src/legacy-room-list/index.ts and\n"
-    "                // src/legacy-room-list-stub/index.ts's own doc.\n"
-    '                "legacy-room-list": path.resolve(\n'
-    "                    __dirname,\n"
-    "                    process.env.HAVEN_INCLUDE_OLD_ROOM_LIST\n"
-    '                        ? "src/legacy-room-list"\n'
-    '                        : "src/legacy-room-list-stub",\n'
-    "                ),\n"
-    "            },"
-)
-
-if old in content:
-    content = content.replace(old, new, 1)
-    with open(path, "w") as f:
-        f.write(content)
-PYEOF
-
-    # webpack.config.ts's ".svg?react" loader rule at BRANDING_COMMIT^ is the old, pre-upstream-sync
-    # shape: a single `test: /\.svg$/` rule matched by `issuer` alone, chaining `@svgr/webpack`
-    # (with `namedExport: "Icon"`) into `file-loader`. A later upstream sync replaced this with two
-    # separate `resourceQuery`-gated rules (one `@svgr/webpack`-only rule for `?react`, one
-    # `file-loader`-only rule for everything else) with no `namedExport` at all - every `?react`
-    # import in this codebase (see src/@types/svg.d.ts's own `declare module "*.svg?react"`) expects
-    # the *default* export to be the component. The old chained-loader shape's `namedExport: "Icon"`
-    # makes `@svgr/webpack` put the component on a named `Icon` export instead and let `file-loader`
-    # (next in the chain) supply the *default* export - a bare asset URL string. Both configurations
-    # compile without error, but production mode's module-concatenation optimizer non-deterministically
-    # decides which binding satisfies a plain default import for a module exporting both, so a plain
-    # `import Icon from "foo.svg?react"` (this codebase's only usage pattern) sometimes gets the real
-    # component and sometimes gets the raw URL string, crashing with `createElement(urlString)` at
-    # runtime. Confirmed 2026-07-25 building "glowers element": Settings > Appearance crashed outright
-    # (ImageSizePanel's two icons) while the identical source built without HAVEN_NO_BRANDING did not -
-    # same source and same rule *text*, just reverted-vs-current webpack.config.ts. Patched back to the
-    # current (correct) two-rule shape here, the same way as the resolve.alias fix above; a no-op if
-    # this block doesn't run or the old text isn't found (e.g. this rule changes again upstream).
-    python3 - "$ROOT_DIR/element-web/apps/web/webpack.config.ts" <<'PYEOF'
-import sys
-
-path = sys.argv[1]
-with open(path) as f:
-    content = f.read()
-
-old = (
-    "                {\n"
-    "                    test: /\\.svg$/,\n"
-    "                    issuer: /\\.(js|ts|jsx|tsx|html)$/,\n"
-    "                    use: [\n"
-    "                        {\n"
-    '                            loader: "@svgr/webpack",\n'
-    "                            options: {\n"
-    '                                namedExport: "Icon",\n'
-    "                                svgProps: {\n"
-    '                                    "role": "presentation",\n'
-    '                                    "aria-hidden": true,\n'
-    "                                },\n"
-    "                                // props set on the svg will override defaults\n"
-    '                                expandProps: "end",\n'
-    "                                svgoConfig: {\n"
-    "                                    plugins: [\n"
-    "                                        {\n"
-    '                                            name: "preset-default",\n'
-    "                                            params: {\n"
-    "                                                overrides: {\n"
-    "                                                    removeViewBox: false,\n"
-    "                                                },\n"
-    "                                            },\n"
-    "                                        },\n"
-    "                                        // generates a viewbox if missing\n"
-    '                                        { name: "removeDimensions" },\n'
-    "                                        // https://github.com/facebook/docusaurus/issues/8297\n"
-    '                                        { name: "prefixIds" },\n'
-    "                                    ],\n"
-    "                                },\n"
-    "                                /**\n"
-    "                                 * Forwards the React ref to the root SVG element\n"
-    "                                 * Useful when using things like `asChild` in\n"
-    "                                 * radix-ui\n"
-    "                                 */\n"
-    "                                ref: true,\n"
-    "                                esModule: false,\n"
-    '                                name: "[name].[hash:7].[ext]",\n'
-    "                                outputPath: getAssetOutputPath,\n"
-    "                                publicPath: function (url: string, resourcePath: string) {\n"
-    "                                    const outputPath = getAssetOutputPath(url, resourcePath);\n"
-    "                                    return toPublicPath(outputPath);\n"
-    "                                },\n"
-    "                            },\n"
-    "                        },\n"
-    "                        {\n"
-    '                            loader: "file-loader",\n'
-    "                            options: {\n"
-    "                                esModule: false,\n"
-    '                                name: "[name].[hash:7].[ext]",\n'
-    "                                outputPath: getAssetOutputPath,\n"
-    "                                publicPath: function (url: string, resourcePath: string) {\n"
-    "                                    const outputPath = getAssetOutputPath(url, resourcePath);\n"
-    "                                    return toPublicPath(outputPath);\n"
-    "                                },\n"
-    "                            },\n"
-    "                        },\n"
-    "                    ],\n"
-    "                },\n"
-)
-new = (
-    "                {\n"
-    "                    test: /\\.svg$/,\n"
-    "                    issuer: /\\.(js|ts|jsx|tsx|html)$/,\n"
-    "                    resourceQuery: /react/,\n"
-    '                    loader: "@svgr/webpack",\n'
-    "                    options: {\n"
-    "                        svgProps: {\n"
-    '                            "role": "presentation",\n'
-    '                            "aria-hidden": true,\n'
-    "                        },\n"
-    "                        // props set on the svg will override defaults\n"
-    '                        expandProps: "end",\n'
-    "                        svgoConfig: {\n"
-    "                            plugins: [\n"
-    "                                {\n"
-    '                                    name: "preset-default",\n'
-    "                                    params: {\n"
-    "                                        overrides: {\n"
-    "                                            removeViewBox: false,\n"
-    "                                        },\n"
-    "                                    },\n"
-    "                                },\n"
-    "                                // generates a viewbox if missing\n"
-    '                                { name: "removeDimensions" },\n'
-    "                                // https://github.com/facebook/docusaurus/issues/8297\n"
-    '                                { name: "prefixIds" },\n'
-    "                            ],\n"
-    "                        },\n"
-    "                        /**\n"
-    "                         * Forwards the React ref to the root SVG element\n"
-    "                         * Useful when using things like `asChild` in\n"
-    "                         * radix-ui\n"
-    "                         */\n"
-    "                        ref: true,\n"
-    "                        esModule: false,\n"
-    "                    },\n"
-    "                },\n"
-    "                {\n"
-    "                    test: /\\.svg$/,\n"
-    "                    issuer: /\\.(js|ts|jsx|tsx|html)$/,\n"
-    "                    resourceQuery: { not: [/raw/, /react/] },\n"
-    '                    loader: "file-loader",\n'
-    "                    options: {\n"
-    "                        esModule: false,\n"
-    '                        name: "[name].[hash:7].[ext]",\n'
-    "                        outputPath: getAssetOutputPath,\n"
-    "                        publicPath: function (url: string, resourcePath: string) {\n"
-    "                            const outputPath = getAssetOutputPath(url, resourcePath);\n"
-    "                            return toPublicPath(outputPath);\n"
-    "                        },\n"
-    "                    },\n"
-    "                },\n"
-)
-
-if old in content:
-    content = content.replace(old, new, 1)
-    with open(path, "w") as f:
-        f.write(content)
-else:
-    print("WARNING: old .svg?react webpack rule text not found - skipping SVG loader fix, check if it needs updating", file=sys.stderr)
-PYEOF
-
-    # webpack.config.ts at BRANDING_COMMIT^ still imports and calls the "postcss-easings" PostCSS
-    # plugin, which a later (non-branding) commit dropped as a dependency entirely - reverting to
-    # this old snapshot brings the import back without the package still being installed. This
-    # isn't a silent bug like the two patches above (nothing renders wrong) - it's a hard failure:
-    # webpack-cli can't even load webpack.config.ts at all ("Cannot find package 'postcss-easings'"
-    # surfaces as a confusing "Unable to use specified module loaders for '.ts'" instead, since
-    # webpack-cli's error handling for a config file whose *own* import fails looks the same as one
-    # it can't parse as TypeScript at all). Confirmed 2026-08-16 cutting the 0.6.0 release: "glowers
-    # element" failed outright the first time this specific dependency-removal commit and
-    # HAVEN_NO_BRANDING had ever been exercised together. Same revert-then-strip-back-out approach
-    # as the two patches above; a no-op if this text isn't found (e.g. the plugin list changes again).
-    python3 - "$ROOT_DIR/element-web/apps/web/webpack.config.ts" <<'PYEOF'
-import sys
-
-path = sys.argv[1]
-with open(path) as f:
-    content = f.read()
-
-content = content.replace('import postcssEasings from "postcss-easings";\n', "", 1)
-content = content.replace("                                        postcssEasings(),\n", "", 1)
-
-with open(path, "w") as f:
-    f.write(content)
-PYEOF
+    # SdkConfig.ts (see this file's own exclusion above for why it's not in the revert loop): a
+    # direct substitution of the three actual branding values, matching this file's current
+    # (branded) content exactly so it's a no-op - not an error - if this file changes shape again.
+    sed -i \
+        -e 's/brand: "Haven",/brand: "Element",/' \
+        -e 's#logo_link_url: "https://github.com/Haven-Organization",#logo_link_url: "https://element.io",#' \
+        -e 's#auth_header_logo_url: "vector-icons/144.png",#auth_header_logo_url: "themes/element/img/logos/element-logo.svg",#' \
+        "$ROOT_DIR/element-web/apps/web/src/SdkConfig.ts"
 fi
 
 if [ -n "${HAVEN_LOGIN_BACKGROUND:-}" ]; then

@@ -165,3 +165,25 @@ jobs:
                   src/core/EmojiPicker/skinTone.test.ts
                   src/room/timeline/event-tile/body/MVideoBodyView/VideoBodyView.test.tsx
                   src/room/timeline/event-tile/reactions/ReactionsRowButton/ReactionsRowButton.test.tsx
+
+            # Runs last and reverts branding in place, since HAVEN_NO_BRANDING touches
+            # webpack.config.ts/SdkConfig.ts/electron-builder.ts/etc. for the rest of this checkout -
+            # nothing after this step may assume Haven's own branding is still there. Exercises
+            # setup.sh's own revert (see its own extensive comments on why - a whole-file revert to a
+            # year-old commit can reintroduce imports of things upstream has since deleted, exactly
+            # what broke the real "glowers element" unbranded build outright after the 2026-09-21
+            # upstream sync, undetected until someone tried to build it) and that the reverted tree
+            # still actually compiles, rather than only checking the revert script itself runs. A
+            # type-check is a cheap stand-in for a full webpack build (which nothing in this workflow
+            # does even for Haven's own branding) - it still catches a config file whose own imports
+            # don't resolve, the exact failure mode this exists to guard.
+            - name: Unbranded build stays buildable (HAVEN_NO_BRANDING)
+              env:
+                  COREPACK_ENABLE_STRICT: "0"
+                  PNPM_CONFIG_PM_ON_FAIL: ignore
+                  npm_config_pm_on_fail: ignore
+                  HAVEN_NO_BRANDING: "1"
+              run: |
+                  ./scripts/setup.sh
+                  cd element-web/apps/web
+                  pnpm exec tsc --noEmit
