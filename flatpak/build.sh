@@ -14,6 +14,18 @@ python3 flatpak-node/populate_pnpm_store.py flatpak-node/pnpm-manifest.json flat
 sed -i '/^storeDir:/d' element-web/pnpm-workspace.yaml
 echo 'storeDir: '$PWD'/flatpak-node/pnpm-store' >> element-web/pnpm-workspace.yaml
 
+# @matrix-org/seshat lists prebuilt native binaries for every platform as optional dependencies. They
+# are neither vendored nor wanted here (the module is built from source below), so take them out of
+# the lockfile before installing - see strip-seshat-prebuilt.py for why this isn't a pnpm setting.
+python3 flatpak/strip-seshat-prebuilt.py element-web/pnpm-lock.yaml
+
+# `pnpm install` runs apps/desktop's `electron-builder install-app-deps`, which rebuilds its native
+# dependencies (pkcs11js, for upstream's X.509 verification) for Electron with node-gyp. @electron/rebuild
+# keeps Electron's node headers in ~/.electron-gyp and downloads them from electronjs.org when they are
+# missing, which the sandbox can't do - so point that directory at the headers the manifest vendors
+# (generated-sources.json puts them in the node-gyp cache, which has the same layout).
+ln -sfn "$ROOT/flatpak-node/cache/node-gyp" "$HOME/.electron-gyp"
+
 cd element-web && CI=true pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false && cd ..
 
 cd element-web/apps/web && HAVEN_INCLUDE_OLD_ROOM_LIST=1 pnpm build && cd ../../..
@@ -22,111 +34,39 @@ cp element-web/apps/web/config.sample.json element-web/apps/web/webapp/config.js
 
 cd element-web/apps/desktop && pnpm exec asar pack ../web/webapp webapp.asar && cd ../../..
 
-# Build matrix-seshat (local encrypted-room message search) from source using Element's own "hak"
-# native-module build tool. Never wired up for this from-source build before now - matrix-seshat
-# only ever made it into a shippable build via a manually pre-built
-# ".hak/hakModules/matrix-seshat" directory nobody's from-scratch checkout (including this one)
-# could reproduce, so every published build here has been silently shipping a "Cannot find
-# package 'matrix-seshat'" runtime error instead of real search - confirmed live by extracting
-# app.asar from a real published build. hak's own lifecycle (fetch/link/build/copy - see
-# apps/desktop/scripts/hak/README.md) runs entirely without Docker (that's only an optional
-# reproducibility wrapper for scripts/in-docker.sh, not something hak itself needs - checked by
-# reading fetch.ts/build.ts/link.ts/copy.ts directly), so it runs right here the same way this
-# script already runs pnpm/webpack/electron-builder inside flatpak-builder's own sandboxed SDK
-# environment. Verified locally end-to-end (deleted .hak entirely, real network, confirmed the
-# resulting index.node loads and exposes the expected native functions) before writing this, then
-# verified again fully offline (isolated CARGO_HOME + `cargo vendor`, CARGO_NET_OFFLINE=true) to
-# confirm the vendored-sources approach below actually works, not just the theory.
+# Build matrix-seshat (local encrypted-room message search) from source.
 #
-# hak's own "fetch" stage (a pacote npm-registry fetch, then `yarn install`) needs live network
-# access flatpak-builder's sandboxed build never has - worked around by having the *manifest*
-# extract the same matrix-seshat npm tarball directly into both directories fetch.ts would
-# otherwise populate (moduleBuildDir and moduleOutDir - fetch.ts skips its own fetch entirely once
-# moduleBuildDir already exists), so hak's later check/link/build/copy stages behave exactly as if
-# a normal fetch had already happened. yarn (hak hardcodes it, not pnpm) and Rust both come from
-# manifest-provided sources/SDK extensions rather than being fetched here.
+# Upstream used to build it with its own "hak" tool; it now depends on the published
+# @matrix-org/seshat package instead, which loads a native module from a prebuilt per-platform
+# package (@matrix-org/seshat-linux-x64 and friends) and, only if none is installed, falls back to
+# requiring its own ./index.node. Flathub requires building from source rather than unpacking
+# prebuilt binaries, so this never installs those prebuilt packages (see
+# strip-seshat-prebuilt.py above and the filtered generated-sources.json) and compiles the
+# Rust crate the package ships (Cargo.toml + src/) into that ./index.node itself - the same output
+# the package's own "build-bundled" script produces (cargo build --release --features
+# bundled-sqlcipher, then copy the cdylib to index.node), minus the cargo-cp-artifact helper.
 #
-# One real gotcha found only by actually testing this offline (not just reading the source):
-# published matrix-seshat npm tarballs don't ship their own yarn.lock - fetch.ts's own
-# `yarn install --ignore-scripts` step is what *generates* one from package.json's loose semver
-# ranges, resolved against whatever's live in the registry at fetch time. Skipping fetch.ts (as
-# above) skips that generation too, so without also placing a real yarn.lock into moduleBuildDir,
-# the later `yarn install` inside hak's build stage has nothing to resolve from and fails outright
-# even with the offline mirror fully populated (confirmed live: "No lockfile found", then a real
-# network attempt straight to the registry). The manifest's matrix-seshat npm-tarball source needs
-# a pinned yarn.lock layered in on top for the same dest - see flatpak-seshat-vendoring/README.md
-# for exactly which file and where.
-mkdir -p yarn-cli && tar -xzf yarn-1.22.22.tgz -C yarn-cli
-export PATH="$ROOT/yarn-cli/package/bin:/usr/lib/sdk/rust-stable/bin:$PATH"
-HOME="$ROOT" yarn config --offline set yarn-offline-mirror "$ROOT/flatpak-node/yarn-mirror"
-
-# hak/matrix-seshat/build.ts's own "yarn install" call has no --offline flag - having the mirror
-# configured isn't enough on its own, classic Yarn 1.x still does a DNS lookup against
-# registry.yarnpkg.com first ("Fetching packages...") and fails outright in a real network-less
-# sandbox (confirmed live: a real flatpak-builder run failed here with
-# "getaddrinfo EAI_AGAIN registry.yarnpkg.com" even with every package already in the mirror) -
-# an earlier local-only offline test missed this because it used an unreachable IP instead of an
-# unresolvable hostname, which fails a different way and didn't exercise this exact code path.
-sed -i 's#hakEnv\.spawn("yarn", \["install"\]#hakEnv.spawn("yarn", ["install", "--offline"]#' \
-    element-web/apps/desktop/hak/matrix-seshat/build.ts
-
-# Both of this file's own hakEnv.spawn() calls (install, run build) pass shell: true unconditionally
-# - hakEnv.spawn's own default is shell: this.isWin() (false on Linux), so this file opts back into
-# a shell wrapper it doesn't actually need (neither command uses pipes/globs/redirects). Confirmed a
-# real Flathub aarch64 CI build failing here with "Error: spawn /bin/sh ENOENT" - that architecture's
-# build sandbox has no /bin/sh at all (x86_64 does, which is why this was never caught testing there).
-sed -i 's/shell: true,/shell: false,/g' element-web/apps/desktop/hak/matrix-seshat/build.ts
-
-# shell: false alone isn't enough on its own, though - the real npm "yarn" package's installed
-# bin/yarn (what PATH resolves "yarn" to) is *itself* a "#!/bin/sh" script (bin/yarn.js, its real JS
-# entry point, is "#!/usr/bin/env node" instead). Without a shell, the kernel still has to interpret
-# that shebang line to exec bin/yarn at all - same missing-/bin/sh problem one level down, confirmed
-# live against a second real aarch64 CI failure ("Error: spawn yarn ENOENT" once shell: false alone
-# was in place). Routing both calls through `node yarn.js ...` directly sidesteps bin/yarn's shell
-# shebang entirely.
-#
-# A literal "node" string still isn't enough, though (confirmed live against a *third* real aarch64
-# CI failure, "Error: spawn node ENOENT" - the yarn.js path in spawnargs was correct, proving this
-# sed itself worked). child_process.spawn's own PATH-based executable lookup for "node" failed even
-# though this exact script is already running under node right now, invoked successfully moments
-# earlier - some difference between the shell/pnpm-script PATH that launched *this* process and
-# whatever PATH child_process.spawn resolved "node" against here. Using process.execPath (node's own
-# absolute path to itself, always valid, no PATH lookup involved at all) sidesteps the question
-# entirely instead of chasing down that PATH discrepancy.
-sed -i 's#hakEnv\.spawn("yarn", \[#hakEnv.spawn(process.execPath, ["'"$ROOT"'/yarn-cli/package/bin/yarn.js", #g' \
-    element-web/apps/desktop/hak/matrix-seshat/build.ts
-
-# The manifest's matrix-seshat sources (the pre-extracted npm tarball and its pinned yarn.lock -
-# see the manifest's own archive/file sources for element-web/apps/desktop/.hak/matrix-seshat/
-# x86_64-unknown-linux-gnu/build) have to hardcode one target triple in their dest path, because a
-# flatpak manifest source can't itself branch on which arch flatpak-builder happens to be building
-# for. hak's own moduleBuildDir (scripts/hak/index.ts) is built from hakEnv.getTargetId() instead,
-# which resolves per-arch at build time - x86_64-unknown-linux-gnu there too on an x86_64 build (so
-# this was never wrong locally or in any x86_64 CI run), but aarch64-unknown-linux-gnu on aarch64.
-# Confirmed via this file's own now-removed diagnostic block: the real root cause of the
-# "spawn ... ENOENT" failures chased across the last three releases was never the spawned
-# executable at all (node --version at that literal path worked fine) - it was hakEnv.spawn's own
-# cwd option (moduleInfo.moduleBuildDir) pointing at a directory that plain doesn't exist on
-# aarch64, since the manifest only ever populated the x86_64 one. Node's child_process.spawn
-# mis-reports a missing cwd as ENOENT against the executable path instead of the cwd itself - a
-# well known footgun - which is exactly why three straight, individually-correct fixes to *how*
-# the executable was being resolved (shell:true, the yarn wrapper script, a literal "node" string)
-# never actually did anything on aarch64: none of them touched the real problem. Relocating the
-# manifest's pre-populated directory to whatever this build's actual target triple resolves to
-# fixes every arch flatpak-builder might build for, not just aarch64.
-HAK_TARGET_TRIPLE="$(uname -m)-unknown-linux-gnu"
-if [ "$HAK_TARGET_TRIPLE" != "x86_64-unknown-linux-gnu" ]; then
-    mv element-web/apps/desktop/.hak/matrix-seshat/x86_64-unknown-linux-gnu \
-        element-web/apps/desktop/.hak/matrix-seshat/"$HAK_TARGET_TRIPLE"
-fi
-
-cd element-web/apps/desktop
-
-for hak_stage in check link build copy; do
-    HOME="$ROOT" CARGO_HOME="$ROOT/cargo" CARGO_NET_OFFLINE=true SQLCIPHER_BUNDLED=1 \
-        pnpm run hak "$hak_stage" matrix-seshat
-done
-cd ../../..
+# Everything cargo needs comes from the manifest (matrix-seshat-cargo-sources.json, the crates
+# vendored under $ROOT/cargo) and the Rust SDK extension, so this runs with no network. One quirk:
+# the Cargo.lock inside the published @matrix-org/seshat 6.0.1 tarball is stale (it still pins the
+# 5.0.0 release's dependency set - seshat 4.1.0 - while Cargo.toml asks for seshat 5.0.0), which cargo
+# can't reconcile offline. matrix-seshat-Cargo.lock is the lockfile `cargo generate-lockfile` produces
+# for the shipped Cargo.toml, and matrix-seshat-cargo-sources.json was generated from it; regenerate
+# both together whenever the @matrix-org/seshat version changes.
+export PATH="/usr/lib/sdk/rust-stable/bin:$PATH"
+SESHAT_PKG="$(realpath element-web/apps/desktop/node_modules/@matrix-org/seshat)"
+rm -rf "$ROOT/seshat-build"
+cp -rL "$SESHAT_PKG" "$ROOT/seshat-build"
+chmod -R u+w "$ROOT/seshat-build"
+cp flatpak/matrix-seshat-Cargo.lock "$ROOT/seshat-build/Cargo.lock"
+(
+    cd "$ROOT/seshat-build"
+    HOME="$ROOT" CARGO_HOME="$ROOT/cargo" CARGO_NET_OFFLINE=true \
+        cargo build --release --locked --offline --features bundled-sqlcipher
+    cp target/release/libmatrix_seshat.so "$SESHAT_PKG/index.node"
+)
+# Fail here, not at first launch, if the module doesn't actually load.
+(cd element-web/apps/desktop && node -e 'const m = require("@matrix-org/seshat"); if (!m.Seshat) process.exit(1)')
 
 sed -i 's#export default config;#config.publish = null; config.electronDist = "/run/build/haven-desktop/flatpak-node/cache/electron"; config.linux = config.linux || {}; config.linux.target = ["dir"]; export default config;#' element-web/apps/desktop/electron-builder.ts
 

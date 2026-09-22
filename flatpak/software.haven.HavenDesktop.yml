@@ -64,7 +64,6 @@ modules:
           - element-web/apps/web/dist
           - element-web/apps/web/webapp
           - element-web/apps/desktop/dist
-          - element-web/apps/desktop/.hak
       - generated-sources.json
       - type: script
         dest: pnpm-cli/bin
@@ -76,21 +75,7 @@ modules:
         url: https://registry.npmjs.org/pnpm/-/pnpm-11.23.0.tgz
         sha256: 78dcbf44f40cef50d1f4b535ca9961a30edb4b13c420c360bf4068d424a41bc4
         dest-filename: pnpm-11.23.0.tgz
+      # matrix-seshat's Rust crates, vendored for the offline `cargo build` in build.sh (generated from
+      # matrix-seshat-Cargo.lock with flatpak-cargo-generator; the crate itself is the @matrix-org/seshat
+      # package pnpm installs).
       - matrix-seshat-cargo-sources.json
-      - matrix-seshat-yarn-sources.json
-      - type: file
-        url: https://registry.npmjs.org/yarn/-/yarn-1.22.22.tgz
-        sha256: c17d3797fb9a9115bf375e31bfd30058cac6bc9c3b8807a3d8cb2094794b51ca
-        dest-filename: yarn-1.22.22.tgz
-      - type: archive
-        url: https://registry.npmjs.org/matrix-seshat/-/matrix-seshat-5.0.0.tgz
-        sha256: 3c18369a320098b17e2539226d0e96619c9be4693186f376ed11b077a27c95ca
-        dest: element-web/apps/desktop/.hak/matrix-seshat/x86_64-unknown-linux-gnu/build
-      - type: archive
-        url: https://registry.npmjs.org/matrix-seshat/-/matrix-seshat-5.0.0.tgz
-        sha256: 3c18369a320098b17e2539226d0e96619c9be4693186f376ed11b077a27c95ca
-        dest: element-web/apps/desktop/.hak/hakModules/matrix-seshat
-      - type: file
-        path: matrix-seshat-yarn.lock
-        dest: element-web/apps/desktop/.hak/matrix-seshat/x86_64-unknown-linux-gnu/build
-        dest-filename: yarn.lock
