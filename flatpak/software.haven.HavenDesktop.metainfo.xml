@@ -33,6 +33,29 @@
     <content_attribute id="social-info">mild</content_attribute>
   </content_rating>
   <releases>
+    <release version="0.9.1" date="2026-09-24">
+      <description>
+        <p>Metadata-only release: fixes the Flatpak so it reports its version and release notes correctly. No changes to the app itself.</p>
+      </description>
+    </release>
+    <release version="0.9.0" date="2026-09-22">
+      <description>
+        <p>Sync with upstream Element, gun emoji settings, and fixes to Social reposts, videos and the room list:</p>
+        <ul>
+          <li>Sync with the latest upstream Element (132 commits, up to v1.12.28)</li>
+          <li>Add a "Reaction Pill Size" appearance setting</li>
+          <li>Add an encryption toggle to the pre-send new-DM screen</li>
+          <li>Add gun emoji style and skin tone settings, with the revolver as the default</li>
+          <li>Support custom emoji in the Social post composer and open a custom emoji's image from its reaction tooltip</li>
+          <li>Redesign the bulk-redact dialog and add a "Remove Messages" option for your own messages</li>
+          <li>Show a repost of a repost as a nested card, and fix a false-positive repost forgery flag on plain-text posts</li>
+          <li>Fix encrypted videos failing to start playback when clicked before decryption finished</li>
+          <li>Fix collapsed room-list sections showing their rooms again after switching apps</li>
+          <li>Fix the AppImage's libfuse2 dependency and add delta-update support</li>
+          <li>Fix matrix-seshat (local encrypted-room message search) in the Flatpak build</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.8.0" date="2026-09-05">
       <description>
         <p>Sync with upstream Element, new Linux packaging, and fixes to Social's repost verification:</p>
