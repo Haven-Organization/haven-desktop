@@ -257,6 +257,18 @@
     // Anchors .social_ScrollToTopButton (SocialScrollToTopButton.tsx) to this scrollable viewport
     // itself, so it stays fixed in the corner as you scroll rather than moving with the content.
     position: relative;
+    // Haven: turns off the browser's own CSS scroll anchoring (on by default) on the one real
+    // scroll container Feed/thread-view/SocialRoomView all share. Scroll anchoring exists to stop
+    // scroll position drifting when off-screen content resizes - exactly what Virtuoso (the Feed's
+    // virtualized list) already does its own math for. With both active on the same box, the two
+    // fight: under the DOM churn a fast scroll causes (items mounting/unmounting as they enter and
+    // leave Virtuoso's overscan), the browser's own anchor-node heuristic can re-anchor to the
+    // wrong node and correct scrollTop on its own, on top of whatever Virtuoso already did -
+    // confirmed live as a real, repeatable backward jump with zero DOM mutation in the 100ms
+    // before it (ruling out an actual resizing element as the cause) that stopped reproducing
+    // entirely once this was turned off in the same test. This is the standard fix recommended for
+    // virtualized lists generally, not a Virtuoso-specific workaround.
+    overflow-anchor: none;
 }
 
 // Positioned the mirror of stock's own .mx_JumpToBottomButton (bottom-right, scrolls down to the
@@ -1261,6 +1273,41 @@
 .social_EventTile_urlPreview_hostname {
     font: var(--cpd-font-body-xs-regular);
     color: $tertiary-content;
+}
+
+// Haven: shown in place of the real preview while it's being fetched - see UrlPreview's own
+// comment in SocialEventTile.tsx. Sized to the thumbnail image's own fixed 72px height (the
+// tallest single element the real preview is guaranteed to have), not the full block including
+// title/description text, which varies with content and would be a guess either way.
+.social_EventTile_urlPreview_loading_bar {
+    background: $quinary-content;
+    opacity: 0.5;
+    border-radius: 4px;
+}
+
+// Mirrors .social_EventTile_urlPreview_title/_desc/_hostname's own real layout (one bar per
+// line, matching that class's line-clamp/single-line rendering) so the skeleton's total height
+// lands close to a real preview's instead of guessing a flat number - see the loading state's own
+// comment in SocialEventTile.tsx for why a flat guess wasn't good enough. Heights approximate
+// --cpd-font-body-sm-semibold/-sm-regular/-xs-regular's own line-heights (those are composite
+// `font` shorthand tokens with no separately-exposed line-height custom property to read here).
+.social_EventTile_urlPreview_loading_titleBar {
+    height: 18px;
+    width: 55%;
+}
+
+.social_EventTile_urlPreview_loading_descBar {
+    height: 18px;
+    width: 90%;
+
+    &:nth-of-type(3) {
+        width: 65%;
+    }
+}
+
+.social_EventTile_urlPreview_loading_hostnameBar {
+    height: 14px;
+    width: 30%;
 }
 
 // ---------------------------------------------------------------------------

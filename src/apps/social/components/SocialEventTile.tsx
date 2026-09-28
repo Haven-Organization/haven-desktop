@@ -590,22 +590,61 @@ export function resolveAndOpenPost(
 // URL preview sub-component (own hooks, own async fetch)
 // ---------------------------------------------------------------------------
 
-function UrlPreview({ url, ts }: { url: string; ts: number }): JSX.Element | null {
+// Haven: `undefined` = still fetching, `null` = fetched but nothing to show, an object = real
+// preview data. Distinct from "no preview" so the loading state below can tell them apart.
+type UrlPreviewData = Record<string, unknown> | null;
+
+export function UrlPreview({ url, ts }: { url: string; ts: number }): JSX.Element | null {
     const client = useMatrixClientContext();
-    const [preview, setPreview] = useState<Record<string, unknown> | null>(null);
+    const [preview, setPreview] = useState<UrlPreviewData | undefined>(undefined);
 
     useEffect(() => {
         let active = true;
+        setPreview(undefined);
         client
             .getUrlPreview(url, ts)
             .then((data) => {
-                if (active) setPreview(data as Record<string, unknown>);
+                if (active) setPreview((data as Record<string, unknown>) ?? null);
             })
-            .catch(() => {});
+            .catch(() => {
+                if (active) setPreview(null);
+            });
         return () => {
             active = false;
         };
     }, [url, ts, client]);
+
+    // Haven: while `getUrlPreview` is still in flight, render a placeholder shaped like the real
+    // preview (thumbnail + title/description/hostname bars) instead of nothing. Posts with a
+    // link overwhelmingly do end up with a real preview (github/YouTube/etc. links almost always
+    // carry OG data), so this reserves roughly the right amount of space for the common case up
+    // front rather than popping the whole block in once the fetch resolves - exactly the class of
+    // bug ab7733c2ea already fixed for post images, just for a block whose eventual content isn't
+    // known ahead of time instead of one with real w/h metadata to reserve from. Mirrors the real
+    // markup's shape (rather than a single fixed-height box) so its natural height already lands
+    // close to a real preview's, the same way ReplyChain's own loading skeleton does for quoted
+    // messages (_ReplyChain.pcss) - a flat guessed height measurably undershot the real height in
+    // practice (72px reserved vs ~109px actually rendered for a title+description+hostname
+    // preview), which still left a smaller but real jump on the swap to real content. Confirmed
+    // live: without any of this, a link preview resolving while scrolled past it (not uncommon
+    // under Virtuoso's overscan, which renders items before they're actually on screen) shifted
+    // every post below it and could measurably move the feed's scroll position while the user was
+    // still actively scrolling. If the fetch comes back with nothing to show, this collapses away
+    // instead - a real height change, but a much rarer one than "every link with OG data" and
+    // unavoidable without knowing in advance.
+    if (preview === undefined) {
+        return (
+            <div className="social_EventTile_urlPreview social_EventTile_urlPreview_loading" aria-hidden="true">
+                <div className="social_EventTile_urlPreview_image social_EventTile_urlPreview_loading_bar" />
+                <div className="social_EventTile_urlPreview_body">
+                    <div className="social_EventTile_urlPreview_loading_titleBar social_EventTile_urlPreview_loading_bar" />
+                    <div className="social_EventTile_urlPreview_loading_descBar social_EventTile_urlPreview_loading_bar" />
+                    <div className="social_EventTile_urlPreview_loading_descBar social_EventTile_urlPreview_loading_bar" />
+                    <div className="social_EventTile_urlPreview_loading_hostnameBar social_EventTile_urlPreview_loading_bar" />
+                </div>
+            </div>
+        );
+    }
 
     if (!preview) return null;
 
@@ -1788,6 +1827,22 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             ? { aspectRatio: `${mediaInfo.w} / ${mediaInfo.h}` }
             : undefined;
 
+    // Haven: fallback for the case mediaAspectRatioStyle's own comment above says to leave
+    // unreserved - a real gap, not a hypothetical one: about 3% of images on a live instance
+    // (glowers.club) have no w/h at all, because they arrive through the Fediverse bridge, which
+    // doesn't populate it. "Left unset" for those meant the image's box was genuinely 0-height
+    // until the file loaded, then jumped up to its full rendered size (up to 400px per
+    // .social_EventTile_image's max-height) - confirmed live as the largest single contributor to
+    // the feed's scroll position moving while scrolling past one of these. Unlike a guessed aspect
+    // ratio (which would visibly letterbox or crop a real image rendered inside the wrong shape),
+    // a plain min-height with object-fit: contain already in place can't distort the image - it
+    // only affects how much it's boxed at, and that box is dropped the moment the real image
+    // reports its own natural size via onLoad, so this never fights the image's real layout.
+    const [unratioedImageLoaded, setUnratioedImageLoaded] = useState(false);
+    const mediaFallbackPlaceholderStyle: React.CSSProperties | undefined =
+        !mediaAspectRatioStyle && !unratioedImageLoaded ? { minHeight: 240 } : undefined;
+    const onUnratioedImageLoad = (): void => setUnratioedImageLoaded(true);
+
     // Shared by the main post's own image, and the embedded repost/reply-cross-post cards' images
     // below - same stock lightbox (ImageView) either way, just pointed at whichever image/mxEvent/
     // ref is actually being clicked.
@@ -1856,7 +1911,8 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         alt={fileName}
                         className="social_EventTile_image"
                         onClick={handleImageClick}
-                        style={mediaAspectRatioStyle}
+                        onLoad={onUnratioedImageLoad}
+                        style={mediaAspectRatioStyle ?? mediaFallbackPlaceholderStyle}
                     />
                 </div>
             );
@@ -1872,7 +1928,8 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         src={httpFileUrl}
                         controls
                         className="social_EventTile_video"
-                        style={mediaAspectRatioStyle}
+                        style={mediaAspectRatioStyle ?? mediaFallbackPlaceholderStyle}
+                        onLoadedMetadata={onUnratioedImageLoad}
                         onClick={(e) => e.stopPropagation()}
                     />
                 </div>

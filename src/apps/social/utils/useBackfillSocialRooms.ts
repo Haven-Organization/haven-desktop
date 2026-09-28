@@ -61,6 +61,23 @@ const BACKFILL_CONCURRENCY = 3;
 // responsiveness of whatever's actually on screen.
 const BACKFILL_START_DELAY_MS = 500;
 
+// Haven: module-level, not inside the hook - the Social app's whole view tree (SocialHomeView and
+// everything under it) unmounts when the user switches to a different top-level page (e.g. "All
+// Chats") and remounts fresh when they come back to Social, same as any other lazy-loaded app view
+// (see app.ts). A `useRef` here would reset on every one of those remounts, making this hook redo
+// its entire backfill+member-load sweep for every room it had already handled in a previous mount
+// - and each room's completion calls bumpGeneration(), which remounts every visible post's own
+// body div (SocialEventTile keys its message body on `pillsGeneration` - see this file's own
+// top-of-file comment). Confirmed live: returning to Social after visiting a room and coming back
+// reliably produced a burst of large scroll-position jumps while scrolling, each one lining up
+// with a wave of `social_EventTile_body` remounts - this hook re-running its full sweep on every
+// return trip, not any single media file loading in. A plain module-level Set is safe here because
+// this app has exactly one MatrixClient for the lifetime of the page (logout does a full reload,
+// per Lifecycle.ts) - there's nothing to key it by, and nothing tears it down deliberately, which
+// is exactly the point: once a room's initial backfill/member-load has genuinely happened, it never
+// needs to happen again for the rest of the session, remount or not.
+const handledRoomIds = new Set<string>();
+
 export interface BackfillState {
     /** Bumped once a room finishes its initial membership load / history fetch. */
     generation: number;
@@ -75,7 +92,6 @@ export interface BackfillState {
 }
 
 export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filter: SocialFeedFilter): BackfillState {
-    const handled = useRef<Set<string>>(new Set());
     const pagesFetched = useRef<Map<string, number>>(new Map());
     const [generation, setGeneration] = useState(0);
     const [exhaustedRoomIds, setExhaustedRoomIds] = useState<ReadonlySet<string>>(new Set());
@@ -113,12 +129,12 @@ export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filt
             (room) =>
                 room.getMyMembership() === KnownMembership.Join &&
                 roomCountsForFeed(room, filter) &&
-                !handled.current.has(room.roomId),
+                !handledRoomIds.has(room.roomId),
         );
         if (toHandle.length === 0) return;
         // Claimed synchronously, before the delay below - once a room is in `toHandle` it WILL be
         // backfilled, no matter what happens to this effect afterwards.
-        for (const room of toHandle) handled.current.add(room.roomId);
+        for (const room of toHandle) handledRoomIds.add(room.roomId);
 
         const dispatch = (): void => {
             void runInBatches(toHandle, BACKFILL_CONCURRENCY, async (room) => {
@@ -133,8 +149,8 @@ export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filt
         // Delay is relative to when this hook first mounted, not to this specific effect run - if it
         // were a plain per-run setTimeout cancelled on cleanup (via `rooms` itself changing, which
         // happens often - see SocialHomeView's own debounced room-list refresh), a re-run before the
-        // delay elapsed would cancel the pending dispatch for rooms already irreversibly marked
-        // `handled` above, silently dropping them from ever being backfilled at all. Only the very
+        // delay elapsed would cancel the pending dispatch for rooms already irreversibly marked in
+        // `handledRoomIds` above, silently dropping them from ever being backfilled at all. Only the very
         // first burst of work after mount needs to wait for BACKFILL_START_DELAY_MS (giving whatever
         // the user just navigated to a clear run first); anything discovered later (rooms.filter
         // above found something new, e.g. a room finishing its own initial sync) has already missed
