@@ -70,4 +70,52 @@ describe("useBackfillSocialRooms", () => {
         await waitFor(() => expect(roomB.loadMembersIfNeeded).toHaveBeenCalledTimes(1));
         expect(roomA2.loadMembersIfNeeded).not.toHaveBeenCalled();
     });
+
+    // Regression coverage for the debounce fix in this file - see bumpGeneration's own comment.
+    // `generation` gates `pillsGeneration`, which remounts every visible post's message body
+    // everywhere it's rendered (Feed, a profile, a group) - each extra bump is a real, felt UI
+    // event, not just wasted work. A real backfill campaign completes rooms in a staggered
+    // trickle (BACKFILL_CONCURRENCY caps how many run at once), not all at once, so the debounce
+    // has to coalesce completions spread out over real time, not just ones landing in the same tick.
+    it("coalesces a staggered trickle of room completions into a single generation bump", async () => {
+        const ROOM_COUNT = 6;
+        const rooms = Array.from({ length: ROOM_COUNT }, (_, i) => makeRoom(`!room-${i}:example.org`, client));
+        const resolvers: Array<() => void> = [];
+        rooms.forEach((room, i) => {
+            room.loadMembersIfNeeded = vi.fn(
+                () =>
+                    new Promise<boolean>((resolve) => {
+                        resolvers[i] = () => resolve(true);
+                    }),
+            );
+        });
+        filter = { ...EMPTY_SOCIAL_FEED_FILTER, includedRoomIds: rooms.map((r) => r.roomId) };
+
+        const { result } = renderHook(() => useBackfillSocialRooms(rooms, client, filter));
+
+        // Resolve every room's member load 300ms apart - wider than the old 150ms leading-edge
+        // debounce's own window, so this reproduces the exact shape that used to defeat it, while
+        // the whole spread (up to ~1.8s across 6 rooms) stays well under GENERATION_BUMP_MAX_WAIT_MS.
+        // BACKFILL_CONCURRENCY caps how many rooms are in flight at once (3), so a later room's own
+        // `loadMembersIfNeeded` call - and so its resolver here - only exists once an earlier one
+        // resolves and frees a slot; waiting for each resolver in turn respects that staggering
+        // instead of assuming all six start at once.
+        for (let i = 0; i < ROOM_COUNT; i++) {
+            await waitFor(() => expect(resolvers[i]).toBeDefined());
+            resolvers[i]();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+
+        // The trailing debounce should still be waiting out its quiet window right after the last
+        // completion - nothing should have committed yet.
+        expect(result.current.generation).toBe(0);
+
+        // Let the debounce's own quiet window elapse (GENERATION_BUMP_DEBOUNCE_MS, 1000ms) with no
+        // further completions.
+        await waitFor(() => expect(result.current.generation).toBe(1), { timeout: 2000 });
+
+        // Give it a further beat to confirm it really settled at exactly one bump, not one per room.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(result.current.generation).toBe(1);
+    });
 });

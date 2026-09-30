@@ -60,6 +60,14 @@ const BACKFILL_CONCURRENCY = 3;
 // (nothing is blocked on it), so there's no cost to a short delay, only benefit to perceived
 // responsiveness of whatever's actually on screen.
 const BACKFILL_START_DELAY_MS = 500;
+// How long a quiet gap has to be before a burst of generation bumps is considered over (see
+// bumpGeneration's own comment), and the absolute ceiling on how long a continuous trickle of
+// completions can push the actual bump out - long enough that a real backfill campaign (which can
+// run 30-60s+ on a large account, per BACKFILL_CONCURRENCY's own comment) still only costs a
+// handful of remounts rather than dozens, short enough that pills/mentions don't stay stale for
+// the whole campaign if it runs long.
+const GENERATION_BUMP_DEBOUNCE_MS = 1000;
+const GENERATION_BUMP_MAX_WAIT_MS = 5000;
 
 // Haven: module-level, not inside the hook - the Social app's whole view tree (SocialHomeView and
 // everything under it) unmounts when the user switches to a different top-level page (e.g. "All
@@ -109,13 +117,38 @@ export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filt
     // main-thread churn on top of the network-concurrency issue BACKFILL_CONCURRENCY fixes - found
     // 2026-07-20 in the same investigation, the UI was still unresponsive for 30-60s+ after capping
     // concurrency alone, on an account with 70+ social rooms.
+    //
+    // Haven: this used to be a leading-edge debounce (skip the call entirely if a bump was already
+    // pending) rather than a real trailing one - it only coalesced completions landing in the exact
+    // same 150ms window as the first one in a burst, so a sustained trickle of completions (the
+    // normal shape of a fresh session's backfill campaign: BACKFILL_CONCURRENCY caps it at 3 rooms
+    // in flight, so 70+ rooms finish one at a time over many seconds, not all at once) still
+    // produced a fresh bump roughly every 150ms+ for the whole campaign - each one remounting
+    // `pillsGeneration`-keyed content (every visible post's own message body, wherever it's
+    // rendered) regardless of whether that room had anything to do with what's on screen. Confirmed
+    // live as the actual cause of a real "scrolling a profile keeps jumping back up" report on a
+    // freshly loaded (cache-cleared) session: every jump lined up with a `pillsGeneration` remount,
+    // roughly one every 1-2s for the whole warm-up window, unrelated to any media loading in.
+    // Restarting the timer on every call (a real trailing debounce) instead means a sustained
+    // stream collapses into far fewer bumps - capped by GENERATION_BUMP_MAX_WAIT_MS so an
+    // unbroken trickle can't push the first bump out indefinitely and leave pills/mentions stale
+    // for the whole campaign.
     const generationBumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const generationBumpFirstPendingAt = useRef<number | null>(null);
     const bumpGeneration = useCallback(() => {
-        if (generationBumpTimer.current !== null) return;
+        const now = Date.now();
+        if (generationBumpFirstPendingAt.current === null) generationBumpFirstPendingAt.current = now;
+        if (generationBumpTimer.current !== null) clearTimeout(generationBumpTimer.current);
+        const elapsedSinceFirstPending = now - generationBumpFirstPendingAt.current;
+        const delay = Math.min(
+            GENERATION_BUMP_DEBOUNCE_MS,
+            Math.max(0, GENERATION_BUMP_MAX_WAIT_MS - elapsedSinceFirstPending),
+        );
         generationBumpTimer.current = setTimeout(() => {
             generationBumpTimer.current = null;
+            generationBumpFirstPendingAt.current = null;
             setGeneration((n) => n + 1);
-        }, 150);
+        }, delay);
     }, []);
     useEffect(
         () => () => {

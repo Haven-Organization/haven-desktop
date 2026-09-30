@@ -257,17 +257,24 @@
     // Anchors .social_ScrollToTopButton (SocialScrollToTopButton.tsx) to this scrollable viewport
     // itself, so it stays fixed in the corner as you scroll rather than moving with the content.
     position: relative;
-    // Haven: turns off the browser's own CSS scroll anchoring (on by default) on the one real
-    // scroll container Feed/thread-view/SocialRoomView all share. Scroll anchoring exists to stop
-    // scroll position drifting when off-screen content resizes - exactly what Virtuoso (the Feed's
-    // virtualized list) already does its own math for. With both active on the same box, the two
-    // fight: under the DOM churn a fast scroll causes (items mounting/unmounting as they enter and
-    // leave Virtuoso's overscan), the browser's own anchor-node heuristic can re-anchor to the
-    // wrong node and correct scrollTop on its own, on top of whatever Virtuoso already did -
-    // confirmed live as a real, repeatable backward jump with zero DOM mutation in the 100ms
-    // before it (ruling out an actual resizing element as the cause) that stopped reproducing
-    // entirely once this was turned off in the same test. This is the standard fix recommended for
-    // virtualized lists generally, not a Virtuoso-specific workaround.
+    // Haven: deliberately does NOT turn off the browser's own CSS scroll anchoring here (on by
+    // default) - see .social_Feed's own overflow-anchor: none below for where and why that's
+    // actually needed. This is the shared scroll container Feed/thread-view/SocialRoomView (the
+    // profile/group post list, a plain non-virtualized .map() with no scroll math of its own) all
+    // use, and scroll anchoring is genuinely the right, helpful browser behavior for the latter -
+    // confirmed live: disabling it here unconditionally (an earlier version of this fix) raised a
+    // scroll-jump count on a real profile timeline from 4 to 28 jumps in the same test, because it
+    // removed the only scroll-position compensation that view had. Only the Feed's own virtualized
+    // list needs it turned off, not this container as a whole.
+}
+
+// Haven: Virtuoso's own root - the virtualized list, a child of .social_Content above. This is
+// where overflow-anchor actually needs to be off, not the shared scroll container: Virtuoso does
+// its own scroll-position math to keep a stable item on screen as items resize, and the browser's
+// native scroll anchoring (which .social_Content leaves on, since other views that share it have
+// no scroll math of their own and benefit from it) fights that math under the DOM churn a fast
+// scroll causes here specifically - see the live numbers in .social_Content's own comment above.
+.social_Feed {
     overflow-anchor: none;
 }
 
