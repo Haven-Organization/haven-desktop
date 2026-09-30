@@ -51,6 +51,7 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 - **Flathub:** [software.haven.HavenDesktop](https://flathub.org/apps/software.haven.HavenDesktop)
 - **Arch Linux (AUR):** `yay -S haven-desktop-bin` (prebuilt) or `yay -S haven-desktop-git` (builds
   from source)
+- **AppImage ([AM or AppMan](https://github.com/ivan-hc/AM)):** `am -i haven`
 - **Debian:** Grab the latest `.deb` from [Releases](https://github.com/Haven-Organization/haven-desktop/releases)
   and install it using `sudo apt install ./haven-desktop_<version>_amd64.deb`
 - **Windows:** Grab the latest `.exe` from [Releases](https://github.com/Haven-Organization/haven-desktop/releases) and run it to install.
