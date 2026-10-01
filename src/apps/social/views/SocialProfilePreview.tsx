@@ -183,7 +183,9 @@ export function SocialProfilePreview({
                     <div className="social_RoomView_info">
                         <h2>{displayName}</h2>
                         {topicState?.text && (
-                            <p className="social_RoomView_topic">
+                            <p
+                                className={`social_RoomView_topic${topicState.html ? "" : " social_RoomView_topic--plain"}`}
+                            >
                                 <LinkedText>{topicToHtml(topicState.text, topicState.html)}</LinkedText>
                             </p>
                         )}

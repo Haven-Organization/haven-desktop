@@ -1061,14 +1061,25 @@
         // the page rather than actually wrapping.
         overflow-wrap: anywhere;
         // Cuts off after a sensible length instead of letting a very long bio grow the header
-        // indefinitely - same 3-line clamp pattern already used for repost card bodies elsewhere.
+        // indefinitely - same line-clamp pattern already used for repost card bodies elsewhere.
+        // Haven: was 3 lines, which was fine while every bio collapsed to one paragraph, but cut
+        // off a real bio's last lines once --plain below started keeping its line breaks.
         display: -webkit-box;
-        -webkit-line-clamp: 3;
+        -webkit-line-clamp: 8;
         -webkit-box-orient: vertical;
         overflow: hidden;
 
         a {
             color: $accent-alt;
+        }
+
+        // A plain-text bio's own line breaks (the stock room settings editor's topic field is a
+        // multi-line textarea) - otherwise collapsed into spaces, same as stock RoomSummaryCard's
+        // expanded topic. Plain text only: an HTML bio (bridged fediverse profiles) already marks
+        // its breaks with tags, and pre-wrap would turn any stray newlines in its source into
+        // extra blank lines.
+        &--plain {
+            white-space: pre-wrap;
         }
     }
 

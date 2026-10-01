@@ -1032,7 +1032,9 @@ export function SocialRoomView({
                                 <ExternalHandleBadge externalHandle={profileLiveUserProfile.externalHandle} />
                             )}
                             {(topicState?.text || topicState?.html) && (
-                                <p className="social_RoomView_topic">
+                                <p
+                                    className={`social_RoomView_topic${topicState.html ? "" : " social_RoomView_topic--plain"}`}
+                                >
                                     {/* topicToHtml alone only sanitizes/renders an already-HTML bio -
                                         a plain-text bio's bare URLs stay inert text otherwise, same
                                         as stock RoomTopic.tsx/RoomSummaryCardView.tsx, which both
