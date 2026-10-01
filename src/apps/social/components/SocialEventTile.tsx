@@ -86,6 +86,7 @@ import {
 import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
+import { holdScrollPosition } from "../utils/holdScrollPosition";
 import { calculateRoomVia } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
 import { useLiveUserProfile } from "../utils/liveUserProfile";
@@ -2918,7 +2919,9 @@ export const SocialEventTile = React.memo(function SocialEventTile({
 
                 <button
                     className={`social_EventTile_actionBtn${displayIsReposted ? " social_EventTile_actionBtn--reposted" : ""}`}
-                    onClick={() => void handleBoost()}
+                    // Haven: keeps this button where it was on screen while the repost lands - see
+                    // holdScrollPosition for every way a repost can otherwise move the Feed.
+                    onClick={(e) => holdScrollPosition(e.currentTarget, handleBoost())}
                     aria-label={displayIsReposted ? "Reposted, click to undo" : "Repost"}
                     title={displayIsReposted ? "Reposted, click to undo" : "Repost"}
                     disabled={boostBusy}

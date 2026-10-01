@@ -86,6 +86,7 @@ import { consumePendingViewPost } from "../utils/pendingViewPost";
 import { clearPendingFocusEvent, setPendingFocusEvent } from "../utils/pendingFocusEvent";
 import { peekPendingSocialSection, clearPendingSocialSection } from "../utils/pendingSocialSection";
 import { saveLastSocialViewState, peekLastSocialViewState } from "../utils/lastSocialViewState";
+import { type FirstItemIndexState, nextFirstItemIndex } from "../utils/feedFirstItemIndex";
 import { adjustFeedSnapshot, type SavedFeedScroll } from "../utils/feedScrollSnapshot";
 import { consumePendingPostModal } from "../utils/pendingPostModal";
 import {
@@ -217,6 +218,11 @@ function isFeedEvent(event: MatrixEvent, room: Room, filter: SocialFeedFilter): 
     if (SOCIAL_ROOM_EVENT_TYPES.has(type) && roomCountsForFeed(room, filter)) return true;
     return false;
 }
+
+/** Starting value for the Feed's Virtuoso firstItemIndex (see FeedPane's own doc on it) - lowered
+ *  by one for every post that arrives above the current first one, so it just has to stay
+ *  positive for the life of a FeedPane mount. */
+const FEED_FIRST_ITEM_INDEX_BASE = 1_000_000;
 
 function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilter): SocialPost[] {
     const posts: SocialPost[] = [];
@@ -1320,6 +1326,37 @@ function FeedPane({
 }): JSX.Element {
     const posts = useMemo(() => aggregatePosts(rooms, myUserId, filter), [rooms, myUserId, filter]);
 
+    // Haven: Virtuoso remembers each post's measured height by its *position* in `data`, not by
+    // post. A new post arriving at the top of the Feed (your own repost, which sends immediately
+    // and is the newest post there is, or anyone's live post while you're scrolled down) shifts
+    // every existing post down one position, so those remembered heights get attributed to the
+    // wrong posts and the offset of whatever is on screen comes out off by roughly the difference
+    // between two posts' heights - a small visible scroll on every such arrival, most noticeably
+    // right after pressing Repost. firstItemIndex is Virtuoso's own mechanism for exactly this:
+    // lowering it by the number of posts that appeared above the previous first post tells
+    // Virtuoso they were prepended, so it keeps the already-measured posts (and the view) in
+    // place. Only covers arrivals at the top - an insertion further down (backfill) is a different
+    // case, see SocialHomeView's own Room.timeline listener for that one.
+    //
+    // Computed during render (not in an effect) because Virtuoso needs `data` and firstItemIndex
+    // to change in the same render; nextFirstItemIndex is idempotent, so a second evaluation for
+    // the same `posts` (StrictMode, or an unrelated re-render) can't lower it twice. Posts that
+    // arrive while the list is unmounted (a post open in the thread view) are handled separately,
+    // by restoreFeedStateFrom below.
+    const firstItemIndexRef = useRef<FirstItemIndexState<SocialFeedFilter>>({
+        firstKey: undefined,
+        filter,
+        index: FEED_FIRST_ITEM_INDEX_BASE,
+    });
+    const firstItemIndex = useMemo(() => {
+        firstItemIndexRef.current = nextFirstItemIndex(
+            firstItemIndexRef.current,
+            posts.map((p) => p.event.getId()),
+            filter,
+        );
+        return firstItemIndexRef.current.index;
+    }, [posts, filter]);
+
     const openFilterDialog = useCallback(() => {
         // Modal.createDialog always injects its own `onFinished` (wired to closeDialog) into the
         // dialog's props, overriding anything passed in `props` of the same name — the *only* way
@@ -1924,6 +1961,7 @@ function FeedPane({
                 <Virtuoso
                     ref={virtuosoRef}
                     restoreStateFrom={restoreFeedStateFrom}
+                    firstItemIndex={firstItemIndex}
                     className="social_Feed"
                     customScrollParent={scrollParentEl ?? undefined}
                     data={posts}
