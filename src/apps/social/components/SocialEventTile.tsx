@@ -1086,7 +1086,8 @@ function formattedBodiesMatch(
     return aText === bText;
 }
 
-function repostContentMatches(
+/** Exported for tests only. */
+export function repostContentMatches(
     embeddedSource: Record<string, any> | undefined,
     realContent: Record<string, any> | undefined,
     contentInline?: boolean,
@@ -1111,8 +1112,17 @@ function repostContentMatches(
         a.info.h === b?.info?.h
     );
     const bodyIsWrapperFiller = !!contentInline && !!aUrl && !hasPostBodyOverride(embeddedSource);
+    const textMatches = (x: typeof a, y: typeof a): boolean =>
+        (x?.body ?? "") === (y?.body ?? "") && formattedBodiesMatch(x, y);
+    // See hasRelationPreamble's own doc - only when the snapshot came through an MSC4501 override
+    // and the real post has no override of its own (so its header is still in its stock fields).
+    const matchesWithoutRealPreamble =
+        hasPostBodyOverride(embeddedSource) &&
+        !hasPostBodyOverride(realContent) &&
+        hasRelationPreamble(b) &&
+        textMatches(a, stripLeadingHeaderLine(b));
     return (
-        (bodyIsWrapperFiller || ((a?.body ?? "") === (b?.body ?? "") && formattedBodiesMatch(a, b))) &&
+        (bodyIsWrapperFiller || textMatches(a, b) || matchesWithoutRealPreamble) &&
         effectiveMediaKind(a) === effectiveMediaKind(b) &&
         (aUrl === bUrl || (!!aUrl && !!bUrl && sameDimensionsAndType))
     );
@@ -2993,6 +3003,13 @@ function stripHavenHeader<T extends Record<string, any> | undefined>(content: T)
     // honored for older events that already have it set and nothing else, phased out later once
     // nothing in the wild still relies on it.
     if (hasPostBodyOverride(content)) return content;
+    return stripLeadingHeaderLine(content);
+}
+
+/** The actual leading-line removal behind stripHavenHeader, without its remove_header gate - also
+ *  used by repostContentMatches (see hasRelationPreamble's own doc for when). */
+function stripLeadingHeaderLine<T extends Record<string, any> | undefined>(content: T): T {
+    if (!content) return content;
     const stripped: Record<string, any> = { ...content };
     if (typeof stripped.formatted_body === "string") {
         stripped.formatted_body = stripped.formatted_body.replace(/^\s*<p>.*?<\/p>\s*(<br\s*\/?>\s*)*/is, "");
@@ -3001,6 +3018,29 @@ function stripHavenHeader<T extends Record<string, any> | undefined>(content: T)
         stripped.body = stripped.body.replace(/^[^\n]*\n(?:[ \t]*\n)*/, "");
     }
     return stripped as T;
+}
+
+// "⤵️ Reply to X's post:" / "🔁 X boosted Y's post:" - the relation preamble line a bridge writes
+// into a post's own stock body (see stripHavenHeader's doc above).
+const RELATION_PREAMBLE = /^(?:\u2935|\u{1F501})\uFE0F?\s.*:\s*$/u;
+
+/** True when `content`'s stock body (and formatted_body, if it has one) opens with a bridge's
+ *  relation preamble line, followed by more content. Used by repostContentMatches: the original
+ *  post can carry that line in its stock fields (no MSC4501 override, no remove_header flag), while
+ *  a bridge's repost of it embeds the content through org.matrix.msc4501.social.body/formatted_body
+ *  with the line correctly left out - confirmed live as a genuine, unaltered repost of a bridged
+ *  cross-posted reply being flagged as a possible forgery purely because of it. Deliberately this
+ *  narrow (the exact preamble shape, on both fields) rather than "ignore any first paragraph", so a
+ *  forged repost still can't quietly drop a real post's opening sentence. */
+function hasRelationPreamble(content: { body?: string; formatted_body?: string } | undefined): boolean {
+    const body = content?.body;
+    if (typeof body !== "string") return false;
+    const firstLine = body.match(/^([^\n]*)\n/)?.[1];
+    if (!firstLine || !RELATION_PREAMBLE.test(firstLine.trim())) return false;
+    const formatted = content?.formatted_body;
+    if (typeof formatted !== "string") return true;
+    const firstParagraph = formatted.match(/^\s*<p>(.*?)<\/p>/is)?.[1];
+    return !!firstParagraph && RELATION_PREAMBLE.test(sanitizeHtmlText(firstParagraph).trim());
 }
 
 function extractFirstUrl(text: string): string | null {
