@@ -549,13 +549,25 @@ export function resolveAndOpenPost(
                 // just show the post like any other peekable room, the same way SocialRoomView
                 // already lets a peeked knock room's posts be browsed with an inline follow-request
                 // button rather than a blocking modal.
-                let targetEvent = room.findEventById(eventId) ?? fallbackEvent;
-                if (!targetEvent) {
-                    try {
-                        targetEvent = await fetchRoomEventWithRetry(client, roomId, eventId);
-                    } catch {
-                        // Genuinely couldn't resolve it even with retries - nothing left to do.
-                    }
+                //
+                // Haven: client.peekInRoom() above populates this room from the legacy
+                // /rooms/{id}/initialSync endpoint (SyncApi.peek -> client.roomInitialSync - see its
+                // own via-parameter doc above for another of that endpoint's gaps), not a normal
+                // /sync. Confirmed live: that endpoint can hand back an event with content fields
+                // genuinely missing that the same event_id has once the room is actually joined and
+                // reached via /sync instead - a thread reply's m.relates_to silently absent while
+                // peeked, present after joining, same event. room.findEventById below would happily
+                // return that incomplete local copy (it's non-null, so the old `?? fallback` /
+                // fetch-only-if-missing ordering never reached the server at all), which is what
+                // broke "View Source"/thread-reply context for a peeked, not-yet-joined viewer.
+                // fetchRoomEventWithRetry hits GET /rooms/{id}/event/{id} instead - an actively
+                // maintained endpoint, not the deprecated initialSync one - so it's tried first here;
+                // the peeked local copy is only a fallback if that direct fetch genuinely fails.
+                let targetEvent: MatrixEvent | undefined;
+                try {
+                    targetEvent = await fetchRoomEventWithRetry(client, roomId, eventId);
+                } catch {
+                    targetEvent = room.findEventById(eventId) ?? fallbackEvent;
                 }
                 if (targetEvent) {
                     onViewThread(targetEvent, room);
