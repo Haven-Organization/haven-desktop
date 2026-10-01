@@ -873,6 +873,7 @@ export function SocialHomeView(): JSX.Element {
         generation: pillsGeneration,
         hasMore: hasMoreHistory,
         loadMore: loadMoreHistory,
+        inFlight: backfillInFlight,
     } = useBackfillSocialRooms(rooms, client, feedFilter);
 
     // A background rooms refresh (someone else liking/reposting/replying anywhere, or a room's
@@ -910,6 +911,26 @@ export function SocialHomeView(): JSX.Element {
             if (pending !== null) clearTimeout(pending);
             pending = setTimeout(() => {
                 pending = null;
+                // Haven: a loadMore() (or the initial mount sweep) backfills several rooms at once
+                // (useBackfillSocialRooms's BACKFILL_CONCURRENCY), each completing - and firing its
+                // own burst of Room.timeline events - at its own network-latency-dependent pace.
+                // Without this check, each room's completion landed here as its own separate
+                // setRooms(), each one re-sorting the whole merged Feed (aggregatePosts does a full
+                // cross-room re-sort on every `rooms` change) with only a partial slice of the
+                // batch's new posts - visibly inserting that one room's posts near the user's
+                // current scroll position, then shifting again moments later as the next room's
+                // page landed, and again after that. The likely residual cause of a reported "huge
+                // jumps while scrolling the Feed, repeatable after a cache clear" (a cold cache
+                // means every room backfills from scratch, maximizing how many of these partial
+                // re-sorts land back to back) - distinct from the pop-in/image-layout-shift causes
+                // already fixed (see git log). Deferring until the whole batch has actually
+                // settled, rather than dropping the refresh outright, means it still happens on its
+                // own as soon as backfillInFlight clears even if no further Room.timeline event
+                // fires afterwards to re-trigger it.
+                if (backfillInFlight.current > 0) {
+                    refresh();
+                    return;
+                }
                 setRooms(client.getRooms());
             }, 150);
         };
@@ -922,7 +943,9 @@ export function SocialHomeView(): JSX.Element {
             client.off("Room.myMembership" as any, refresh);
             client.off("Room.timeline" as any, refresh);
         };
-    }, [client]);
+        // backfillInFlight is a ref (stable identity, never changes) - listed for exhaustive-deps
+        // correctness only, not because it should ever actually re-run this effect.
+    }, [client, backfillInFlight]);
 
     const navigateToProfile = useCallback(() => {
         setNav({ section: "profile" });

@@ -12,7 +12,7 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "test-utils-rtl";
+import { renderHook, waitFor, act } from "test-utils-rtl";
 import { mkStubRoom, createTestClient } from "test-utils";
 import { KnownMembership, type MatrixClient, type Room } from "matrix-js-sdk/src/matrix";
 
@@ -117,5 +117,73 @@ describe("useBackfillSocialRooms", () => {
         // Give it a further beat to confirm it really settled at exactly one bump, not one per room.
         await new Promise((resolve) => setTimeout(resolve, 300));
         expect(result.current.generation).toBe(1);
+    });
+
+    // Regression coverage for the "huge jumps while scrolling the Feed, repeatable after a cache
+    // clear" fix - SocialHomeView's own Room.timeline listener defers its setRooms() refresh while
+    // inFlight.current > 0, instead of re-sorting the whole merged Feed once per room as each one's
+    // backfilled page trickles in independently (see that listener's own comment for the full
+    // story). If inFlight ever cleared before - or failed to clear after - a backfill operation
+    // actually finished, that listener would either refresh too early (reproducing the jump) or
+    // never refresh at all (a permanently stale Feed).
+    describe("inFlight", () => {
+        it("is truthy while the initial mount sweep is running and clears once it settles", async () => {
+            const room = makeRoom("!inflight-initial:example.org", client);
+            filter = { ...EMPTY_SOCIAL_FEED_FILTER, includedRoomIds: [room.roomId] };
+
+            let resolveMembers: (() => void) | undefined;
+            room.loadMembersIfNeeded = vi.fn(
+                () =>
+                    new Promise<boolean>((resolve) => {
+                        resolveMembers = () => resolve(true);
+                    }),
+            );
+
+            const { result } = renderHook(() => useBackfillSocialRooms([room], client, filter));
+
+            await waitFor(() => expect(resolveMembers).toBeDefined());
+            expect(result.current.inFlight.current).toBeGreaterThan(0);
+
+            await act(async () => {
+                resolveMembers!();
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            });
+            await waitFor(() => expect(result.current.inFlight.current).toBe(0));
+        });
+
+        it("is truthy for the duration of an explicit loadMore() call and clears once it settles", async () => {
+            const room = makeRoom("!inflight-loadmore:example.org", client);
+            filter = { ...EMPTY_SOCIAL_FEED_FILTER, includedRoomIds: [room.roomId] };
+            // Keep the room un-exhausted after the initial sweep (INITIAL_PAGES_PER_ROOM pages), so
+            // loadMore() below actually has something to fetch rather than no-op'ing on an empty
+            // target list.
+            client.paginateEventTimeline = vi.fn().mockResolvedValue(true);
+
+            const { result } = renderHook(() => useBackfillSocialRooms([room], client, filter));
+            await waitFor(() => expect(room.loadMembersIfNeeded).toHaveBeenCalledTimes(1));
+            await waitFor(() => expect(result.current.inFlight.current).toBe(0));
+
+            let resolvePaginate: ((more: boolean) => void) | undefined;
+            client.paginateEventTimeline = vi.fn(
+                () =>
+                    new Promise<boolean>((resolve) => {
+                        resolvePaginate = resolve;
+                    }),
+            );
+
+            let loadMorePromise!: Promise<void>;
+            act(() => {
+                loadMorePromise = result.current.loadMore();
+            });
+
+            await waitFor(() => expect(resolvePaginate).toBeDefined());
+            expect(result.current.inFlight.current).toBeGreaterThan(0);
+
+            await act(async () => {
+                resolvePaginate!(false);
+                await loadMorePromise;
+            });
+            expect(result.current.inFlight.current).toBe(0);
+        });
     });
 });

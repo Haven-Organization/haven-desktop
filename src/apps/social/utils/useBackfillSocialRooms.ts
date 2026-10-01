@@ -97,6 +97,21 @@ export interface BackfillState {
      * scroll-triggered "load more"); no-ops for rooms with nothing left to fetch.
      */
     loadMore: () => Promise<void>;
+    /**
+     * Incremented for the duration of any runInBatches() backfill operation below (the initial
+     * per-room sweep on mount, or an explicit loadMore()), decremented once it settles - read via
+     * `.current > 0`, not a React state value, since nothing here needs a re-render when it
+     * changes. SocialHomeView's own Room.timeline listener checks this to defer its setRooms()
+     * refresh until a whole batch has actually landed, instead of re-sorting the merged Feed
+     * (aggregatePosts does a full cross-room re-sort on every `rooms` change) once per room as
+     * each one's own backfilled page trickles in independently - a mid-scroll jump source
+     * distinct from any single media file loading in: a loadMore() call
+     * backfills up to BACKFILL_CONCURRENCY rooms at once, each completing (and firing its own
+     * burst of Room.timeline events) at its own network-latency-dependent pace, so without this a
+     * single scroll-triggered "load more" could still produce several separate re-sorts rather
+     * than one.
+     */
+    inFlight: RefObject<number>;
 }
 
 export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filter: SocialFeedFilter): BackfillState {
@@ -105,6 +120,8 @@ export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filt
     const [exhaustedRoomIds, setExhaustedRoomIds] = useState<ReadonlySet<string>>(new Set());
     // Mount-relative, not a per-effect-run cancelable timer - see the dispatch effect below for why.
     const mountTime = useRef(Date.now());
+    // See BackfillState.inFlight's own doc above.
+    const inFlight = useRef(0);
 
     const markExhausted = useCallback((roomId: string) => {
         setExhaustedRoomIds((prev) => (prev.has(roomId) ? prev : new Set(prev).add(roomId)));
@@ -170,12 +187,15 @@ export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filt
         for (const room of toHandle) handledRoomIds.add(room.roomId);
 
         const dispatch = (): void => {
+            inFlight.current++;
             void runInBatches(toHandle, BACKFILL_CONCURRENCY, async (room) => {
                 await Promise.all([
                     backfillPages(client, room, INITIAL_PAGES_PER_ROOM, pagesFetched, markExhausted),
                     loadMembersWithRetry(room),
                 ]);
                 bumpGeneration();
+            }).finally(() => {
+                inFlight.current--;
             });
         };
 
@@ -204,9 +224,14 @@ export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filt
                 !exhaustedRoomIds.has(room.roomId),
         );
         if (targets.length === 0) return;
-        await runInBatches(targets, BACKFILL_CONCURRENCY, (room) =>
-            backfillPages(client, room, 1, pagesFetched, markExhausted),
-        );
+        inFlight.current++;
+        try {
+            await runInBatches(targets, BACKFILL_CONCURRENCY, (room) =>
+                backfillPages(client, room, 1, pagesFetched, markExhausted),
+            );
+        } finally {
+            inFlight.current--;
+        }
         setGeneration((n) => n + 1);
     }, [rooms, client, filter, exhaustedRoomIds, markExhausted]);
 
@@ -221,7 +246,7 @@ export function useBackfillSocialRooms(rooms: Room[], client: MatrixClient, filt
         [rooms, filter, exhaustedRoomIds],
     );
 
-    return { generation, hasMore, loadMore };
+    return { generation, hasMore, loadMore, inFlight };
 }
 
 /** Runs `worker` over `items`, at most `concurrency` in flight at once - unlike a plain
