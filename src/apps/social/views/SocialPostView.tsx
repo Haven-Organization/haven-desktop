@@ -46,6 +46,7 @@ import { sendLike, undoLike, sendComment, sendPostReadReceipt } from "../utils/s
 import { processSlashCommand } from "../utils/socialSlashCommands";
 import { getProfileOwnerUserId } from "../utils/room-classifier";
 import { immediateParentId, threadRootId } from "../utils/thread-relations";
+import { ensurePostReactionsLoaded } from "../utils/postReactions";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 
 // ---------------------------------------------------------------------------
@@ -462,6 +463,37 @@ export function SocialPostView({
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tick, getDirectReplies, event]);
+
+    // Every post shown here gets its full reaction set fetched from the server - see
+    // utils/postReactions.ts for why the locally synced timeline alone undercounts them for older
+    // posts. Done here rather than in every SocialEventTile so the Feed/profile lists don't fire a
+    // request per post while scrolling; this view only ever shows a handful. refresh() re-reads
+    // this view's own "did I like/repost this" state once a load lands, since that's derived
+    // from the same relations index.
+    const shownEvents = useMemo(
+        () => [
+            event,
+            ...ancestors,
+            ...directReplies.flatMap((node) => (node.replyOfReply ? [node.event, node.replyOfReply.event] : [node.event])),
+        ],
+        [event, ancestors, directReplies],
+    );
+    // Keyed on the shown ids, not shownEvents itself - directReplies is rebuilt on every refresh(),
+    // so depending on the array would re-run this after every load's own refresh(), forever.
+    const shownEventIds = shownEvents.map((e) => e.getId()).join(",");
+    const shownEventsRef = useRef(shownEvents);
+    shownEventsRef.current = shownEvents;
+    useEffect(() => {
+        let cancelled = false;
+        for (const shownEvent of shownEventsRef.current) {
+            void ensurePostReactionsLoaded(client, room, shownEvent).then(() => {
+                if (!cancelled) refresh();
+            });
+        }
+        return () => {
+            cancelled = true;
+        };
+    }, [client, room, shownEventIds, refresh]);
 
     const handleLikeFor = useCallback(
         async (targetEventId: string, targetLikeEventId: string | undefined) => {

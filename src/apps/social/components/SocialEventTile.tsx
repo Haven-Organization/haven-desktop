@@ -86,6 +86,7 @@ import {
 import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
+import { onPostReactionsLoaded } from "../utils/postReactions";
 import { holdScrollPosition } from "../utils/holdScrollPosition";
 import { calculateRoomVia } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
@@ -1321,8 +1322,14 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             if (found) setReactions(found);
         };
         room.on("Room.timeline" as any, checkForRelations);
+        // Haven: reactions fetched straight from the server (see utils/postReactions.ts) are
+        // aggregated without any Room.timeline event, so listen for that load finishing too.
+        const unsubscribeLoaded = onPostReactionsLoaded((loadedRoomId, loadedEventId) => {
+            if (loadedRoomId === room.roomId && loadedEventId === eventId) checkForRelations();
+        });
         return () => {
             room.off("Room.timeline" as any, checkForRelations);
+            unsubscribeLoaded();
         };
     }, [client, room, eventId, reactions]);
     // Like/Repost action-bar buttons always show their own reaction's count directly (see
