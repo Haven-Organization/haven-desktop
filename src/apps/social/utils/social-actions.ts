@@ -562,6 +562,13 @@ export interface RepostContent {
  * section, so any client can compute a repost/boost count via the same reaction-aggregation
  * mechanism used for likes — best-effort: silently skipped if we lack permission to react in the
  * reposted event's room (e.g. reposting from a room we're not joined to), same as the MSC allows.
+ * The repost/quote-post itself always succeeds regardless (it always lands in targetRoomId, the
+ * reposting user's own room), independent of whether the reaction did.
+ *
+ * Returns whether the reaction actually went out - SocialEventTile.tsx's own boost button uses
+ * this to optimistically show itself as reposted (and bump its own count) even when it didn't,
+ * since the real reaction-based count can never reflect a repost sent this way and the boost post
+ * itself still genuinely happened.
  */
 export async function sendRepost(
     client: MatrixClient,
@@ -569,7 +576,7 @@ export async function sendRepost(
     body: string,
     reposted: RepostContent,
     file?: File,
-): Promise<void> {
+): Promise<{ reactionSent: boolean }> {
     const content: Record<string, unknown> = file
         ? await buildMediaMessageContent(client, targetRoomId, file, body)
         : { body, msgtype: "m.text", format: "plain" };
@@ -586,12 +593,27 @@ export async function sendRepost(
     await client.sendEvent(targetRoomId, currentPostEventType() as any, content);
     void sendPostReadReceipt(client, reposted.room_id, reposted.event_id);
 
+    // Haven: skip the attempt outright when we already know it can't succeed - a repost/quote-post
+    // of a post in a room we're only peeking (not joined), reachable via a profile viewed without
+    // following it first, or a repost card pointing at an unjoined room. The repost/quote-post
+    // itself already sent fine above regardless (it always lands in targetRoomId, the reposting
+    // user's own room); this only concerns the 🔁 reaction this function separately annotates the
+    // *original* event with, in reposted.room_id, which does need real membership there. Previously
+    // always attempted and silently swallowed the failure below - harmless, but a guaranteed-to-fail
+    // network request every single time from a room we're not in is easy to just not make. The
+    // try/catch stays for the cases this check can't rule out (rate limits, a membership change
+    // mid-request, etc.) - the MSC explicitly allows the count to simply not increment either way.
+    if (client.getRoom(reposted.room_id)?.getMyMembership() !== KnownMembership.Join) {
+        return { reactionSent: false };
+    }
     try {
         await sendRepostReaction(client, reposted.room_id, reposted.event_id);
+        return { reactionSent: true };
     } catch {
-        // Not joined/no permission to react in the reposted event's own room — the repost itself
-        // already sent fine above, and the MSC explicitly allows the count to simply not
-        // increment from this repost in that case.
+        // Not joined/no permission to react in the reposted event's own room — the repost
+        // itself already sent fine above, and the MSC explicitly allows the count to simply
+        // not increment from this repost in that case.
+        return { reactionSent: false };
     }
 }
 

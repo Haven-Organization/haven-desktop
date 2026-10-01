@@ -8,7 +8,8 @@
  * separate reaction-pills row (SocialReactionsRow) for that number - this button is the single
  * place that count is meant to live, so SocialReactionsRow filters 👍 out of its own pills to avoid
  * showing it twice. Hovering opens the real stock ReactionPicker (the exact popup used for "React"
- * on messages in the normal room timeline) so any emoji can be used as a reaction.
+ * on messages in the normal room timeline) so any emoji can be used as a reaction - unless
+ * canOpenPicker is false, in which case hovering calls onPickerBlocked instead (see its own doc).
  */
 
 import React, { type JSX, useCallback, useRef, useState } from "react";
@@ -27,12 +28,32 @@ interface Props {
      *  ReactionPicker's own onReact doc. */
     onReact?: () => void;
     disabled?: boolean;
+    // Haven: lets a caller gate the *picker itself* separately from onLike/disabled - stock
+    // ReactionPicker.onChoose sends its reaction synchronously, with no return value or thrown
+    // error this button could catch, so the only place left to intercept a reaction that's known
+    // in advance to be impossible (e.g. peeking a room without being a member - see
+    // SocialEventTile.tsx's showActionRequiresFollowModal) is before the real picker ever opens,
+    // not after. False routes the hover-open through onPickerBlocked instead of ever mounting the
+    // real ReactionPicker. Defaults to true so every other caller (and existing tests) is
+    // unaffected.
+    canOpenPicker?: boolean;
+    /** Called instead of opening the picker when canOpenPicker is false. */
+    onPickerBlocked?: () => void;
 }
 
 const HOVER_OPEN_DELAY_MS = 350;
 const HOVER_CLOSE_DELAY_MS = 200;
 
-export function LikeButton({ event, isLiked, count, onLike, onReact, disabled }: Props): JSX.Element {
+export function LikeButton({
+    event,
+    isLiked,
+    count,
+    onLike,
+    onReact,
+    disabled,
+    canOpenPicker = true,
+    onPickerBlocked,
+}: Props): JSX.Element {
     const [open, setOpen] = useState(false);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -55,8 +76,14 @@ export function LikeButton({ event, isLiked, count, onLike, onReact, disabled }:
     const scheduleOpen = useCallback(() => {
         cancelClose();
         cancelOpen();
-        openTimer.current = setTimeout(() => setOpen(true), HOVER_OPEN_DELAY_MS);
-    }, [cancelClose, cancelOpen]);
+        openTimer.current = setTimeout(() => {
+            if (canOpenPicker) {
+                setOpen(true);
+            } else {
+                onPickerBlocked?.();
+            }
+        }, HOVER_OPEN_DELAY_MS);
+    }, [cancelClose, cancelOpen, canOpenPicker, onPickerBlocked]);
 
     const scheduleClose = useCallback(() => {
         cancelOpen();

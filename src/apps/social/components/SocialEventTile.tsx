@@ -86,6 +86,7 @@ import {
 import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
+import { calculateRoomVia } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
 import { useLiveUserProfile } from "../utils/liveUserProfile";
 import { ExternalHandleIcon } from "./ExternalHandleIcon";
@@ -259,9 +260,13 @@ function showJoinToFollowModal(
     onViewThread: (event: MatrixEvent, room: Room) => void,
     summary: { name?: string; avatar_url?: string; num_joined_members?: number },
     via?: string[],
+    // Haven: lets the action-gating modals below (reply/repost/like on a peeked post) reuse this
+    // same join-then-open flow with their own wording instead of duplicating it - the join/fetch/
+    // navigate mechanics are identical either way, only the copy explaining *why* differs.
+    copyOverride?: { title: string; bodyText: string },
 ): void {
     Modal.createDialog(QuestionDialog, {
-        title: "Follow to see this post",
+        title: copyOverride?.title ?? "Follow to see this post",
         description: (
             <>
                 <RoomSummaryPreview
@@ -270,7 +275,7 @@ function showJoinToFollowModal(
                     avatarUrl={summary.avatar_url}
                     numJoinedMembers={summary.num_joined_members}
                 />
-                <p>You need to follow this profile to see its posts.</p>
+                <p>{copyOverride?.bodyText ?? "You need to follow this profile to see its posts."}</p>
             </>
         ),
         button: "Follow",
@@ -318,6 +323,9 @@ interface KnockToFollowDialogProps {
     summary: { name?: string; avatar_url?: string; num_joined_members?: number };
     onFinished: () => void;
     via?: string[];
+    // Haven: see showJoinToFollowModal's own copyOverride doc - same reasoning, reused here for the
+    // action-gating modals (reply/repost/like on a peeked post).
+    copyOverride?: { bodyText: string };
 }
 
 /** Stays open through the whole knock, rather than closing immediately like a plain QuestionDialog
@@ -336,6 +344,7 @@ function KnockToFollowDialog({
     summary,
     onFinished,
     via,
+    copyOverride,
 }: KnockToFollowDialogProps): JSX.Element {
     const [state, setState] = useState<"idle" | "sending" | "sent" | "accepting" | "error">("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -457,7 +466,7 @@ function KnockToFollowDialog({
                     avatarUrl={summary.avatar_url}
                     numJoinedMembers={summary.num_joined_members}
                 />
-                <p>You must request to follow this profile before you can see their posts.</p>
+                <p>{copyOverride?.bodyText ?? "You must request to follow this profile before you can see their posts."}</p>
                 {state === "error" && errorMessage && <p className="social_Error">{errorMessage}</p>}
             </div>
             <DialogButtons
@@ -480,8 +489,18 @@ function showKnockToFollowModal(
     onViewThread: (event: MatrixEvent, room: Room) => void,
     summary: { name?: string; avatar_url?: string; num_joined_members?: number },
     via?: string[],
+    copyOverride?: { bodyText: string },
 ): void {
-    Modal.createDialog(KnockToFollowDialog, { client, roomId, eventId, fallbackEvent, onViewThread, summary, via });
+    Modal.createDialog(KnockToFollowDialog, {
+        client,
+        roomId,
+        eventId,
+        fallbackEvent,
+        onViewThread,
+        summary,
+        via,
+        copyOverride,
+    });
 }
 
 /**
@@ -596,6 +615,73 @@ export function resolveAndOpenPost(
             showPrivateProfileModal();
         }
     })();
+}
+
+/** "An invite is required to reply to/repost/like this post" - the one case among
+ *  showActionRequiresFollowModal's three branches with no self-serve action at all (an invite-only
+ *  room can't be knocked on or freely joined), so this is purely informational, same shape as
+ *  showPrivateProfileModal above but worded for the specific action that was attempted rather than
+ *  generically about viewing the profile. */
+function showInviteRequiredModal(actionText: string): void {
+    Modal.createDialog(QuestionDialog, {
+        title: "Invite required",
+        description: <p>An invite is required to {actionText} this post.</p>,
+        button: "OK",
+        hasCancelButton: false,
+        onFinished: () => {},
+    });
+}
+
+/**
+ * Shown when Reply/Repost/Like is clicked on a post in a room the viewer is only peeking (not
+ * actually joined) - reachable by opening someone's profile without following them first, or by
+ * clicking a repost card that points at a room the viewer has never joined. All three of those
+ * actions have to land a real event (a threaded reply, a boost's own 🔁 reaction, or the like's 👍
+ * reaction) in *this* room, not the viewer's own - unlike a quote-post's own commentary, which
+ * always lands in the viewer's own profile room and works regardless (see sendRepost's own
+ * membership check in social-actions.ts for that half of this same fix), there's no way to make
+ * any of these three actually succeed without first joining or knocking, so this gates the button
+ * itself with an explanatory modal instead of letting the click silently fail against the server.
+ *
+ * Unlike resolveAndOpenPost above, there's no room summary to fetch here - a peeked room is already
+ * a real, locally-known Room object with its own join_rule readily available, so this branches on
+ * that directly instead of an async MSC3266 lookup. Reuses showJoinToFollowModal/
+ * showKnockToFollowModal's own join/knock mechanics via copyOverride rather than duplicating them -
+ * only the "why" text differs from the "view this post" flow those were originally built for.
+ * onViewThread is a no-op: the viewer is already looking at this exact post, so there's nowhere new
+ * to navigate to once joined/knocked - they just click the button again once they can.
+ */
+export function showActionRequiresFollowModal(
+    client: MatrixClient,
+    room: Room,
+    event: MatrixEvent,
+    actionText: string,
+): void {
+    const eventId = event.getId()!;
+    const onViewThread = (): void => {};
+    // Cast through unknown, same as resolveAndOpenPost's own join_rule handling above - matrix-js-
+    // sdk's JoinRule enum doesn't have a "knock_restricted" member even though it's a real,
+    // currently-used join rule string (MSC3787), so a direct JoinRule comparison can't check for it.
+    const joinRule = room.getJoinRule() as unknown as string;
+    const summary = {
+        name: room.name,
+        avatar_url: room.getMxcAvatarUrl() ?? undefined,
+        num_joined_members: room.getJoinedMemberCount(),
+    };
+    const via = calculateRoomVia(room);
+
+    if (joinRule === JoinRule.Public) {
+        showJoinToFollowModal(client, room.roomId, eventId, event, onViewThread, summary, via, {
+            title: "Follow to interact",
+            bodyText: `You need to follow this profile to ${actionText} this post.`,
+        });
+    } else if (joinRule === JoinRule.Knock || joinRule === "knock_restricted") {
+        showKnockToFollowModal(client, room.roomId, eventId, event, onViewThread, summary, via, {
+            bodyText: `You must be a follower to ${actionText} this post.`,
+        });
+    } else {
+        showInviteRequiredModal(actionText);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1206,6 +1292,15 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // All hooks unconditionally before any early returns (Rules of Hooks).
     const [likeBusy, setLikeBusy] = useState(false);
     const [boostBusy, setBoostBusy] = useState(false);
+    // Haven: a boost sent from a room we're only peeking (not joined) still succeeds - it always
+    // lands in our own profile room - but sendRepost skips the 🔁 reaction it would otherwise also
+    // put on the original, since we can't react in a room we're not in. isReposted/
+    // repostReactionCount below are both purely reaction-count-based (see their own derivation),
+    // so they'd never reflect a boost sent this way even though it genuinely went through. This is
+    // the local, optimistic stand-in for that one case - set once sendRepost confirms the reaction
+    // didn't go out, and never cleared, since the real reaction truly never reaches the server for
+    // this to later reconcile against.
+    const [optimisticRepostNoReaction, setOptimisticRepostNoReaction] = useState(false);
     const eventId = event.getId();
     // A post with zero reactions has no Relations aggregator in the SDK yet at all (
     // room.relations.getChildEventsForEvent returns undefined until the first one is added) — a
@@ -1251,6 +1346,11 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     }, [reactions]);
     const likeReactionCount = reactionGroups.find((g) => g.content === "👍")?.events.length ?? 0;
     const repostReactionCount = reactionGroups.find((g) => g.content === "🔁")?.events.length ?? 0;
+    // Haven: see optimisticRepostNoReaction's own doc above - folds the optimistic "I boosted, but
+    // the reaction never reached the server" state into the same two values the real, reaction-
+    // based ones feed, so the button below doesn't need to know which case it's rendering.
+    const displayIsReposted = isReposted || optimisticRepostNoReaction;
+    const displayRepostReactionCount = repostReactionCount + (optimisticRepostNoReaction ? 1 : 0);
     const myUserId = client.getSafeUserId();
     const canReact =
         room.getMyMembership() === KnownMembership.Join && room.currentState.maySendEvent(EventType.Reaction, myUserId);
@@ -1281,13 +1381,21 @@ export const SocialEventTile = React.memo(function SocialEventTile({
 
     const handleLike = useCallback(async () => {
         if (!onLike || likeBusy) return;
+        // Haven: liking sends a 👍 reaction directly onto this event, in this room - genuinely
+        // impossible without being a member (unlike a quote-post, there's no own-room fallback for
+        // a reaction), so a peeked, not-joined room gets the explanatory modal instead of a doomed
+        // network request. See showActionRequiresFollowModal's own doc.
+        if (room.getMyMembership() !== KnownMembership.Join) {
+            showActionRequiresFollowModal(client, room, event, "like");
+            return;
+        }
         setLikeBusy(true);
         try {
             await onLike();
         } finally {
             setLikeBusy(false);
         }
-    }, [onLike, likeBusy]);
+    }, [onLike, likeBusy, client, room, event]);
 
     // Any emoji reaction sent via the hover picker (not just the 👍 shortcut above, which already
     // gets its own receipt from sendLike) still counts as reading this post.
@@ -1297,6 +1405,14 @@ export const SocialEventTile = React.memo(function SocialEventTile({
 
     const openReplyDialog = useCallback(() => {
         if (!onReply) return;
+        // Haven: a reply is a real m.thread-related event sent straight into this room (see
+        // sendComment in social-actions.ts) - unlike a quote-post, it has no own-room fallback, so
+        // it would fail outright if sent from a room the viewer is only peeking. Gate the composer
+        // itself rather than let it open onto a reply that can't actually send.
+        if (room.getMyMembership() !== KnownMembership.Join) {
+            showActionRequiresFollowModal(client, room, event, "reply to");
+            return;
+        }
         Modal.createDialog(
             ReplyComposerDialog,
             {
@@ -1369,7 +1485,8 @@ export const SocialEventTile = React.memo(function SocialEventTile({
             const boostPermalinkCreator = new RoomPermalinkCreator(room);
             boostPermalinkCreator.load();
             const permalink = boostPermalinkCreator.forEvent(boostedEventId);
-            await sendRepost(client, targetRoomId, permalink, reposted);
+            const { reactionSent } = await sendRepost(client, targetRoomId, permalink, reposted);
+            if (!reactionSent) setOptimisticRepostNoReaction(true);
         } finally {
             setBoostBusy(false);
         }
@@ -2800,14 +2917,14 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 </button>
 
                 <button
-                    className={`social_EventTile_actionBtn${isReposted ? " social_EventTile_actionBtn--reposted" : ""}`}
+                    className={`social_EventTile_actionBtn${displayIsReposted ? " social_EventTile_actionBtn--reposted" : ""}`}
                     onClick={() => void handleBoost()}
-                    aria-label={isReposted ? "Reposted, click to undo" : "Repost"}
-                    title={isReposted ? "Reposted, click to undo" : "Repost"}
+                    aria-label={displayIsReposted ? "Reposted, click to undo" : "Repost"}
+                    title={displayIsReposted ? "Reposted, click to undo" : "Repost"}
                     disabled={boostBusy}
                 >
                     <RestartIcon />
-                    {repostReactionCount > 0 && <span>{repostReactionCount}</span>}
+                    {displayRepostReactionCount > 0 && <span>{displayRepostReactionCount}</span>}
                 </button>
 
                 <button
@@ -2826,6 +2943,11 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     onLike={handleLike}
                     onReact={handleReact}
                     disabled={likeBusy || !onLike}
+                    // Haven: no onPickerBlocked - hovering while peeking a room we're not in just
+                    // quietly doesn't open the picker, no modal. Unlike Reply/Repost/Like's own
+                    // deliberate clicks, this is triggered by a passive hover, which isn't where a
+                    // "you need to follow this profile" interruption belongs.
+                    canOpenPicker={room.getMyMembership() === KnownMembership.Join}
                 />
             </div>
         </article>
