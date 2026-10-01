@@ -290,13 +290,42 @@ export function SocialRoomView({
     const savedRoomScrollTop = useRef<number | null>(null);
     // useLayoutEffect (not useEffect) so the restored position applies before the browser paints
     // the returned-to feed, avoiding a visible flash of "scrolled to top" first - same reasoning as
-    // FeedPane's own identical effect.
+    // FeedPane's own identical effect. This view's own post list isn't virtualized (a plain
+    // visiblePosts.map, unlike FeedPane's Virtuoso - see visibleCount's own doc), so it doesn't
+    // need FeedPane's real measured-size-snapshot fix (react-virtuoso's getState/restoreStateFrom -
+    // see FeedPane's savedFeedState for the full story on why a raw pixel number alone isn't enough
+    // there): a plain list's real DOM height is simply the sum of each already-rendered item's real
+    // layout height, no index-from-pixel estimation involved. Still retries across a few animation
+    // frames rather than a single assignment, purely as cheap insurance for consistency with
+    // FeedPane and SocialRoomView's own cross-navigation restore below (preRefreshScrollTop) -
+    // visibleCount/allEvents survive this transition untouched (this component doesn't unmount, see
+    // threadRoom's own doc above), so the single-attempt case should normally just work, but nothing
+    // here depends on that holding under every possible timing.
     useLayoutEffect(() => {
         if (threadEvent !== null) return;
-        if (savedRoomScrollTop.current !== null && scrollContainerRef?.current) {
-            scrollContainerRef.current.scrollTop = savedRoomScrollTop.current;
+        const target = savedRoomScrollTop.current;
+        if (target === null) return;
+        const el = scrollContainerRef?.current;
+        if (!el) return;
+        el.scrollTop = target;
+        if (Math.abs(el.scrollTop - target) < 2) {
             savedRoomScrollTop.current = null;
+            return;
         }
+        let attempts = 0;
+        const retry = (): void => {
+            attempts++;
+            const node = scrollContainerRef?.current;
+            if (node) {
+                node.scrollTop = target;
+                if (Math.abs(node.scrollTop - target) < 2 || attempts > 30) {
+                    savedRoomScrollTop.current = null;
+                    return;
+                }
+            }
+            requestAnimationFrame(retry);
+        };
+        requestAnimationFrame(retry);
     }, [threadEvent, scrollContainerRef]);
     // True only while threadEvent was set by resolving a direct/external link (peekPendingFocusEvent
     // below) - cleared on any regular in-app re-focus (onFocusEvent) so the highlight-and-fade only

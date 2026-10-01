@@ -37,7 +37,7 @@ import {
     ComposeIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { Resizable } from "re-resizable";
-import { Virtuoso } from "react-virtuoso";
+import { Virtuoso, type VirtuosoHandle, type StateSnapshot } from "react-virtuoso";
 import { useSetUserMenuPortalTarget } from "../../framework/UserMenuPortalContext";
 
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
@@ -86,6 +86,7 @@ import { consumePendingViewPost } from "../utils/pendingViewPost";
 import { clearPendingFocusEvent, setPendingFocusEvent } from "../utils/pendingFocusEvent";
 import { peekPendingSocialSection, clearPendingSocialSection } from "../utils/pendingSocialSection";
 import { saveLastSocialViewState, peekLastSocialViewState } from "../utils/lastSocialViewState";
+import { adjustFeedSnapshot, type SavedFeedScroll } from "../utils/feedScrollSnapshot";
 import { consumePendingPostModal } from "../utils/pendingPostModal";
 import {
     isGroupRoom,
@@ -1388,26 +1389,89 @@ function FeedPane({
         setThreadView(null);
     }, [closeThreadToken]);
 
-    useEffect(() => {
-        if (openThreadTarget) setThreadView({ ...openThreadTarget, highlight: true });
-    }, [openThreadTarget]);
-
-    // Feed scroll position, saved right before entering a thread and restored once back - see
-    // scrollContainerRef's own doc for why the same .social_Content DOM node survives the trip
-    // (only its children get swapped), making a plain ref (not React state - no need to re-render
-    // when this changes) enough to carry it across. Seeded from initialScrollRestore (not always
-    // null) so a fresh mount restoring a cross-navigation scroll position rides this exact
-    // mechanism on its first pass too - see that prop's own doc.
+    // Feed scroll position for the CROSS-NAVIGATION case only (leaving Social entirely via a
+    // different top-level nav item, then coming back - see initialScrollRestore's own doc), not the
+    // in-mount Feed <-> thread-view transition below (see virtuosoRef/restoreFeedStateFrom for that one).
+    // A fresh FeedPane mount can only ever need this one, since a thread can't have been opened and
+    // closed yet in a mount that's only just starting - the two never need to apply at once.
     const savedFeedScrollTop = useRef<number | null>(initialScrollRestore ?? null);
+    // A reference to the live Virtuoso instance, so its own real measured item sizes (not just a
+    // raw scrollTop pixel number) can be captured/restored across the Feed <-> thread-view
+    // transition below.
+    const virtuosoRef = useRef<VirtuosoHandle>(null);
+    // Haven: this used to just snapshot/reapply a raw scrollTop pixel number (same as
+    // savedFeedScrollTop above), the same way SocialRoomView's own identical-looking mechanism
+    // still does for its own (non-virtualized) post list. That works for a plain DOM list, but
+    // Virtuoso's own <Virtuoso> instance fully unmounts while a thread is open (this whole
+    // component's JSX swaps to the thread view below) and remounts from scratch once back, with no
+    // memory of the real heights it had previously measured for each post - forcing the same raw
+    // pixel value onto that fresh instance makes it map "pixel X" to an item index using its own
+    // generic *default* per-item size estimate instead, not this feed's actual (commonly taller,
+    // image/video-heavy) post heights - the most likely explanation for a reported "Back from a post
+    // returns the Feed scrolled further down than where it was", since a mismatch between estimated
+    // and real heights moves the same pixel offset onto a different index. react-virtuoso's own getState()/restoreStateFrom exist for exactly this "a whole
+    // Virtuoso instance is being thrown away and recreated, carry its real state across" case (see
+    // StateSnapshot's own doc: it captures the measured size *ranges*, not just a scrollTop number).
+    //
+    // React state, not a ref read once at mount: FeedPane itself stays mounted across the
+    // Feed <-> thread-view transition - only its <Virtuoso> element unmounts and remounts (this
+    // component's own JSX swaps to the thread view, see `if (threadView)` below). A value captured
+    // at FeedPane's own first render was therefore always empty by the time it mattered, and Back
+    // landed at the top of the Feed. Set at the moment a post is opened instead, so the very next
+    // <Virtuoso> mount (the one returning to the Feed) is created with it. Changing it while the
+    // list is mounted never happens - it's only ever set in the same update that unmounts the list -
+    // so Virtuoso only ever sees each snapshot as an initial value, which is what restoreStateFrom
+    // is for. getState's callback runs synchronously, before the state update below is committed.
+    //
+    // Saved together with the post ids the list held at the time, because the Feed keeps changing
+    // while a post is open - on a busy feed, new posts landing on top during a single visit is
+    // routine, not an edge case. The snapshot's measured heights and scroll offset are by position
+    // in the list, and nothing renumbers them for posts that arrive while the list is unmounted,
+    // so they're corrected here on the way back instead - see adjustFeedSnapshot.
+    const [savedFeedScroll, setSavedFeedScroll] = useState<SavedFeedScroll | undefined>(undefined);
+    const postsRef = useRef(posts);
+    postsRef.current = posts;
+    // Called on every way a thread opens from the Feed (a click, or openThreadTarget below), so Back
+    // never restores a stale snapshot from an earlier visit. No-op if the list isn't mounted
+    // (already in a thread) - the snapshot from when it was still showing stays the right one.
+    const captureFeedState = useCallback((): void => {
+        virtuosoRef.current?.getState((snapshot) => {
+            setSavedFeedScroll({ snapshot, postIds: postsRef.current.map((p) => p.event.getId()) });
+        });
+    }, []);
+    // Adjusted against the Feed as it is at the moment of returning (threadView turning null), then
+    // left alone - `posts` is deliberately not a dependency, so later changes while the list is
+    // mounted don't hand Virtuoso a new initial value it isn't meant to receive.
+    const restoreFeedStateFrom = useMemo<StateSnapshot | undefined>(
+        () =>
+            threadView === null && savedFeedScroll
+                ? adjustFeedSnapshot(
+                      savedFeedScroll,
+                      posts.map((p) => p.event.getId()),
+                  )
+                : undefined,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [savedFeedScroll, threadView],
+    );
     const handleViewThread = useCallback(
         (event: MatrixEvent, room: Room) => {
-            savedFeedScrollTop.current = scrollContainerRef.current?.scrollTop ?? null;
+            captureFeedState();
             setThreadView({ event, room });
         },
-        [scrollContainerRef],
+        [captureFeedState],
     );
+
+    useEffect(() => {
+        if (!openThreadTarget) return;
+        captureFeedState();
+        setThreadView({ ...openThreadTarget, highlight: true });
+    }, [openThreadTarget, captureFeedState]);
     // useLayoutEffect (not useEffect) so the restored position applies before the browser paints
-    // the returned-to feed, avoiding a visible flash of "scrolled to top" first.
+    // the returned-to feed, avoiding a visible flash of "scrolled to top" first. Only ever has a
+    // target here for the initialScrollRestore-seeded cross-navigation case now - the in-mount Feed
+    // <-> thread-view transition uses virtuosoRef/restoreFeedStateFrom above instead (handleViewThread no
+    // longer writes to savedFeedScrollTop at all - see its own doc for why a raw pixel number isn't
+    // good enough there).
     useLayoutEffect(() => {
         if (threadView !== null) return;
         const target = savedFeedScrollTop.current;
@@ -1422,14 +1486,19 @@ function FeedPane({
             savedFeedScrollTop.current = null;
             return;
         }
-        // Not enough yet to reach the saved offset on the very first attempt - the feed's own
-        // Virtuoso list fully unmounts while a thread is open (this whole early-return replaces
-        // it) and remounts fresh once back, and Virtuoso's own initial layout/measurement pass
-        // resets this same scroll parent's scrollTop back to 0 shortly after this effect runs,
-        // in a later pass of its own - confirmed live: this assignment alone visibly "took" for a
-        // moment and then silently reverted. Keep reasserting the target across a few animation
-        // frames until Virtuoso's own settling is done and it actually sticks, same technique (and
-        // same reasoning) as the cross-unmount restore below.
+        // Not enough yet to reach the saved offset on the very first attempt - Virtuoso's own
+        // initial layout/measurement pass resets this same scroll parent's scrollTop back to 0
+        // shortly after this effect runs, in a later pass of its own - confirmed live: this
+        // assignment alone visibly "took" for a moment and then silently reverted. Keep reasserting
+        // the target across a few animation frames until Virtuoso's own settling is done and it
+        // actually sticks, same technique (and same reasoning) as the cross-unmount restore below.
+        // Unlike the thread-transition case above, this path has no real measured-size snapshot to
+        // hand Virtuoso up front (initialScrollRestore only ever carries a plain number - see its
+        // own doc), so it can still land on a slightly different index than intended for the same
+        // underlying reason restoreFeedStateFrom now exists; left as its original, less common failure
+        // mode rather than widened in scope here (initialScrollRestore crossing an actual full
+        // unmount boundary - leaving Social entirely - makes it a materially bigger change to carry
+        // a real StateSnapshot through).
         let attempts = 0;
         const retry = (): void => {
             attempts++;
@@ -1853,6 +1922,8 @@ function FeedPane({
                 </div>
             ) : (
                 <Virtuoso
+                    ref={virtuosoRef}
+                    restoreStateFrom={restoreFeedStateFrom}
                     className="social_Feed"
                     customScrollParent={scrollParentEl ?? undefined}
                     data={posts}
