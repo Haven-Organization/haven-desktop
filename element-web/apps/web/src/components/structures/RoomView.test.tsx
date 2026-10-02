@@ -267,6 +267,24 @@ describe("RoomView", () => {
         expect(instance.getHiddenHighlightCount()).toBe(0);
     });
 
+    describe("losing permission to post while the room is open", () => {
+        it("swaps the composer for the no-permission notice once the state update lands", async () => {
+            vi.spyOn(room, "getMyMembership").mockReturnValue(KnownMembership.Join);
+            const maySendMessage = vi.spyOn(room, "maySendMessage").mockReturnValue(true);
+            await mountRoomView();
+            expect(screen.queryByText("You do not have permission to post to this room")).not.toBeInTheDocument();
+
+            // e.g. muted (power level -1): RoomState only has the new answer by the time it emits
+            // RoomStateEvent.Update - its earlier RoomStateEvent.Events still sees the old one.
+            maySendMessage.mockReturnValue(false);
+            act(() => {
+                cli.emit(RoomStateEvent.Update, room.currentState);
+            });
+
+            expect(await screen.findByText("You do not have permission to post to this room")).toBeInTheDocument();
+        });
+    });
+
     describe("jump to bottom from a highlighted event", () => {
         const viewEvent = async (eventId: string): Promise<void> => {
             act(() =>

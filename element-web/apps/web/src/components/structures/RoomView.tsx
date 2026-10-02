@@ -1744,6 +1744,14 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
         }
 
         this.updateRoomMembers();
+        // Haven: onRoomStateEvents' own updatePermissions call runs too early for a power level
+        // change - RoomStateEvent.Events fires for the m.room.power_levels event before RoomState
+        // has recalculated each member's power level, so maySendMessage() there still returns the
+        // old answer (confirmed live in both directions: muted to -1 it still said true, restored
+        // it still said false). The composer then kept showing while muted until the room was
+        // reopened. RoomStateEvent.Update fires once the whole batch has been applied, so re-check
+        // here as well.
+        this.updatePermissions(this.state.room);
     };
 
     private onMyMembership = (room: Room): void => {
@@ -1763,11 +1771,17 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             const canSendMessages = room.maySendMessage();
             const canSelfRedact = room.currentState.maySendEvent(EventType.RoomRedaction, me);
 
-            this.setState({
-                canReact,
-                canSendMessages,
-                canSelfRedact,
-            });
+            // Haven: now also called on every RoomStateEvent.Update (see onRoomStateUpdate) - skip
+            // re-rendering the whole room view when nothing actually changed. Compared inside the
+            // updater (not against this.state) so two calls in the same tick see each other's
+            // still-pending update instead of a stale committed one; returning null skips it.
+            this.setState((prev) =>
+                prev.canReact === canReact &&
+                prev.canSendMessages === canSendMessages &&
+                prev.canSelfRedact === canSelfRedact
+                    ? null
+                    : { canReact, canSendMessages, canSelfRedact },
+            );
         }
     }
 
