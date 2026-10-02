@@ -24,7 +24,7 @@ import { Action } from "../../../dispatcher/actions";
 import { type ViewUserPayload } from "../../../dispatcher/payloads/ViewUserPayload";
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
 import { mediaFromMxc } from "../../../customisations/Media";
-import { unicodeToShortcode } from "../../../HtmlUtils";
+import { isEmojiOnly, unicodeToShortcode } from "../../../HtmlUtils";
 import { getImageSourcePackRefs } from "../../../utils/imageSourcePacks";
 import { REACTION_SHORTCODE_KEY } from "../../../viewmodels/room/timeline/event-tile/reactions/reactionShortcode";
 import { getReactionGroups, type ReactionGroup } from "../rooms/EventTile/ReactionsRowAdapter";
@@ -139,7 +139,11 @@ export default function ReactionsDialog({ mxEvent, reactions, initialContent, on
     const selectedImageSrc = selectedIsCustomImage
         ? (mediaFromMxc(selectedGroup!.content).srcHttp ?? undefined)
         : undefined;
-    const selectedIsRealEmoji = !selectedIsCustomImage && !!selectedGroup && !!unicodeToShortcode(selectedGroup.content);
+    // Haven: isEmojiOnly too - see ReactionsRowButtonViewModel's isEmoji for why (skin-tone variants).
+    const selectedIsRealEmoji =
+        !selectedIsCustomImage &&
+        !!selectedGroup &&
+        (!!unicodeToShortcode(selectedGroup.content) || isEmojiOnly(selectedGroup.content));
 
     return (
         <BaseDialog
@@ -249,8 +253,9 @@ function ReactionsDialogRailItem({
     const shortName = reactionGroupShortName(group);
     // Haven: a genuine unicode emoji (has a resolvable shortcode) gets a bigger glyph than a
     // freeform text reaction (an arbitrary word, which needs to stay small enough to have a real
-    // chance of fitting the rail's fixed width on one line - see overflow-wrap below).
-    const isRealEmoji = !isCustomImage && !!unicodeToShortcode(group.content);
+    // chance of fitting the rail's fixed width on one line - see overflow-wrap below). isEmojiOnly
+    // also counts skin-tone variants and other emoji missing from the shortcode table.
+    const isRealEmoji = !isCustomImage && (!!unicodeToShortcode(group.content) || isEmojiOnly(group.content));
     // Haven: a freeform reaction has no shortName (reactionGroupShortName can't find one) and now
     // clamps to 2 lines with an ellipsis (see _ReactionsDialog.pcss's own doc on
     // .mx_ReactionsDialog_railItemContent) - without its own tooltip, two different long

@@ -80,6 +80,22 @@ const BIGEMOJI_REGEX = (() => {
 // most; nothing meaningful is lost by skipping the check past this length.
 const BIGEMOJI_REGEX_MAX_LENGTH = 1000;
 
+// Haven: far below BIGEMOJI_REGEX_MAX_LENGTH - isEmojiOnly is meant for a single reaction key
+// (one emoji, even a long ZWJ family or flag sequence, is well under this), so anything longer
+// isn't worth running the regex on at all.
+const EMOJI_ONLY_MAX_LENGTH = 64;
+
+/**
+ * True when `text` consists only of emoji (any RGI emoji sequence, including skin-tone and ZWJ
+ * variants). Unlike unicodeToShortcode, this doesn't depend on the emoji being in Element's
+ * shortcode table, which leaves out skin-tone variants and anything newer than its emoji data.
+ * Intended for short strings like reaction keys - returns false past EMOJI_ONLY_MAX_LENGTH.
+ */
+export function isEmojiOnly(text: string): boolean {
+    if (!text || text.length > EMOJI_ONLY_MAX_LENGTH) return false;
+    return BIGEMOJI_REGEX.test(text);
+}
+
 /*
  * Return true if the given string contains emoji
  * Uses a much, much simpler regex than emojibase's so will give false

@@ -13,7 +13,7 @@ import {
 } from "@element-hq/web-shared-components";
 
 import { mediaFromMxc } from "../../../../../customisations/Media";
-import { unicodeToShortcode } from "../../../../../HtmlUtils";
+import { isEmojiOnly, unicodeToShortcode } from "../../../../../HtmlUtils";
 import { _t } from "../../../../../languageHandler";
 import { formatList } from "../../../../../utils/FormattingUtils";
 import dis from "../../../../../dispatcher/dispatcher";
@@ -128,7 +128,10 @@ export class ReactionsRowButtonViewModel
             }
         }
 
-        const isEmoji = !imageSrc && !!unicodeToShortcode(content);
+        // Haven: unicodeToShortcode alone missed skin-tone variants (👍🏻 and friends aren't in the
+        // shortcode table), so they rendered at plain text size next to a full-size 👍 at the
+        // Large pill size. isEmojiOnly catches those and any other emoji missing from that table.
+        const isEmoji = !imageSrc && (!!unicodeToShortcode(content) || isEmojiOnly(content));
 
         const snapshot = {
             content,

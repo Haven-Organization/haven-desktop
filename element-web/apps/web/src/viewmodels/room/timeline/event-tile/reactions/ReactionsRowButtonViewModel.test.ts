@@ -132,6 +132,25 @@ describe("ReactionsRowButtonViewModel", () => {
         expect(vm.getSnapshot().isEmoji).toBe(true);
     });
 
+    // Haven: these used to render at plain text size next to a full-size 👍 at the Large pill
+    // size, because unicodeToShortcode has no entry for them.
+    it.each([
+        ["a skin-tone variant", "👍🏻"],
+        ["another skin-tone variant", "👍🏿"],
+        ["a ZWJ sequence", "👨‍💻"],
+        ["a flag", "🇺🇸"],
+    ])("flags %s as isEmoji", (_, content) => {
+        const vm = new ReactionsRowButtonViewModel(createProps({ content }));
+
+        expect(vm.getSnapshot().isEmoji).toBe(true);
+    });
+
+    it("does not flag text that merely contains an emoji as isEmoji", () => {
+        const vm = new ReactionsRowButtonViewModel(createProps({ content: "nice 👍🏻" }));
+
+        expect(vm.getSnapshot().isEmoji).toBe(false);
+    });
+
     it("does not flag a freeform text reaction as isEmoji", () => {
         const vm = new ReactionsRowButtonViewModel(createProps({ content: "LOST" }));
 
