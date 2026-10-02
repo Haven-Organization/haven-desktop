@@ -267,6 +267,49 @@ describe("RoomView", () => {
         expect(instance.getHiddenHighlightCount()).toBe(0);
     });
 
+    describe("jump to bottom from a highlighted event", () => {
+        const viewEvent = async (eventId: string): Promise<void> => {
+            act(() =>
+                defaultDispatcher.dispatch<ViewRoomPayload>(
+                    {
+                        action: Action.ViewRoom,
+                        room_id: room.roomId,
+                        event_id: eventId,
+                        highlighted: true,
+                        metricsTrigger: undefined,
+                    },
+                    true,
+                ),
+            );
+            await flushPromises();
+        };
+
+        it("clears the highlighted event on the first jump", async () => {
+            const instance = await getRoomViewInstance();
+            await viewEvent("$highlighted");
+            expect(instance.state.initialEventId).toBe("$highlighted");
+            expect(instance.state.isInitialEventHighlighted).toBe(true);
+
+            act(() => (instance as any).jumpToLiveTimeline());
+            await flushPromises();
+
+            // Used to fall back to the old event here, re-anchoring the timeline to it so the
+            // button only worked on a second click.
+            expect(instance.state.initialEventId).toBeUndefined();
+        });
+
+        it("still keeps an event the view chose itself across an unrelated store update", async () => {
+            const instance = await getRoomViewInstance();
+            // e.g. a saved scroll position restored from RoomScrollStateStore, unknown to the store.
+            act(() => instance.setState({ initialEventId: "$restored" }));
+
+            act(() => stores.roomViewStore.emit(UPDATE_EVENT));
+            await flushPromises();
+
+            expect(instance.state.initialEventId).toBe("$restored");
+        });
+    });
+
     it("should hide the composer when hideComposer=true", async () => {
         // Join the room
         vi.spyOn(room, "getMyMembership").mockReturnValue(KnownMembership.Join);

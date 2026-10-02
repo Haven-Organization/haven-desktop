@@ -500,6 +500,9 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
     private readonly askToJoinEnabled: boolean;
     private dispatcherRef?: string;
     private settingWatchers: string[] = [];
+    // Haven: set by jumpToLiveTimeline right before it dispatches a view_room with no event, so the
+    // store update that follows actually clears initialEventId - see onRoomViewStoreUpdate.
+    private clearingInitialEvent = false;
 
     private unmounted = false;
     private permalinkCreators: Record<string, RoomPermalinkCreator> = {};
@@ -744,7 +747,18 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             newState.showRightPanel = false;
         }
 
-        const initialEventId = this.roomViewStore.getInitialEventId() ?? this.state.initialEventId;
+        // Haven: the fallback to our own initialEventId keeps an event this view chose itself (e.g.
+        // the saved scroll position restored from RoomScrollStateStore below, which the store never
+        // knew about) from being dropped by an unrelated store update. But it also swallowed a
+        // deliberate clear: "Jump to bottom" while viewing a highlighted event dispatches view_room
+        // with no event, and falling back here kept the old event, so the timeline re-anchored to
+        // it and the button only worked on a second click. Skip the fallback for that one update.
+        const storeInitialEventId = this.roomViewStore.getInitialEventId();
+        let initialEventId = storeInitialEventId ?? this.state.initialEventId;
+        if (!storeInitialEventId && this.clearingInitialEvent) {
+            this.clearingInitialEvent = false;
+            initialEventId = undefined;
+        }
         if (initialEventId) {
             let initialEvent = room?.findEventById(initialEventId);
             // The event does not exist in the current sync data
@@ -2051,6 +2065,7 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             // If we were viewing a highlighted event, firing view_room without
             // an event will take care of both clearing the URL fragment and
             // jumping to the bottom
+            this.clearingInitialEvent = true;
             defaultDispatcher.dispatch<ViewRoomPayload>({
                 action: Action.ViewRoom,
                 room_id: this.getRoomId(),
