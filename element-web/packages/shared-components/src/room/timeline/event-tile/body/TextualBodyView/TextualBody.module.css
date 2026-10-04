@@ -41,6 +41,18 @@
     display: flex;
 }
 
+/* Haven: the body (always the first child - markers follow it, see TextualBodyView) is a flex item
+   here, and a flex item's default min-width: auto keeps it at least as wide as its widest
+   unbreakable content - a long code block line. On an edited message that made the whole body
+   wider than the timeline, clipped by the tile's own overflow-x: hidden: text no longer wrapped
+   to the visible width, code blocks couldn't be scrolled sideways, and their copy button sat off
+   past the clipped edge. min-width: 0 lets the body shrink to the space actually available, so the
+   code block becomes its own scroll container again. Only the body, so the (edited) marker keeps
+   its natural width. */
+.annotated > :first-child {
+    min-width: 0;
+}
+
 .annotatedInline {
     display: inline-flex;
 }
