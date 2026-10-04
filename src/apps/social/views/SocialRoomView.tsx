@@ -313,7 +313,10 @@ export function SocialRoomView({
             return;
         }
         let attempts = 0;
+        // Stops if this view goes away mid-restore - see FeedPane's identical loop for why.
+        let cancelled = false;
         const retry = (): void => {
+            if (cancelled) return;
             attempts++;
             const node = scrollContainerRef?.current;
             if (node) {
@@ -326,6 +329,9 @@ export function SocialRoomView({
             requestAnimationFrame(retry);
         };
         requestAnimationFrame(retry);
+        return () => {
+            cancelled = true;
+        };
     }, [threadEvent, scrollContainerRef]);
     // True only while threadEvent was set by resolving a direct/external link (peekPendingFocusEvent
     // below) - cleared on any regular in-app re-focus (onFocusEvent) so the highlight-and-fade only

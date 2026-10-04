@@ -18,6 +18,11 @@ export function setPendingViewPost(roomId: string, eventId?: string): void {
     pendingViewPost = { roomId, eventId };
 }
 
+/** Reads without clearing - see SocialHomeView's pendingScrollRestore initializer. */
+export function peekPendingViewPost(): PendingViewPost | null {
+    return pendingViewPost;
+}
+
 export function consumePendingViewPost(): PendingViewPost | null {
     const p = pendingViewPost;
     pendingViewPost = null;

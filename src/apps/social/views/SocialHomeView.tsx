@@ -82,7 +82,7 @@ import { useWindowFileDrop } from "../utils/useWindowFileDrop";
 import { SocialPostView } from "./SocialPostView";
 import { PostDialog } from "../components/PostDialog";
 import { consumePendingViewUserId, peekPendingViewUserId } from "../utils/pendingViewUser";
-import { consumePendingViewPost } from "../utils/pendingViewPost";
+import { consumePendingViewPost, peekPendingViewPost } from "../utils/pendingViewPost";
 import { clearPendingFocusEvent, setPendingFocusEvent } from "../utils/pendingFocusEvent";
 import { peekPendingSocialSection, clearPendingSocialSection } from "../utils/pendingSocialSection";
 import { saveLastSocialViewState, peekLastSocialViewState } from "../utils/lastSocialViewState";
@@ -340,8 +340,14 @@ export function SocialHomeView(): JSX.Element {
     // lastSocialViewState (a deep link has no scroll position of its own to restore). Consumed by
     // the contentIdentity restore effect further down, which nulls this out once applied so later,
     // genuinely new navigations within this same mount still reset to the top as usual.
+    //
+    // Haven: likewise skipped when this mount is for an explicit destination - a room/post
+    // (pendingViewPost: Ctrl+K/Spotlight, a matrix.to link) or a user (pendingViewUser: "View
+    // Profile") - not just a section link. Otherwise the previous visit's scroll offset was applied
+    // first and survived the switch to the actual destination; opening the same profile you were
+    // last on in Social, scrolled down, landed far down it instead of at the top.
     const [pendingScrollRestore] = useState<number | null>(() => {
-        if (peekPendingSocialSection()) return null;
+        if (peekPendingSocialSection() || peekPendingViewPost() || peekPendingViewUserId()) return null;
         return peekLastSocialViewState()?.scrollTop ?? null;
     });
     const pendingScrollRestoreRef = useRef(pendingScrollRestore);
@@ -1537,7 +1543,12 @@ function FeedPane({
         // unmount boundary - leaving Social entirely - makes it a materially bigger change to carry
         // a real StateSnapshot through).
         let attempts = 0;
+        // Haven: stops when this effect is torn down (e.g. the Feed unmounting because Social moved
+        // on to a profile) - otherwise the loop kept forcing this offset onto .social_Content for
+        // up to 30 frames after the Feed was gone, pushing whatever page replaced it down to it.
+        let cancelled = false;
         const retry = (): void => {
+            if (cancelled) return;
             attempts++;
             const node = scrollContainerRef.current ?? document.querySelector<HTMLElement>(".social_Content");
             if (node) {
@@ -1550,6 +1561,9 @@ function FeedPane({
             requestAnimationFrame(retry);
         };
         requestAnimationFrame(retry);
+        return () => {
+            cancelled = true;
+        };
     }, [threadView, scrollContainerRef]);
 
     // Same URL-bar sync as SocialRoomView's own identical effect (see its comment) - a post viewed

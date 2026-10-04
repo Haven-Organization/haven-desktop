@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { setPendingViewPost, consumePendingViewPost } from "./pendingViewPost";
+import { setPendingViewPost, consumePendingViewPost, peekPendingViewPost } from "./pendingViewPost";
 
 describe("pendingViewPost", () => {
     it("has nothing pending until set", () => {
@@ -27,5 +27,13 @@ describe("pendingViewPost", () => {
         setPendingViewPost("!first:example.org", "$first");
         setPendingViewPost("!second:example.org", "$second");
         expect(consumePendingViewPost()).toEqual({ roomId: "!second:example.org", eventId: "$second" });
+    });
+
+    it("peek reads without consuming", () => {
+        setPendingViewPost("!room:example.org", "$event");
+        expect(peekPendingViewPost()).toEqual({ roomId: "!room:example.org", eventId: "$event" });
+        expect(peekPendingViewPost()).not.toBeNull();
+        expect(consumePendingViewPost()).not.toBeNull();
+        expect(peekPendingViewPost()).toBeNull();
     });
 });
