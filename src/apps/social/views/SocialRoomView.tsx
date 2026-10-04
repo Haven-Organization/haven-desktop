@@ -771,14 +771,20 @@ export function SocialRoomView({
     // threadEvent first became truthy on a real render (which used to essentially never happen,
     // for unrelated reasons now fixed elsewhere, so this was never actually exercised until now).
     const composerRef = useRef<HTMLFormElement>(null);
+    // Haven: someone else's profile has no composer at all (canPost is false), and the button used
+    // to require one - so it never appeared there, however far down the page was scrolled. With
+    // no composer, the profile header (banner/avatar/name/bio) scrolling out of view is the same
+    // "you're no longer near the top" signal instead.
+    const headerRef = useRef<HTMLDivElement>(null);
     const [composerVisible, setComposerVisible] = useState(true);
     useEffect(() => {
-        if (!canPost || !composerRef.current || !scrollContainerRef?.current) return;
+        const target = canPost ? composerRef.current : headerRef.current;
+        if (!target || !scrollContainerRef?.current) return;
         const observer = new IntersectionObserver(
             ([entry]) => setComposerVisible(entry.isIntersecting),
             { root: scrollContainerRef.current },
         );
-        observer.observe(composerRef.current);
+        observer.observe(target);
         return () => observer.disconnect();
     }, [canPost, scrollContainerRef, threadEvent]);
     const scrollToTop = useCallback(() => {
@@ -846,7 +852,7 @@ export function SocialRoomView({
 
     return (
         <div className="social_RoomView">
-            {canPost && !composerVisible && <SocialScrollToTopButton onClick={scrollToTop} />}
+            {!composerVisible && <SocialScrollToTopButton onClick={scrollToTop} />}
             {onBack && (
                 <div className="social_RoomView_backBar">
                     <button className="social_BackBtn" onClick={onBack}>
@@ -887,7 +893,7 @@ export function SocialRoomView({
             </div>
 
             {/* Header: avatar, name, bio, follow/edit buttons */}
-            <div className="social_RoomView_header">
+            <div className="social_RoomView_header" ref={headerRef}>
                     {/* Pinned to the header's own top-right corner (position:absolute) rather than
                         flowing alongside the name/bio - previously stacked in the same right-hand
                         column as .social_RoomView_info, which a long unbroken bio string could push
