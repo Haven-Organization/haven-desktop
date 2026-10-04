@@ -83,7 +83,7 @@ import {
     showsMiddleRepostMedia,
     withoutWrapperOnlyFields,
 } from "../utils/nestedRepost";
-import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride } from "../utils/postBody";
+import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride, hasPostBodyOverrideField } from "../utils/postBody";
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
 import { onPostReactionsLoaded } from "../utils/postReactions";
@@ -1679,14 +1679,21 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // ends up shown to the user is a separate question, handled by suppressBoostBody below, which
     // unconditionally hides the whole outer body area for a content_inline relation regardless of
     // what boostHasCaption computes here.
+    //
+    // Haven: once either override field is present at all - even as an empty string - it replaces
+    // the stock fields entirely (see postBody.ts), so the stock formatted_body is no longer this
+    // post's caption. An empty override is how a sender keeps a plain boost caption-free in Social
+    // while still giving ordinary room timelines a "🔁 X reposted Y's post" formatted_body; counting
+    // that stock formatted_body here rendered it as a caption anyway.
     const boostHasCaption =
         isBoost &&
-        ((content.format === "org.matrix.custom.html" &&
-            typeof content.formatted_body === "string" &&
-            content.formatted_body.trim() !== "") ||
-            (typeof content[MSC4501_FORMATTED_BODY_KEY] === "string" &&
-                (content[MSC4501_FORMATTED_BODY_KEY] as string).trim() !== "") ||
-            (typeof content[MSC4501_BODY_KEY] === "string" && (content[MSC4501_BODY_KEY] as string).trim() !== ""));
+        (hasPostBodyOverrideField(content)
+            ? (typeof content[MSC4501_FORMATTED_BODY_KEY] === "string" &&
+                  (content[MSC4501_FORMATTED_BODY_KEY] as string).trim() !== "") ||
+              (typeof content[MSC4501_BODY_KEY] === "string" && (content[MSC4501_BODY_KEY] as string).trim() !== "")
+            : content.format === "org.matrix.custom.html" &&
+              typeof content.formatted_body === "string" &&
+              content.formatted_body.trim() !== "");
     // remove_header is backwards-compat only (see stripHavenHeader's own comment) - never
     // considered once the event carries either MSC4501 body override, regardless of caption state.
     // isContentInlineRelation is checked unconditionally (repost or cross-posted reply alike) -
@@ -1696,7 +1703,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // wrapper's own body area too.
     const suppressBoostBody =
         isContentInlineRelation ||
-        (isBoost && (!boostHasCaption || (!hasPostBodyOverride(content) && !!content["software.haven.remove_header"])));
+        (isBoost && (!boostHasCaption || (!hasPostBodyOverrideField(content) && !!content["software.haven.remove_header"])));
 
     // Live-resolve the reposted-from sender's current avatar/displayname instead of (or in
     // addition to) trusting repost_of's own embedded snapshot — see project memory for why avatar
@@ -3002,7 +3009,7 @@ function stripHavenHeader<T extends Record<string, any> | undefined>(content: T)
     // strip in the first place, and shouldn't need to set this flag at all going forward. Still
     // honored for older events that already have it set and nothing else, phased out later once
     // nothing in the wild still relies on it.
-    if (hasPostBodyOverride(content)) return content;
+    if (hasPostBodyOverrideField(content)) return content;
     return stripLeadingHeaderLine(content);
 }
 
