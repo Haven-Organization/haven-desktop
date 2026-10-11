@@ -88,6 +88,7 @@ import { peekPendingSocialSection, clearPendingSocialSection } from "../utils/pe
 import { saveLastSocialViewState, peekLastSocialViewState } from "../utils/lastSocialViewState";
 import { type FirstItemIndexState, nextFirstItemIndex } from "../utils/feedFirstItemIndex";
 import { adjustFeedSnapshot, type SavedFeedScroll } from "../utils/feedScrollSnapshot";
+import { FEED_COMPOSER_DRAFT_KEY, useComposerDraft } from "../utils/composerDrafts";
 import { consumePendingPostModal } from "../utils/pendingPostModal";
 import {
     isGroupRoom,
@@ -1615,13 +1616,15 @@ function FeedPane({
     const selectedRoomId =
         explicitRoomId || myProfileRoom?.roomId || (profileRoomId === null ? postableRooms[0]?.roomId : undefined) || "";
 
-    const [postBody, setPostBody] = useState("");
+    // Haven: kept for the session (see composerDrafts.ts) rather than plain state, so leaving Social
+    // to grab something and coming back doesn't lose a half-written post.
+    const [postBody, setPostBody] = useComposerDraft(FEED_COMPOSER_DRAFT_KEY);
     const [postBusy, setPostBusy] = useState(false);
     const {
         attachment: feedPendingAttachment,
         setFile: setFeedPendingFile,
         clear: clearFeedAttachment,
-    } = usePendingAttachment();
+    } = usePendingAttachment(FEED_COMPOSER_DRAFT_KEY);
 
     // Slash command autocomplete (see SlashCommandAutocomplete.tsx and its identical use in
     // SocialRoomView.tsx, which has the full explanation of this state).

@@ -53,6 +53,7 @@ import { AttachmentShelf } from "../components/AttachmentShelf";
 import { PostDialog } from "../components/PostDialog";
 import { usePendingAttachment } from "../utils/postAttachment";
 import { handleComposerPaste } from "../utils/pasteFile";
+import { roomComposerDraftKey, useComposerDraft } from "../utils/composerDrafts";
 import { SocialEventTile } from "../components/SocialEventTile";
 import { ProfileImageEditButton } from "../components/ProfileImageEditButton";
 import { ExternalHandleBadge } from "../components/ExternalHandleBadge";
@@ -268,8 +269,13 @@ export function SocialRoomView({
     // Request gave no visible feedback that anything happened" for the moment between the request
     // actually succeeding and the reactive membership update landing.
     const [justSentKnock, setJustSentKnock] = useState(false);
-    const [postBody, setPostBody] = useState("");
-    const { attachment: pendingAttachment, setFile: setPendingFile, clear: clearAttachment } = usePendingAttachment();
+    // Haven: kept for the session per room (see composerDrafts.ts) rather than plain state.
+    const [postBody, setPostBody] = useComposerDraft(roomComposerDraftKey(room.roomId));
+    const {
+        attachment: pendingAttachment,
+        setFile: setPendingFile,
+        clear: clearAttachment,
+    } = usePendingAttachment(roomComposerDraftKey(room.roomId));
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
     const [threadEvent, setThreadEvent] = useState<MatrixEvent | null>(null);
     // The room threadEvent actually lives in - almost always just `room` (this view's own room),
