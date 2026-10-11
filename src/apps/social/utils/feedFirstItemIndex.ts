@@ -21,16 +21,22 @@ export interface FirstItemIndexState<F> {
  * when the filter changed (a different list, not posts added on top), or when nothing moved.
  * Calling it again with the state it returned and the same ids returns that same state, so it's
  * safe to evaluate more than once for one render.
+ *
+ * `atTop` (the top of the list is in view) also leaves it unchanged: lowering it makes Virtuoso
+ * hold the existing posts in place by scrolling down past the new ones, which is right when the
+ * viewer is reading further down but, at the top, scrolled the Feed down away from the new post
+ * instead of just showing it - "sitting at the top of my feed, it randomly scrolls down".
  */
 export function nextFirstItemIndex<F>(
     previous: FirstItemIndexState<F>,
     postIds: readonly (string | undefined)[],
     filter: F,
+    atTop = false,
 ): FirstItemIndexState<F> {
     const firstKey = postIds[0];
     if (firstKey === previous.firstKey && filter === previous.filter) return previous;
     let index = previous.index;
-    if (previous.firstKey !== undefined && previous.filter === filter) {
+    if (!atTop && previous.firstKey !== undefined && previous.filter === filter) {
         const previousFirstPosition = postIds.indexOf(previous.firstKey);
         if (previousFirstPosition > 0) index -= previousFirstPosition;
     }

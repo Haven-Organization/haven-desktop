@@ -1356,12 +1356,22 @@ function FeedPane({
         index: FEED_FIRST_ITEM_INDEX_BASE,
     });
     const firstItemIndex = useMemo(() => {
+        // Whether the first post's top edge is still in view (at or below the top of the scroll
+        // container) - see nextFirstItemIndex's own doc on atTop. Measured rather than just
+        // "scrollTop is 0": the composer and filter row sit above the list in the same scroller,
+        // so the Feed's top is still showing for a while after scrolling starts.
+        const scroller = scrollContainerRef.current;
+        const list = scroller?.querySelector<HTMLElement>(".social_Feed");
+        const atTop =
+            !!scroller && !!list && list.getBoundingClientRect().top >= scroller.getBoundingClientRect().top;
         firstItemIndexRef.current = nextFirstItemIndex(
             firstItemIndexRef.current,
             posts.map((p) => p.event.getId()),
             filter,
+            atTop,
         );
         return firstItemIndexRef.current.index;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [posts, filter]);
 
     const openFilterDialog = useCallback(() => {

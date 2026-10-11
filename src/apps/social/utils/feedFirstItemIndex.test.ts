@@ -56,4 +56,15 @@ describe("nextFirstItemIndex", () => {
         const next = nextFirstItemIndex(start(undefined), ["$a", "$b"], FILTER);
         expect(next).toEqual({ firstKey: "$a", filter: FILTER, index: BASE });
     });
+
+    it("leaves the index alone when the top of the Feed is in view, so the new post just shows", () => {
+        const next = nextFirstItemIndex(start("$a"), ["$new", "$a", "$b"], FILTER, true);
+        expect(next).toEqual({ firstKey: "$new", filter: FILTER, index: BASE });
+    });
+
+    it("still lowers the index for a later arrival once scrolled away from the top", () => {
+        const atTop = nextFirstItemIndex(start("$a"), ["$new1", "$a"], FILTER, true);
+        const scrolled = nextFirstItemIndex(atTop, ["$new2", "$new1", "$a"], FILTER, false);
+        expect(scrolled.index).toBe(BASE - 1);
+    });
 });
