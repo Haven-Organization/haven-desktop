@@ -3593,6 +3593,7 @@
             "error": "Unable to show image due to error",
             "error_decrypting": "Error decrypting image",
             "error_downloading": "Error downloading image",
+            "error_retry": "Click to try again",
             "sent": "%(senderDisplayName)s sent an image.",
             "show_image": "Show image"
         },

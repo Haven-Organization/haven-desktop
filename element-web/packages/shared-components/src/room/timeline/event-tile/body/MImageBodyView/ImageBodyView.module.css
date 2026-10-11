@@ -139,6 +139,21 @@
     color: var(--cpd-color-text-critical-primary);
 }
 
+/* The error message as a button that retries the image: looks like the plain message. */
+.errorRetry {
+    appearance: none;
+    padding: var(--cpd-space-0x);
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.errorRetry:hover {
+    text-decoration: underline;
+}
+
 .errorIcon {
     margin-right: var(--cpd-space-1x);
     vertical-align: text-top;

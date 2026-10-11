@@ -89,17 +89,29 @@ interface InternalState {
     placeholder: ImageBodyViewPlaceholder;
     imageSize: ImageSize;
     generatedThumbnailUrl: string | null;
+    /** Automatic retries used up since the image was last (re)requested from scratch. */
     retryCount: number;
+    /** Bumped for every new attempt at a URL that already failed, see withRetryCacheBust. */
+    cacheBust: number;
 }
 
 // A remote homeserver's media (e.g. joining a room whose media was posted from a different
 // homeserver than this account's own) can transiently fail its very first fetch if the local
 // server hasn't federated/cached it yet, and succeed moments later - exactly what "leave the room
 // and come back" already fixed by chance, since a fresh mount re-issues the request from scratch
-// with no memory of the earlier failure. Retry that same recovery automatically a few times before
-// falling back to the permanent error state (+ the existing reconnected-listener retry below it).
-const MAX_IMAGE_LOAD_RETRIES = 3;
-const IMAGE_LOAD_RETRY_DELAY_MS = 1500;
+// with no memory of the earlier failure. Retry that same recovery automatically before falling back
+// to the error state.
+//
+// The delays double so the retries span about a minute and a half rather than the nine seconds
+// three evenly spaced ones did: media a bridge announces before it has finished uploading it, or a
+// connection that drops for a moment, both outlast a few seconds, and every image that arrived in
+// that window was left on "Unable to show image" until the page was reloaded.
+const IMAGE_LOAD_RETRY_DELAYS_MS = [1500, 3000, 6000, 12_000, 24_000, 48_000];
+
+// Once in the error state the image is still re-checked now and then without touching what is on
+// screen (see probeFailedImage), so one that becomes loadable later shows up by itself.
+const FAILED_IMAGE_PROBE_INTERVAL_MS = 2 * 60 * 1000;
+const MAX_FAILED_IMAGE_PROBES = 15;
 
 type ImageInfoWithAnimationFlag = NonNullable<ImageContent["info"]> & {
     "org.matrix.msc4230.is_animated"?: boolean;
@@ -116,19 +128,17 @@ export class ImageBodyViewModel
     private state: InternalState;
     private blurhashTimeout?: number;
     private retryTimeout?: number;
+    private probeInterval?: number;
+    private probeCount = 0;
+    private probeImage?: HTMLImageElement;
 
     private readonly reconnectedListener = createReconnectedListener((): void => {
-        MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
-
         if (!this.state.imgError) {
+            MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
             return;
         }
 
-        this.state = {
-            ...this.state,
-            imgError: false,
-        };
-        this.updateSnapshotFromState();
+        this.reloadImage();
     });
 
     public constructor(props: ImageBodyViewModelProps) {
@@ -157,6 +167,7 @@ export class ImageBodyViewModel
             imageSize: SettingsStore.getValue("Images.size") as ImageSize,
             generatedThumbnailUrl: null,
             retryCount: 0,
+            cacheBust: 0,
         };
     }
 
@@ -164,10 +175,13 @@ export class ImageBodyViewModel
     // underlying <img> element) won't re-issue a network request for an unchanged src string, so
     // busting the URL is what actually makes the browser try again rather than just replaying its
     // memory of the earlier failed fetch.
-    private static withRetryCacheBust(url: string | null, retryCount: number): string | null {
-        if (!url || retryCount === 0) return url;
+    //
+    // Only for URLs that go over the network: an encrypted image's blob: URL names bytes already in
+    // memory, and stops resolving at all with a query string added.
+    private static withRetryCacheBust(url: string | null, cacheBust: number): string | null {
+        if (!url || cacheBust === 0 || !/^https?:/i.test(url)) return url;
         const separator = url.includes("?") ? "&" : "?";
-        return `${url}${separator}haven_retry=${retryCount}`;
+        return `${url}${separator}haven_retry=${cacheBust}`;
     }
 
     private static getImageDimensions(
@@ -220,18 +234,19 @@ export class ImageBodyViewModel
         const autoplayGifs = SettingsStore.getValue("autoplayGifs") as boolean;
         const contentUrl = ImageBodyViewModel.withRetryCacheBust(
             ImageBodyViewModel.getContentUrl(props, state),
-            state.retryCount,
+            state.cacheBust,
         );
         const thumbnailSrc = props.forExport
             ? (contentUrl ?? undefined)
             : state.isAnimated && autoplayGifs
               ? (contentUrl ?? undefined)
-              : (ImageBodyViewModel.withRetryCacheBust(state.thumbUrl, state.retryCount) ?? contentUrl ?? undefined);
+              : (ImageBodyViewModel.withRetryCacheBust(state.thumbUrl, state.cacheBust) ?? contentUrl ?? undefined);
 
         if (state.error || state.imgError) {
             return {
                 state: ImageBodyViewState.ERROR,
                 errorLabel: ImageBodyViewModel.computeErrorLabel(state.error, state.imgError),
+                errorRetryLabel: _t("timeline|m.image|error_retry"),
                 ...dimensions,
             };
         }
@@ -290,7 +305,7 @@ export class ImageBodyViewModel
     private resetState(mxEvent: MatrixEvent): void {
         this.clearBlurhashTimeout();
         this.clearRetryTimeout();
-        MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
+        this.stopFailedImageRecovery();
         this.revokeGeneratedThumbnailUrl();
         this.state = ImageBodyViewModel.createInitialState(mxEvent);
     }
@@ -302,6 +317,134 @@ export class ImageBodyViewModel
 
         clearTimeout(this.retryTimeout);
         this.retryTimeout = undefined;
+    }
+
+    /**
+     * Starts everything that can bring an image back out of the error state without the user
+     * doing anything: a retry when the connection returns, and a quiet re-check every so often
+     * and whenever the window is looked at again.
+     */
+    private startFailedImageRecovery(): void {
+        this.stopFailedImageRecovery();
+        MatrixClientPeg.safeGet().on(ClientEvent.Sync, this.reconnectedListener);
+        window.addEventListener("online", this.reloadImage);
+        document.addEventListener("visibilitychange", this.probeFailedImage);
+        this.probeCount = 0;
+        this.probeInterval = window.setInterval(this.probeFailedImage, FAILED_IMAGE_PROBE_INTERVAL_MS);
+    }
+
+    private stopFailedImageRecovery(): void {
+        MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
+        window.removeEventListener("online", this.reloadImage);
+        document.removeEventListener("visibilitychange", this.probeFailedImage);
+        if (this.probeInterval) {
+            clearInterval(this.probeInterval);
+            this.probeInterval = undefined;
+        }
+        if (this.probeImage) {
+            this.probeImage.onload = null;
+            this.probeImage.onerror = null;
+            this.probeImage = undefined;
+        }
+    }
+
+    /**
+     * Re-checks a failed image off screen, and only brings it back once it has actually loaded.
+     * Retrying in place instead would swap the short error line for the full-height image box and
+     * back again on every attempt that still fails, moving the timeline around each time.
+     */
+    private probeFailedImage = (): void => {
+        if (this.isDisposed || !this.state.imgError || this.probeImage || document.hidden) {
+            return;
+        }
+
+        if (this.probeCount >= MAX_FAILED_IMAGE_PROBES) {
+            if (this.probeInterval) {
+                clearInterval(this.probeInterval);
+                this.probeInterval = undefined;
+            }
+            return;
+        }
+
+        const cacheBust = this.state.cacheBust + 1;
+        const url = ImageBodyViewModel.withRetryCacheBust(this.state.contentUrl, cacheBust);
+        if (!url || !/^https?:/i.test(url)) {
+            return;
+        }
+
+        this.probeCount++;
+        // Every probe gets its own URL, for the same reason a retry does.
+        this.state = { ...this.state, cacheBust };
+
+        const image = new Image();
+        this.probeImage = image;
+        image.onload = (): void => {
+            this.probeImage = undefined;
+            if (this.isDisposed || !this.state.imgError) {
+                return;
+            }
+            this.reloadImage();
+        };
+        image.onerror = (): void => {
+            this.probeImage = undefined;
+        };
+        image.src = url;
+    };
+
+    /**
+     * Requests the image again from scratch, with a fresh set of automatic retries. Used for the
+     * user clicking the error message, and for the automatic recoveries above.
+     */
+    private reloadImage = (): void => {
+        if (this.isDisposed || !this.props.mediaVisible || (!this.state.error && !this.state.imgError)) {
+            return;
+        }
+
+        this.clearRetryTimeout();
+        this.stopFailedImageRecovery();
+        this.state = {
+            ...this.state,
+            // Cleared so downloadImage resolves both URLs again - the thumbnail one was dropped
+            // when it failed, and without it the full-size image would be shown from here on.
+            contentUrl: null,
+            thumbUrl: null,
+            error: null,
+            imgError: false,
+            imgLoaded: false,
+            retryCount: 0,
+            cacheBust: this.state.cacheBust + 1,
+            placeholder: this.props.mxEvent.getContent<ImageContent>().info?.[BLURHASH_FIELD]
+                ? ImageBodyViewPlaceholder.NONE
+                : ImageBodyViewPlaceholder.SPINNER,
+        };
+        this.updateSnapshotFromState();
+        this.scheduleBlurhashPlaceholder();
+        void this.downloadImage();
+    };
+
+    /**
+     * An <img> element reports that it failed but never why, so ask for the same URL once more
+     * just to write the server's answer to the log - otherwise there is nothing to go on when a
+     * failed image is reported.
+     */
+    private async logImageFailureReason(): Promise<void> {
+        const url = ImageBodyViewModel.withRetryCacheBust(this.state.contentUrl, this.state.cacheBust);
+        if (!url || !/^https?:/i.test(url)) {
+            return;
+        }
+
+        const eventId = this.props.mxEvent.getId();
+        const abortController = new AbortController();
+        try {
+            const response = await fetch(url, { signal: abortController.signal });
+            const detail = response.ok ? "" : ` ${(await response.text()).slice(0, 300)}`;
+            logger.warn(`Image for ${eventId} failed to load: HTTP ${response.status}${detail}`);
+        } catch (error) {
+            logger.warn(`Image for ${eventId} failed to load: request failed`, error);
+        } finally {
+            // Only the status was wanted, not the image itself.
+            abortController.abort();
+        }
     }
 
     private revokeGeneratedThumbnailUrl(): void {
@@ -550,6 +693,10 @@ export class ImageBodyViewModel
         this.props.setMediaVisible?.(true);
     };
 
+    public onRetryClick = (): void => {
+        this.reloadImage();
+    };
+
     public onImageError = (): void => {
         if (this.state.thumbUrl && this.state.thumbUrl !== this.state.contentUrl) {
             this.state = {
@@ -566,20 +713,24 @@ export class ImageBodyViewModel
             return;
         }
 
-        if (this.state.retryCount < MAX_IMAGE_LOAD_RETRIES) {
-            const retryCount = this.state.retryCount + 1;
+        // Nothing to retry for a blob: URL - its bytes are already in memory.
+        const canRetry = /^https?:/i.test(this.state.contentUrl ?? "");
+        if (canRetry && this.state.retryCount < IMAGE_LOAD_RETRY_DELAYS_MS.length) {
+            const delay = IMAGE_LOAD_RETRY_DELAYS_MS[this.state.retryCount];
             this.clearRetryTimeout();
             this.retryTimeout = window.setTimeout(() => {
+                this.retryTimeout = undefined;
                 if (this.isDisposed) {
                     return;
                 }
 
                 this.state = {
                     ...this.state,
-                    retryCount,
+                    retryCount: this.state.retryCount + 1,
+                    cacheBust: this.state.cacheBust + 1,
                 };
                 this.updateSnapshotFromState();
-            }, IMAGE_LOAD_RETRY_DELAY_MS * retryCount);
+            }, delay);
             return;
         }
 
@@ -587,7 +738,7 @@ export class ImageBodyViewModel
             ...this.state,
             imgError: true,
         };
-        MatrixClientPeg.safeGet().on(ClientEvent.Sync, this.reconnectedListener);
+        this.startFailedImageRecovery();
         this.updateSnapshotFromState();
     };
 
@@ -600,6 +751,7 @@ export class ImageBodyViewModel
             loadedImageDimensions = { naturalWidth, naturalHeight };
         }
 
+        void this.logImageFailureReason();
         this.state = {
             ...this.state,
             imgLoaded: true,
@@ -720,7 +872,7 @@ export class ImageBodyViewModel
     public dispose(): void {
         this.clearBlurhashTimeout();
         this.clearRetryTimeout();
-        MatrixClientPeg.get()?.off(ClientEvent.Sync, this.reconnectedListener);
+        this.stopFailedImageRecovery();
         this.revokeGeneratedThumbnailUrl();
         super.dispose();
     }

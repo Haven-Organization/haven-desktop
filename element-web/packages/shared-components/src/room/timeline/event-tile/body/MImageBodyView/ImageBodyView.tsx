@@ -57,6 +57,10 @@ export interface ImageBodyViewSnapshot {
      */
     errorLabel?: string;
     /**
+     * Hint shown on the error message when clicking it retries the image.
+     */
+    errorRetryLabel?: string;
+    /**
      * Label used by the hidden-media reveal button.
      */
     hiddenButtonLabel?: string;
@@ -128,6 +132,11 @@ export interface ImageBodyViewActions {
      * Invoked when the user chooses to reveal hidden media.
      */
     onHiddenButtonClick?: MouseEventHandler<HTMLButtonElement>;
+    /**
+     * Invoked when the user clicks the error message to try loading the image again.
+     * The error message is only clickable when this is provided.
+     */
+    onRetryClick?: MouseEventHandler<HTMLButtonElement>;
     /**
      * Invoked when the visible image loads.
      */
@@ -228,6 +237,7 @@ export function ImageBodyView({
         state,
         alt,
         errorLabel,
+        errorRetryLabel,
         hiddenButtonLabel,
         src,
         thumbnailSrc,
@@ -259,6 +269,21 @@ export function ImageBodyView({
         // a host stylesheet consumes it).
         const errorStyle =
             maxHeight === undefined ? undefined : ({ "--mx-image-reserved-height": `${maxHeight}px` } as CSSProperties);
+        if (vm.onRetryClick) {
+            return (
+                <button
+                    type="button"
+                    className={classNames(rootClassName, styles.error, styles.errorRetry)}
+                    style={errorStyle}
+                    title={errorRetryLabel}
+                    onClick={vm.onRetryClick}
+                >
+                    <ImageErrorIcon className={styles.errorIcon} width="16" height="16" />
+                    {errorLabel}
+                </button>
+            );
+        }
+
         return (
             <span className={classNames(rootClassName, styles.error)} style={errorStyle}>
                 <ImageErrorIcon className={styles.errorIcon} width="16" height="16" />

@@ -524,6 +524,186 @@ describe("ImageBodyViewModel", () => {
         expect(client.on).toHaveBeenCalledTimes(1);
     });
 
+    describe("retrying a failed image", () => {
+        const RETRY_DELAYS_MS = [1500, 3000, 6000, 12_000, 24_000, 48_000];
+        let client: { on: ReturnType<typeof vi.fn>; off: ReturnType<typeof vi.fn> };
+        let probes: HTMLImageElement[];
+
+        // An unencrypted image whose thumbnail has already failed, leaving the full-size URL.
+        const createLoadedVm = (): ImageBodyViewModel => {
+            const vm = createVm({ mediaVisible: true });
+            vm.loadInitialMediaIfVisible();
+            vm.onImageError();
+            expect(vm.getSnapshot().thumbnailSrc).toBe("https://server/full.png");
+            return vm;
+        };
+
+        const failEveryRetry = (vm: ImageBodyViewModel): void => {
+            for (const delay of RETRY_DELAYS_MS) {
+                vm.onImageError();
+                vi.advanceTimersByTime(delay);
+            }
+            vm.onImageError();
+        };
+
+        beforeEach(() => {
+            vi.useFakeTimers();
+            client = { on: vi.fn(), off: vi.fn() };
+            vi.spyOn(MatrixClientPeg, "safeGet").mockReturnValue(client as any);
+            vi.spyOn(MatrixClientPeg, "get").mockReturnValue(client as any);
+            vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+            probes = [];
+            vi.stubGlobal(
+                "Image",
+                class {
+                    public onload: (() => void) | null = null;
+                    public onerror: (() => void) | null = null;
+                    public src = "";
+                    public constructor() {
+                        probes.push(this as unknown as HTMLImageElement);
+                    }
+                },
+            );
+        });
+
+        afterEach(() => {
+            vi.unstubAllGlobals();
+            vi.useRealTimers();
+        });
+
+        it("retries with a new URL after each delay before giving up", () => {
+            const vm = createLoadedVm();
+
+            RETRY_DELAYS_MS.forEach((delay, index) => {
+                vm.onImageError();
+                expect(vm.getSnapshot().state).toBe(ImageBodyViewState.READY);
+
+                vi.advanceTimersByTime(delay - 1);
+                const before = vm.getSnapshot().src;
+                vi.advanceTimersByTime(1);
+                expect(vm.getSnapshot().src).not.toBe(before);
+                expect(vm.getSnapshot().src).toBe(`https://server/full.png?haven_retry=${index + 1}`);
+            });
+
+            vm.onImageError();
+            expect(vm.getSnapshot()).toMatchObject({
+                state: ImageBodyViewState.ERROR,
+                errorRetryLabel: "Click to try again",
+            });
+        });
+
+        it("logs why the image failed once it gives up", async () => {
+            const vm = createLoadedVm();
+            failEveryRetry(vm);
+            await flushPromises();
+
+            expect(fetch).toHaveBeenCalledWith(
+                "https://server/full.png?haven_retry=6",
+                expect.objectContaining({ signal: expect.any(AbortSignal) }),
+            );
+        });
+
+        it("does not retry a blob URL", async () => {
+            const vm = createVm({
+                mediaVisible: true,
+                mediaEventHelper: createMediaEventHelper({ encrypted: true, thumbnailUrl: null }),
+            });
+            vm.loadInitialMediaIfVisible();
+            await downloadImageForTest(vm);
+            await flushPromises();
+
+            vm.onImageError();
+
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.ERROR);
+            expect(fetch).not.toHaveBeenCalled();
+        });
+
+        it("loads the image again, thumbnail first, when the error is clicked", () => {
+            const vm = createLoadedVm();
+            failEveryRetry(vm);
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.ERROR);
+
+            vm.onRetryClick();
+
+            expect(vm.getSnapshot()).toMatchObject({
+                state: ImageBodyViewState.READY,
+                src: "https://server/full.png?haven_retry=7",
+                thumbnailSrc: "https://server/thumb.png?haven_retry=7",
+            });
+
+            // ... and it gets a full set of automatic retries again.
+            vm.onImageError();
+            vm.onImageError();
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.READY);
+        });
+
+        it("does nothing when clicked while not in the error state", () => {
+            const vm = createLoadedVm();
+            const before = vm.getSnapshot();
+
+            vm.onRetryClick();
+
+            expect(vm.getSnapshot()).toEqual(before);
+        });
+
+        it("re-checks a failed image off screen and shows it once it loads", () => {
+            const vm = createLoadedVm();
+            failEveryRetry(vm);
+
+            vi.advanceTimersByTime(2 * 60 * 1000);
+            expect(probes).toHaveLength(1);
+            expect(probes[0].src).toBe("https://server/full.png?haven_retry=7");
+            // Still failing: what is on screen stays as it is.
+            probes[0].onerror!(new Event("error"));
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.ERROR);
+
+            vi.advanceTimersByTime(2 * 60 * 1000);
+            expect(probes).toHaveLength(2);
+            expect(probes[1].src).toBe("https://server/full.png?haven_retry=8");
+            probes[1].onload!(new Event("load"));
+
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.READY);
+
+            // Recovered, so the re-checks stop.
+            vi.advanceTimersByTime(10 * 60 * 1000);
+            expect(probes).toHaveLength(2);
+        });
+
+        it("stops re-checking after a while", () => {
+            const vm = createLoadedVm();
+            failEveryRetry(vm);
+
+            for (let i = 0; i < 30; i++) {
+                vi.advanceTimersByTime(2 * 60 * 1000);
+                probes.at(-1)?.onerror?.(new Event("error"));
+            }
+
+            expect(probes).toHaveLength(15);
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.ERROR);
+        });
+
+        it("loads the image again when the browser comes back online", () => {
+            const vm = createLoadedVm();
+            failEveryRetry(vm);
+
+            window.dispatchEvent(new Event("online"));
+
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.READY);
+        });
+
+        it("stops retrying and re-checking once disposed", () => {
+            const vm = createLoadedVm();
+            failEveryRetry(vm);
+            vm.dispose();
+
+            vi.advanceTimersByTime(10 * 60 * 1000);
+            window.dispatchEvent(new Event("online"));
+
+            expect(probes).toHaveLength(0);
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.ERROR);
+        });
+    });
+
     it("uses the SVG thumbnail media when one is available", () => {
         const vm = createVm({
             mediaVisible: true,

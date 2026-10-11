@@ -163,7 +163,12 @@ async function askClientForUserIdParams(
         // than just reading IndexedDB ourselves.
 
         // Avoid stalling the tab in case something goes wrong.
-        const timeoutId = setTimeout(() => reject(new Error("timeout in postMessage")), 1000);
+        //
+        // Haven: 5 seconds rather than 1. The page answers this from its main thread, and when
+        // that is busy for over a second (loading a large room does it) the request timed out and
+        // the media was then fetched without the access token, which the server refuses - a slow
+        // image became a failed one.
+        const timeoutId = setTimeout(() => reject(new Error("timeout in postMessage")), 5000);
 
         // We don't need particularly good randomness here - we just use this to generate a request ID, so we know
         // which postMessage reply is for our active request.

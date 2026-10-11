@@ -29,6 +29,7 @@ class TestImageBodyViewModel extends MockViewModel<ImageBodyViewSnapshot> implem
     public onHiddenButtonClick?: ImageBodyViewActions["onHiddenButtonClick"];
     public onImageLoad?: ImageBodyViewActions["onImageLoad"];
     public onImageError?: ImageBodyViewActions["onImageError"];
+    public onRetryClick?: ImageBodyViewActions["onRetryClick"];
 
     public constructor(snapshot: ImageBodyViewSnapshot, actions: ImageBodyViewActions = {}) {
         super(snapshot);
@@ -36,6 +37,7 @@ class TestImageBodyViewModel extends MockViewModel<ImageBodyViewSnapshot> implem
         this.onHiddenButtonClick = actions.onHiddenButtonClick;
         this.onImageLoad = actions.onImageLoad;
         this.onImageError = actions.onImageError;
+        this.onRetryClick = actions.onRetryClick;
     }
 }
 
@@ -183,6 +185,39 @@ describe("ImageBodyView", () => {
         render(<ImageBodyView vm={vm} />);
 
         expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    });
+
+    it("makes the error message a button that retries when a retry handler is provided", async () => {
+        const user = userEvent.setup();
+        const onRetryClick = vi.fn();
+        const vm = new TestImageBodyViewModel(
+            {
+                state: ImageBodyViewState.ERROR,
+                errorLabel: "Unable to show image due to error",
+                errorRetryLabel: "Click to try again",
+            },
+            { onRetryClick },
+        );
+
+        render(<ImageBodyView vm={vm} />);
+
+        const button = screen.getByRole("button", { name: "Unable to show image due to error" });
+        expect(button).toHaveAttribute("title", "Click to try again");
+        await user.click(button);
+
+        expect(onRetryClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the error message as plain text without a retry handler", () => {
+        const vm = new TestImageBodyViewModel({
+            state: ImageBodyViewState.ERROR,
+            errorLabel: "Unable to show image due to error",
+        });
+
+        render(<ImageBodyView vm={vm} />);
+
+        expect(screen.getByText("Unable to show image due to error")).toBeInTheDocument();
+        expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
 
     it("invokes image load and error handlers", () => {
