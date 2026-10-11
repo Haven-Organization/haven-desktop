@@ -22,10 +22,16 @@ import { ImageBodyViewModel } from "./ImageBodyViewModel";
 import Modal from "../../Modal";
 import { MatrixClientPeg } from "../../MatrixClientPeg";
 import { blobIsAnimated } from "../../utils/Image";
+import { getHeicDisplayUrl } from "../../utils/HeicImage";
 import { BLURHASH_FIELD, createThumbnail } from "../../utils/image-media";
 
 vi.mock("../../customisations/Media", () => ({
     mediaFromContent: vi.fn(),
+}));
+
+vi.mock("../../utils/HeicImage", async () => ({
+    ...(await vi.importActual("../../utils/HeicImage")),
+    getHeicDisplayUrl: vi.fn(),
 }));
 
 vi.mock("../../utils/Image", async () => ({
@@ -522,6 +528,73 @@ describe("ImageBodyViewModel", () => {
         vm.onImageError();
 
         expect(client.on).toHaveBeenCalledTimes(1);
+    });
+
+    describe("HEIC images", () => {
+        const mockedGetHeicDisplayUrl = vi.mocked(getHeicDisplayUrl);
+        const createHeicVm = (): ImageBodyViewModel =>
+            createVm({
+                mediaVisible: true,
+                mxEvent: createEvent({ content: { info: { mimetype: "image/heic" } } }),
+            });
+
+        beforeEach(() => {
+            mockedGetHeicDisplayUrl.mockReset();
+        });
+
+        it("shows a converted copy in place of both the image and its thumbnail", async () => {
+            mockedGetHeicDisplayUrl.mockResolvedValue("blob:converted");
+            const vm = createHeicVm();
+
+            await downloadImageForTest(vm);
+
+            expect(mockedGetHeicDisplayUrl).toHaveBeenCalledWith("mxc://server/image", expect.any(Function));
+            expect(vm.getSnapshot()).toMatchObject({
+                state: ImageBodyViewState.READY,
+                src: "blob:converted",
+                thumbnailSrc: "blob:converted",
+            });
+        });
+
+        it("downloads the original file for the conversion", async () => {
+            const blob = new Blob(["heic"]);
+            const downloadSource = vi.fn().mockResolvedValue({ blob: () => Promise.resolve(blob) });
+            mockedMediaFromContent.mockImplementation(
+                (content) => ({ ...createMockMedia(content as any), downloadSource }) as unknown as Media,
+            );
+            mockedGetHeicDisplayUrl.mockImplementation(async (_key, getBlob) => {
+                expect(await getBlob()).toBe(blob);
+                return "blob:converted";
+            });
+
+            await downloadImageForTest(createHeicVm());
+
+            expect(downloadSource).toHaveBeenCalledTimes(1);
+        });
+
+        it("shows the error state when the conversion fails, and converts again on a retry", async () => {
+            vi.spyOn(MatrixClientPeg, "get").mockReturnValue({ off: vi.fn() } as any);
+            mockedGetHeicDisplayUrl.mockRejectedValueOnce(new Error("Unable to convert HEIC image"));
+            const vm = createHeicVm();
+
+            await downloadImageForTest(vm);
+            expect(vm.getSnapshot().state).toBe(ImageBodyViewState.ERROR);
+
+            mockedGetHeicDisplayUrl.mockResolvedValue("blob:converted");
+            vm.onRetryClick();
+            await flushPromises();
+
+            expect(vm.getSnapshot()).toMatchObject({ state: ImageBodyViewState.READY, src: "blob:converted" });
+        });
+
+        it("leaves other formats alone", async () => {
+            const vm = createVm({ mediaVisible: true });
+
+            await downloadImageForTest(vm);
+
+            expect(mockedGetHeicDisplayUrl).not.toHaveBeenCalled();
+            expect(vm.getSnapshot().src).toBe("https://server/full.png");
+        });
     });
 
     describe("retrying a failed image", () => {

@@ -27,6 +27,7 @@ import { type ImageSize, suggestedSize as suggestedImageSize } from "../../setti
 import { presentableTextForFile } from "../../utils/FileUtils";
 import { type MediaEventHelper } from "../../utils/MediaEventHelper";
 import { blobIsAnimated, mayBeAnimated } from "../../utils/Image";
+import { getHeicDisplayUrl, isHeicMimeType } from "../../utils/HeicImage";
 import { type RoomPermalinkCreator } from "../../utils/permalinks/Permalinks";
 import { createReconnectedListener } from "../../utils/connection";
 import { DecryptError, DownloadError } from "../../utils/DecryptFile";
@@ -525,7 +526,40 @@ export class ImageBodyViewModel
         let thumbUrl: string | null;
         let contentUrl: string | null;
 
-        if (this.props.mediaEventHelper?.media.isEncrypted || this.props.mediaEventHelper?.isFromLocalUpload) {
+        if (isHeicMimeType(this.props.mxEvent.getContent<ImageContent>().info?.mimetype)) {
+            // The browser cannot draw this format, so show a converted copy instead. It also
+            // stands in for the thumbnail - the server usually cannot make one of these.
+            const mxEvent = this.props.mxEvent;
+            const media = mediaFromContent(mxEvent.getContent<ImageContent>());
+            // The helper is only needed for bytes that are not a plain download. It also remembers
+            // a failed download for good, which would make trying again pointless.
+            const mediaEventHelper =
+                this.props.mediaEventHelper?.media.isEncrypted || this.props.mediaEventHelper?.isFromLocalUpload
+                    ? this.props.mediaEventHelper
+                    : undefined;
+            try {
+                contentUrl = await getHeicDisplayUrl(media.srcMxc, async () =>
+                    mediaEventHelper ? mediaEventHelper.sourceBlob.value : (await media.downloadSource()).blob(),
+                );
+            } catch (error) {
+                if (this.isDisposed || this.props.mxEvent !== mxEvent) {
+                    return;
+                }
+
+                logger.error("Unable to convert HEIC image: ", error);
+                this.state = {
+                    ...this.state,
+                    error: error as Error,
+                };
+                this.updateSnapshotFromState();
+                return;
+            }
+
+            if (this.isDisposed || this.props.mxEvent !== mxEvent) {
+                return;
+            }
+            thumbUrl = contentUrl;
+        } else if (this.props.mediaEventHelper?.media.isEncrypted || this.props.mediaEventHelper?.isFromLocalUpload) {
             try {
                 [contentUrl, thumbUrl] = await Promise.all([
                     this.props.mediaEventHelper.sourceUrl.value,
@@ -734,6 +768,7 @@ export class ImageBodyViewModel
             return;
         }
 
+        void this.logImageFailureReason();
         this.state = {
             ...this.state,
             imgError: true,
@@ -751,7 +786,6 @@ export class ImageBodyViewModel
             loadedImageDimensions = { naturalWidth, naturalHeight };
         }
 
-        void this.logImageFailureReason();
         this.state = {
             ...this.state,
             imgLoaded: true,

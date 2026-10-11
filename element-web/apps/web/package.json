@@ -79,6 +79,7 @@
         "jsrsasign": "^11.0.0",
         "jszip": "^3.7.0",
         "katex": "^0.18.0",
+        "libheif-js": "1.23.5",
         "lodash": "npm:lodash-es@4.18.1",
         "maplibre-gl": "^6.0.0",
         "matrix-encrypt-attachment": "^1.0.3",
