@@ -246,6 +246,15 @@ $left-gutter: 64px;
             padding-inline-start: 0.5em;
         }
 
+        /* Haven: a "loose" Markdown list (blank lines between items) wraps each item's text in a
+           paragraph - <li><p>text</p></li>. With the marker positioned inside (above), it's an
+           inline box at the start of the item, so that block-level paragraph started on the line
+           below it, leaving "1." alone on its own line. Rendering the item's first paragraph inline
+           keeps it next to its number; any later paragraphs in the same item are still blocks. */
+        ol > li > p:first-child {
+            display: inline;
+        }
+
         /* Override nested lists being lower-roman */
         ol ol,
         ul ol {
