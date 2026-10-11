@@ -91,7 +91,12 @@ global.addEventListener("fetch", (event: FetchEvent) => {
             // Add authentication and send the request. We add authentication even if MSC3916 endpoints aren't
             // being used to ensure patches like this work:
             // https://github.com/matrix-org/synapse/commit/2390b66bf0ec3ff5ffb0c7333f3c9b239eeb92bb
-            return fetch(url, fetchConfigForToken(auth?.accessToken));
+            //
+            // Haven: also forward the request's own Range header. A <video>/<audio> element asks for
+            // byte ranges to seek, and re-issuing the request with only Authorization dropped that,
+            // so the server always answered with the whole file (200, not 206) and the browser
+            // treated the media as unseekable - clicking the seek bar did nothing.
+            return fetch(url, fetchConfigForToken(auth?.accessToken, event.request.headers.get("Range")));
         })(),
     );
 });
@@ -178,14 +183,13 @@ async function askClientForUserIdParams(
     });
 }
 
-function fetchConfigForToken(accessToken?: string): RequestInit | undefined {
-    if (!accessToken) {
+function fetchConfigForToken(accessToken?: string, range?: string | null): RequestInit | undefined {
+    if (!accessToken && !range) {
         return undefined; // no headers/config to specify
     }
 
-    return {
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-        },
-    };
+    const headers: Record<string, string> = {};
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+    if (range) headers["Range"] = range;
+    return { headers };
 }
