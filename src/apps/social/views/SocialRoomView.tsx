@@ -32,7 +32,6 @@ import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/d
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
 import { type ViewRoomPayload } from "../../../../element-web/apps/web/src/dispatcher/payloads/ViewRoomPayload";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
-import { onNewScreen } from "../../../../element-web/apps/web/src/vector/routing";
 import { stampSocialOrigin } from "../utils/socialHistoryOrigin";
 import { RightPanelPhases } from "../../../../element-web/apps/web/src/stores/right-panel/RightPanelStorePhases";
 import RoomAvatar from "../../../../element-web/apps/web/src/components/views/avatars/RoomAvatar";
@@ -54,6 +53,7 @@ import { PostDialog } from "../components/PostDialog";
 import { usePendingAttachment } from "../utils/postAttachment";
 import { handleComposerPaste } from "../utils/pasteFile";
 import { roomComposerDraftKey, useComposerDraft } from "../utils/composerDrafts";
+import { writeSocialScreen } from "../utils/socialScreen";
 import { SocialEventTile } from "../components/SocialEventTile";
 import { ProfileImageEditButton } from "../components/ProfileImageEditButton";
 import { ExternalHandleBadge } from "../components/ExternalHandleBadge";
@@ -372,7 +372,7 @@ export function SocialRoomView({
         const eventId = threadEvent?.getId();
         // threadRoom.roomId, not room.roomId - a cross-room repost/reply card click needs the
         // URL to actually point at the post's real room, not whatever room this view represents.
-        onNewScreen(`social/room/${eventId ? threadRoom.roomId : room.roomId}${eventId ? `/${eventId}` : ""}`);
+        writeSocialScreen(`social/room/${eventId ? threadRoom.roomId : room.roomId}${eventId ? `/${eventId}` : ""}`);
         // Marks this history entry as "this room's own dedicated page" - see
         // socialHistoryOrigin.ts's own doc for why a thread viewed here needs to be distinguished
         // from the same post viewed via FeedPane's own thread panel (identical hash otherwise).

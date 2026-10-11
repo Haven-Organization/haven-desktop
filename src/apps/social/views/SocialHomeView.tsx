@@ -51,7 +51,6 @@ import Modal from "../../../../element-web/apps/web/src/Modal";
 import { RightPanelPhases } from "../../../../element-web/apps/web/src/stores/right-panel/RightPanelStorePhases";
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
-import { onNewScreen } from "../../../../element-web/apps/web/src/vector/routing";
 import { stampSocialOrigin } from "../utils/socialHistoryOrigin";
 import { replyCountFor, gatherRoomEvents, buildDirectReplyCounts } from "../utils/thread-relations";
 import { consumePendingFeedThread } from "../utils/pendingFeedThread";
@@ -89,6 +88,8 @@ import { saveLastSocialViewState, peekLastSocialViewState } from "../utils/lastS
 import { type FirstItemIndexState, nextFirstItemIndex } from "../utils/feedFirstItemIndex";
 import { adjustFeedSnapshot, type SavedFeedScroll } from "../utils/feedScrollSnapshot";
 import { FEED_COMPOSER_DRAFT_KEY, useComposerDraft } from "../utils/composerDrafts";
+import { writeSocialScreen } from "../utils/socialScreen";
+import { clearPendingSocialScreen } from "../utils/pendingSocialScreen";
 import { consumePendingPostModal } from "../utils/pendingPostModal";
 import {
     isGroupRoom,
@@ -431,14 +432,14 @@ export function SocialHomeView(): JSX.Element {
         if (nav.roomId || nav.section === "feed") return;
         if (nav.section === "profile") {
             if (profileRoomId) return;
-            onNewScreen("social/profile");
+            writeSocialScreen("social/profile");
             return;
         }
         if (nav.section === "groups") {
-            onNewScreen("social/groups");
+            writeSocialScreen("social/groups");
             return;
         }
-        onNewScreen("social");
+        writeSocialScreen("social");
     }, [nav.roomId, nav.section, profileRoomId]);
 
     const [rooms, setRooms] = useState<Room[]>(() => client.getRooms());
@@ -694,6 +695,9 @@ export function SocialHomeView(): JSX.Element {
                     showPrivateProfileModal();
                     break;
             }
+            // Anything but "room" never reaches the destination's own page, so nothing would ever
+            // write (and so clear) the pending destination URL - see pendingSocialScreen.ts.
+            if (resolution.kind !== "room") clearPendingSocialScreen();
         });
         return true;
     }, [client, viewRoom]);
@@ -1582,7 +1586,7 @@ function FeedPane({
     // this uses threadView's own room rather than something derived higher up in SocialHomeView.
     useEffect(() => {
         const eventId = threadView?.event.getId();
-        onNewScreen(threadView ? `social/room/${threadView.room.roomId}/${eventId}` : "social");
+        writeSocialScreen(threadView ? `social/room/${threadView.room.roomId}/${eventId}` : "social");
         // Marks this history entry as "viewed from the Feed's own thread panel" - see
         // socialHistoryOrigin.ts's own doc. Only meaningful when a thread is actually open; bare
         // "social" has no event to disambiguate at all.

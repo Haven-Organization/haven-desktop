@@ -33,6 +33,7 @@ import {
 } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { SOCIAL_HOME_ACTION } from "../homeAction";
 import { setPendingViewPost } from "./pendingViewPost";
+import { setPendingSocialScreen } from "./pendingSocialScreen";
 import { setPendingFeedThread } from "./pendingFeedThread";
 import { getLastPopStateOrigin } from "./socialHistoryOrigin";
 import { isSocialRoom, isProfileRoomType, isGroupRoomType } from "./room-classifier";
@@ -52,6 +53,9 @@ function dispatchSocialHomeAction(): void {
 
 function routeToSocial(roomId: string, eventId: string | null): void {
     setPendingViewPost(roomId, eventId ?? undefined);
+    // Until this destination's own URL is written, Social's pages skip writing theirs - see
+    // pendingSocialScreen.ts for the stray history entries that otherwise leaves behind.
+    setPendingSocialScreen(roomId, eventId);
     dispatchSocialHomeAction();
 }
 
