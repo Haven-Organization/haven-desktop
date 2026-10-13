@@ -83,4 +83,37 @@ describe("repostContentMatches", () => {
         const original = originalPost({ formatted_body: `<p>Not a preamble:</p>${MENTIONS_HTML}` });
         expect(repostContentMatches(repostSnapshot(), original, true)).toBe(false);
     });
+    // A bridge's repost of a native plain-text post with several paragraphs. Content is taken from
+    // the two real events involved.
+    describe("a bridge's repost of a native post with several paragraphs", () => {
+        const PARAGRAPHS = [
+            "https://bsky.app/profile/example.org",
+            "I have successfully bridged Matrix to both ActivityPub and AT Protocol.",
+            "ActivityPub bridge: https://github.com/Haven-Organization/matrix-appservice-activitypub",
+        ];
+        const original = { body: PARAGRAPHS.join("\n\n"), format: "plain", msgtype: "m.text" };
+        const snapshot = (paragraphs: string[] = PARAGRAPHS): Record<string, unknown> => ({
+            "msgtype": "m.text",
+            "body": "https://matrix.to/#/!room:example.org/$original?via=example.org",
+            "format": "org.matrix.custom.html",
+            "formatted_body": "<p>🔁 reposted ...</p><blockquote>...</blockquote>",
+            "org.matrix.msc4501.social.body": paragraphs.join("\n"),
+            "org.matrix.msc4501.social.formatted_body": paragraphs
+                .map((p) => `<p>${p.replace(/https:\S+/g, (url) => `<a href="${url}">${url}</a>`)}</p>`)
+                .join(""),
+        });
+
+        it("accepts it although the paragraphs are separated differently on each side", () => {
+            expect(repostContentMatches(snapshot(), original, true)).toBe(true);
+        });
+
+        it("still flags it when the text differs", () => {
+            const changed = [PARAGRAPHS[0], "I have NOT bridged anything.", PARAGRAPHS[2]];
+            expect(repostContentMatches(snapshot(changed), original, true)).toBe(false);
+        });
+
+        it("still flags it when a paragraph is left out", () => {
+            expect(repostContentMatches(snapshot(PARAGRAPHS.slice(0, 2)), original, true)).toBe(false);
+        });
+    });
 });

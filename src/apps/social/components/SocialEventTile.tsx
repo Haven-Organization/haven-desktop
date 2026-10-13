@@ -1081,9 +1081,28 @@ function formattedBodiesMatch(
     // bridge's repost snapshot (always wraps its social.formatted_body in <p>, even when the
     // original had zero formatting) - confirmed live: a real repost of a plain-text Haven post
     // was flagged as a possible forgery purely because of this, despite identical visible text.
-    const aText = (aFb ? sanitizeHtmlText(aFb) : (a?.body ?? "")).trim();
-    const bText = (bFb ? sanitizeHtmlText(bFb) : (b?.body ?? "")).trim();
+    //
+    // Line breaks are not part of that visible text: the native post separates its paragraphs with
+    // a blank line in plain body, the bridge's snapshot has them as <p> elements, and its own plain
+    // social.body joins the same paragraphs with a single line break. So every run of whitespace
+    // counts as one space on both sides (see collapseWhitespace), with a break put where each HTML
+    // block ends so two paragraphs don't run together into one word.
+    const aText = collapseWhitespace(aFb ? htmlVisibleText(aFb) : (a?.body ?? ""));
+    const bText = collapseWhitespace(bFb ? htmlVisibleText(bFb) : (b?.body ?? ""));
     return aText === bText;
+}
+
+/** Every run of whitespace as a single space. How a post's paragraphs are separated differs between
+ *  a native post and a bridge's snapshot of it (see formattedBodiesMatch) without the post saying
+ *  anything different, so spacing alone is never what makes a repost a mismatch. */
+function collapseWhitespace(text: string): string {
+    return text.replace(/\s+/g, " ").trim();
+}
+
+/** The text of an HTML body with a line break where each block or <br> ends - sanitizeHtmlText
+ *  alone drops the tags and leaves "one</p><p>two" as "onetwo". */
+function htmlVisibleText(html: string): string {
+    return sanitizeHtmlText(html.replace(/<\/(?:p|div|li|blockquote|pre|h[1-6])>|<br\s*\/?>/gi, "$&\n"));
 }
 
 /** Exported for tests only. */
@@ -1113,7 +1132,7 @@ export function repostContentMatches(
     );
     const bodyIsWrapperFiller = !!contentInline && !!aUrl && !hasPostBodyOverride(embeddedSource);
     const textMatches = (x: typeof a, y: typeof a): boolean =>
-        (x?.body ?? "") === (y?.body ?? "") && formattedBodiesMatch(x, y);
+        collapseWhitespace(x?.body ?? "") === collapseWhitespace(y?.body ?? "") && formattedBodiesMatch(x, y);
     // See hasRelationPreamble's own doc - only when the snapshot came through an MSC4501 override
     // and the real post has no override of its own (so its header is still in its stock fields).
     const matchesWithoutRealPreamble =
