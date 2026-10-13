@@ -184,7 +184,12 @@ function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): Pos
             // so showing the raw edit event too would just duplicate that same content.
             if (e.isRelation(RelationType.Replace)) return false;
             const type = e.getType();
-            return isSocialPostEventType(type) || type === "m.room.message" || M_POLL_START.matches(type);
+            return (
+                isSocialPostEventType(type) ||
+                type === "m.room.message" ||
+                type === EventType.Sticker ||
+                M_POLL_START.matches(type)
+            );
         })
         .map((event) => {
             const eid = event.getId()!;

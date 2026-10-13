@@ -1183,6 +1183,11 @@
     object-fit: contain;
 }
 
+// A sticker is sized like one in the room timeline rather than like a photo.
+.social_EventTile_image--sticker {
+    max-height: 256px;
+}
+
 .social_EventTile_video {
     display: block;
     max-width: 100%;

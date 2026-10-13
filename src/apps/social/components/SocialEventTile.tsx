@@ -1921,7 +1921,12 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     const isLegacyMessage = event.getType() === "m.room.message";
     const isNativePost = isSocialPostEventType(event.getType());
     const isPollMessage = M_POLL_START.matches(event.getType());
-    if (!isLegacyMessage && !isNativePost && !isPollMessage) return null;
+    // A sticker is an image in everything but its event type (m.sticker carries the same
+    // url/info an m.image message does), so it goes through the image rendering below. Leaving it
+    // out made a sticker sent as a post or reply simply absent from Social - a notification's link
+    // to one opened its thread with the linked post nowhere in it.
+    const isSticker = event.getType() === EventType.Sticker;
+    if (!isLegacyMessage && !isNativePost && !isPollMessage && !isSticker) return null;
     if (!isPollMessage && !body && !content.file && !content.url) return null;
 
     // m.audio (plain file uploads and voice messages), m.location, and polls all get the exact
@@ -1975,7 +1980,9 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     const fileMime =
         content.info?.mimetype ??
         (fileUrl
-            ? { "m.image": "image/*", "m.video": "video/*", "m.audio": "audio/*" }[content.msgtype ?? ""] ?? ""
+            ? isSticker
+                ? "image/*"
+                : ({ "m.image": "image/*", "m.video": "video/*", "m.audio": "audio/*" }[content.msgtype ?? ""] ?? "")
             : "");
 
     // decryptedFileUrl is populated by the hook further up (before this component's early returns
@@ -2082,7 +2089,9 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         ref={imgRef}
                         src={httpFileUrl}
                         alt={fileName}
-                        className="social_EventTile_image"
+                        className={
+                            isSticker ? "social_EventTile_image social_EventTile_image--sticker" : "social_EventTile_image"
+                        }
                         onClick={handleImageClick}
                         onLoad={onUnratioedImageLoad}
                         style={mediaAspectRatioStyle ?? mediaFallbackPlaceholderStyle}
