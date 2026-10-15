@@ -121,6 +121,7 @@ beforeEach(() => {
         doesServerSupportUnstableFeature: vi.fn().mockReturnValue(false),
         doesServerSupportExtendedProfiles: vi.fn().mockResolvedValue(false),
         getExtendedProfile: vi.fn().mockRejectedValue(new Error("Not supported")),
+        getProfileInfo: vi.fn().mockResolvedValue({}),
         mxcUrlToHttp: vi.fn().mockReturnValue("mock-mxcUrlToHttp"),
         removeListener: vi.fn(),
         currentState: {
@@ -196,6 +197,19 @@ describe("<UserInfo />", () => {
         it("renders user info", () => {
             renderComponent();
             expect(screen.getByRole("heading", { name: defaultUserId })).toBeInTheDocument();
+        });
+
+        it("fills in a bare user's display name from their global profile", async () => {
+            // Own user id: the live profile cache is module-wide, keyed by user id
+            const userId = "@profile-only:example.com";
+            mockClient.getProfileInfo.mockResolvedValue({
+                displayname: "Profile Name",
+                avatar_url: "mxc://example.com/avatar",
+            });
+            renderComponent({ user: new User(userId) });
+
+            await expect(screen.findByRole("heading", { name: "Profile Name" })).resolves.toBeInTheDocument();
+            expect(mockClient.getProfileInfo).toHaveBeenCalledWith(userId);
         });
 
         describe.each([[ProfileKeyTimezone], [ProfileKeyMSC4175Timezone]])("timezone rendering (%s)", (profileKey) => {

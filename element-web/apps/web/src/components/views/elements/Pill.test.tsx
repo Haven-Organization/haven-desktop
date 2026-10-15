@@ -285,6 +285,44 @@ describe("<Pill>", () => {
         expect(renderResult.asFragment()).toMatchSnapshot();
     });
 
+    it("should fill a pill for a user we share no room with from their global profile", async () => {
+        const userId = "@global-profile-only:example.com";
+        client.getProfileInfo.mockImplementation(async (id: string) => {
+            if (id === userId) return { displayname: "Global Name", avatar_url: "mxc://example.com/global" };
+            throw new Error(`Unknown user ${id}`);
+        });
+        // Not a known profile: the stock lookup only answers for users sharing a room with us
+        vi.spyOn(sdkContext.userProfilesStore, "fetchOnlyKnownProfile").mockResolvedValue(null);
+        renderPill({
+            room: room1,
+            url: permalinkPrefix + userId,
+        });
+
+        await flushPromises();
+
+        expect(renderResult.getByText("Global Name")).toBeInTheDocument();
+    });
+
+    it("should fill a pill for a room member with no profile of their own", async () => {
+        const userId = "@bare-member:example.com";
+        const bareJoin = mkRoomMemberJoinEvent(userId, room1Id, {});
+        room1.currentState.setStateEvents([bareJoin]);
+        room1.getMember(userId)!.setMembershipEvent(bareJoin);
+        client.getProfileInfo.mockImplementation(async (id: string) => {
+            if (id === userId) return { displayname: "Bare Member Name" };
+            throw new Error(`Unknown user ${id}`);
+        });
+        vi.spyOn(sdkContext.userProfilesStore, "fetchOnlyKnownProfile").mockResolvedValue(null);
+        renderPill({
+            room: room1,
+            url: permalinkPrefix + userId,
+        });
+
+        await flushPromises();
+
+        expect(renderResult.getByText("Bare Member Name")).toBeInTheDocument();
+    });
+
     it("should not render anything if the type cannot be detected", () => {
         renderPill({
             url: permalinkPrefix,

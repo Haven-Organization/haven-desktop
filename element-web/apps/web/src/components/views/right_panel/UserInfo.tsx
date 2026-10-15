@@ -11,7 +11,7 @@ Please see LICENSE files in the repository root for full details.
 
 import React, { type JSX, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import classNames from "classnames";
-import { type MatrixClient, type RoomMember, type Room, type User, type Device } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, RoomMember, type Room, type User, type Device } from "matrix-js-sdk/src/matrix";
 import { type UserVerificationStatus, type VerificationRequest, CryptoEvent } from "matrix-js-sdk/src/crypto-api";
 
 import Modal from "../../../Modal";
@@ -27,6 +27,11 @@ import PosthogTrackers from "../../../PosthogTrackers";
 import { UserInfoHeaderView } from "./user_info/UserInfoHeaderView";
 import { UserInfoBasicView } from "./user_info/UserInfoBasicView";
 import { SDKContext } from "../../../contexts/SDKContext.ts";
+// haven apps-framework patch
+import {
+    fillUserFromProfile,
+    useLiveUserProfile,
+} from "../../../../../../../src/apps/social/utils/liveUserProfile";
 
 export interface IDevice extends Device {
     ambiguous?: boolean;
@@ -181,7 +186,18 @@ const UserInfo: React.FC<IProps> = ({ user, room, onClose, phase = RightPanelPha
     const sdkContext = useContext(SDKContext);
 
     // fetch latest room member if we have a room, so we don't show historical information, falling back to user
-    const member = useMemo(() => (room ? room.getMember(user.userId) || user : user), [room, user]);
+    const roomMember = useMemo(() => (room ? room.getMember(user.userId) || user : user), [room, user]);
+    // haven apps-framework patch: someone outside this room arrives as a bare User with no profile
+    // unless we share another room with them - fill in their name and avatar from their global
+    // profile (see fillUserFromProfile). A room member's own per-room profile is left alone.
+    const liveProfile = useLiveUserProfile(
+        sdkContext.client!,
+        roomMember instanceof RoomMember ? undefined : roomMember.userId,
+    );
+    const member = useMemo(
+        () => (roomMember instanceof RoomMember ? roomMember : fillUserFromProfile(roomMember, liveProfile)),
+        [roomMember, liveProfile],
+    );
 
     const isRoomEncrypted = useIsEncrypted(sdkContext.client!, room);
     const devices = useDevices(user.userId) ?? [];

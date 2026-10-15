@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { type MatrixClient } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, User } from "matrix-js-sdk/src/matrix";
 
 /**
  * MSC4503 external handle: a linked identity on some other (usually non-Matrix) protocol, e.g. a
@@ -102,4 +102,31 @@ export function useLiveUserProfile(client: MatrixClient, userId: string | undefi
     }, [client, userId]);
 
     return profile;
+}
+
+/**
+ * A copy of `user` with its missing display name and avatar filled in from `profile`, or `user`
+ * itself when there is nothing to fill. A bare User (e.g. the one Linkify.ts builds when a plain
+ * user link is clicked) only carries a profile when the client shares a room with that user, so
+ * without this the user info panel shows just the MXID and a letter avatar. Copies rather than
+ * mutating because `user` may be the client's own shared User object.
+ */
+export function fillUserFromProfile(user: User, profile: LiveUserProfile | null): User {
+    if (!profile) return user;
+    const hasName = !!user.rawDisplayName && user.rawDisplayName !== user.userId;
+    const displayName = hasName ? undefined : profile.displayName;
+    const avatarUrl = user.avatarUrl ? undefined : profile.avatarUrl;
+    if (!displayName && !avatarUrl) return user;
+
+    const filled = new User(user.userId);
+    filled.presence = user.presence;
+    filled.presenceStatusMsg = user.presenceStatusMsg;
+    filled.lastActiveAgo = user.lastActiveAgo;
+    filled.lastPresenceTs = user.lastPresenceTs;
+    filled.currentlyActive = user.currentlyActive;
+    filled.events = user.events;
+    filled.setDisplayName(displayName ?? user.displayName ?? user.userId);
+    filled.setRawDisplayName(displayName ?? user.rawDisplayName);
+    filled.setAvatarUrl(avatarUrl ?? user.avatarUrl);
+    return filled;
 }

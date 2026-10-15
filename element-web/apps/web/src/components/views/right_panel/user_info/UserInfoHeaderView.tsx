@@ -81,7 +81,9 @@ export const UserInfoHeaderView: React.FC<UserInfoHeaderViewProps> = ({
                             resizeMethod="scale"
                             fallbackUserId={member.userId}
                             onClick={vm.onMemberAvatarClick}
-                            urls={avatarUrl ? [avatarUrl] : undefined}
+                            // haven apps-framework patch: a bare User's avatarUrl is an mxc:// URL, which
+                            // `urls` can't load (it takes http URLs) - overrideAvatarUrl converts it
+                            overrideAvatarUrl={avatarUrl}
                         />
                     </div>
                 </div>

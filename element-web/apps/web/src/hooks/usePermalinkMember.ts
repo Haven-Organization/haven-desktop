@@ -13,6 +13,8 @@ import { PillType } from "../components/views/elements/PillType";
 import { SDKContext } from "../contexts/SDKContext";
 import { type SDKContextClass } from "../contexts/SDKContextClass";
 import { type PermalinkParts } from "../utils/permalinks/PermalinkConstructor";
+// haven apps-framework patch
+import { fetchUserProfile } from "../../../../../src/apps/social/utils/liveUserProfile";
 
 const createMemberFromProfile = (userId: string, profile: IMatrixProfile): RoomMember => {
     const member = new RoomMember("", userId);
@@ -55,6 +57,10 @@ const determineUserId = (
 
     return null;
 };
+
+/** Whether a room member has neither a display name nor an avatar of its own. */
+const isBareMember = (member: RoomMember): boolean =>
+    (!member.rawDisplayName || member.rawDisplayName === member.userId) && !member.getMxcAvatarUrl();
 
 /**
  * Tries to determine a RoomMember.
@@ -106,7 +112,9 @@ export const usePermalinkMember = (
     const [member, setMember] = useState<RoomMember | null>(userInRoom);
 
     useEffect(() => {
-        if (!shouldLookUpUser || !userId || member) {
+        // haven apps-framework patch: a room member with no display name or avatar of its own (some
+        // bridges, left members) is looked up too, keeping the bare member until a profile turns up
+        if (!shouldLookUpUser || !userId || (member && !isBareMember(member))) {
             // nothing to do here
             return;
         }
@@ -114,9 +122,28 @@ export const usePermalinkMember = (
         const doProfileLookup = async (): Promise<void> => {
             const fetchedProfile = await context.userProfilesStore.fetchOnlyKnownProfile(userId);
 
-            if (fetchedProfile) {
+            // haven apps-framework patch: an empty profile would only swap one bare member for
+            // another and re-run this effect, so it falls through to the global lookup instead
+            if (fetchedProfile && (fetchedProfile.displayname || fetchedProfile.avatar_url)) {
                 const newMember = createMemberFromProfile(userId, fetchedProfile);
                 setMember(newMember);
+                return;
+            }
+
+            // haven apps-framework patch: fetchOnlyKnownProfile only answers for users we share a
+            // room with, so anyone else (e.g. a bridged account replied to from another room) kept
+            // a raw MXID pill. Fall back to their global profile - the same cached lookup Social and
+            // the user info panel use.
+            const client = context.client;
+            if (!client) return;
+            const liveProfile = await fetchUserProfile(client, userId);
+            if (liveProfile.displayName || liveProfile.avatarUrl) {
+                setMember(
+                    createMemberFromProfile(userId, {
+                        displayname: liveProfile.displayName,
+                        avatar_url: liveProfile.avatarUrl,
+                    }),
+                );
             }
         };
 
