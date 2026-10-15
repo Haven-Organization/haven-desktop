@@ -2197,6 +2197,13 @@
     }
 }
 
+// The protocol badge (ExternalHandleIcon) sits inline at the end of the name text
+.social_EventTile_senderNameIcon {
+    display: inline-block;
+    vertical-align: -2px;
+    margin-left: var(--cpd-space-1x);
+}
+
 // ---------------------------------------------------------------------------
 // Like button (LikeButton.tsx) — same emoji icon as the composer's EmojiButton, icon-only,
 // hover opens the stock ReactionPicker.

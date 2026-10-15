@@ -2368,8 +2368,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             title={event.getSender() ?? undefined}
                         >
                             {senderDisplayName}
+                            {/* Inside the name's own button so it follows the last word when a long
+                                name wraps, instead of sitting beside the whole wrapped block */}
+                            <ExternalHandleIcon
+                                externalHandle={liveSenderProfile?.externalHandle}
+                                className="social_EventTile_senderNameIcon"
+                            />
                         </button>
-                        <ExternalHandleIcon externalHandle={liveSenderProfile?.externalHandle} />
                     </div>
                     {/* MXID, e.g. @user:server - acts exactly like the display name above (same
                         onClick), just visually secondary. Ellipsis-clipped via its own CSS rather
