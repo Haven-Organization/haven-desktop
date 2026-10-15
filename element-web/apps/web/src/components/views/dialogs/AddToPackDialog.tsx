@@ -5,11 +5,18 @@
  * ImagePacks.ts's own getPackableImageFromEvent for exactly which messages qualify). Lists every
  * pack the user can manage, searchable by pack name or the room it lives in, each with a stylized
  * button that adds the message's image to it in one click - no draft/Save step, unlike the room
- * settings tab's own pack editor, since there's nothing else being edited here.
+ * settings tab's own pack editor.
+ *
+ * Above the list are the shortcode, usage and description the image gets in whichever pack is
+ * picked. They start from what the image already had if it came out of a pack (see
+ * getAddToPackDefaults), otherwise from its file name.
+ *
+ * Also opened from ReactionsDialog for a custom emoji reaction, which has no packable event of its
+ * own - that passes the image in directly as `image` instead of `mxEvent`.
  */
 
 import React, { type JSX, useCallback, useMemo, useState } from "react";
-import { type MatrixEvent } from "matrix-js-sdk/src/matrix";
+import { EventType, type MatrixClient, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { AutoHideScrollbar } from "@element-hq/web-shared-components";
 
 import BaseDialog from "./BaseDialog";
@@ -19,18 +26,102 @@ import AccessibleButton from "../elements/AccessibleButton";
 import Field from "../elements/Field";
 import Spinner from "../elements/Spinner";
 import {
+    type ImagePackUsage,
     type RoomImagePack,
+    effectiveImageUsage,
     getManageableImagePacks,
+    getRoomImagePacksForManagement,
+    sanitizeShortcode,
+    shortcodeFromMxcUrl,
     getPackableImageFromEvent,
     getPackAvatarMxc,
     packDisplayName,
     addPackImageFromMxcUrl,
     addImageToExistingPack,
 } from "../../../utils/ImagePacks";
+import { IMAGE_SOURCE_PACKS_KEY, type ImageSourcePackRef } from "../../../utils/imageSourcePacks";
+
+/** An image to add to a pack, with whatever is already known about it. */
+export interface AddToPackImage {
+    mxcUrl: string;
+    /** Its description or file name. */
+    body?: string;
+    /** The shortcode it was used under, without colons. */
+    shortcode?: string;
+    /** How it was used, when the pack it came from is not available to say. */
+    usage?: ImagePackUsage[];
+    /** The pack it came from (MSC4459), if the event said. */
+    packRef?: ImageSourcePackRef;
+}
 
 interface Props {
-    mxEvent: MatrixEvent;
+    /** The image or sticker message to add. Not needed when `image` is given. */
+    mxEvent?: MatrixEvent;
+    /** The image to add, for one that is not a message of its own (a custom emoji reaction). */
+    image?: AddToPackImage;
     onFinished: (added?: boolean) => void;
+}
+
+type UsageChoice = "emoticon" | "sticker" | "both";
+
+const USAGE_OPTIONS: { value: UsageChoice; labelKey: string }[] = [
+    { value: "both", labelKey: "room_settings|emoji_stickers|usage_both" },
+    { value: "emoticon", labelKey: "room_settings|emoji_stickers|usage_emoji" },
+    { value: "sticker", labelKey: "room_settings|emoji_stickers|usage_sticker" },
+];
+
+function usageToChoice(usage: ImagePackUsage[]): UsageChoice {
+    const emoticon = usage.includes("emoticon");
+    const sticker = usage.includes("sticker");
+    if (emoticon === sticker) return "both";
+    return sticker ? "sticker" : "emoticon";
+}
+
+function choiceToUsage(choice: UsageChoice): ImagePackUsage[] {
+    return choice === "both" ? ["emoticon", "sticker"] : [choice];
+}
+
+/** What "Add to Pack" can offer for a message: its image, plus the pack reference for that image
+ *  when the message carries one. */
+function imageFromEvent(mxEvent: MatrixEvent): AddToPackImage | undefined {
+    const image = getPackableImageFromEvent(mxEvent);
+    if (!image) return undefined;
+    const refs = mxEvent.getContent()[IMAGE_SOURCE_PACKS_KEY] as Record<string, ImageSourcePackRef> | undefined;
+    const packRef = refs && typeof refs === "object" ? refs[image.mxcUrl] : undefined;
+    return {
+        ...image,
+        packRef,
+        shortcode: packRef?.shortcode,
+        usage: mxEvent.getType() === EventType.Sticker ? ["sticker"] : undefined,
+    };
+}
+
+/** The values the dialog's fields start with. An image that came out of a pack keeps the
+ *  shortcode, description and usage it has there, as far as they can be found: the pack itself
+ *  when the user is in its room, otherwise what the event carried. Anything else starts from its
+ *  file name. Exported for tests. */
+export function getAddToPackDefaults(
+    client: MatrixClient,
+    image: AddToPackImage,
+): { shortcode: string; description: string; usage: UsageChoice } {
+    const ref = image.packRef;
+    const sourceRoom = ref ? client.getRoom(ref.room_id) : null;
+    const sourcePack = sourceRoom
+        ? getRoomImagePacksForManagement(sourceRoom).find((pack) => pack.stateKey === ref!.state_key)
+        : undefined;
+    const sourceImage = sourcePack
+        ? (sourcePack.content.images[ref!.shortcode] ??
+          Object.values(sourcePack.content.images).find((candidate) => candidate.url === image.mxcUrl))
+        : undefined;
+
+    const shortcode = image.shortcode || (image.body ? sanitizeShortcode(image.body) : shortcodeFromMxcUrl(image.mxcUrl));
+    const usage =
+        sourceImage && sourcePack ? effectiveImageUsage(sourceImage, sourcePack.content) : (image.usage ?? []);
+    return {
+        shortcode,
+        description: sourceImage?.body ?? image.body ?? shortcode,
+        usage: usageToChoice(usage),
+    };
 }
 
 function packKey(pack: RoomImagePack): string {
@@ -50,10 +141,18 @@ function PackRowAvatar({ pack }: { pack: RoomImagePack }): JSX.Element {
     );
 }
 
-export default function AddToPackDialog({ mxEvent, onFinished }: Props): JSX.Element {
+export default function AddToPackDialog({ mxEvent, image: givenImage, onFinished }: Props): JSX.Element {
     const client = MatrixClientPeg.safeGet();
     const packs = useMemo(() => getManageableImagePacks(client), [client]);
-    const image = useMemo(() => getPackableImageFromEvent(mxEvent), [mxEvent]);
+    const image = useMemo(
+        () => givenImage ?? (mxEvent ? imageFromEvent(mxEvent) : undefined),
+        [givenImage, mxEvent],
+    );
+    const defaults = useMemo(() => (image ? getAddToPackDefaults(client, image) : undefined), [client, image]);
+
+    const [shortcode, setShortcode] = useState(defaults?.shortcode ?? "");
+    const [description, setDescription] = useState(defaults?.description ?? "");
+    const [usage, setUsage] = useState<UsageChoice>(defaults?.usage ?? "both");
 
     const [query, setQuery] = useState("");
     const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -81,10 +180,13 @@ export default function AddToPackDialog({ mxEvent, onFinished }: Props): JSX.Ele
                 // rules, regardless of what the original message did or didn't already have.
                 const { info } = await addPackImageFromMxcUrl(client, image.mxcUrl);
                 await addImageToExistingPack(client, pack.roomId, pack.stateKey, {
-                    shortcodeHint: image.body || image.mxcUrl,
+                    // Still only a hint: it is cleaned up to a valid shortcode, and numbered if
+                    // the pack already has an image under that one.
+                    shortcodeHint: shortcode,
                     url: image.mxcUrl,
-                    body: image.body,
+                    body: description.trim() || undefined,
                     info,
+                    usage: choiceToUsage(usage),
                 });
                 onFinished(true);
             } catch (err) {
@@ -92,7 +194,7 @@ export default function AddToPackDialog({ mxEvent, onFinished }: Props): JSX.Ele
                 setBusyKey(null);
             }
         },
-        [client, image, onFinished],
+        [client, image, shortcode, description, usage, onFinished],
     );
 
     return (
@@ -108,6 +210,38 @@ export default function AddToPackDialog({ mxEvent, onFinished }: Props): JSX.Ele
                 value={query}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
                 autoFocus
+            />
+            <div className="mx_AddToPackDialog_imageFields">
+                <Field
+                    className="mx_AddToPackDialog_shortcode"
+                    label={_t("room_settings|emoji_stickers|shortcode")}
+                    value={shortcode}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShortcode(e.currentTarget.value)}
+                    disabled={!image}
+                />
+                <Field
+                    className="mx_AddToPackDialog_usage"
+                    element="select"
+                    label={_t("room_settings|emoji_stickers|image_usage")}
+                    value={usage}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                        setUsage(e.currentTarget.value as UsageChoice)
+                    }
+                    disabled={!image}
+                >
+                    {USAGE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                            {_t(opt.labelKey as Parameters<typeof _t>[0])}
+                        </option>
+                    ))}
+                </Field>
+            </div>
+            <Field
+                className="mx_AddToPackDialog_description"
+                label={_t("common|description")}
+                value={description}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.currentTarget.value)}
+                disabled={!image}
             />
             {error && <div className="mx_AddToPackDialog_error">{error}</div>}
             <AutoHideScrollbar className="mx_AutoHideScrollbar mx_AddToPackDialog_list">
@@ -131,7 +265,7 @@ export default function AddToPackDialog({ mxEvent, onFinished }: Props): JSX.Ele
                                 <AccessibleButton
                                     kind="primary_outline"
                                     onClick={() => handleAdd(pack)}
-                                    disabled={busyKey !== null || !image}
+                                    disabled={busyKey !== null || !image || !shortcode.trim()}
                                 >
                                     {busyKey === key ? <Spinner /> : _t("action|add")}
                                 </AccessibleButton>

@@ -9,10 +9,11 @@ import React, { type JSX, useCallback, useContext, useEffect, useMemo, useState 
 import { type MatrixEvent, type Relations, RelationsEvent } from "matrix-js-sdk/src/matrix";
 import { uniqBy } from "lodash";
 import classNames from "classnames";
-import { SearchIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import { SearchIcon, StickerIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import BaseDialog from "./BaseDialog";
 import FindPackDialog from "./FindPackDialog";
+import AddToPackDialog from "./AddToPackDialog";
 import ImageView from "../elements/ImageView";
 import AccessibleButton from "../elements/AccessibleButton";
 import MemberAvatar from "../avatars/MemberAvatar";
@@ -110,6 +111,19 @@ export default function ReactionsDialog({ mxEvent, reactions, initialContent, on
         Modal.createDialog(FindPackDialog, { packRef }, "mx_FindPackDialog_wrapper");
     }, []);
 
+    // Haven: the same dialog as the message menu's own "Add to Pack", for the selected custom
+    // emoji. A reaction is not a message with an image of its own, so the image is passed in
+    // directly, with the shortcode and pack reference whichever reaction event carried them.
+    const handleAddToPack = useCallback((group: ReactionGroup) => {
+        const shortcode = reactionGroupShortName(group)?.replace(/^:|:$/g, "");
+        const packRef = group.events.flatMap((event) => getImageSourcePackRefs(event))[0];
+        Modal.createDialog(
+            AddToPackDialog,
+            { image: { mxcUrl: group.content, body: shortcode, shortcode, usage: ["emoticon"], packRef } },
+            "mx_AddToPackDialog_wrapper",
+        );
+    }, []);
+
     const handleViewImage = useCallback(
         (src: string, name: string) => {
             // Haven: close this dialog first - otherwise it stays open, stacked on top of the
@@ -196,6 +210,15 @@ export default function ReactionsDialog({ mxEvent, reactions, initialContent, on
                             </span>
                         )}
                         <span className="mx_ReactionsDialog_usersHeaderTitle">{title}</span>
+                        {selectedIsCustomImage && selectedGroup && (
+                            <AccessibleButton
+                                className="mx_ReactionsDialog_addToPack"
+                                onClick={() => handleAddToPack(selectedGroup)}
+                                title={_t("timeline|context_menu|add_to_pack")}
+                            >
+                                <StickerIcon width="20px" height="20px" />
+                            </AccessibleButton>
+                        )}
                     </div>
                     <ul className="mx_ReactionsDialog_users">
                         {selectedEvents.map((event) => {

@@ -80,9 +80,103 @@ describe("AddToPackDialog", () => {
             client,
             PACK_A.roomId,
             PACK_A.stateKey,
-            expect.objectContaining({ shortcodeHint: "cool.png", url: "mxc://example.org/img" }),
+            expect.objectContaining({
+                shortcodeHint: "cool",
+                url: "mxc://example.org/img",
+                body: "cool.png",
+                usage: ["emoticon", "sticker"],
+            }),
         );
         expect(onFinished).toHaveBeenCalledWith(true);
+    });
+
+    it("prefills shortcode and description from the file name of a plain image", () => {
+        vi.spyOn(ImagePacks, "getManageableImagePacks").mockReturnValue([PACK_A]);
+        render(<AddToPackDialog mxEvent={mxEvent} onFinished={vi.fn()} />);
+
+        expect(screen.getByLabelText("Shortcode")).toHaveValue("cool");
+        expect(screen.getByLabelText("Description")).toHaveValue("cool.png");
+        expect(screen.getByLabelText("Image usage")).toHaveValue("both");
+    });
+
+    it("adds the image with the edited shortcode, description and usage", async () => {
+        vi.spyOn(ImagePacks, "getManageableImagePacks").mockReturnValue([PACK_A]);
+        render(<AddToPackDialog mxEvent={mxEvent} onFinished={vi.fn()} />);
+
+        await userEvent.clear(screen.getByLabelText("Shortcode"));
+        await userEvent.type(screen.getByLabelText("Shortcode"), "nice");
+        await userEvent.clear(screen.getByLabelText("Description"));
+        await userEvent.type(screen.getByLabelText("Description"), "A nice one");
+        await userEvent.selectOptions(screen.getByLabelText("Image usage"), "sticker");
+        await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+        expect(ImagePacks.addImageToExistingPack).toHaveBeenCalledWith(
+            client,
+            PACK_A.roomId,
+            PACK_A.stateKey,
+            expect.objectContaining({ shortcodeHint: "nice", body: "A nice one", usage: ["sticker"] }),
+        );
+    });
+
+    it("does not allow adding with an empty shortcode", async () => {
+        vi.spyOn(ImagePacks, "getManageableImagePacks").mockReturnValue([PACK_A]);
+        render(<AddToPackDialog mxEvent={mxEvent} onFinished={vi.fn()} />);
+
+        await userEvent.clear(screen.getByLabelText("Shortcode"));
+
+        expect(screen.getByRole("button", { name: "Add" })).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("defaults a sticker message to sticker usage", () => {
+        vi.spyOn(ImagePacks, "getManageableImagePacks").mockReturnValue([PACK_A]);
+        const sticker = mkEvent({ event: true, type: "m.sticker", room: "!a:example.org", user: "@alice:example.org", content: {} });
+        render(<AddToPackDialog mxEvent={sticker} onFinished={vi.fn()} />);
+
+        expect(screen.getByLabelText("Image usage")).toHaveValue("sticker");
+    });
+
+    it("takes an image passed in directly, with its own shortcode and usage", () => {
+        vi.spyOn(ImagePacks, "getManageableImagePacks").mockReturnValue([PACK_A]);
+        render(
+            <AddToPackDialog
+                image={{ mxcUrl: "mxc://example.org/emoji", body: "anime_laugh", shortcode: "anime_laugh", usage: ["emoticon"] }}
+                onFinished={vi.fn()}
+            />,
+        );
+
+        expect(screen.getByLabelText("Shortcode")).toHaveValue("anime_laugh");
+        expect(screen.getByLabelText("Description")).toHaveValue("anime_laugh");
+        expect(screen.getByLabelText("Image usage")).toHaveValue("emoticon");
+    });
+
+    it("prefills from the pack the image came from when the user is in its room", () => {
+        vi.spyOn(ImagePacks, "getManageableImagePacks").mockReturnValue([PACK_A]);
+        vi.spyOn(ImagePacks, "getRoomImagePacksForManagement").mockReturnValue([
+            {
+                roomId: "!b:example.org",
+                stateKey: "source",
+                content: {
+                    pack: { usage: ["sticker"] },
+                    images: { huh: { url: "mxc://example.org/img", body: "Confused face" } },
+                },
+            } as unknown as ImagePacks.RoomImagePack,
+        ]);
+        const sticker = mkEvent({
+            event: true,
+            type: "m.sticker",
+            room: "!a:example.org",
+            user: "@alice:example.org",
+            content: {
+                "com.beeper.msc4459.image_source_packs": {
+                    "mxc://example.org/img": { room_id: "!b:example.org", state_key: "source", shortcode: "huh" },
+                },
+            },
+        });
+        render(<AddToPackDialog mxEvent={sticker} onFinished={vi.fn()} />);
+
+        expect(screen.getByLabelText("Shortcode")).toHaveValue("huh");
+        expect(screen.getByLabelText("Description")).toHaveValue("Confused face");
+        expect(screen.getByLabelText("Image usage")).toHaveValue("sticker");
     });
 
     it("disables the Add button and shows nothing to add when the event has no packable image", () => {

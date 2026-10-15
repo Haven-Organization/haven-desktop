@@ -212,6 +212,24 @@
     text-overflow: ellipsis;
 }
 
+/* Haven: "Add to Pack" for the selected custom emoji, at the right end of the header. */
+.mx_ReactionsDialog_addToPack {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-left: auto;
+    border-radius: 8px;
+    color: var(--cpd-color-icon-secondary);
+
+    &:hover {
+        color: var(--cpd-color-icon-primary);
+        background-color: var(--cpd-color-bg-subtle-secondary);
+    }
+}
+
 .mx_ReactionsDialog_findPack {
     flex-shrink: 0;
     display: flex;

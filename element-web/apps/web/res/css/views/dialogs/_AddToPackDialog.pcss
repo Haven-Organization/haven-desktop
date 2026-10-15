@@ -10,6 +10,24 @@
     margin-bottom: var(--cpd-space-3x);
 }
 
+/* Shortcode and usage side by side, description full width beneath them. */
+.mx_AddToPackDialog_imageFields {
+    display: flex;
+    gap: var(--cpd-space-3x);
+    margin-bottom: var(--cpd-space-3x);
+
+    .mx_Field {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+    }
+}
+
+.mx_AddToPackDialog_description {
+    margin-top: 0;
+    margin-bottom: var(--cpd-space-3x);
+}
+
 .mx_AddToPackDialog_error {
     color: var(--cpd-color-text-critical-primary);
     margin-bottom: var(--cpd-space-3x);

@@ -205,6 +205,43 @@ describe("ReactionsDialog", () => {
         expect(modalSpy).toHaveBeenCalledTimes(1);
     });
 
+    it("opens Add to Pack for a custom emoji with its shortcode and pack reference", () => {
+        const modalSpy = vi.spyOn(Modal, "createDialog").mockReturnValue({} as any);
+        const packRef = { room_id: "!pack:example.org", state_key: "pack1", shortcode: "anime_laugh" };
+        const reactions = mkReactions([
+            [
+                "mxc://example.org/custom",
+                [
+                    mkReactionEvent(alice.userId, "mxc://example.org/custom", {
+                        "com.beeper.reaction.shortcode": ":anime_laugh:",
+                        [IMAGE_SOURCE_PACKS_KEY]: { "mxc://example.org/custom": packRef },
+                    }),
+                ],
+            ],
+        ]);
+        render(<ReactionsDialog mxEvent={mxEvent} reactions={reactions} onFinished={vi.fn()} />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Add to Pack" }));
+
+        expect(modalSpy).toHaveBeenCalledTimes(1);
+        expect(modalSpy.mock.calls[0][1]).toEqual({
+            image: {
+                mxcUrl: "mxc://example.org/custom",
+                body: "anime_laugh",
+                shortcode: "anime_laugh",
+                usage: ["emoticon"],
+                packRef,
+            },
+        });
+    });
+
+    it("does not offer Add to Pack for a real emoji", () => {
+        const reactions = mkReactions([["👍", [mkReactionEvent(alice.userId, "👍")]]]);
+        render(<ReactionsDialog mxEvent={mxEvent} reactions={reactions} onFinished={vi.fn()} />);
+
+        expect(screen.queryByRole("button", { name: "Add to Pack" })).not.toBeInTheDocument();
+    });
+
     it("closes the dialog and dispatches ViewUser when a reactor's identity row is clicked", () => {
         const onFinished = vi.fn();
         const reactions = mkReactions([["👍", [mkReactionEvent(alice.userId, "👍")]]]);

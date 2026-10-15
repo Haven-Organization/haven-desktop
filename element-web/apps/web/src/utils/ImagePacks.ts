@@ -533,20 +533,30 @@ function uniqueShortcode(base: string, existing: ReadonlySet<string>): string {
 
 /** Adds one image to an already-existing pack, writing straight through (no draft/Save step - this
  *  is the "Add to Pack" one-shot action from an existing message, not the full pack editor). Usage
- *  is always copied from the pack's own default, per how this was specced - a single image being
- *  added this way has no independent usage override of its own. */
+ *  is `newImage.usage` when the caller chose one (the dialog's own "Image usage" dropdown), and
+ *  otherwise copied from the pack's own default. */
 export async function addImageToExistingPack(
     client: MatrixClient,
     roomId: string,
     stateKey: string,
-    newImage: { shortcodeHint: string; url: string; body?: string; info?: ImagePackImageInfo },
+    newImage: {
+        shortcodeHint: string;
+        url: string;
+        body?: string;
+        info?: ImagePackImageInfo;
+        usage?: ImagePackUsage[];
+    },
 ): Promise<void> {
     const room = client.getRoom(roomId);
     if (!room) throw new Error("You're not in that pack's room");
     const pack = getRoomImagePacksForManagement(room).find((p) => p.stateKey === stateKey);
     if (!pack) throw new Error("That pack no longer exists");
 
-    const usage: ImagePackUsage[] = pack.content.pack?.usage?.length ? pack.content.pack.usage : ["emoticon", "sticker"];
+    const usage: ImagePackUsage[] = newImage.usage?.length
+        ? newImage.usage
+        : pack.content.pack?.usage?.length
+          ? pack.content.pack.usage
+          : ["emoticon", "sticker"];
     const shortcode = uniqueShortcode(
         sanitizeShortcode(newImage.shortcodeHint),
         new Set(Object.keys(pack.content.images)),
