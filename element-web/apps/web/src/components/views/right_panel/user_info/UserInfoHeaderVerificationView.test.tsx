@@ -14,7 +14,7 @@ import { Device, RoomMember } from "matrix-js-sdk/src/matrix";
 import { render, waitFor, screen } from "test-utils-rtl";
 import React from "react";
 
-import { clientAndSDKContextRenderOptions, createTestClient, TestSDKContext } from "test-utils";
+import { clientAndSDKContextRenderOptions, createTestClient, flushPromises, TestSDKContext } from "test-utils";
 import { MatrixClientPeg } from "../../../../MatrixClientPeg";
 import { UserInfoHeaderVerificationView } from "./UserInfoHeaderVerificationView";
 
@@ -86,6 +86,16 @@ describe("<UserInfoHeaderVerificationView />", () => {
         const { container } = renderComponent();
         await waitFor(() => expect(screen.getByText("Verify User")).toBeInTheDocument());
         expect(container).toMatchSnapshot();
+    });
+
+    it("renders nothing for an unverified user with no devices", async () => {
+        mockCrypto.getUserVerificationStatus.mockResolvedValue(new UserVerificationStatus(false, false, false));
+        const { container } = render(
+            <UserInfoHeaderVerificationView member={defaultMember} devices={[]} />,
+            clientAndSDKContextRenderOptions(mockClient, sdkContext),
+        );
+        await flushPromises();
+        expect(container).toBeEmptyDOMElement();
     });
 
     it("renders verification unavailable message", async () => {

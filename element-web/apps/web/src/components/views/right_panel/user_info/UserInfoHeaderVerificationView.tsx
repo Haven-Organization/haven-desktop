@@ -22,6 +22,10 @@ export const UserInfoHeaderVerificationView: React.FC<{
     let content;
     const vm = useUserInfoVerificationViewModel(member, devices);
 
+    // haven apps-framework patch: with no devices (e.g. a bridged user) there is nothing to verify,
+    // and the view model never starts the cross-signing check, so the spinner below never ended
+    if (!vm.isUserVerified && devices.length === 0) return null;
+
     if (vm.isUserVerified) {
         content = (
             <Badge kind="green" className="mx_UserInfo_verified_badge">
