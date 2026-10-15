@@ -22,9 +22,18 @@ import { UIComponent } from "../../../../settings/UIFeature";
 import { shouldShowComponent } from "../../../../customisations/helpers/UIComponents";
 import { type Member, type IDevice } from "../UserInfo";
 import SettingsStore from "../../../../settings/SettingsStore";
+import { useMutualRooms } from "../../../../utils/MutualRooms";
+import Modal from "../../../../Modal";
+import MutualRoomsDialog from "../../dialogs/MutualRoomsDialog";
+import DMRoomMap from "../../../../utils/DMRoomMap";
 
 vi.mock("../../../viewmodels/right_panel/user_info/UserInfoBasicOptionsViewModel", () => ({
     useUserInfoBasicOptionsViewModel: vi.fn(),
+}));
+
+vi.mock("../../../../utils/MutualRooms", async () => ({
+    ...(await vi.importActual("../../../../utils/MutualRooms")),
+    useMutualRooms: vi.fn(),
 }));
 
 vi.mock("../../../../customisations/helpers/UIComponents", async () => {
@@ -57,6 +66,7 @@ describe("<UserOptionsSection />", () => {
 
     beforeEach(() => {
         const matrixClient = stubClient();
+        DMRoomMap.makeShared(matrixClient);
         defaultRoom = mkStubRoom(defaultRoomId, defaultRoomId, matrixClient);
         defaultProps = {
             member: defaultMember,
@@ -67,6 +77,42 @@ describe("<UserOptionsSection />", () => {
 
     afterEach(() => {
         vi.resetAllMocks();
+    });
+
+    describe("mutual rooms", () => {
+        it("shows the mutual room count under Mention and opens the list", () => {
+            vi.mocked(useUserInfoBasicOptionsViewModel).mockReturnValue({ ...defaultValue });
+            const rooms = [defaultRoom, mkStubRoom("!other:example.com", "Other", defaultRoom.client)];
+            vi.mocked(useMutualRooms).mockReturnValue(rooms);
+            const createDialog = vi.spyOn(Modal, "createDialog").mockReturnValue({} as any);
+
+            render(<UserInfoBasicOptionsView {...defaultProps} />);
+            fireEvent.click(screen.getByRole("button", { name: "2 Mutual Rooms" }));
+
+            expect(createDialog).toHaveBeenCalledWith(MutualRoomsDialog, { rooms });
+        });
+
+        it("uses the singular for one mutual room", () => {
+            vi.mocked(useUserInfoBasicOptionsViewModel).mockReturnValue({ ...defaultValue });
+            vi.mocked(useMutualRooms).mockReturnValue([defaultRoom]);
+
+            render(<UserInfoBasicOptionsView {...defaultProps} />);
+
+            expect(screen.getByRole("button", { name: "1 Mutual Room" })).toBeInTheDocument();
+        });
+
+        it("is hidden with no mutual rooms, and for yourself", () => {
+            vi.mocked(useUserInfoBasicOptionsViewModel).mockReturnValue({ ...defaultValue });
+            vi.mocked(useMutualRooms).mockReturnValue([]);
+            const { unmount } = render(<UserInfoBasicOptionsView {...defaultProps} />);
+            expect(screen.queryByRole("button", { name: /Mutual Room/ })).not.toBeInTheDocument();
+            unmount();
+
+            vi.mocked(useUserInfoBasicOptionsViewModel).mockReturnValue({ ...defaultValue, isMe: true });
+            vi.mocked(useMutualRooms).mockReturnValue([defaultRoom]);
+            render(<UserInfoBasicOptionsView {...defaultProps} />);
+            expect(screen.queryByRole("button", { name: /Mutual Room/ })).not.toBeInTheDocument();
+        });
     });
 
     it("should always display sharedButton when user is not me", () => {

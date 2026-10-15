@@ -1,0 +1,77 @@
+/*
+ * Haven: MutualRoomsDialog.tsx - the searchable list of rooms shared with another user.
+ */
+
+.mx_MutualRoomsDialog {
+    width: 520px;
+    color: $primary-content;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    min-height: 0;
+    max-height: 80vh;
+
+    .mx_SearchBox {
+        flex-shrink: 0;
+        margin: 0 0 var(--cpd-space-3x);
+    }
+
+    .mx_MutualRoomsDialog_content {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .mx_MutualRoomsDialog_list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .mx_MutualRoomsDialog_row {
+        display: flex;
+        align-items: center;
+        gap: var(--cpd-space-3x);
+        width: 100%;
+        padding: var(--cpd-space-2x);
+        border-radius: 8px;
+        box-sizing: border-box;
+        text-align: start;
+
+        &:hover,
+        &:focus-visible {
+            background-color: $quinary-content;
+        }
+    }
+
+    .mx_MutualRoomsDialog_rowText {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .mx_MutualRoomsDialog_rowName {
+        font: var(--cpd-font-body-md-semibold);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mx_MutualRoomsDialog_rowId {
+        font: var(--cpd-font-body-sm-regular);
+        color: $secondary-content;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mx_MutualRoomsDialog_sentinel {
+        height: 1px;
+    }
+
+    .mx_MutualRoomsDialog_noResults {
+        display: block;
+        margin-top: var(--cpd-space-6x);
+        text-align: center;
+        color: $secondary-content;
+    }
+}

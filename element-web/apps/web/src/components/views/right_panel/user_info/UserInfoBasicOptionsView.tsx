@@ -17,6 +17,7 @@ import {
     DevicesIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import InviteIcon from "@vector-im/compound-design-tokens/assets/web/icons/user-add";
+import RoomIcon from "@vector-im/compound-design-tokens/assets/web/icons/room";
 
 import { _t } from "../../../../languageHandler";
 import { useUserInfoBasicOptionsViewModel } from "../../../viewmodels/right_panel/user_info/UserInfoBasicOptionsViewModel";
@@ -27,6 +28,46 @@ import SettingsStore from "../../../../settings/SettingsStore";
 import Modal from "../../../../Modal";
 import ViewProfileSource from "../../../structures/ViewProfileSource";
 import UserDevicesDialog from "../../dialogs/UserDevicesDialog";
+// haven apps-framework patch
+import { useMatrixClientContext } from "../../../../contexts/MatrixClientContext";
+import { formatMutualRoomCount, pickMutualRoomsIconRoom, useMutualRooms } from "../../../../utils/MutualRooms";
+import MutualRoomsDialog from "../../dialogs/MutualRoomsDialog";
+import RoomAvatar from "../../avatars/RoomAvatar";
+
+/**
+ * Haven: "X Mutual Rooms" - opens MutualRoomsDialog. Its icon is a mutual room's avatar (see
+ * pickMutualRoomsIconRoom), or a generic room icon when none of them has one. Not rendered for
+ * yourself, or until there is at least one mutual room.
+ */
+const MutualRoomsButton = ({ member, room }: { member: Member; room?: Room }): JSX.Element | null => {
+    const client = useMatrixClientContext();
+    const rooms = useMutualRooms(client, member.userId);
+    if (!rooms?.length) return null;
+
+    const iconRoom = pickMutualRoomsIconRoom(rooms, room?.roomId);
+    const icon = iconRoom ? (
+        <span className="mx_UserInfo_mutualRoomsIcon" aria-hidden="true">
+            <RoomAvatar room={iconRoom} size="24px" />
+        </span>
+    ) : (
+        RoomIcon
+    );
+
+    return (
+        <MenuItem
+            role="button"
+            onSelect={(ev) => {
+                ev.preventDefault();
+                Modal.createDialog(MutualRoomsDialog, { rooms });
+            }}
+            label={_t("user_info|mutual_rooms_button", {
+                count: rooms.length,
+                formattedCount: formatMutualRoomCount(rooms.length),
+            })}
+            Icon={icon}
+        />
+    );
+};
 
 const MessageButton = ({
     member,
@@ -158,6 +199,8 @@ export const UserInfoBasicOptionsView: React.FC<{
             {readReceiptButton}
             {shareUserButton}
             {insertPillButton}
+            {/* haven apps-framework patch */}
+            {!vm.isMe && <MutualRoomsButton member={member} room={room} />}
             {viewDevicesButton}
             {viewProfileDataButton}
         </Container>

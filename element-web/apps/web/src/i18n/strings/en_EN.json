@@ -4059,6 +4059,12 @@
         "kick_button_space_everything": "Remove them from everything I'm able to",
         "kick_space_specific": "Remove them from specific things I'm able to",
         "kick_space_warning": "They'll still be able to access whatever you're not an admin of.",
+        "mutual_rooms_button": {
+            "one": "%(formattedCount)s Mutual Room",
+            "other": "%(formattedCount)s Mutual Rooms"
+        },
+        "mutual_rooms_search": "Search mutual rooms",
+        "mutual_rooms_title": "Mutual rooms",
         "promote_warning": "You will not be able to undo this change as you are promoting the user to have the same power level as yourself.",
         "redact": {
             "confirm_button": {
