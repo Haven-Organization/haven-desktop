@@ -193,6 +193,37 @@ describe("RoomListHeaderViewModel", () => {
             },
         );
 
+        describe("space banner", () => {
+            beforeEach(() => {
+                vi.spyOn(SettingsStore, "getValue").mockImplementation(
+                    (settingName: string) => settingName === "Haven.showSpaceBannerInRoomListHeader",
+                );
+                vi.spyOn(sdkContext.spaceStore, "activeSpace", "get").mockReturnValue(mockSpace.roomId);
+                vi.spyOn(sdkContext.spaceStore, "activeSpaceRoom", "get").mockReturnValue(mockSpace);
+                vi.spyOn(mockSpace.currentState, "getStateEvents").mockReturnValue({
+                    getContent: () => ({ url: "mxc://server/banner" }),
+                } as any);
+                vi.spyOn(matrixClient, "mxcUrlToHttp").mockReturnValue("https://server/banner");
+            });
+
+            it("is hidden on the space's own home page and shown in one of its rooms", () => {
+                const getRoomId = vi.fn().mockReturnValue(mockSpace.roomId);
+                vm = new RoomListHeaderViewModel({
+                    matrixClient,
+                    spaceStore: sdkContext.spaceStore,
+                    roomViewStore: { getRoomId },
+                });
+                expect(vm.getSnapshot().bannerHttpUrl).toBeNull();
+
+                getRoomId.mockReturnValue("!room:server");
+                defaultDispatcher.dispatch({ action: Action.ActiveRoomChanged, newRoomId: "!room:server" }, true);
+                expect(vm.getSnapshot().bannerHttpUrl).toBe("https://server/banner");
+
+                defaultDispatcher.dispatch({ action: Action.ActiveRoomChanged, newRoomId: mockSpace.roomId }, true);
+                expect(vm.getSnapshot().bannerHttpUrl).toBeNull();
+            });
+        });
+
         it("should update snapshot when space name changes", () => {
             vi.spyOn(sdkContext.spaceStore, "activeSpace", "get").mockReturnValue(mockSpace.roomId);
             vi.spyOn(sdkContext.spaceStore, "activeSpaceRoom", "get").mockReturnValue(mockSpace);

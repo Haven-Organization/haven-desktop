@@ -90,7 +90,12 @@ export const RoomListPanel: React.FC<RoomListPanelProps> = ({ activeSpace, userM
 
     const matrixClient = useMatrixClientContext();
     const vm = useCreateAutoDisposedViewModel(
-        () => new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore }),
+        () =>
+            new RoomListHeaderViewModel({
+                matrixClient,
+                spaceStore: sdkContext.spaceStore,
+                roomViewStore: sdkContext.roomViewStore,
+            }),
     );
 
     // Haven: renders the icon/avatar for a given space id in the switcher menu (shown when the

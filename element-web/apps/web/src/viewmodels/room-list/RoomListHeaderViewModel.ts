@@ -42,6 +42,8 @@ import { ReleaseAnnouncementStore } from "../../stores/ReleaseAnnouncementStore"
 import { NotificationStateEvents, type NotificationState } from "../../stores/notifications/NotificationState";
 import { NotificationLevel } from "../../stores/notifications/NotificationLevel";
 import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../src/apps/social/utils/room-classifier";
+import type { RoomViewStore } from "../../stores/RoomViewStore";
+import { type ActiveRoomChangedPayload } from "../../dispatcher/payloads/ActiveRoomChangedPayload";
 
 export interface Props {
     /**
@@ -52,6 +54,11 @@ export interface Props {
      * The space store instance.
      */
     spaceStore: SpaceStore;
+    /**
+     * Haven: the room view store, used to hide the space banner on the space's own home page.
+     * Without it the banner shows wherever the setting allows.
+     */
+    roomViewStore?: Pick<RoomViewStore, "getRoomId">;
 }
 
 /**
@@ -76,7 +83,7 @@ export class RoomListHeaderViewModel
     private readonly notificationStates = new Map<string, NotificationState>();
 
     public constructor(props: Props) {
-        super(props, getInitialSnapshot(props.spaceStore, props.matrixClient));
+        super(props, getInitialSnapshot(props.spaceStore, props.matrixClient, props.roomViewStore?.getRoomId()));
 
         // Haven: unsubscribe from whatever's in notificationStates at dispose time - registered
         // once here rather than per-resync, since the map itself (not this closure) is what
@@ -162,7 +169,11 @@ export class RoomListHeaderViewModel
         }
 
         this.snapshot.merge({
-            ...computeHeaderSpaceState(this.props.spaceStore, this.props.matrixClient),
+            ...computeHeaderSpaceState(
+                this.props.spaceStore,
+                this.props.matrixClient,
+                this.props.roomViewStore?.getRoomId(),
+            ),
         });
     };
 
@@ -237,14 +248,26 @@ export class RoomListHeaderViewModel
      * Haven: MSC4221 - handles the active space's banner state event changing.
      */
     private readonly onSpaceBannerChange = (): void => {
-        this.snapshot.merge({ bannerHttpUrl: computeBannerHttpUrl(this.activeSpace, this.props.matrixClient) });
+        this.snapshot.merge({
+            bannerHttpUrl: computeBannerHttpUrl(
+                this.activeSpace,
+                this.props.matrixClient,
+                this.props.roomViewStore?.getRoomId(),
+            ),
+        });
     };
 
     /**
      * Haven: MSC4221 - handles the "show space banner in room list header" setting being toggled.
      */
     private readonly onShowSpaceBannerSettingChange = (): void => {
-        this.snapshot.merge({ bannerHttpUrl: computeBannerHttpUrl(this.activeSpace, this.props.matrixClient) });
+        this.snapshot.merge({
+            bannerHttpUrl: computeBannerHttpUrl(
+                this.activeSpace,
+                this.props.matrixClient,
+                this.props.roomViewStore?.getRoomId(),
+            ),
+        });
     };
 
     /**
@@ -338,6 +361,14 @@ export class RoomListHeaderViewModel
     };
 
     private readonly onDispatch = (payload: { action: string }): void => {
+        // Haven: MSC4221 - the banner is hidden on the space's own home page (see computeBannerHttpUrl)
+        if (payload.action === Action.ActiveRoomChanged) {
+            const { newRoomId } = payload as ActiveRoomChangedPayload;
+            this.snapshot.merge({
+                bannerHttpUrl: computeBannerHttpUrl(this.activeSpace, this.props.matrixClient, newRoomId),
+            });
+            return;
+        }
         if (payload.action === Action.RoomListSectionsCollapseStateChanged) {
             const { collapseSections } = payload as RoomListSectionsCollapseStateChangedPayload;
             this.snapshot.merge({
@@ -370,10 +401,15 @@ export class RoomListHeaderViewModel
  * Get the initial snapshot for the RoomListHeaderViewModel.
  * @param spaceStore - The space store instance.
  * @param matrixClient - The Matrix client instance.
+ * @param viewedRoomId - The room currently open, if any.
  * @returns
  */
-function getInitialSnapshot(spaceStore: SpaceStore, matrixClient: MatrixClient): RoomListHeaderViewSnapshot {
-    return computeHeaderSpaceState(spaceStore, matrixClient);
+function getInitialSnapshot(
+    spaceStore: SpaceStore,
+    matrixClient: MatrixClient,
+    viewedRoomId: string | null | undefined,
+): RoomListHeaderViewSnapshot {
+    return computeHeaderSpaceState(spaceStore, matrixClient, viewedRoomId);
 }
 
 /**
@@ -400,7 +436,11 @@ function getCanCreateVideoRoom(canCreateRoom: boolean): boolean {
  * @param matrixClient - The Matrix client instance.
  * @returns The header space state containing title, permissions, and display flags.
  */
-function computeHeaderSpaceState(spaceStore: SpaceStore, matrixClient: MatrixClient): RoomListHeaderViewSnapshot {
+function computeHeaderSpaceState(
+    spaceStore: SpaceStore,
+    matrixClient: MatrixClient,
+    viewedRoomId: string | null | undefined,
+): RoomListHeaderViewSnapshot {
     const displaySectionReleaseAnnouncement =
         ReleaseAnnouncementStore.instance.getReleaseAnnouncement() === "room_list_section";
     const areSectionsEnabled = SettingsStore.getValue("RoomList.showSections");
@@ -428,7 +468,7 @@ function computeHeaderSpaceState(spaceStore: SpaceStore, matrixClient: MatrixCli
         showSpaceSwitcher: !SettingsStore.getValue("Haven.showSpacesBar"),
         spaceSwitcherItems: computeSpaceSwitcherItems(spaceStore),
         activeSpaceId: spaceStore.activeSpace,
-        bannerHttpUrl: computeBannerHttpUrl(activeSpace, matrixClient),
+        bannerHttpUrl: computeBannerHttpUrl(activeSpace, matrixClient, viewedRoomId),
     };
 }
 
@@ -437,11 +477,18 @@ function computeHeaderSpaceState(spaceStore: SpaceStore, matrixClient: MatrixCli
  * (or the active "space" is actually a meta-space, which can't have a banner). Mirrors
  * useRoomBanner.ts's own read logic, duplicated here rather than reused since that's a hook and
  * this view model isn't a component.
+ * Hidden while the space's own home page is open: that page already shows the banner itself.
  * @param activeSpace - The active space's Room, or null for a meta-space.
  * @param matrixClient - The Matrix client instance.
+ * @param viewedRoomId - The room currently open, if any.
  */
-function computeBannerHttpUrl(activeSpace: Room | null, matrixClient: MatrixClient): string | null {
+function computeBannerHttpUrl(
+    activeSpace: Room | null,
+    matrixClient: MatrixClient,
+    viewedRoomId: string | null | undefined,
+): string | null {
     if (!SettingsStore.getValue("Haven.showSpaceBannerInRoomListHeader")) return null;
+    if (activeSpace && viewedRoomId === activeSpace.roomId) return null;
     const mxc = activeSpace?.currentState.getStateEvents(ROOM_BANNER_EVENT_TYPE as any, "")?.getContent()?.url;
     return mxc ? matrixClient.mxcUrlToHttp(mxc) : null;
 }
