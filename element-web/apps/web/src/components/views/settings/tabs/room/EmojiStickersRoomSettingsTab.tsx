@@ -25,14 +25,11 @@ import {
     getPackAvatarMxc,
     newPackStateKey,
     saveRoomImagePack,
-    deleteRoomImagePack,
     packDisplayName,
 } from "../../../../../utils/ImagePacks";
 import { PackEditor, PackAvatar } from "../../emojistickers/PackEditor";
 import { consumePendingManagePackStateKey } from "../../../../../utils/pendingManagePack";
-import Modal from "../../../../../Modal";
-import CopyPackDialog from "../../../dialogs/CopyPackDialog";
-import { type RoomImagePack } from "../../../../../utils/ImagePacks";
+import { PackRowMenu } from "../../emojistickers/PackRowMenu";
 
 interface Props {
     room: Room;
@@ -74,29 +71,6 @@ export default function EmojiStickersRoomSettingsTab({ room, closeSettingsFn }: 
             setBusy(false);
         }
     }, [client, room, newPackName]);
-
-    const handleDelete = useCallback(
-        async (stateKey: string): Promise<void> => {
-            setBusy(true);
-            try {
-                await deleteRoomImagePack(client, room.roomId, stateKey);
-            } finally {
-                setBusy(false);
-            }
-        },
-        [client, room],
-    );
-
-    const handleCopy = useCallback(
-        (pack: RoomImagePack): void => {
-            Modal.createDialog(
-                CopyPackDialog,
-                { matrixClient: client, pack, closeSettingsFn },
-                "mx_CopyPackDialog_wrapper",
-            );
-        },
-        [client, closeSettingsFn],
-    );
 
     const openPack = packs?.find((p) => p.stateKey === openStateKey);
     if (openPack) {
@@ -159,22 +133,16 @@ export default function EmojiStickersRoomSettingsTab({ room, closeSettingsFn }: 
                                             })}
                                         </span>
                                     </div>
-                                    <AccessibleButton kind="primary_outline" onClick={() => handleCopy(pack)}>
-                                        {_t("action|copy")}
-                                    </AccessibleButton>
                                     <AccessibleButton kind="primary_outline" onClick={() => setOpenStateKey(pack.stateKey)}>
                                         {_t("action|view")}
                                     </AccessibleButton>
-                                    {canManage && (
-                                        <AccessibleButton
-                                            kind="danger_outline"
-                                            className="mx_EmojiStickersSettingsTab_removeBtn"
-                                            onClick={() => handleDelete(pack.stateKey)}
-                                            title={_t("action|remove")}
-                                        >
-                                            ✕
-                                        </AccessibleButton>
-                                    )}
+                                    <PackRowMenu
+                                        matrixClient={client}
+                                        pack={pack}
+                                        canManage={!!canManage}
+                                        closeSettingsFn={closeSettingsFn}
+                                        onBusyChange={setBusy}
+                                    />
                                 </div>
                             ))}
                         </div>

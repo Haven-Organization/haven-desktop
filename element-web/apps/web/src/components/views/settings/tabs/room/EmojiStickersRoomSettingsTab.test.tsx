@@ -9,7 +9,7 @@ Please see LICENSE files in the repository root for full details.
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "test-utils-rtl";
+import { render, screen, waitFor } from "test-utils-rtl";
 import userEvent from "@testing-library/user-event";
 import { stubClient, mkStubRoom } from "test-utils";
 
@@ -19,6 +19,7 @@ import * as pendingManagePack from "../../../../../utils/pendingManagePack";
 import * as useRoomStateHook from "../../../../../hooks/useRoomState";
 import Modal from "../../../../../Modal";
 import CopyPackDialog from "../../../dialogs/CopyPackDialog";
+import QuestionDialog from "../../../dialogs/QuestionDialog";
 
 vi.mock("../../emojistickers/PackEditor", () => ({
     PackEditor: (props: any) => <div data-testid="pack-editor">{props.pack.stateKey}</div>,
@@ -93,7 +94,18 @@ describe("EmojiStickersRoomSettingsTab", () => {
         expect(screen.getByText("packA")).toBeInTheDocument();
         expect(screen.getByText("3 images")).toBeInTheDocument();
         expect(screen.queryByRole("textbox", { name: "Pack name" })).not.toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+    });
+
+    it("offers Copy but not Delete in a pack's menu when the viewer can't manage", async () => {
+        const room = mkStubRoom("!room:example.org", "Room", client);
+        room.isSpaceRoom = vi.fn().mockReturnValue(false);
+        mockRoomState([makePack("packA", 3)], false);
+
+        render(<EmojiStickersRoomSettingsTab room={room} />);
+        await userEvent.click(screen.getByRole("button", { name: "Pack options" }));
+
+        expect(screen.getByRole("menuitem", { name: "Copy" })).toBeInTheDocument();
+        expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
     });
 
     it("creates a new pack and opens its editor", async () => {
@@ -120,20 +132,42 @@ describe("EmojiStickersRoomSettingsTab", () => {
         expect(await screen.findByTestId("pack-editor")).toHaveTextContent("newpack");
     });
 
-    it("deletes a pack by saving it empty", async () => {
+    it("deletes a pack from its menu once the confirmation is accepted", async () => {
         const room = mkStubRoom("!room:example.org", "Room", client);
         room.isSpaceRoom = vi.fn().mockReturnValue(false);
         mockRoomState([makePack("packA", 1)], true);
         const deleteSpy = vi.spyOn(ImagePacks, "deleteRoomImagePack").mockResolvedValue(undefined as never);
+        vi.mocked(Modal.createDialog).mockReturnValue({ finished: Promise.resolve([true]) } as any);
 
         render(<EmojiStickersRoomSettingsTab room={room} />);
 
-        await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+        await userEvent.click(screen.getByRole("button", { name: "Pack options" }));
+        await userEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 
-        expect(deleteSpy).toHaveBeenCalledWith(client, room.roomId, "packA");
+        expect(Modal.createDialog).toHaveBeenCalledWith(
+            QuestionDialog,
+            expect.objectContaining({ title: "Delete pack?", button: "Delete", danger: true }),
+        );
+        await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith(client, room.roomId, "packA"));
     });
 
-    it("opens the copy dialog for a pack when its Copy button is clicked", async () => {
+    it("leaves the pack alone when the delete confirmation is cancelled", async () => {
+        const room = mkStubRoom("!room:example.org", "Room", client);
+        room.isSpaceRoom = vi.fn().mockReturnValue(false);
+        mockRoomState([makePack("packA", 1)], true);
+        const deleteSpy = vi.spyOn(ImagePacks, "deleteRoomImagePack").mockResolvedValue(undefined as never);
+        vi.mocked(Modal.createDialog).mockReturnValue({ finished: Promise.resolve([false]) } as any);
+
+        render(<EmojiStickersRoomSettingsTab room={room} />);
+
+        await userEvent.click(screen.getByRole("button", { name: "Pack options" }));
+        await userEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+        await waitFor(() => expect(Modal.createDialog).toHaveBeenCalled());
+        expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it("opens the copy dialog for a pack from its menu", async () => {
         const room = mkStubRoom("!room:example.org", "Room", client);
         room.isSpaceRoom = vi.fn().mockReturnValue(false);
         const pack = makePack("packA", 1);
@@ -141,7 +175,8 @@ describe("EmojiStickersRoomSettingsTab", () => {
 
         render(<EmojiStickersRoomSettingsTab room={room} />);
 
-        await userEvent.click(screen.getByRole("button", { name: "Copy" }));
+        await userEvent.click(screen.getByRole("button", { name: "Pack options" }));
+        await userEvent.click(screen.getByRole("menuitem", { name: "Copy" }));
 
         expect(Modal.createDialog).toHaveBeenCalledWith(
             CopyPackDialog,

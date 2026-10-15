@@ -34,8 +34,7 @@ import {
     packDisplayName,
 } from "../../../../../utils/ImagePacks";
 import { PackEditor } from "../../emojistickers/PackEditor";
-import Modal from "../../../../../Modal";
-import CopyPackDialog from "../../../dialogs/CopyPackDialog";
+import { PackRowMenu } from "../../emojistickers/PackRowMenu";
 import { EmojiSkinToneSwitcher, GunEmojiStyleSwitcher } from "../../EmojiPreferenceSwitchers";
 
 function packKey(pack: { roomId: string; stateKey: string }): string {
@@ -50,7 +49,11 @@ export default function EmojiStickersUserSettingsTab({ closeSettingsFn }: Props)
     const client = MatrixClientPeg.safeGet();
     const myUserId = client.getSafeUserId();
 
-    const packs = useMemo<RoomImagePack[]>(() => getAllJoinedRoomPacks(client), [client]);
+    const allPacks = useMemo<RoomImagePack[]>(() => getAllJoinedRoomPacks(client), [client]);
+    // Packs deleted from this list's own "..." menu. The list is read once, so without this a
+    // deleted pack would stay on screen until the tab was reopened.
+    const [deletedKeys, setDeletedKeys] = useState<ReadonlySet<string>>(() => new Set());
+    const packs = useMemo(() => allPacks.filter((pack) => !deletedKeys.has(packKey(pack))), [allPacks, deletedKeys]);
     const [favorited, setFavorited] = useState<Set<string>>(() => new Set(getFavoritePackRefs(client).map(packKey)));
     const [dirty, setDirty] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -82,17 +85,6 @@ export default function EmojiStickersUserSettingsTab({ closeSettingsFn }: Props)
             setBusy(false);
         }
     }, [client, packs, favorited]);
-
-    const handleCopy = useCallback(
-        (pack: RoomImagePack): void => {
-            Modal.createDialog(
-                CopyPackDialog,
-                { matrixClient: client, pack, closeSettingsFn },
-                "mx_CopyPackDialog_wrapper",
-            );
-        },
-        [client, closeSettingsFn],
-    );
 
     const openPack = packs.find((pack) => packKey(pack) === openKey);
     if (openPack) {
@@ -167,12 +159,17 @@ export default function EmojiStickersUserSettingsTab({ closeSettingsFn }: Props)
                                                 </span>
                                             </div>
                                         </label>
-                                        <AccessibleButton kind="primary_outline" onClick={() => handleCopy(pack)}>
-                                            {_t("action|copy")}
-                                        </AccessibleButton>
                                         <AccessibleButton kind="primary_outline" onClick={() => setOpenKey(key)}>
                                             {_t("action|view")}
                                         </AccessibleButton>
+                                        <PackRowMenu
+                                            matrixClient={client}
+                                            pack={pack}
+                                            canManage={!!room && canManageImagePacks(room, myUserId)}
+                                            closeSettingsFn={closeSettingsFn}
+                                            onBusyChange={setBusy}
+                                            onDeleted={() => setDeletedKeys((prev) => new Set(prev).add(key))}
+                                        />
                                     </div>
                                 );
                             })}
