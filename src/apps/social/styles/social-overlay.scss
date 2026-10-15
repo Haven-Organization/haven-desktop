@@ -2866,3 +2866,160 @@
     margin-bottom: 16px;
     cursor: pointer;
 }
+
+// ---------------------------------------------------------------------------
+// Search section (SocialSearchPane.tsx): search box, People/Groups/Posts tabs, person rows
+// ---------------------------------------------------------------------------
+
+.social_SearchPane_box {
+    position: relative;
+    margin-bottom: var(--cpd-space-3x);
+}
+
+.social_SearchPane_input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--cpd-space-2x) var(--cpd-space-10x) var(--cpd-space-2x) var(--cpd-space-4x);
+    border: 1px solid $quinary-content;
+    border-radius: 999px;
+    background: $system;
+    color: $primary-content;
+    font: var(--cpd-font-body-md-regular);
+
+    &:focus {
+        outline: none;
+        border-color: $accent;
+    }
+
+    // The browser's own clear button would sit on top of the search icon
+    &::-webkit-search-cancel-button {
+        display: none;
+    }
+}
+
+.social_SearchPane_icon {
+    position: absolute;
+    right: var(--cpd-space-4x);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: $secondary-content;
+    pointer-events: none;
+}
+
+.social_SearchPane_tabs {
+    display: flex;
+    border-bottom: 2px solid $quinary-content;
+    margin-bottom: var(--cpd-space-4x);
+}
+
+.social_SearchPane_tab {
+    flex: 1;
+    padding: var(--cpd-space-3x) 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    background: none;
+    color: $secondary-content;
+    font: var(--cpd-font-body-md-semibold);
+    cursor: pointer;
+
+    &:hover {
+        color: $primary-content;
+    }
+
+    &--active {
+        color: $primary-content;
+        border-bottom-color: $accent;
+    }
+}
+
+.social_SearchPane_server {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: var(--cpd-space-4x);
+}
+
+.social_SearchPane_sentinel {
+    height: 1px;
+}
+
+.social_SearchPane_people {
+    display: flex;
+    flex-direction: column;
+}
+
+.social_PersonRow {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: var(--cpd-space-2x) 0;
+}
+
+.social_PersonRow_main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover .social_PersonRow_name {
+        text-decoration: underline;
+    }
+}
+
+.social_PersonRow_text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.social_PersonRow_name {
+    font: var(--cpd-font-body-md-semibold);
+    color: $primary-content;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.social_PersonRow_id {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+    min-width: 0;
+    font: var(--cpd-font-body-sm-regular);
+    color: $secondary-content;
+}
+
+.social_PersonRow_mxid {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.social_PersonRow_follow {
+    flex-shrink: 0;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+// Search terms in a Posts search result (SocialEventTile's `highlights`) - same look as Element's
+// own search results, whose rule in _EventTile.pcss only applies inside its own timeline
+.social_EventTile .mx_EventTile_searchHighlight {
+    background-color: $accent;
+    color: $accent-fg-color;
+    border-radius: 5px;
+    padding-inline: 2px;
+
+    a {
+        background-color: $accent;
+        color: $accent-fg-color;
+    }
+}

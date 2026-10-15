@@ -12,7 +12,6 @@ import {
     type HierarchyRoom,
     type IPublicRoomsChunkRoom,
     JoinRule,
-    type MatrixClient,
     type Room,
     RoomMember,
     RoomType,
@@ -76,6 +75,8 @@ import { DirectoryMember, type Member, startDmOnFirstMessage } from "../../../..
 import DMRoomMap from "../../../../utils/DMRoomMap";
 import { makeUserPermalink } from "../../../../utils/permalinks/Permalinks";
 import { buildActivityScores, buildMemberScores, compareMembers } from "../../../../utils/SortMembers";
+// haven apps-framework patch: shared with Social's Search section
+import { findVisibleRoomMembers, findVisibleRooms } from "../../../../utils/findVisibleRooms";
 import { copyPlaintext } from "../../../../utils/strings";
 import BaseAvatar from "../../avatars/BaseAvatar";
 import DecoratedRoomAvatar from "../../avatars/DecoratedRoomAvatar";
@@ -90,7 +91,6 @@ import { PublicRoomResultDetails } from "./PublicRoomResultDetails";
 import { RoomResultContextMenus } from "./RoomResultContextMenus";
 import { RoomContextDetails } from "../../rooms/RoomContextDetails";
 import { TooltipOption } from "./TooltipOption";
-import { isLocalRoom } from "../../../../utils/localRoom/isLocalRoom";
 import RoomAvatar from "../../avatars/RoomAvatar";
 import { useFeatureEnabled } from "../../../../hooks/useSettings";
 import { filterBoolean } from "../../../../utils/arrays";
@@ -265,32 +265,6 @@ export const useWebSearchMetrics = (numResults: number, queryLength: number, via
             clearTimeout(timeoutId);
         };
     }, [numResults, queryLength, viaSpotlight]);
-};
-
-const findVisibleRooms = (cli: MatrixClient, msc3946ProcessDynamicPredecessor: boolean): Room[] => {
-    return cli.getVisibleRooms(msc3946ProcessDynamicPredecessor).filter((room) => {
-        // Do not show local rooms
-        if (isLocalRoom(room)) return false;
-
-        // TODO we may want to put invites in their own list
-        return room.getMyMembership() === KnownMembership.Join || room.getMyMembership() == KnownMembership.Invite;
-    });
-};
-
-const findVisibleRoomMembers = (visibleRooms: Room[], cli: MatrixClient, filterDMs = true): RoomMember[] => {
-    return Object.values(
-        visibleRooms
-            .filter((room) => !filterDMs || !DMRoomMap.shared().getUserIdForRoomId(room.roomId))
-            .reduce(
-                (members, room) => {
-                    for (const member of room.getJoinedMembers()) {
-                        members[member.userId] = member;
-                    }
-                    return members;
-                },
-                {} as Record<string, RoomMember>,
-            ),
-    ).filter((it) => it.userId !== cli.getUserId());
 };
 
 const roomAriaUnreadLabel = (room: Room, notification: RoomNotificationState): string | undefined => {

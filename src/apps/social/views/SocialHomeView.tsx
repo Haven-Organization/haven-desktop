@@ -31,6 +31,7 @@ import { type ICompletion } from "../../../../element-web/apps/web/src/autocompl
 import {
     PublicIcon,
     GroupIcon,
+    SearchIcon,
     UserProfileSolidIcon,
     FilterIcon,
     ArrowLeftIcon,
@@ -42,7 +43,8 @@ import { useSetUserMenuPortalTarget } from "../../framework/UserMenuPortalContex
 
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
 import { SDKContext } from "../../../../element-web/apps/web/src/contexts/SDKContext";
-import RoomAvatar from "../../../../element-web/apps/web/src/components/views/avatars/RoomAvatar";
+import { GroupTile } from "../components/GroupTile";
+import { SocialSearchPane } from "./SocialSearchPane";
 import Spinner from "../../../../element-web/apps/web/src/components/views/elements/Spinner";
 import RightPanel from "../../../../element-web/apps/web/src/components/structures/RightPanel";
 import NotificationPanel from "../../../../element-web/apps/web/src/components/structures/NotificationPanel";
@@ -96,7 +98,6 @@ import {
     isProfileRoom,
     getProfileOwnerUserId,
     isSocialPostEventType,
-    ROOM_BANNER_EVENT_TYPE,
 } from "../utils/room-classifier";
 import {
     type SocialFeedFilter,
@@ -150,7 +151,7 @@ function loadSidebarWidth(): number {
     return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, stored));
 }
 
-export type SocialSection = "feed" | "groups" | "profile";
+export type SocialSection = "feed" | "groups" | "profile" | "search";
 
 export interface SocialNav {
     section: SocialSection;
@@ -176,6 +177,8 @@ export interface SocialNav {
         avatarUrl?: string;
         topic?: string;
         roomType?: string;
+        /** Servers to join or knock through - see SocialProfilePreview's own `via`. */
+        via?: string[];
     };
 }
 
@@ -437,6 +440,10 @@ export function SocialHomeView(): JSX.Element {
         }
         if (nav.section === "groups") {
             writeSocialScreen("social/groups");
+            return;
+        }
+        if (nav.section === "search") {
+            writeSocialScreen("social/search");
             return;
         }
         writeSocialScreen("social");
@@ -706,6 +713,52 @@ export function SocialHomeView(): JSX.Element {
         consumePendingPost();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Search section: open a post from the Posts tab the same way a link to it would
+    const openPost = useCallback(
+        (event: MatrixEvent, room: Room) => {
+            resolveAndOpenPost(client, room.roomId, event.getId()!, event, (resolved, resolvedRoom) => {
+                viewRoom(resolvedRoom.roomId);
+                setPendingFocusEvent(resolved);
+                setFocusEventToken((t) => t + 1);
+            });
+        },
+        [client, viewRoom],
+    );
+
+    // Search section: open a group found in a room directory, which you may not be in yet - same
+    // room/preview/private outcomes as a link to it, routed through the directory's server
+    const viewDirectoryGroup = useCallback(
+        (roomId: string, via: string[]) => {
+            void resolveProfileRoom(client, roomId, via).then((resolution) => {
+                switch (resolution.kind) {
+                    case "room":
+                        viewRoom(roomId);
+                        break;
+                    case "preview":
+                        setNav((prev: SocialNav) => ({
+                            section: prev.section,
+                            roomPreview: {
+                                userId: "",
+                                roomId,
+                                joinRule: resolution.joinRule,
+                                name: resolution.name,
+                                avatarUrl: resolution.avatarUrl,
+                                topic: resolution.topic,
+                                roomType: resolution.roomType,
+                                via,
+                            },
+                        }));
+                        break;
+                    case "private":
+                    case "invalid":
+                        showPrivateProfileModal();
+                        break;
+                }
+            });
+        },
+        [client, viewRoom],
+    );
 
     // Forces FeedPane to close any open thread view when a hash-driven navigation to bare "social"
     // (no room) lands while Social is already mounted - see closeThreadToken's own doc on FeedPane's
@@ -1012,6 +1065,7 @@ export function SocialHomeView(): JSX.Element {
                 avatarUrl={nav.roomPreview.avatarUrl}
                 topic={nav.roomPreview.topic}
                 roomType={nav.roomPreview.roomType}
+                via={nav.roomPreview.via}
                 onBack={closeRoom}
                 onFollowed={viewRoom}
             />
@@ -1058,6 +1112,19 @@ export function SocialHomeView(): JSX.Element {
                 closeThreadToken={closeThreadToken}
                 openThreadTarget={openThreadTarget}
                 initialScrollRestore={pendingScrollRestoreRef.current ?? undefined}
+            />
+        );
+    } else if (nav.section === "search") {
+        mainContent = (
+            <SocialSearchPane
+                client={client}
+                pillsGeneration={pillsGeneration}
+                onViewUser={handleViewUser}
+                onOpenUserPanel={handleOpenUserPanel}
+                onViewRoom={viewRoom}
+                onViewDirectoryGroup={viewDirectoryGroup}
+                onOpenPost={openPost}
+                onNavigateToProfile={navigateToProfile}
             />
         );
     } else if (nav.section === "groups") {
@@ -1206,6 +1273,13 @@ export function SocialHomeView(): JSX.Element {
                             active={nav.section === "feed" && !nav.roomId}
                             collapsed={sidebarCollapsed}
                             onClick={() => setNav({ section: "feed" })}
+                        />
+                        <NavButton
+                            icon={<SearchIcon />}
+                            label="Search"
+                            active={nav.section === "search" && !nav.roomId}
+                            collapsed={sidebarCollapsed}
+                            onClick={() => setNav({ section: "search" })}
                         />
                         <NavButton
                             icon={<GroupIcon />}
@@ -2203,42 +2277,5 @@ function ProfilePane({
                 </button>
             </div>
         </div>
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Group room card (with optional Edit button)
-// ---------------------------------------------------------------------------
-
-function GroupTile({
-    room,
-    client,
-    onView,
-}: {
-    room: Room;
-    client: MatrixClient;
-    onView: (id: string) => void;
-}): JSX.Element {
-    const topic: string =
-        room.currentState.getStateEvents("m.room.topic", "")?.getContent().topic ?? "";
-    const bannerMxc: string | undefined = room.currentState
-        .getStateEvents(ROOM_BANNER_EVENT_TYPE, "")
-        ?.getContent()?.url;
-    const bannerHttpUrl = bannerMxc ? client.mxcUrlToHttp(bannerMxc) : null;
-
-    return (
-        <button type="button" className="social_GroupTile" onClick={() => onView(room.roomId)}>
-            <div className="social_GroupTile_banner">
-                {bannerHttpUrl && <img src={bannerHttpUrl} alt="" aria-hidden />}
-            </div>
-            <div className="social_GroupTile_avatarWrap">
-                <RoomAvatar room={room} size="72px" />
-            </div>
-            <div className="social_GroupTile_info">
-                <div className="social_GroupTile_name">{room.name}</div>
-                {topic && <div className="social_GroupTile_topic">{topic}</div>}
-                <div className="social_GroupTile_meta">{room.getJoinedMemberCount()} members</div>
-            </div>
-        </button>
     );
 }

@@ -8,13 +8,14 @@ Please see LICENSE files in the repository root for full details.
 
 // @vitest-environment happy-dom
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { waitFor, renderHook, act } from "test-utils-rtl";
 import { type IRoomDirectoryOptions, type MatrixClient } from "matrix-js-sdk/src/matrix";
 import { stubClient } from "test-utils/test-utils";
 
 import { usePublicRoomDirectory } from "./usePublicRoomDirectory";
 import { MatrixClientPeg } from "../MatrixClientPeg";
+import SettingsStore from "../settings/SettingsStore";
 
 function render() {
     return renderHook(() => usePublicRoomDirectory());
@@ -81,6 +82,31 @@ describe("usePublicRoomDirectory", () => {
         await waitFor(() => {
             expect(result.current.ready).toBe(true);
             expect(result.current.publicRooms[0]?.name).toEqual(query);
+        });
+    });
+
+    describe("remembered server", () => {
+        beforeEach(() => {
+            localStorage.setItem("mx_last_room_directory_server", "other.example");
+            vi.spyOn(SettingsStore, "getValue").mockImplementation((name: string) =>
+                name === "room_directory_servers" ? ["other.example"] : (undefined as any),
+            );
+        });
+
+        afterEach(() => {
+            localStorage.removeItem("mx_last_room_directory_server");
+            vi.restoreAllMocks();
+        });
+
+        it("starts on the last server picked by default", async () => {
+            const { result } = render();
+            await waitFor(() => expect(result.current.config?.roomServer).toBe("other.example"));
+        });
+
+        it("starts on your own homeserver, and leaves the remembered one alone, with rememberServer false", async () => {
+            const { result } = renderHook(() => usePublicRoomDirectory(false));
+            await waitFor(() => expect(result.current.config?.roomServer).toBe("matrix.org"));
+            expect(localStorage.getItem("mx_last_room_directory_server")).toBe("other.example");
         });
     });
 

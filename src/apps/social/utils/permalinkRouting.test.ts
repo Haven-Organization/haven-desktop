@@ -71,6 +71,11 @@ describe("tryRouteSocialHashScreen", () => {
         expect(peekPendingSocialSection()).toBe("profile");
     });
 
+    it("'social/search': queues the search section", () => {
+        tryRouteSocialHashScreen("social/search");
+        expect(peekPendingSocialSection()).toBe("search");
+    });
+
     it("a bare room id with no event, no popstate origin: routes to the dedicated room page", () => {
         expect(tryRouteSocialHashScreen("social/room/!room:example.org")).toBe(true);
         expect(consumePendingViewPost()).toEqual({ roomId: "!room:example.org", eventId: undefined });

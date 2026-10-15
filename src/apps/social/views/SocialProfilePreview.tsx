@@ -37,6 +37,9 @@ interface Props {
      *  read, since a preview by definition has no joined/peeked Room yet - see resolveProfileRoom
      *  in social-actions.ts. Selects Join/Leave-style wording over Follow/Unfollow's. */
     roomType?: string;
+    /** Servers to join or knock through, for a room this homeserver may not know yet (e.g. a
+     *  group found in another server's room directory). */
+    via?: string[];
     onBack?: () => void;
     /** Called once a public room's Follow button successfully joins it, so the caller can switch
      *  to the real SocialRoomView instead of staying on this summary-only preview. */
@@ -52,6 +55,7 @@ export function SocialProfilePreview({
     avatarUrl,
     topic,
     roomType,
+    via,
     onBack,
     onFollowed,
 }: Props): JSX.Element {
@@ -87,7 +91,7 @@ export function SocialProfilePreview({
         setBusy(true);
         setError(null);
         try {
-            await followRoom(client, roomId);
+            await followRoom(client, roomId, via);
             onFollowed(roomId);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Failed to follow");
@@ -99,7 +103,7 @@ export function SocialProfilePreview({
         setBusy(true);
         setError(null);
         try {
-            await client.knockRoom(roomId);
+            await client.knockRoom(roomId, { viaServers: via });
             // membership flips to "knock" itself once the resulting Room appears in the client's
             // store (see useRoomMembership.ts) - justSentKnock only covers the brief remaining gap
             // until that catches up and takes over the label.

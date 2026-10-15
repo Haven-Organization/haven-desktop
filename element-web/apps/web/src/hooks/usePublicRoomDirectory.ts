@@ -38,7 +38,14 @@ const NSFW_KEYWORD = "nsfw";
 const cheapNsfwFilter = (room: IPublicRoomsChunkRoom): boolean =>
     !room.name?.toLocaleLowerCase().includes(NSFW_KEYWORD) && !room.topic?.toLocaleLowerCase().includes(NSFW_KEYWORD);
 
-export const usePublicRoomDirectory = (): {
+/**
+ * @param rememberServer - Haven: when false, starts on the user's own homeserver instead of the
+ *   last server picked in Spotlight, and doesn't change what Spotlight remembers. Social's Search
+ *   section uses this so its Groups tab always opens on your own homeserver.
+ */
+export const usePublicRoomDirectory = (
+    rememberServer = true,
+): {
     ready: boolean;
     loading: boolean;
     publicRooms: IPublicRoomsChunkRoom[];
@@ -142,6 +149,7 @@ export const usePublicRoomDirectory = (): {
 
         let roomServer: string = myHomeserver;
         if (
+            rememberServer &&
             lsRoomServer &&
             (SdkConfig.getObject("room_directory")?.get("servers")?.includes(lsRoomServer) ||
                 SettingsStore.getValue("room_directory_servers")?.includes(lsRoomServer))
@@ -151,6 +159,7 @@ export const usePublicRoomDirectory = (): {
 
         let instanceId: string | undefined = undefined;
         if (
+            rememberServer &&
             roomServer === myHomeserver &&
             (lsInstanceId === ALL_ROOMS ||
                 Object.values(protocols).some((p: IProtocol) => {
@@ -162,17 +171,17 @@ export const usePublicRoomDirectory = (): {
 
         setReady(true);
         setConfigInternal({ roomServer, instanceId });
-    }, [protocols]);
+    }, [protocols, rememberServer]);
 
     useEffect(() => {
-        if (!config) return;
+        if (!config || !rememberServer) return;
         localStorage.setItem(LAST_SERVER_KEY, config.roomServer);
         if (config.instanceId) {
             localStorage.setItem(LAST_INSTANCE_KEY, config.instanceId);
         } else {
             localStorage.removeItem(LAST_INSTANCE_KEY);
         }
-    }, [config]);
+    }, [config, rememberServer]);
 
     return {
         ready,

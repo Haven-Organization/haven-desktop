@@ -129,7 +129,7 @@ export function tryRouteSocialPermalink(event: { shiftKey?: boolean }, href: str
 
 /**
  * Entry point for routing.ts's own routeUrl() (and MatrixChat.showScreen()'s own cold-start call to
- * this same function - see its own comment) - handles a "social", "social/groups", "social/profile",
+ * this same function - see its own comment) - handles a "social", "social/groups", "social/profile", "social/search",
  * or "social/room/!id[/$eventId]" screen string (see getScreenFromLocation) the same way a matrix.to
  * link would, but synchronously and unconditionally, since a hash the browser is already navigating
  * to (typed directly, or via back/forward through history) isn't a click to second-guess with Shift
@@ -151,8 +151,8 @@ export function tryRouteSocialHashScreen(screen: string, params?: Record<string,
         dispatchSocialHomeAction();
         return true;
     }
-    if (screen === "social/groups" || screen === "social/profile") {
-        setPendingSocialSection(screen === "social/groups" ? "groups" : "profile");
+    if (screen === "social/groups" || screen === "social/profile" || screen === "social/search") {
+        setPendingSocialSection(screen.substring("social/".length) as "groups" | "profile" | "search");
         dispatchSocialHomeAction();
         return true;
     }

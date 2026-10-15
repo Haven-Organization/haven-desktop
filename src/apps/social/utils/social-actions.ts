@@ -226,11 +226,13 @@ export type ProfileRoomResolution =
  * it's public and world-readable (reusing SocialRoomView wholesale, same as an already-joined
  * room, once that succeeds) -> a summary-only preview for public-but-not-world-readable or
  * knockable rooms -> "private" for anything else (invite-only, restricted, or a summary request
- * the server refused). Never throws.
+ * the server refused). Never throws. `via` routes the summary request to a room this homeserver
+ * may not know yet, e.g. a group found in another server's room directory.
  */
 export async function resolveProfileRoom(
     client: MatrixClient,
     profileRoomId: string | null | undefined,
+    via?: string[],
 ): Promise<ProfileRoomResolution> {
     if (!profileRoomId || !PROFILE_ROOM_ID_PATTERN.test(profileRoomId)) return { kind: "invalid" };
     // client.getRoom() returning non-null only means the SDK has *a* Room object cached for this
@@ -245,7 +247,7 @@ export async function resolveProfileRoom(
 
     let summary;
     try {
-        summary = await withTimeout(client.getRoomSummary(profileRoomId), 15_000);
+        summary = await withTimeout(client.getRoomSummary(profileRoomId, via), 15_000);
     } catch {
         return { kind: "private" };
     }
@@ -691,8 +693,8 @@ export async function undoLike(client: MatrixClient, roomId: string, reactionEve
 // Follow / Unfollow
 // ---------------------------------------------------------------------------
 
-export async function followRoom(client: MatrixClient, roomIdOrAlias: string): Promise<void> {
-    await client.joinRoom(roomIdOrAlias);
+export async function followRoom(client: MatrixClient, roomIdOrAlias: string, via?: string[]): Promise<void> {
+    await client.joinRoom(roomIdOrAlias, via?.length ? { viaServers: via } : undefined);
 }
 
 export async function unfollowRoom(client: MatrixClient, roomId: string): Promise<void> {

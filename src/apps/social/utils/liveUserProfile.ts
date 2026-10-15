@@ -12,6 +12,8 @@
 import { useEffect, useState } from "react";
 import { type MatrixClient, User } from "matrix-js-sdk/src/matrix";
 
+import { MSC4501_PROFILE_ROOM_ID_KEY_LEGACY, MSC4501_PROFILE_ROOM_KEY } from "./room-classifier";
+
 /**
  * MSC4503 external handle: a linked identity on some other (usually non-Matrix) protocol, e.g. a
  * Fediverse/ActivityPub handle. `protocol` describes which protocol this is - its own
@@ -30,10 +32,32 @@ export interface ExternalHandle {
     url?: string;
 }
 
+/** The MSC4501 profile room a user has linked on their profile, with its routing hints. */
+export interface LinkedProfileRoom {
+    roomId: string;
+    via: string[];
+}
+
 export interface LiveUserProfile {
     avatarUrl?: string;
     displayName?: string;
     externalHandle?: ExternalHandle;
+    /** Their linked MSC4501 profile room, if any - see extractProfileRoom. */
+    profileRoom?: LinkedProfileRoom;
+}
+
+/** Reads a user's linked profile room from their profile info, in either the current block shape
+ *  ({ room_id, via }) or the legacy plain room ID field - same rules as getProfileRoomLink in
+ *  social-actions.ts, which reads the same fields. */
+export function extractProfileRoom(info: Record<string, unknown>): LinkedProfileRoom | undefined {
+    const value = info[MSC4501_PROFILE_ROOM_KEY] as { room_id?: unknown; via?: unknown } | undefined;
+    if (value && typeof value === "object" && typeof value.room_id === "string") {
+        if (!value.room_id) return undefined;
+        const via = Array.isArray(value.via) ? value.via.filter((v): v is string => typeof v === "string") : [];
+        return { roomId: value.room_id, via };
+    }
+    const legacy = info[MSC4501_PROFILE_ROOM_ID_KEY_LEGACY];
+    return typeof legacy === "string" && legacy ? { roomId: legacy, via: [] } : undefined;
 }
 
 // The stable key per MSC4503; checked first, falling back to the MSC's own unstable-prefixed form
@@ -76,6 +100,7 @@ export function fetchUserProfile(client: MatrixClient, userId: string): Promise<
                 avatarUrl: info.avatar_url,
                 displayName: info.displayname,
                 externalHandle: extractExternalHandle(info as Record<string, unknown>),
+                profileRoom: extractProfileRoom(info as Record<string, unknown>),
             }),
             () => ({}), // deactivated account, unreachable homeserver, etc. — fall back silently
         );

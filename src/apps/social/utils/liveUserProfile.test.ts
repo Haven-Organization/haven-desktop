@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { User } from "matrix-js-sdk/src/matrix";
 
-import { fillUserFromProfile } from "./liveUserProfile";
+import { extractProfileRoom, fillUserFromProfile } from "./liveUserProfile";
+import { MSC4501_PROFILE_ROOM_ID_KEY_LEGACY, MSC4501_PROFILE_ROOM_KEY } from "./room-classifier";
 
 describe("fillUserFromProfile", () => {
     const userId = "@someone:example.com";
@@ -46,5 +47,26 @@ describe("fillUserFromProfile", () => {
         const user = new User(userId);
         expect(fillUserFromProfile(user, null)).toBe(user);
         expect(fillUserFromProfile(user, {})).toBe(user);
+    });
+});
+
+describe("extractProfileRoom", () => {
+    it("reads the current block shape with its via servers", () => {
+        expect(extractProfileRoom({ [MSC4501_PROFILE_ROOM_KEY]: { room_id: "!r:example.com", via: ["a.example"] } })).toEqual({
+            roomId: "!r:example.com",
+            via: ["a.example"],
+        });
+    });
+
+    it("falls back to the legacy room ID field", () => {
+        expect(extractProfileRoom({ [MSC4501_PROFILE_ROOM_ID_KEY_LEGACY]: "!old:example.com" })).toEqual({
+            roomId: "!old:example.com",
+            via: [],
+        });
+    });
+
+    it("is undefined when nothing, or an empty link, is set", () => {
+        expect(extractProfileRoom({})).toBeUndefined();
+        expect(extractProfileRoom({ [MSC4501_PROFILE_ROOM_KEY]: { room_id: "" } })).toBeUndefined();
     });
 });

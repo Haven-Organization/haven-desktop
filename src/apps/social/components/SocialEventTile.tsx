@@ -166,6 +166,9 @@ interface Props {
      *  the tile's full width, matching how the X/Twitter reference this design is modelled on
      *  treats the selected post. */
     isFocused?: boolean;
+    /** Search terms to highlight in the post body - set by the Search section's Posts tab from
+     *  the server's own search highlights. */
+    highlights?: string[];
 }
 
 /** Returns the mx_Username_color{n} class for a Matrix user ID. */
@@ -1317,6 +1320,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     isHighlighted,
     flat,
     isFocused,
+    highlights,
 }: Props): JSX.Element | null {
     const client = useMatrixClientContext();
 
@@ -1772,12 +1776,16 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 stripReply: !!inReplyToId,
                 linkify: true,
                 renderMentionPills: true,
+                highlights,
                 client,
             }),
     );
     useEffect(() => {
         eventContentBodyVm.setEventContent(event, displayContent);
     }, [event, displayContent, eventContentBodyVm]);
+    useEffect(() => {
+        eventContentBodyVm.setHighlights(highlights);
+    }, [highlights, eventContentBodyVm]);
     useEffect(() => {
         eventContentBodyVm.setStripReply(!!inReplyToId);
     }, [inReplyToId, eventContentBodyVm]);

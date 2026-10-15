@@ -1,7 +1,7 @@
 /*
  * Social Overlay — pendingSocialSection
  *
- * Bridges a deep-linked Social tab ("social/groups" or "social/profile" - see permalinkRouting.ts's
+ * Bridges a deep-linked Social tab ("social/groups", "social/profile" or "social/search" - see permalinkRouting.ts's
  * tryRouteSocialHashScreen) into SocialHomeView's own initial nav state - the same "click/navigation
  * happened before the component existed to hear about it" problem pendingViewUser.ts solves for
  * other Social entry points: SOCIAL_HOME_ACTION is dispatched to mount SocialHomeView in the first
@@ -21,7 +21,7 @@
  * closing Social and reopening it later with no new deep link would incorrectly reapply a stale
  * section from a much earlier link click.
  */
-export type PendingSocialSection = "groups" | "profile";
+export type PendingSocialSection = "groups" | "profile" | "search";
 
 let pendingSection: PendingSocialSection | null = null;
 
