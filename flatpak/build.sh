@@ -3,13 +3,16 @@ set -e
 
 ROOT="$PWD"
 
-mkdir -p pnpm-cli && tar -xzf pnpm-11.23.0.tgz -C pnpm-cli
+mkdir -p pnpm-cli pnpm-exe && tar -xzf pnpm-12.11.2.tgz -C pnpm-cli && tar -xzf pnpm-exe-12.11.2.tgz -C pnpm-exe
+cp pnpm-exe/package/pnpm pnpm-cli/package/pnpm && chmod +x pnpm-cli/package/pnpm
 
 sed -i 's/minimumReleaseAgeStrict: true/minimumReleaseAgeStrict: false/' element-web/pnpm-workspace.yaml
 sed -i '/^trustLockfile:/d' element-web/pnpm-workspace.yaml
 echo 'trustLockfile: true' >> element-web/pnpm-workspace.yaml
 
-python3 flatpak-node/populate_pnpm_store.py flatpak-node/pnpm-manifest.json flatpak-node/pnpm-tarballs flatpak-node/pnpm-store
+for manifest in flatpak-node/pnpm-manifest.json flatpak-node/pnpm-manifest-element-call.json flatpak-node/pnpm-manifest-matrix-js-sdk.json; do
+    python3 flatpak-node/populate_pnpm_store.py "$manifest" flatpak-node/pnpm-tarballs flatpak-node/pnpm-store
+done
 
 sed -i '/^storeDir:/d' element-web/pnpm-workspace.yaml
 echo 'storeDir: '$PWD'/flatpak-node/pnpm-store' >> element-web/pnpm-workspace.yaml
@@ -26,13 +29,48 @@ python3 flatpak/strip-seshat-prebuilt.py element-web/pnpm-lock.yaml
 # (generated-sources.json puts them in the node-gyp cache, which has the same layout).
 ln -sfn "$ROOT/flatpak-node/cache/node-gyp" "$HOME/.electron-gyp"
 
-cd element-web && CI=true pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false && cd ..
+(cd element-web && CI=true pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false)
 
-cd element-web/apps/web && HAVEN_INCLUDE_OLD_ROOM_LIST=1 pnpm build && cd ../../..
+# @element-hq/element-call-component is a git dependency whose `prepare` script builds it from the whole
+# element-call repository; the offline store skips that, leaving the package without the dist/ that
+# apps/web's webpack config and Call.ts import. Build it here from the vendored element-call source
+# (element-call-sources.json). Its own matrix-js-sdk dependency is a git dependency with the same
+# problem, and the component imports that package's compiled lib/, so compile that first, with
+# matrix-js-sdk's own toolchain from its lockfile. Only the JS build runs: Haven's webpack build doesn't
+# read the component's type declarations, which would need matrix-js-sdk's declarations as well.
+offline_workspace() {
+    sed -i 's/minimumReleaseAgeStrict: true/minimumReleaseAgeStrict: false/' pnpm-workspace.yaml
+    sed -i '/^trustLockfile:/d;/^storeDir:/d' pnpm-workspace.yaml
+    printf 'trustLockfile: true\nstoreDir: %s\n' "$ROOT/flatpak-node/pnpm-store" >> pnpm-workspace.yaml
+}
+(
+    cd element-call
+    offline_workspace
+    CI=true PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false
+)
+EC_SDK="$(realpath element-call/node_modules/matrix-js-sdk)"
+rm -rf "$ROOT/element-call-matrix-js-sdk"
+cp -rL "$EC_SDK" "$ROOT/element-call-matrix-js-sdk"
+chmod -R u+w "$ROOT/element-call-matrix-js-sdk"
+(
+    cd "$ROOT/element-call-matrix-js-sdk"
+    offline_workspace
+    CI=true pnpm install --offline --frozen-lockfile=false --config.strictStorePkgContentCheck=false --ignore-scripts
+    pnpm build:compile
+)
+rm -rf "$EC_SDK/lib" && cp -r "$ROOT/element-call-matrix-js-sdk/lib" "$EC_SDK/lib"
+(cd element-call && pnpm build:component:js)
+# The offline store unpacks the whole element-call tarball as this package, ignoring the dependency's
+# `path:/component` part, so replace it with the component directory the published package is made of.
+EC_COMPONENT="$(realpath element-web/apps/web/node_modules/@element-hq/element-call-component)"
+find "$EC_COMPONENT" -mindepth 1 -delete
+cp -r element-call/component/. "$EC_COMPONENT/"
+
+(cd element-web/apps/web && HAVEN_INCLUDE_OLD_ROOM_LIST=1 pnpm build)
 
 cp element-web/apps/web/config.sample.json element-web/apps/web/webapp/config.json
 
-cd element-web/apps/desktop && pnpm exec asar pack ../web/webapp webapp.asar && cd ../../..
+(cd element-web/apps/desktop && pnpm exec asar pack ../web/webapp webapp.asar)
 
 # Build matrix-seshat (local encrypted-room message search) from source.
 #
@@ -81,7 +119,7 @@ sed -i 's#export default config;#config.publish = null; config.electronDist = "/
 # release process already maintains removes the manual step entirely.
 HAVEN_VERSION=$(cat HAVEN_VERSION)
 HAVEN_FULL_VERSION=$(./scripts/compute-haven-version.sh)
-cd element-web/apps/desktop && VERSION=$HAVEN_VERSION HAVEN_FULL_VERSION=$HAVEN_FULL_VERSION pnpm build -- --linux dir --publish=never && cd ../../..
+(cd element-web/apps/desktop && VERSION=$HAVEN_VERSION HAVEN_FULL_VERSION=$HAVEN_FULL_VERSION pnpm build -- --linux dir --publish=never)
 
 mkdir -p /app/Haven
 cp -r element-web/apps/desktop/dist/linux*-unpacked/* /app/Haven/
