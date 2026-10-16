@@ -54,8 +54,8 @@ describe("usePublicRoomDirectory", () => {
         expect(result.current.ready).toBe(false);
         expect(result.current.loading).toBe(false);
 
-        act(() => {
-            result.current.search({
+        await act(async () => {
+            await result.current.search({
                 limit: 1,
                 query,
             });
@@ -72,8 +72,8 @@ describe("usePublicRoomDirectory", () => {
         const query = "";
         const { result } = render();
 
-        act(() => {
-            result.current.search({
+        await act(async () => {
+            await result.current.search({
                 limit: 1,
                 query,
             });
@@ -118,8 +118,8 @@ describe("usePublicRoomDirectory", () => {
 
         const { result } = render();
 
-        act(() => {
-            result.current.search({
+        await act(async () => {
+            await result.current.search({
                 limit: 1,
                 query,
             });

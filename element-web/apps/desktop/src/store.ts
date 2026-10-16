@@ -59,7 +59,9 @@ const safeStorageBackendMap: Omit<Record<SaneSafeStorageBackend, string>, "syste
  * still-valid-but-temporarily-unreadable secret (which would turn a transient failure into permanent
  * session/encryption-key loss). See element-web#32521 and element-web#32715.
  */
-export class SafeStorageDecryptionError extends Error {}
+export class SafeStorageDecryptionError extends Error {
+    public override name = "SafeStorageDecryptionError";
+}
 
 /**
  * Under an AppImage, process.execPath points at the temporary squashfs FUSE mount (e.g.

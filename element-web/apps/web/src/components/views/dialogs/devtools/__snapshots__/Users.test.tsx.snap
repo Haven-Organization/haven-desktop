@@ -13,14 +13,14 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
           User ID: @alice:example.com
           <button
             aria-labelledby="react-use-id-1"
-            class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+            class="_icon-button mx_CopyableText_copyButton"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 28px; padding: 4px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -60,14 +60,14 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
           Device ID: SIGNED
           <button
             aria-labelledby="react-use-id-2"
-            class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+            class="_icon-button mx_CopyableText_copyButton"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 28px; padding: 4px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -139,14 +139,14 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
               ed25519: an_ed25519_public_key
               <button
                 aria-labelledby="react-use-id-3"
-                class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+                class="_icon-button mx_CopyableText_copyButton"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 28px; padding: 4px;"
                 tabindex="0"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -186,14 +186,14 @@ exports[`<Users /> > should render a single device - signed by owner 1`] = `
               curve25519: a_curve25519_public_key
               <button
                 aria-labelledby="react-use-id-4"
-                class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+                class="_icon-button mx_CopyableText_copyButton"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 28px; padding: 4px;"
                 tabindex="0"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -256,14 +256,14 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
           User ID: @alice:example.com
           <button
             aria-labelledby="react-use-id-1"
-            class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+            class="_icon-button mx_CopyableText_copyButton"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 28px; padding: 4px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -303,14 +303,14 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
           Device ID: UNSIGNED
           <button
             aria-labelledby="react-use-id-2"
-            class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+            class="_icon-button mx_CopyableText_copyButton"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 28px; padding: 4px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -382,14 +382,14 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
               ed25519: an_ed25519_public_key
               <button
                 aria-labelledby="react-use-id-3"
-                class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+                class="_icon-button mx_CopyableText_copyButton"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 28px; padding: 4px;"
                 tabindex="0"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -429,14 +429,14 @@ exports[`<Users /> > should render a single device - unsigned 1`] = `
               curve25519: a_curve25519_public_key
               <button
                 aria-labelledby="react-use-id-4"
-                class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+                class="_icon-button mx_CopyableText_copyButton"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 28px; padding: 4px;"
                 tabindex="0"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -499,14 +499,14 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
           User ID: @alice:example.com
           <button
             aria-labelledby="react-use-id-1"
-            class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+            class="_icon-button mx_CopyableText_copyButton"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 28px; padding: 4px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -546,14 +546,14 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
           Device ID: VERIFIED
           <button
             aria-labelledby="react-use-id-2"
-            class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+            class="_icon-button mx_CopyableText_copyButton"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 28px; padding: 4px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -627,14 +627,14 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
               ed25519: an_ed25519_public_key
               <button
                 aria-labelledby="react-use-id-3"
-                class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+                class="_icon-button mx_CopyableText_copyButton"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 28px; padding: 4px;"
                 tabindex="0"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -674,14 +674,14 @@ exports[`<Users /> > should render a single device - verified by cross-signing 1
               curve25519: a_curve25519_public_key
               <button
                 aria-labelledby="react-use-id-4"
-                class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+                class="_icon-button mx_CopyableText_copyButton"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 28px; padding: 4px;"
                 tabindex="0"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -744,14 +744,14 @@ exports[`<Users /> > should render a single user 1`] = `
           User ID: @alice:example.com
           <button
             aria-labelledby="react-use-id-1"
-            class="_icon-button_1215g_8 mx_CopyableText_copyButton"
+            class="_icon-button mx_CopyableText_copyButton"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 28px; padding: 4px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -915,7 +915,7 @@ exports[`<Users /> > should render a single user 1`] = `
     </section>
     <section>
       <h2>
-        Cryptographic identity
+        Digital identity
       </h2>
       <i>
         Unknown
@@ -960,34 +960,34 @@ exports[`<Users /> > should render a user list 1`] = `
     </div>
     No results found
     <form
-      class="_root_1o4d9_17"
+      class="_root"
     >
       <div
-        class="_inline-field_1o4d9_33"
+        class="_inline-field"
       >
         <div
-          class="_inline-field-control_1o4d9_45"
+          class="_inline-field-control"
         >
           <div
-            class="_container_udcm8_10"
+            class="_container"
           >
             <input
               checked=""
-              class="_input_udcm8_24"
+              class="_input"
               id="react-use-id-1"
               role="switch"
               type="checkbox"
             />
             <div
-              class="_ui_udcm8_34"
+              class="_ui"
             />
           </div>
         </div>
         <div
-          class="_inline-field-body_1o4d9_39"
+          class="_inline-field-body"
         >
           <label
-            class="_label_1o4d9_60"
+            class="_label"
             for="react-use-id-1"
           >
             Only joined users

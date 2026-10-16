@@ -4,7 +4,7 @@ exports[`<DecoratedRoomAvatarView /> > should not render a decoration 1`] = `
 <DocumentFragment>
   <span
     aria-label="Avatar"
-    class="_avatar_va14e_8 mx_BaseAvatar"
+    class="_avatar mx_BaseAvatar"
     data-color="1"
     data-testid="avatar-img"
     data-type="round"
@@ -13,7 +13,7 @@ exports[`<DecoratedRoomAvatarView /> > should not render a decoration 1`] = `
   >
     <img
       alt=""
-      class="_image_va14e_43"
+      class="_image"
       data-type="round"
       height="32px"
       loading="lazy"
@@ -28,12 +28,12 @@ exports[`<DecoratedRoomAvatarView /> > should not render a decoration 1`] = `
 exports[`<DecoratedRoomAvatarView /> > should render a low priority room decoration 1`] = `
 <DocumentFragment>
   <div
-    class="_flex_4dswl_9 mx_RoomAvatarView"
+    class="_flex mx_RoomAvatarView"
     style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
   >
     <span
       aria-label="Avatar"
-      class="_avatar_va14e_8 mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_icon"
+      class="_avatar mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_icon"
       data-color="1"
       data-testid="avatar-img"
       data-type="round"
@@ -42,7 +42,7 @@ exports[`<DecoratedRoomAvatarView /> > should render a low priority room decorat
     >
       <img
         alt=""
-        class="_image_va14e_43"
+        class="_image"
         data-type="round"
         height="32px"
         loading="lazy"
@@ -76,12 +76,12 @@ exports[`<DecoratedRoomAvatarView /> > should render a low priority room decorat
 exports[`<DecoratedRoomAvatarView /> > should render a video room decoration 1`] = `
 <DocumentFragment>
   <div
-    class="_flex_4dswl_9 mx_RoomAvatarView"
+    class="_flex mx_RoomAvatarView"
     style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
   >
     <span
       aria-label="Avatar"
-      class="_avatar_va14e_8 mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_icon"
+      class="_avatar mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_icon"
       data-color="1"
       data-testid="avatar-img"
       data-type="round"
@@ -90,7 +90,7 @@ exports[`<DecoratedRoomAvatarView /> > should render a video room decoration 1`]
     >
       <img
         alt=""
-        class="_image_va14e_43"
+        class="_image"
         data-type="round"
         height="32px"
         loading="lazy"
@@ -124,12 +124,12 @@ exports[`<DecoratedRoomAvatarView /> > should render a video room decoration 1`]
 exports[`<DecoratedRoomAvatarView /> > should render the busy presence 1`] = `
 <DocumentFragment>
   <div
-    class="_flex_4dswl_9 mx_RoomAvatarView"
+    class="_flex mx_RoomAvatarView"
     style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
   >
     <span
       aria-label="Avatar"
-      class="_avatar_va14e_8 mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
+      class="_avatar mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
       data-color="1"
       data-testid="avatar-img"
       data-type="round"
@@ -138,7 +138,7 @@ exports[`<DecoratedRoomAvatarView /> > should render the busy presence 1`] = `
     >
       <img
         alt=""
-        class="_image_va14e_43"
+        class="_image"
         data-type="round"
         height="32px"
         loading="lazy"
@@ -187,12 +187,12 @@ exports[`<DecoratedRoomAvatarView /> > should render the busy presence 1`] = `
 exports[`<DecoratedRoomAvatarView /> > should render the offline presence 1`] = `
 <DocumentFragment>
   <div
-    class="_flex_4dswl_9 mx_RoomAvatarView"
+    class="_flex mx_RoomAvatarView"
     style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
   >
     <span
       aria-label="Avatar"
-      class="_avatar_va14e_8 mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
+      class="_avatar mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
       data-color="1"
       data-testid="avatar-img"
       data-type="round"
@@ -201,7 +201,7 @@ exports[`<DecoratedRoomAvatarView /> > should render the offline presence 1`] = 
     >
       <img
         alt=""
-        class="_image_va14e_43"
+        class="_image"
         data-type="round"
         height="32px"
         loading="lazy"
@@ -250,12 +250,12 @@ exports[`<DecoratedRoomAvatarView /> > should render the offline presence 1`] = 
 exports[`<DecoratedRoomAvatarView /> > should render the online presence 1`] = `
 <DocumentFragment>
   <div
-    class="_flex_4dswl_9 mx_RoomAvatarView"
+    class="_flex mx_RoomAvatarView"
     style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
   >
     <span
       aria-label="Avatar"
-      class="_avatar_va14e_8 mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
+      class="_avatar mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
       data-color="1"
       data-testid="avatar-img"
       data-type="round"
@@ -264,7 +264,7 @@ exports[`<DecoratedRoomAvatarView /> > should render the online presence 1`] = `
     >
       <img
         alt=""
-        class="_image_va14e_43"
+        class="_image"
         data-type="round"
         height="32px"
         loading="lazy"
@@ -311,12 +311,12 @@ exports[`<DecoratedRoomAvatarView /> > should render the online presence 1`] = `
 exports[`<DecoratedRoomAvatarView /> > should render the unavailable presence 1`] = `
 <DocumentFragment>
   <div
-    class="_flex_4dswl_9 mx_RoomAvatarView"
+    class="_flex mx_RoomAvatarView"
     style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: start; --mx-flex-justify: start; --mx-flex-gap: 0; --mx-flex-wrap: nowrap;"
   >
     <span
       aria-label="Avatar"
-      class="_avatar_va14e_8 mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
+      class="_avatar mx_BaseAvatar mx_RoomAvatarView_RoomAvatar mx_RoomAvatarView_RoomAvatar_presence"
       data-color="1"
       data-testid="avatar-img"
       data-type="round"
@@ -325,7 +325,7 @@ exports[`<DecoratedRoomAvatarView /> > should render the unavailable presence 1`
     >
       <img
         alt=""
-        class="_image_va14e_43"
+        class="_image"
         data-type="round"
         height="32px"
         loading="lazy"

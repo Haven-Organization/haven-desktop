@@ -16,7 +16,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
           class="mx_SettingsSection_subSections"
         >
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -42,7 +42,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   >
                     <svg
                       aria-label="Loading…"
-                      class="_icon_1855a_18"
+                      class="_icon"
                       data-testid="spinner"
                       fill="currentColor"
                       height="1em"
@@ -69,7 +69,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -87,37 +87,37 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_vY7Q4uEh9K38"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_vY7Q4uEh9K38"
                     >
                       Include all unread rooms in Unreads
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-1"
                     >
                       When off, the Unreads filter only shows rooms with a real notification: mentions, keywords, and rooms set to notify on all messages, like DMs. When on, it also includes rooms with plain unread activity.
@@ -128,7 +128,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -146,37 +146,37 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_QgU2PomxwKpa"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_QgU2PomxwKpa"
                     >
                       Show all rooms in Home
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-2"
                     >
                       All rooms you're in will appear in Home.
@@ -187,7 +187,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -224,31 +224,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_6hpi3YEetmBG"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_6hpi3YEetmBG"
                     >
                       Use Ctrl + F to search timeline
@@ -259,7 +259,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -315,31 +315,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_4yVCeEefiPqp"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_4yVCeEefiPqp"
                     >
                       Show timestamps in 12 hour format (e.g. 2:30pm)
@@ -347,31 +347,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_MRMwbPDmfGtm"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_MRMwbPDmfGtm"
                     >
                       Always show message timestamps
@@ -379,37 +379,37 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_GQvdMWe954DV"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_GQvdMWe954DV"
                     >
                       Publish timezone on public profile
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-3"
                     >
                       Requires your server to support MSC4133
@@ -420,7 +420,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -447,38 +447,38 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_IAu5CsiHRD7n"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_IAu5CsiHRD7n"
                     >
                       Send read receipts
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-4"
                     >
                       Your server doesn't support disabling sending read receipts.
@@ -486,32 +486,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_yrA2ohjWVJIP"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_yrA2ohjWVJIP"
                     >
                       Send typing notifications
@@ -522,7 +522,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -540,31 +540,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_auy1OmnTidX4"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_auy1OmnTidX4"
                     >
                       Automatically replace plain text Emoji
@@ -572,38 +572,38 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_ePDS0OpWwAHG"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_ePDS0OpWwAHG"
                     >
                       Enable Markdown
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-5"
                     >
                       <span>
@@ -617,32 +617,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_75JNTNkNU64r"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_75JNTNkNU64r"
                     >
                       Enable Emoji suggestions while typing
@@ -650,31 +650,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_aTLcRsQRlYy7"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_aTLcRsQRlYy7"
                     >
                       Use Ctrl + Enter to send a message
@@ -682,31 +682,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_5nfv5bOEPN1s"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_5nfv5bOEPN1s"
                     >
                       Surround selected text when typing special characters
@@ -714,32 +714,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_u1JYVtOyR5kb"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_u1JYVtOyR5kb"
                     >
                       Insert a trailing colon after user mentions at the start of a message
@@ -750,7 +750,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -768,31 +768,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_u3pEwuLn9Enn"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_u3pEwuLn9Enn"
                     >
                       Enable automatic language detection for syntax highlighting
@@ -800,31 +800,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_YuxfFEpOsztW"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_YuxfFEpOsztW"
                     >
                       Expand code blocks by default
@@ -832,32 +832,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_hQkBerF1ejc4"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_hQkBerF1ejc4"
                     >
                       Show line numbers in code blocks
@@ -868,7 +868,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -895,31 +895,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         id="mx_SettingsFlag_GFes1UFzOK2n"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_GFes1UFzOK2n"
                     >
                       Enable previews
@@ -927,30 +927,30 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         id="mx_SettingsFlag_vfGFMldL2r2v"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_vfGFMldL2r2v"
                     >
                       Enable previews in encrypted rooms
@@ -961,7 +961,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -979,31 +979,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_bsSwicmKUiOB"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_bsSwicmKUiOB"
                     >
                       Autoplay GIFs
@@ -1011,31 +1011,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_dvqsxEaZtl3A"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_dvqsxEaZtl3A"
                     >
                       Autoplay videos
@@ -1046,7 +1046,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -1064,32 +1064,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_NIiWzqsApP1c"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_NIiWzqsApP1c"
                     >
                       Show typing notifications
@@ -1097,32 +1097,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_q1SIAPqLMVXh"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_q1SIAPqLMVXh"
                     >
                       Show a placeholder for removed messages
@@ -1130,32 +1130,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_dXFDGgBsKXay"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_dXFDGgBsKXay"
                     >
                       Show read receipts sent by other users
@@ -1163,32 +1163,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_7Az0xw4Bs4Tt"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_7Az0xw4Bs4Tt"
                     >
                       Show join/leave messages (invites/removes/bans unaffected)
@@ -1196,32 +1196,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_8jmzPIlPoBCv"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_8jmzPIlPoBCv"
                     >
                       Show display name changes
@@ -1229,32 +1229,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_enFRaTjdsFou"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_enFRaTjdsFou"
                     >
                       Show chat effects (animations when receiving e.g. confetti)
@@ -1262,32 +1262,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_bfwnd5rz4XNX"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_bfwnd5rz4XNX"
                     >
                       Show profile picture changes
@@ -1295,32 +1295,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_gs5uWEzYzZrS"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_gs5uWEzYzZrS"
                     >
                       Show avatars in user, room and event mentions
@@ -1328,32 +1328,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_qWg7OgID1yRR"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_qWg7OgID1yRR"
                     >
                       Enable big emoji in chat
@@ -1361,32 +1361,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_pOPewl7rtMbV"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_pOPewl7rtMbV"
                     >
                       Jump to the bottom of the timeline when you send a message
@@ -1394,32 +1394,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_cmt3PZSyNp3v"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_cmt3PZSyNp3v"
                     >
                       Show current profile picture and name for users in message history
@@ -1427,32 +1427,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   </div>
                 </div>
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_dJJz3lHUv9XX"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_dJJz3lHUv9XX"
                     >
                       Show pinned messages banner
@@ -1478,33 +1478,33 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
               class="mx_SettingsSubsection_content mx_SettingsSubsection_content_newUi"
             >
               <form
-                class="_root_1o4d9_17 mx_MediaPreviewAccountSetting_Form"
+                class="_root mx_MediaPreviewAccountSetting_Form"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         id="react-use-id-6"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="react-use-id-6"
                     >
                       Hide avatars of room and inviter
@@ -1513,46 +1513,46 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 </div>
                 <div
                   aria-label="Show media in timeline"
-                  class="_field_1o4d9_27"
+                  class="_field"
                   id="mx_media_previews"
                   role="radiogroup"
                 >
                   <label
-                    class="_label_1o4d9_60"
+                    class="_label"
                     for="radix-react-use-id-7"
                   >
                     Show media in timeline
                   </label>
                   <span
-                    class="_message_1o4d9_86 _help-message_1o4d9_92 mx_MediaPreviewAccountSetting_RadioHelp"
+                    class="_message _help-message mx_MediaPreviewAccountSetting_RadioHelp"
                     id="radix-react-use-id-8"
                   >
-                    A hidden media can always be shown by tapping on it
+                    Hidden media can always be shown by selecting it
                   </span>
                   <div
-                    class="_inline-field_1o4d9_33 mx_MediaPreviewAccountSetting_Radio"
+                    class="_inline-field mx_MediaPreviewAccountSetting_Radio"
                   >
                     <div
-                      class="_inline-field-control_1o4d9_45"
+                      class="_inline-field-control"
                     >
                       <div
-                        class="_container_1ug7n_10"
+                        class="_container"
                       >
                         <input
-                          class="_input_1ug7n_18"
+                          class="_input"
                           id="mx_media_previews_off"
                           type="radio"
                         />
                         <div
-                          class="_ui_1ug7n_19"
+                          class="_ui"
                         />
                       </div>
                     </div>
                     <div
-                      class="_inline-field-body_1o4d9_39"
+                      class="_inline-field-body"
                     >
                       <label
-                        class="_label_1o4d9_60"
+                        class="_label"
                         for="mx_media_previews_off"
                       >
                         Always hide
@@ -1560,29 +1560,29 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                     </div>
                   </div>
                   <div
-                    class="_inline-field_1o4d9_33 mx_MediaPreviewAccountSetting_Radio"
+                    class="_inline-field mx_MediaPreviewAccountSetting_Radio"
                   >
                     <div
-                      class="_inline-field-control_1o4d9_45"
+                      class="_inline-field-control"
                     >
                       <div
-                        class="_container_1ug7n_10"
+                        class="_container"
                       >
                         <input
-                          class="_input_1ug7n_18"
+                          class="_input"
                           id="mx_media_previews_private"
                           type="radio"
                         />
                         <div
-                          class="_ui_1ug7n_19"
+                          class="_ui"
                         />
                       </div>
                     </div>
                     <div
-                      class="_inline-field-body_1o4d9_39"
+                      class="_inline-field-body"
                     >
                       <label
-                        class="_label_1o4d9_60"
+                        class="_label"
                         for="mx_media_previews_private"
                       >
                         In private rooms
@@ -1590,30 +1590,30 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                     </div>
                   </div>
                   <div
-                    class="_inline-field_1o4d9_33 mx_MediaPreviewAccountSetting_Radio"
+                    class="_inline-field mx_MediaPreviewAccountSetting_Radio"
                   >
                     <div
-                      class="_inline-field-control_1o4d9_45"
+                      class="_inline-field-control"
                     >
                       <div
-                        class="_container_1ug7n_10"
+                        class="_container"
                       >
                         <input
                           checked=""
-                          class="_input_1ug7n_18"
+                          class="_input"
                           id="mx_media_previews_on"
                           type="radio"
                         />
                         <div
-                          class="_ui_1ug7n_19"
+                          class="_ui"
                         />
                       </div>
                     </div>
                     <div
-                      class="_inline-field-body_1o4d9_39"
+                      class="_inline-field-body"
                     >
                       <label
-                        class="_label_1o4d9_60"
+                        class="_label"
                         for="mx_media_previews_on"
                       >
                         Always show
@@ -1623,58 +1623,58 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 </div>
               </form>
               <form
-                class="_root_1o4d9_17 mx_MediaPreviewAccountSetting_Form"
+                class="_root mx_MediaPreviewAccountSetting_Form"
               >
                 <div
-                  class="_inline-field_1o4d9_33 mx_MediaPreviewAccountSetting_ToggleSwitch"
+                  class="_inline-field mx_MediaPreviewAccountSetting_ToggleSwitch"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="react-use-id-9"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="react-use-id-9"
                     >
                       Allow users to invite you to rooms
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-10"
                     >
-                      Your server does not implement this feature.
+                      Your account provider does not offer this feature.
                     </span>
                   </div>
                 </div>
               </form>
             </div>
             <div
-              class="_separator_13qwf_8"
+              class="_separator"
               data-kind="primary"
               data-orientation="horizontal"
               role="separator"
             />
           </div>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -1692,31 +1692,31 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_SBSSOZDRlzlA"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_SBSSOZDRlzlA"
                     >
                       Show NSFW content
@@ -1727,7 +1727,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
             </div>
           </form>
           <form
-            class="_root_1o4d9_17"
+            class="_root"
           >
             <div
               class="mx_SettingsSubsection"
@@ -1745,32 +1745,32 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 class="mx_SettingsSubsection_content mx_SettingsSubsection_contentStretch"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         disabled=""
                         id="mx_SettingsFlag_FLEpLCb0jpp6"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="mx_SettingsFlag_FLEpLCb0jpp6"
                     >
                       Prompt before sending invites to potentially invalid matrix IDs

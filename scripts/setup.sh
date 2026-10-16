@@ -217,7 +217,7 @@ fi
 echo "==> Installing dependencies (this can take a while)"
 cd "$ELEMENT_WEB_DIR"
 corepack enable 2>/dev/null || true
-corepack prepare pnpm@11.9.0 --activate
+corepack prepare pnpm@12.11.2 --activate
 pnpm install
 
 echo ""

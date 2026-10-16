@@ -8,7 +8,7 @@ Please see LICENSE files in the repository root for full details.
 
 // @vitest-environment happy-dom
 
-import { vi, describe, it, expect, beforeEach, afterEach, type Mocked } from "vitest";
+import { vi, describe, it, expect, beforeAll, beforeEach, afterEach, type Mocked } from "vitest";
 import React, { type ComponentProps, createRef, type RefObject } from "react";
 import { cleanup, fireEvent, render, type RenderResult, screen, waitFor, within, act } from "test-utils-rtl";
 import {
@@ -62,6 +62,7 @@ import PlatformPeg from "../../PlatformPeg";
 import EventIndexPeg from "../../indexing/EventIndexPeg";
 import MediaDeviceHandler from "../../MediaDeviceHandler";
 import * as Lifecycle from "../../Lifecycle";
+import { LegacyCryptoStoreError } from "../../utils/LegacyCryptoStoreError.ts";
 import { SSO_HOMESERVER_URL_KEY, SSO_ID_SERVER_URL_KEY } from "../../BasePlatform";
 import SettingsStore from "../../settings/SettingsStore";
 import { SettingLevel } from "../../settings/SettingLevel";
@@ -355,6 +356,19 @@ describe("<MatrixChat />", () => {
         expect(container).toMatchSnapshot();
     });
 
+    it("should show the 'This device cannot be used' screen if the device was never migrated off legacy crypto", async () => {
+        // Starting the client is what runs crypto init; make it fail the way MatrixClientPeg does
+        // for a device which still holds an un-migrated legacy crypto store.
+        vi.spyOn(Lifecycle, "loadSession").mockRejectedValue(new LegacyCryptoStoreError());
+        vi.spyOn(logger, "error").mockImplementation(() => {});
+
+        getComponent();
+
+        await waitFor(() => {
+            expect(screen.getByRole("heading", { name: "This device cannot be used" })).toBeInTheDocument();
+        });
+    });
+
     it("should fire to focus the message composer", async () => {
         getComponent();
         defaultDispatcher.dispatch({ action: Action.ViewRoom, room_id: "!room:server.org", focusNext: "composer" });
@@ -396,6 +410,11 @@ describe("<MatrixChat />", () => {
     });
 
     describe("qr login", () => {
+        beforeAll(async () => {
+            // Preload to avoid the first lazy-load hitting a test timeout
+            await import("../../async-components/views/dialogs/QrLoginDialog");
+        });
+
         beforeEach(() => {
             const authConfig = makeDelegatedAuthMetadata();
             defaultProps.config.validated_server_config!.delegatedAuthentication = authConfig;
@@ -657,7 +676,7 @@ describe("<MatrixChat />", () => {
                 );
 
                 await expectOAuthError(
-                    "We asked the browser to remember which homeserver you use to let you sign in, but unfortunately your browser has forgotten it. Go to the sign in page and try again.",
+                    "We asked the browser to remember which account provider you use to let you sign in, but unfortunately your browser has forgotten it. Go to the sign in page and try again.",
                 );
             });
 
@@ -1329,7 +1348,7 @@ describe("<MatrixChat />", () => {
 
                 // And this device is being force-verified (because it logged in after
                 // enforcement was turned on).
-                localStorage.setItem("must_verify_device", "true");
+                localStorage.setItem("force_verification_on_at_login", "true");
 
                 // lostKeys returns false, meaning there are other devices to verify against
                 const realStore = SetupEncryptionStore.sharedInstance();
@@ -1340,7 +1359,7 @@ describe("<MatrixChat />", () => {
                 vi.restoreAllMocks();
                 // Reset things back to how they were before we started
                 defaultProps.config.force_verification = false;
-                localStorage.removeItem("must_verify_device");
+                localStorage.removeItem("force_verification_on_at_login");
             });
 
             it("should show the Complete Security screen if unskippable verification is enabled", async () => {
@@ -1595,6 +1614,8 @@ describe("<MatrixChat />", () => {
                             },
                         });
 
+                        defaultProps.config.force_verification = false;
+
                         vi.spyOn(loginClient.getCrypto()!, "isEncryptionEnabledInRoom").mockImplementation(
                             async (roomId: string) => {
                                 return roomId === encryptedRoom.roomId;
@@ -1691,7 +1712,7 @@ describe("<MatrixChat />", () => {
             // warning dialog
             expect(
                 within(dialog).getByText(
-                    "We asked the browser to remember which homeserver you use to let you sign in, " +
+                    "We asked the browser to remember which account provider you use to let you sign in, " +
                         "but unfortunately your browser has forgotten it. Go to the sign in page and try again.",
                 ),
             ).toBeInTheDocument();
@@ -1726,11 +1747,7 @@ describe("<MatrixChat />", () => {
                 const dialog = await screen.findByRole("dialog");
 
                 // warning dialog
-                expect(
-                    within(dialog).getByText(
-                        "There was a problem communicating with the homeserver, please try again later.",
-                    ),
-                ).toBeInTheDocument();
+                expect(within(dialog).getByText("Something went wrong. Please try again later.")).toBeInTheDocument();
             });
 
             it("should not clear storage", async () => {
@@ -1927,9 +1944,9 @@ describe("<MatrixChat />", () => {
                 mockPlatformPeg();
             });
 
-            function simulateSessionLockClaim() {
+            async function simulateSessionLockClaim() {
                 localStorage.setItem("react_sdk_session_lock_claimant", "testtest");
-                act(() =>
+                await act(() =>
                     window.dispatchEvent(new StorageEvent("storage", { key: "react_sdk_session_lock_claimant" })),
                 );
             }
@@ -1944,7 +1961,7 @@ describe("<MatrixChat />", () => {
                 await rendered.findByText("Welcome Ernie");
 
                 // we're now at the welcome page. Another session wants the lock...
-                simulateSessionLockClaim();
+                await simulateSessionLockClaim();
                 await flushPromises();
                 expect(rendered.container).toMatchSnapshot();
             });
@@ -1962,7 +1979,7 @@ describe("<MatrixChat />", () => {
                 expect(rendered.getByTestId("spinner")).toBeInTheDocument();
 
                 // now a third session starts
-                simulateSessionLockClaim();
+                await simulateSessionLockClaim();
                 await flushPromises();
                 expect(rendered.container).toMatchSnapshot();
             });
@@ -1972,7 +1989,7 @@ describe("<MatrixChat />", () => {
                 expect(rendered.getByTestId("spinner")).toBeInTheDocument();
 
                 // now a third session starts
-                simulateSessionLockClaim();
+                await simulateSessionLockClaim();
                 await flushPromises();
                 expect(rendered.container).toMatchSnapshot();
             });
@@ -1998,7 +2015,7 @@ describe("<MatrixChat />", () => {
                 await initCryptoCalled;
                 console.log("initCrypto called");
 
-                simulateSessionLockClaim();
+                await simulateSessionLockClaim();
                 await flushPromises();
 
                 // now we should see the error page

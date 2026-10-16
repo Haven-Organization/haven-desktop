@@ -6,11 +6,11 @@ exports[`RoomView > for a local room > in state CREATING should match the snapsh
     class="mx_RoomView mx_RoomView--local"
   >
     <header
-      class="_flex_4dswl_9 mx_RoomHeader light-panel"
+      class="_flex mx_RoomHeader light-panel"
       style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
     >
       <span
-        class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+        class="_avatar mx_BaseAvatar _avatar-imageless"
         data-color="3"
         data-testid="avatar-img"
         data-type="round"
@@ -27,12 +27,12 @@ exports[`RoomView > for a local room > in state CREATING should match the snapsh
         type="button"
       >
         <div
-          class="mx_RoomHeader_info _box-flex_1odfs_9"
+          class="mx_RoomHeader_info _box-flex"
           style="--mx-box-flex: 1;"
         >
           <div
             aria-level="1"
-            class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+            class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
             dir="auto"
             role="heading"
           >
@@ -56,7 +56,7 @@ exports[`RoomView > for a local room > in state CREATING should match the snapsh
         >
           <svg
             aria-label="Loading…"
-            class="_icon_1855a_18"
+            class="_icon"
             data-testid="spinner"
             fill="currentColor"
             height="1em"
@@ -90,11 +90,11 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
     class="mx_RoomView mx_RoomView--local"
   >
     <header
-      class="_flex_4dswl_9 mx_RoomHeader light-panel"
+      class="_flex mx_RoomHeader light-panel"
       style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
     >
       <span
-        class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+        class="_avatar mx_BaseAvatar _avatar-imageless"
         data-color="3"
         data-testid="avatar-img"
         data-type="round"
@@ -111,12 +111,12 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
         type="button"
       >
         <div
-          class="mx_RoomHeader_info _box-flex_1odfs_9"
+          class="mx_RoomHeader_info _box-flex"
           style="--mx-box-flex: 1;"
         >
           <div
             aria-level="1"
-            class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+            class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
             dir="auto"
             role="heading"
           >
@@ -137,7 +137,7 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
         class="mx_RoomView_timeline"
       >
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
           tabindex="-1"
         >
           <div
@@ -149,7 +149,7 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
               style="height: 400px;"
             >
               <div
-                class="_container_1mzk4_8 mx_EventTileBubble mx_cryptoEvent _content_ufv8a_8"
+                class="_container mx_EventTileBubble mx_cryptoEvent _content"
               >
                 <svg
                   data-state="unsupported"
@@ -164,12 +164,12 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
                   />
                 </svg>
                 <div
-                  class="_title_1mzk4_34"
+                  class="_title"
                 >
                   Encryption not enabled
                 </div>
                 <div
-                  class="_subtitle_1mzk4_35"
+                  class="_subtitle"
                 >
                   The encryption used by this room isn't supported.
                 </div>
@@ -178,7 +178,7 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
                 class="mx_NewRoomIntro"
               >
                 <div
-                  class="_container_1mzk4_8 mx_EventTileBubble mx_cryptoEvent"
+                  class="_container mx_EventTileBubble mx_cryptoEvent"
                 >
                   <svg
                     color="var(--cpd-color-icon-critical-primary)"
@@ -193,12 +193,12 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
                     />
                   </svg>
                   <div
-                    class="_title_1mzk4_34"
+                    class="_title"
                   >
                     End-to-end encryption isn't enabled
                   </div>
                   <div
-                    class="_subtitle_1mzk4_35"
+                    class="_subtitle"
                   >
                     <span>
                        
@@ -211,7 +211,7 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
                 <button
                   aria-label="Avatar"
                   aria-live="off"
-                  class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+                  class="_avatar mx_BaseAvatar _avatar-imageless"
                   data-color="3"
                   data-testid="avatar-img"
                   data-type="round"
@@ -234,39 +234,39 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
                 </p>
               </li>
               <form
-                class="_root_1o4d9_17"
+                class="_root"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         id="react-use-id-1"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="react-use-id-1"
                     >
                       Enable end-to-end encryption
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-2"
                     >
                       You can't disable this later. Bridges & most bots won't work yet.
@@ -280,12 +280,12 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
       </div>
       <div
         aria-labelledby="react-use-id-3"
-        class="_banner_n7ud0_8"
+        class="_banner"
         data-type="critical"
         role="status"
       >
         <div
-          class="_icon_n7ud0_50"
+          class="_icon"
         >
           <svg
             fill="currentColor"
@@ -301,20 +301,20 @@ exports[`RoomView > for a local room > in state ERROR > should match the snapsho
           </svg>
         </div>
         <div
-          class="_content_n7ud0_38"
+          class="_content"
         >
           <p
-            class="_typography_6v6n8_153 _font-body-md-medium_6v6n8_60 _title_mcq5y_24"
+            class="_typography _font-body-md-medium _title"
             id="react-use-id-3"
           >
             Could not start a chat with this user
           </p>
         </div>
         <div
-          class="_actions_n7ud0_61"
+          class="_actions"
         >
           <button
-            class="_button_1nw83_8 _primaryAction_mcq5y_20 _has-icon_1nw83_60"
+            class="_button _primaryAction _has-icon"
             data-kind="primary"
             data-size="md"
             role="button"
@@ -353,11 +353,11 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
     class="mx_RoomView mx_RoomView--local"
   >
     <header
-      class="_flex_4dswl_9 mx_RoomHeader light-panel"
+      class="_flex mx_RoomHeader light-panel"
       style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
     >
       <span
-        class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+        class="_avatar mx_BaseAvatar _avatar-imageless"
         data-color="3"
         data-testid="avatar-img"
         data-type="round"
@@ -374,12 +374,12 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
         type="button"
       >
         <div
-          class="mx_RoomHeader_info _box-flex_1odfs_9"
+          class="mx_RoomHeader_info _box-flex"
           style="--mx-box-flex: 1;"
         >
           <div
             aria-level="1"
-            class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+            class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
             dir="auto"
             role="heading"
           >
@@ -400,7 +400,7 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
         class="mx_RoomView_timeline"
       >
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
           tabindex="-1"
         >
           <div
@@ -412,7 +412,7 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
               style="height: 400px;"
             >
               <div
-                class="_container_1mzk4_8 mx_EventTileBubble mx_cryptoEvent _content_ufv8a_8"
+                class="_container mx_EventTileBubble mx_cryptoEvent _content"
               >
                 <svg
                   data-state="unsupported"
@@ -427,12 +427,12 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                   />
                 </svg>
                 <div
-                  class="_title_1mzk4_34"
+                  class="_title"
                 >
                   Encryption not enabled
                 </div>
                 <div
-                  class="_subtitle_1mzk4_35"
+                  class="_subtitle"
                 >
                   The encryption used by this room isn't supported.
                 </div>
@@ -441,7 +441,7 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 class="mx_NewRoomIntro"
               >
                 <div
-                  class="_container_1mzk4_8 mx_EventTileBubble mx_cryptoEvent"
+                  class="_container mx_EventTileBubble mx_cryptoEvent"
                 >
                   <svg
                     color="var(--cpd-color-icon-critical-primary)"
@@ -456,12 +456,12 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                     />
                   </svg>
                   <div
-                    class="_title_1mzk4_34"
+                    class="_title"
                   >
                     End-to-end encryption isn't enabled
                   </div>
                   <div
-                    class="_subtitle_1mzk4_35"
+                    class="_subtitle"
                   >
                     <span>
                        
@@ -474,7 +474,7 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 <button
                   aria-label="Avatar"
                   aria-live="off"
-                  class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+                  class="_avatar mx_BaseAvatar _avatar-imageless"
                   data-color="3"
                   data-testid="avatar-img"
                   data-type="round"
@@ -497,39 +497,39 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 </p>
               </li>
               <form
-                class="_root_1o4d9_17"
+                class="_root"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
-                        class="_input_udcm8_24"
+                        class="_input"
                         id="react-use-id-1"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="react-use-id-1"
                     >
                       Enable end-to-end encryption
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-2"
                     >
                       You can't disable this later. Bridges & most bots won't work yet.
@@ -571,11 +571,11 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 />
               </svg>
               <span
-                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
+                class="_tooltip _invisible"
                 style="position: absolute;"
               >
                 <span
-                  class="_clamp_6bwuf_28"
+                  class="_clamp"
                   id="react-use-id-3"
                   style="--cpd-tooltip-max-lines: 2;"
                 >
@@ -757,7 +757,7 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
               <button
                 aria-label="Attachment"
                 aria-labelledby="react-use-id-4"
-                class="_icon-button_1215g_8"
+                class="_icon-button"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 26px;"
@@ -765,7 +765,7 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 type="button"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -782,11 +782,11 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                 </div>
               </button>
               <span
-                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
+                class="_tooltip _invisible"
                 style="position: absolute;"
               >
                 <span
-                  class="_clamp_6bwuf_28"
+                  class="_clamp"
                   id="react-use-id-4"
                   style="--cpd-tooltip-max-lines: 2;"
                 >
@@ -832,11 +832,11 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
     class="mx_RoomView mx_RoomView--local"
   >
     <header
-      class="_flex_4dswl_9 mx_RoomHeader light-panel"
+      class="_flex mx_RoomHeader light-panel"
       style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
     >
       <span
-        class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+        class="_avatar mx_BaseAvatar _avatar-imageless"
         data-color="3"
         data-testid="avatar-img"
         data-type="round"
@@ -853,12 +853,12 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
         type="button"
       >
         <div
-          class="mx_RoomHeader_info _box-flex_1odfs_9"
+          class="mx_RoomHeader_info _box-flex"
           style="--mx-box-flex: 1;"
         >
           <div
             aria-level="1"
-            class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+            class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
             dir="auto"
             role="heading"
           >
@@ -886,11 +886,11 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
               />
             </svg>
             <span
-              class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
+              class="_tooltip _invisible"
               style="position: absolute;"
             >
               <span
-                class="_clamp_6bwuf_28"
+                class="_clamp"
                 id="react-use-id-1"
                 style="--cpd-tooltip-max-lines: 2;"
               >
@@ -909,7 +909,7 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
         class="mx_RoomView_timeline"
       >
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
           tabindex="-1"
         >
           <div
@@ -921,7 +921,7 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
               style="height: 400px;"
             >
               <div
-                class="_container_1mzk4_8 mx_EventTileBubble mx_cryptoEvent _content_ufv8a_8"
+                class="_container mx_EventTileBubble mx_cryptoEvent _content"
               >
                 <svg
                   data-state="supported"
@@ -936,12 +936,12 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
                   />
                 </svg>
                 <div
-                  class="_title_1mzk4_34"
+                  class="_title"
                 >
                   Encryption enabled
                 </div>
                 <div
-                  class="_subtitle_1mzk4_35"
+                  class="_subtitle"
                 >
                   Messages in this chat will be end-to-end encrypted.
                 </div>
@@ -952,7 +952,7 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
                 <button
                   aria-label="Avatar"
                   aria-live="off"
-                  class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+                  class="_avatar mx_BaseAvatar _avatar-imageless"
                   data-color="3"
                   data-testid="avatar-img"
                   data-type="round"
@@ -975,40 +975,40 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
                 </p>
               </li>
               <form
-                class="_root_1o4d9_17"
+                class="_root"
               >
                 <div
-                  class="_inline-field_1o4d9_33"
+                  class="_inline-field"
                 >
                   <div
-                    class="_inline-field-control_1o4d9_45"
+                    class="_inline-field-control"
                   >
                     <div
-                      class="_container_udcm8_10"
+                      class="_container"
                     >
                       <input
                         checked=""
-                        class="_input_udcm8_24"
+                        class="_input"
                         id="react-use-id-2"
                         role="switch"
                         type="checkbox"
                       />
                       <div
-                        class="_ui_udcm8_34"
+                        class="_ui"
                       />
                     </div>
                   </div>
                   <div
-                    class="_inline-field-body_1o4d9_39"
+                    class="_inline-field-body"
                   >
                     <label
-                      class="_label_1o4d9_60"
+                      class="_label"
                       for="react-use-id-2"
                     >
                       Enable end-to-end encryption
                     </label>
                     <span
-                      class="_message_1o4d9_86 _help-message_1o4d9_92"
+                      class="_message _help-message"
                       id="radix-react-use-id-3"
                     >
                       You can't disable this later. Bridges & most bots won't work yet.
@@ -1205,7 +1205,7 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
               <button
                 aria-label="Attachment"
                 aria-labelledby="react-use-id-4"
-                class="_icon-button_1215g_8"
+                class="_icon-button"
                 data-kind="primary"
                 role="button"
                 style="--cpd-icon-button-size: 26px;"
@@ -1213,7 +1213,7 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
                 type="button"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -1230,11 +1230,11 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
                 </div>
               </button>
               <span
-                class="_tooltip_6bwuf_8 _invisible_6bwuf_21"
+                class="_tooltip _invisible"
                 style="position: absolute;"
               >
                 <span
-                  class="_clamp_6bwuf_28"
+                  class="_clamp"
                   id="react-use-id-4"
                   style="--cpd-tooltip-max-lines: 2;"
                 >
@@ -1274,33 +1274,6 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
 </div>
 `;
 
-exports[`RoomView > for a local room > in state NEW > that is encrypted > should match the snapshot 2`] = `
-<div>
-  <div
-    class="mx_RoomView mx_RoomView--local"
-  >
-    <div
-      class="mx_ErrorBoundary"
-    >
-      <div
-        class="mx_ErrorBoundary_body"
-      >
-        <h1>
-          Something went wrong!
-        </h1>
-        <div
-          class="mx_AccessibleButton mx_AccessibleButton_hasKind mx_AccessibleButton_kind_danger"
-          role="button"
-          tabindex="0"
-        >
-          Clear cache and reload
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-`;
-
 exports[`RoomView > invites > renders an invite room 1`] = `
 <DocumentFragment>
   <div
@@ -1318,7 +1291,7 @@ exports[`RoomView > invites > renders an invite room 1`] = `
         </h3>
         <p>
           <span
-            class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+            class="_avatar mx_BaseAvatar _avatar-imageless"
             data-color="2"
             data-testid="avatar-img"
             data-type="round"
@@ -1357,7 +1330,7 @@ exports[`RoomView > invites > renders an invite room 1`] = `
           Decline
         </div>
         <button
-          class="_button_1nw83_8 _destructive_1nw83_110"
+          class="_button _destructive"
           data-kind="tertiary"
           data-size="lg"
           role="button"
@@ -1394,13 +1367,13 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
         data-layout="group"
       >
         <header
-          class="_flex_4dswl_9 mx_RoomHeader light-panel"
+          class="_flex mx_RoomHeader light-panel"
           style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
         >
           <button
             aria-label="Open room settings"
             aria-live="off"
-            class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+            class="_avatar mx_BaseAvatar _avatar-imageless"
             data-color="2"
             data-testid="avatar-img"
             data-type="round"
@@ -1417,12 +1390,12 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
             type="button"
           >
             <div
-              class="mx_RoomHeader_info _box-flex_1odfs_9"
+              class="mx_RoomHeader_info _box-flex"
               style="--mx-box-flex: 1;"
             >
               <div
                 aria-level="1"
-                class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+                class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
                 dir="auto"
                 role="heading"
               >
@@ -1437,14 +1410,14 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
           <button
             aria-disabled="false"
             aria-label="Video call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -1459,19 +1432,31 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-1"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-disabled="false"
             aria-label="Voice call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -1486,19 +1471,31 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-2"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-label="Threads"
             aria-labelledby="react-use-id-3"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -1515,17 +1512,29 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-3"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -1542,8 +1551,20 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-4"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Room info
+            </span>
+          </span>
           <div
-            class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
+            class="_typography _font-body-sm-medium"
           >
             <div
               aria-label="0 members"
@@ -1553,14 +1574,26 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
               tabindex="0"
             >
               <div
-                class="_stacked-avatars_va14e_109"
+                class="_stacked-avatars"
               />
               0
             </div>
+            <span
+              class="_tooltip _invisible"
+              style="position: absolute;"
+            >
+              <span
+                class="_clamp"
+                id="react-use-id-5"
+                style="--cpd-tooltip-max-lines: 2;"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_AuxPanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_AuxPanel"
           role="region"
           tabindex="-1"
         >
@@ -1571,7 +1604,7 @@ exports[`RoomView > should hide the composer when hideComposer=true 1`] = `
           data-testid="timeline"
         >
           <div
-            class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+            class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
             tabindex="-1"
           >
             <div
@@ -1630,7 +1663,7 @@ exports[`RoomView > should hide the header when hideHeader=true 1`] = `
         data-layout="group"
       >
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_AuxPanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_AuxPanel"
           role="region"
           tabindex="-1"
         >
@@ -1641,7 +1674,7 @@ exports[`RoomView > should hide the header when hideHeader=true 1`] = `
           data-testid="timeline"
         >
           <div
-            class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+            class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
             tabindex="-1"
           >
             <div
@@ -1697,6 +1730,18 @@ exports[`RoomView > should hide the header when hideHeader=true 1`] = `
                     d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                   />
                 </svg>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-1"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Messages in this room are not end-to-end encrypted
+                  </span>
+                </span>
               </div>
               <div
                 class="mx_SendMessageComposer"
@@ -1872,14 +1917,15 @@ exports[`RoomView > should hide the header when hideHeader=true 1`] = `
                 <button
                   aria-label="Attachment"
                   aria-labelledby="react-use-id-2"
-                  class="_icon-button_1215g_8"
+                  class="_icon-button"
                   data-kind="primary"
                   role="button"
                   style="--cpd-icon-button-size: 26px;"
                   tabindex="0"
+                  type="button"
                 >
                   <div
-                    class="_indicator-icon_147l5_17"
+                    class="_indicator-icon"
                     style="--cpd-icon-button-size: 100%;"
                   >
                     <svg
@@ -1895,6 +1941,18 @@ exports[`RoomView > should hide the header when hideHeader=true 1`] = `
                     </svg>
                   </div>
                 </button>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-2"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -1949,13 +2007,13 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
         data-layout="group"
       >
         <header
-          class="_flex_4dswl_9 mx_RoomHeader light-panel"
+          class="_flex mx_RoomHeader light-panel"
           style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
         >
           <button
             aria-label="Open room settings"
             aria-live="off"
-            class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+            class="_avatar mx_BaseAvatar _avatar-imageless"
             data-color="2"
             data-testid="avatar-img"
             data-type="round"
@@ -1972,12 +2030,12 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
             type="button"
           >
             <div
-              class="mx_RoomHeader_info _box-flex_1odfs_9"
+              class="mx_RoomHeader_info _box-flex"
               style="--mx-box-flex: 1;"
             >
               <div
                 aria-level="1"
-                class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+                class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
                 dir="auto"
                 role="heading"
               >
@@ -1992,14 +2050,14 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
           <button
             aria-disabled="false"
             aria-label="Video call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2014,19 +2072,31 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-1"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-disabled="false"
             aria-label="Voice call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2041,19 +2111,31 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-2"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-label="Threads"
             aria-labelledby="react-use-id-3"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2070,17 +2152,29 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-3"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2097,8 +2191,20 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-4"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Room info
+            </span>
+          </span>
           <div
-            class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
+            class="_typography _font-body-sm-medium"
           >
             <div
               aria-label="0 members"
@@ -2108,14 +2214,26 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
               tabindex="0"
             >
               <div
-                class="_stacked-avatars_va14e_109"
+                class="_stacked-avatars"
               />
               0
             </div>
+            <span
+              class="_tooltip _invisible"
+              style="position: absolute;"
+            >
+              <span
+                class="_clamp"
+                id="react-use-id-5"
+                style="--cpd-tooltip-max-lines: 2;"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_AuxPanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_AuxPanel"
           role="region"
           tabindex="-1"
         >
@@ -2126,7 +2244,7 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
           data-testid="timeline"
         >
           <div
-            class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+            class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
             tabindex="-1"
           >
             <div
@@ -2182,6 +2300,18 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
                     d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                   />
                 </svg>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-6"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Messages in this room are not end-to-end encrypted
+                  </span>
+                </span>
               </div>
               <div
                 class="mx_SendMessageComposer"
@@ -2357,14 +2487,15 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
                 <button
                   aria-label="Attachment"
                   aria-labelledby="react-use-id-7"
-                  class="_icon-button_1215g_8"
+                  class="_icon-button"
                   data-kind="primary"
                   role="button"
                   style="--cpd-icon-button-size: 26px;"
                   tabindex="0"
+                  type="button"
                 >
                   <div
-                    class="_indicator-icon_147l5_17"
+                    class="_indicator-icon"
                     style="--cpd-icon-button-size: 100%;"
                   >
                     <svg
@@ -2380,6 +2511,18 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
                     </svg>
                   </div>
                 </button>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-7"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -2434,13 +2577,13 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
         data-layout="group"
       >
         <header
-          class="_flex_4dswl_9 mx_RoomHeader light-panel"
+          class="_flex mx_RoomHeader light-panel"
           style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
         >
           <button
             aria-label="Open room settings"
             aria-live="off"
-            class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+            class="_avatar mx_BaseAvatar _avatar-imageless"
             data-color="2"
             data-testid="avatar-img"
             data-type="round"
@@ -2457,12 +2600,12 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
             type="button"
           >
             <div
-              class="mx_RoomHeader_info _box-flex_1odfs_9"
+              class="mx_RoomHeader_info _box-flex"
               style="--mx-box-flex: 1;"
             >
               <div
                 aria-level="1"
-                class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+                class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
                 dir="auto"
                 role="heading"
               >
@@ -2477,14 +2620,14 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
           <button
             aria-disabled="false"
             aria-label="Video call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2499,19 +2642,31 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-1"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-disabled="false"
             aria-label="Voice call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2526,19 +2681,31 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-2"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-label="Threads"
             aria-labelledby="react-use-id-3"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2555,17 +2722,29 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-3"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2582,8 +2761,20 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-4"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Room info
+            </span>
+          </span>
           <div
-            class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
+            class="_typography _font-body-sm-medium"
           >
             <div
               aria-label="0 members"
@@ -2593,14 +2784,26 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
               tabindex="0"
             >
               <div
-                class="_stacked-avatars_va14e_109"
+                class="_stacked-avatars"
               />
               0
             </div>
+            <span
+              class="_tooltip _invisible"
+              style="position: absolute;"
+            >
+              <span
+                class="_clamp"
+                id="react-use-id-5"
+                style="--cpd-tooltip-max-lines: 2;"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_AuxPanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_AuxPanel"
           role="region"
           tabindex="-1"
         >
@@ -2611,7 +2814,7 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
           data-testid="timeline"
         >
           <div
-            class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+            class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
             tabindex="-1"
           >
             <div
@@ -2667,6 +2870,18 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
                     d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                   />
                 </svg>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-6"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Messages in this room are not end-to-end encrypted
+                  </span>
+                </span>
               </div>
               <div
                 class="mx_SendMessageComposer"
@@ -2842,14 +3057,15 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
                 <button
                   aria-label="Attachment"
                   aria-labelledby="react-use-id-7"
-                  class="_icon-button_1215g_8"
+                  class="_icon-button"
                   data-kind="primary"
                   role="button"
                   style="--cpd-icon-button-size: 26px;"
                   tabindex="0"
+                  type="button"
                 >
                   <div
-                    class="_indicator-icon_147l5_17"
+                    class="_indicator-icon"
                     style="--cpd-icon-button-size: 100%;"
                   >
                     <svg
@@ -2865,6 +3081,18 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
                     </svg>
                   </div>
                 </button>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-7"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -2919,13 +3147,13 @@ exports[`RoomView > should not display the timeline when the room encryption is 
         data-layout="group"
       >
         <header
-          class="_flex_4dswl_9 mx_RoomHeader light-panel"
+          class="_flex mx_RoomHeader light-panel"
           style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
         >
           <button
             aria-label="Open room settings"
             aria-live="off"
-            class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+            class="_avatar mx_BaseAvatar _avatar-imageless"
             data-color="1"
             data-testid="avatar-img"
             data-type="round"
@@ -2942,12 +3170,12 @@ exports[`RoomView > should not display the timeline when the room encryption is 
             type="button"
           >
             <div
-              class="mx_RoomHeader_info _box-flex_1odfs_9"
+              class="mx_RoomHeader_info _box-flex"
               style="--mx-box-flex: 1;"
             >
               <div
                 aria-level="1"
-                class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+                class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
                 dir="auto"
                 role="heading"
               >
@@ -2962,14 +3190,14 @@ exports[`RoomView > should not display the timeline when the room encryption is 
           <button
             aria-disabled="false"
             aria-label="Video call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -2984,19 +3212,31 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-1"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-disabled="false"
             aria-label="Voice call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3011,19 +3251,31 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-2"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-label="Threads"
             aria-labelledby="react-use-id-3"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3040,17 +3292,29 @@ exports[`RoomView > should not display the timeline when the room encryption is 
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-3"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-4"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3067,8 +3331,20 @@ exports[`RoomView > should not display the timeline when the room encryption is 
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-4"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Room info
+            </span>
+          </span>
           <div
-            class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
+            class="_typography _font-body-sm-medium"
           >
             <div
               aria-label="0 members"
@@ -3078,14 +3354,26 @@ exports[`RoomView > should not display the timeline when the room encryption is 
               tabindex="0"
             >
               <div
-                class="_stacked-avatars_va14e_109"
+                class="_stacked-avatars"
               />
               0
             </div>
+            <span
+              class="_tooltip _invisible"
+              style="position: absolute;"
+            >
+              <span
+                class="_clamp"
+                id="react-use-id-5"
+                style="--cpd-tooltip-max-lines: 2;"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_AuxPanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_AuxPanel"
           role="region"
           tabindex="-1"
         >
@@ -3140,13 +3428,13 @@ exports[`RoomView > should not display the timeline when the room encryption is 
         data-layout="group"
       >
         <header
-          class="_flex_4dswl_9 mx_RoomHeader light-panel"
+          class="_flex mx_RoomHeader light-panel"
           style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
         >
           <button
             aria-label="Open room settings"
             aria-live="off"
-            class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+            class="_avatar mx_BaseAvatar _avatar-imageless"
             data-color="1"
             data-testid="avatar-img"
             data-type="round"
@@ -3163,12 +3451,12 @@ exports[`RoomView > should not display the timeline when the room encryption is 
             type="button"
           >
             <div
-              class="mx_RoomHeader_info _box-flex_1odfs_9"
+              class="mx_RoomHeader_info _box-flex"
               style="--mx-box-flex: 1;"
             >
               <div
                 aria-level="1"
-                class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+                class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
                 dir="auto"
                 role="heading"
               >
@@ -3195,20 +3483,32 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                     d="M13 8a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l2.83 2.83a1 1 0 0 0 1.414-1.414L13 11.586z"
                   />
                 </svg>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-1"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    New members see history
+                  </span>
+                </span>
               </div>
             </div>
           </button>
           <button
             aria-disabled="false"
             aria-label="Video call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3223,19 +3523,31 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                   d="M6 4h10a2 2 0 0 1 2 2v4.286l3.35-2.871a1 1 0 0 1 1.65.76v7.65a1 1 0 0 1-1.65.76L18 13.715V18a2 2 0 0 1-2 2H6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-2"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Video call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-disabled="false"
             aria-label="Voice call"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3250,19 +3562,31 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                   d="m20.958 16.374.039 3.527q0 .427-.33.756-.33.33-.756.33a16 16 0 0 1-6.57-1.105 16.2 16.2 0 0 1-5.563-3.663 16.1 16.1 0 0 1-3.653-5.573 16.3 16.3 0 0 1-1.115-6.56q0-.427.33-.757T4.095 3l3.528.039a1.07 1.07 0 0 1 1.085.93l.543 3.954q.039.271-.039.504a1.1 1.1 0 0 1-.271.426l-1.64 1.64q.505 1.008 1.154 1.909c.433.6 1.444 1.696 1.444 1.696s1.095 1.01 1.696 1.444q.9.65 1.909 1.153l1.64-1.64q.193-.193.426-.27t.504-.04l3.954.543q.406.059.668.359t.262.727"
                 />
               </svg>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-3"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Voice call
+                </span>
+              </span>
             </div>
           </button>
           <button
             aria-label="Threads"
             aria-labelledby="react-use-id-4"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3279,17 +3603,29 @@ exports[`RoomView > should not display the timeline when the room encryption is 
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-4"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-5"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3306,8 +3642,20 @@ exports[`RoomView > should not display the timeline when the room encryption is 
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-5"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Room info
+            </span>
+          </span>
           <div
-            class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
+            class="_typography _font-body-sm-medium"
           >
             <div
               aria-label="0 members"
@@ -3317,14 +3665,26 @@ exports[`RoomView > should not display the timeline when the room encryption is 
               tabindex="0"
             >
               <div
-                class="_stacked-avatars_va14e_109"
+                class="_stacked-avatars"
               />
               0
             </div>
+            <span
+              class="_tooltip _invisible"
+              style="position: absolute;"
+            >
+              <span
+                class="_clamp"
+                id="react-use-id-6"
+                style="--cpd-tooltip-max-lines: 2;"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
-          class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_AuxPanel"
+          class="_scrollbar mx_AutoHideScrollbar mx_AuxPanel"
           role="region"
           tabindex="-1"
         >
@@ -3335,7 +3695,7 @@ exports[`RoomView > should not display the timeline when the room encryption is 
           data-testid="timeline"
         >
           <div
-            class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+            class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
             tabindex="-1"
           >
             <div
@@ -3400,6 +3760,18 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                       />
                     </svg>
                   </div>
+                </span>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-7"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Everyone in this room is verified
+                  </span>
                 </span>
               </div>
               <div
@@ -3576,14 +3948,15 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                 <button
                   aria-label="Attachment"
                   aria-labelledby="react-use-id-8"
-                  class="_icon-button_1215g_8"
+                  class="_icon-button"
                   data-kind="primary"
                   role="button"
                   style="--cpd-icon-button-size: 26px;"
                   tabindex="0"
+                  type="button"
                 >
                   <div
-                    class="_indicator-icon_147l5_17"
+                    class="_indicator-icon"
                     style="--cpd-icon-button-size: 100%;"
                   >
                     <svg
@@ -3599,6 +3972,18 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                     </svg>
                   </div>
                 </button>
+                <span
+                  class="_tooltip _invisible"
+                  style="position: absolute;"
+                >
+                  <span
+                    class="_clamp"
+                    id="react-use-id-8"
+                    style="--cpd-tooltip-max-lines: 2;"
+                  >
+                    Attachment
+                  </span>
+                </span>
                 <div
                   aria-label="More options"
                   class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"
@@ -3683,13 +4068,13 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
         data-layout="group"
       >
         <header
-          class="_flex_4dswl_9 mx_RoomHeader light-panel"
+          class="_flex mx_RoomHeader light-panel"
           style="--mx-flex-display: flex; --mx-flex-direction: row; --mx-flex-align: center; --mx-flex-justify: start; --mx-flex-gap: var(--cpd-space-3x); --mx-flex-wrap: nowrap;"
         >
           <button
             aria-label="Open room settings"
             aria-live="off"
-            class="_avatar_va14e_8 mx_BaseAvatar _avatar-imageless_va14e_55"
+            class="_avatar mx_BaseAvatar _avatar-imageless"
             data-color="2"
             data-testid="avatar-img"
             data-type="round"
@@ -3706,12 +4091,12 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
             type="button"
           >
             <div
-              class="mx_RoomHeader_info _box-flex_1odfs_9"
+              class="mx_RoomHeader_info _box-flex"
               style="--mx-box-flex: 1;"
             >
               <div
                 aria-level="1"
-                class="_typography_6v6n8_153 _font-body-lg-semibold_6v6n8_74 mx_RoomHeader_heading"
+                class="_typography _font-body-lg-semibold mx_RoomHeader_heading"
                 dir="auto"
                 role="heading"
               >
@@ -3726,14 +4111,14 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
           <button
             aria-label="Chat"
             aria-labelledby="react-use-id-1"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3750,17 +4135,29 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-1"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Chat
+            </span>
+          </span>
           <button
             aria-label="Threads"
             aria-labelledby="react-use-id-2"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3777,17 +4174,29 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-2"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Threads
+            </span>
+          </span>
           <button
             aria-label="Room info"
             aria-labelledby="react-use-id-3"
-            class="_icon-button_1215g_8"
+            class="_icon-button"
             data-kind="primary"
             role="button"
             style="--cpd-icon-button-size: 32px;"
             tabindex="0"
           >
             <div
-              class="_indicator-icon_147l5_17"
+              class="_indicator-icon"
               style="--cpd-icon-button-size: 100%;"
             >
               <svg
@@ -3804,8 +4213,20 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
               </svg>
             </div>
           </button>
+          <span
+            class="_tooltip _invisible"
+            style="position: absolute;"
+          >
+            <span
+              class="_clamp"
+              id="react-use-id-3"
+              style="--cpd-tooltip-max-lines: 2;"
+            >
+              Room info
+            </span>
+          </span>
           <div
-            class="_typography_6v6n8_153 _font-body-sm-medium_6v6n8_41"
+            class="_typography _font-body-sm-medium"
           >
             <div
               aria-label="0 members"
@@ -3815,10 +4236,22 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
               tabindex="0"
             >
               <div
-                class="_stacked-avatars_va14e_109"
+                class="_stacked-avatars"
               />
               0
             </div>
+            <span
+              class="_tooltip _invisible"
+              style="position: absolute;"
+            >
+              <span
+                class="_clamp"
+                id="react-use-id-4"
+                style="--cpd-tooltip-max-lines: 2;"
+              >
+                People
+              </span>
+            </span>
           </div>
         </header>
         <div
@@ -3846,7 +4279,7 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
                    
                   <svg
                     aria-label="Loading…"
-                    class="_icon_1855a_18"
+                    class="_icon"
                     data-testid="spinner"
                     fill="currentColor"
                     height="1em"
@@ -3888,7 +4321,7 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
               >
                 <p
                   aria-level="1"
-                  class="_typography_6v6n8_153 _font-body-md-medium_6v6n8_60 mx_BaseCard_header_title_heading"
+                  class="_typography _font-body-md-medium mx_BaseCard_header_title_heading"
                   role="heading"
                 >
                   Chat
@@ -3896,7 +4329,7 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
               </div>
               <button
                 aria-labelledby="react-use-id-5"
-                class="_icon-button_1215g_8"
+                class="_icon-button"
                 data-kind="secondary"
                 data-testid="base-card-close-button"
                 role="button"
@@ -3904,7 +4337,7 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
                 tabindex="0"
               >
                 <div
-                  class="_indicator-icon_147l5_17"
+                  class="_indicator-icon"
                   style="--cpd-icon-button-size: 100%;"
                 >
                   <svg
@@ -3920,12 +4353,24 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
                   </svg>
                 </div>
               </button>
+              <span
+                class="_tooltip _invisible"
+                style="position: absolute;"
+              >
+                <span
+                  class="_clamp"
+                  id="react-use-id-5"
+                  style="--cpd-tooltip-max-lines: 2;"
+                >
+                  Close
+                </span>
+              </span>
             </div>
             <div
               class="mx_TimelineCard_timeline"
             >
               <div
-                class="_scrollbar_1d5jg_8 mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
+                class="_scrollbar mx_AutoHideScrollbar mx_ScrollPanel mx_RoomView_messagePanel"
                 tabindex="-1"
               >
                 <div
@@ -3968,6 +4413,18 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
                         d="M6 22q-.825 0-1.412-.587A1.93 1.93 0 0 1 4 20V10q0-.825.588-1.412a2 2 0 0 1 .702-.463L1.333 4.167a1 1 0 0 1 1.414-1.414L7 7.006v-.012l13 13v.012l1.247 1.247a1 1 0 1 1-1.414 1.414l-.896-.896A1.94 1.94 0 0 1 18 22zm14-4.834V10q0-.825-.587-1.412A1.93 1.93 0 0 0 18 8h-1V6q0-2.075-1.463-3.537Q14.075 1 12 1T8.463 2.463a4.9 4.9 0 0 0-1.22 1.946L9 6.166V6q0-1.25.875-2.125A2.9 2.9 0 0 1 12 3q1.25 0 2.125.875T15 6v2h-4.166z"
                       />
                     </svg>
+                    <span
+                      class="_tooltip _invisible"
+                      style="position: absolute;"
+                    >
+                      <span
+                        class="_clamp"
+                        id="react-use-id-6"
+                        style="--cpd-tooltip-max-lines: 2;"
+                      >
+                        Messages in this room are not end-to-end encrypted
+                      </span>
+                    </span>
                   </div>
                   <div
                     class="mx_SendMessageComposer"
@@ -4143,14 +4600,15 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
                     <button
                       aria-label="Attachment"
                       aria-labelledby="react-use-id-7"
-                      class="_icon-button_1215g_8"
+                      class="_icon-button"
                       data-kind="primary"
                       role="button"
                       style="--cpd-icon-button-size: 26px;"
                       tabindex="0"
+                      type="button"
                     >
                       <div
-                        class="_indicator-icon_147l5_17"
+                        class="_indicator-icon"
                         style="--cpd-icon-button-size: 100%;"
                       >
                         <svg
@@ -4166,6 +4624,18 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
                         </svg>
                       </div>
                     </button>
+                    <span
+                      class="_tooltip _invisible"
+                      style="position: absolute;"
+                    >
+                      <span
+                        class="_clamp"
+                        id="react-use-id-7"
+                        style="--cpd-tooltip-max-lines: 2;"
+                      >
+                        Attachment
+                      </span>
+                    </span>
                     <div
                       aria-label="More options"
                       class="mx_AccessibleButton mx_MessageComposer_button mx_MessageComposer_buttonMenu"

@@ -40,7 +40,7 @@ exports[`<PinnedMessageBanner /> > should display display a poll event 1`] = `
           />
         </svg>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           <span>
@@ -60,7 +60,7 @@ exports[`<PinnedMessageBanner /> > should display display a poll event 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -70,7 +70,7 @@ exports[`<PinnedMessageBanner /> > should display display a poll event 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -148,11 +148,11 @@ exports[`<PinnedMessageBanner /> > should display the last message when the pinn
             >
               3 of 3
             </span>
-             Pinned messages
+             pinned messages
           </span>
         </div>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           Third pinned message
@@ -163,7 +163,7 @@ exports[`<PinnedMessageBanner /> > should display the last message when the pinn
       class="mx_PinnedMessageBanner_actionsGroup"
     >
       <button
-        class="_button_1nw83_8 mx_PinnedMessageBanner_actions"
+        class="_button mx_PinnedMessageBanner_actions"
         data-kind="tertiary"
         data-size="lg"
         role="button"
@@ -176,7 +176,7 @@ exports[`<PinnedMessageBanner /> > should display the last message when the pinn
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -186,7 +186,7 @@ exports[`<PinnedMessageBanner /> > should display the last message when the pinn
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -247,7 +247,7 @@ exports[`<PinnedMessageBanner /> > should display the m.audio event type 1`] = `
           />
         </svg>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           <span>
@@ -267,7 +267,7 @@ exports[`<PinnedMessageBanner /> > should display the m.audio event type 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -277,7 +277,7 @@ exports[`<PinnedMessageBanner /> > should display the m.audio event type 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -338,7 +338,7 @@ exports[`<PinnedMessageBanner /> > should display the m.file event type 1`] = `
           />
         </svg>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           <span>
@@ -358,7 +358,7 @@ exports[`<PinnedMessageBanner /> > should display the m.file event type 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -368,7 +368,7 @@ exports[`<PinnedMessageBanner /> > should display the m.file event type 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -429,7 +429,7 @@ exports[`<PinnedMessageBanner /> > should display the m.image event type 1`] = `
           />
         </svg>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           <span>
@@ -449,7 +449,7 @@ exports[`<PinnedMessageBanner /> > should display the m.image event type 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -459,7 +459,7 @@ exports[`<PinnedMessageBanner /> > should display the m.image event type 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -520,7 +520,7 @@ exports[`<PinnedMessageBanner /> > should display the m.video event type 1`] = `
           />
         </svg>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           <span>
@@ -540,7 +540,7 @@ exports[`<PinnedMessageBanner /> > should display the m.video event type 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -550,7 +550,7 @@ exports[`<PinnedMessageBanner /> > should display the m.video event type 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -624,11 +624,11 @@ exports[`<PinnedMessageBanner /> > should render 2 pinned event 1`] = `
             >
               2 of 2
             </span>
-             Pinned messages
+             pinned messages
           </span>
         </div>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           Second pinned message
@@ -639,7 +639,7 @@ exports[`<PinnedMessageBanner /> > should render 2 pinned event 1`] = `
       class="mx_PinnedMessageBanner_actionsGroup"
     >
       <button
-        class="_button_1nw83_8 mx_PinnedMessageBanner_actions"
+        class="_button mx_PinnedMessageBanner_actions"
         data-kind="tertiary"
         data-size="lg"
         role="button"
@@ -652,7 +652,7 @@ exports[`<PinnedMessageBanner /> > should render 2 pinned event 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -662,7 +662,7 @@ exports[`<PinnedMessageBanner /> > should render 2 pinned event 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -740,11 +740,11 @@ exports[`<PinnedMessageBanner /> > should render 4 pinned event 1`] = `
             >
               4 of 4
             </span>
-             Pinned messages
+             pinned messages
           </span>
         </div>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           Fourth pinned message
@@ -755,7 +755,7 @@ exports[`<PinnedMessageBanner /> > should render 4 pinned event 1`] = `
       class="mx_PinnedMessageBanner_actionsGroup"
     >
       <button
-        class="_button_1nw83_8 mx_PinnedMessageBanner_actions"
+        class="_button mx_PinnedMessageBanner_actions"
         data-kind="tertiary"
         data-size="lg"
         role="button"
@@ -768,7 +768,7 @@ exports[`<PinnedMessageBanner /> > should render 4 pinned event 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -778,7 +778,7 @@ exports[`<PinnedMessageBanner /> > should render 4 pinned event 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg
@@ -839,7 +839,7 @@ exports[`<PinnedMessageBanner /> > should render a single pinned event 1`] = `
           />
         </svg>
         <span
-          class="mx_EventPreview _eventPreview_w0s50_8 mx_PinnedMessageBanner_message"
+          class="mx_EventPreview _eventPreview mx_PinnedMessageBanner_message"
           data-testid="banner-message"
         >
           First pinned message
@@ -854,7 +854,7 @@ exports[`<PinnedMessageBanner /> > should render a single pinned event 1`] = `
         aria-expanded="false"
         aria-haspopup="menu"
         aria-label="Pinned messages banner options"
-        class="_icon-button_1215g_8"
+        class="_icon-button"
         data-kind="primary"
         data-state="closed"
         id="radix-react-use-id-2"
@@ -864,7 +864,7 @@ exports[`<PinnedMessageBanner /> > should render a single pinned event 1`] = `
         type="button"
       >
         <div
-          class="_indicator-icon_147l5_17"
+          class="_indicator-icon"
           style="--cpd-icon-button-size: 100%;"
         >
           <svg

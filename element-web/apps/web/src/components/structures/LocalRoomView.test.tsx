@@ -105,7 +105,7 @@ describe("<LocalRoomView /> pre-send encryption toggle", () => {
         expect(getToggle().checked).toBe(false);
         expect(
             screen.getByText(
-                "Your server admin has disabled end-to-end encryption by default in private rooms & Direct Messages.",
+                "Your account provider has disabled end-to-end encryption by default in private rooms & Direct Messages.",
             ),
         ).toBeTruthy();
         expect(currentRoom.encrypted).toBe(false);

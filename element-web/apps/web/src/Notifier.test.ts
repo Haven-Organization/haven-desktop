@@ -337,6 +337,112 @@ describe("Notifier", () => {
             // without noisy
             expect(MockPlatform.loudNotification).not.toHaveBeenCalled();
         });
+
+        describe("room invites", () => {
+            // An invite arrives as stripped state rather than as a timeline event, so it reaches the
+            // room's state without ever passing through the live timeline.
+            const inviteRoomWith = (sender: string, membership = KnownMembership.Invite): Room => {
+                const room = new Room("!invite:server.org", mockClient, mockClient.getSafeUserId());
+                room.currentState.setStateEvents([
+                    new MatrixEvent({
+                        sender,
+                        type: EventType.RoomMember,
+                        state_key: userId,
+                        room_id: room.roomId,
+                        content: { membership: KnownMembership.Invite },
+                    }),
+                ]);
+                room.updateMyMembership(membership);
+                return room;
+            };
+
+            // A room invited to for the first time only reaches the store once the whole sync
+            // response has been applied, which is after the membership change is announced.
+            const beInvited = (room: Room, previous?: string): void => {
+                mockClient.getRoom.mockImplementation((id) => (id === room.roomId ? null : testRoom));
+                mockClient!.emit(RoomEvent.MyMembership, room, room.getMyMembership(), previous);
+                mockClient.getRoom.mockImplementation((id) => (id === room.roomId ? room : testRoom));
+            };
+
+            const syncCompletes = (): void => {
+                mockClient!.emit(ClientEvent.Sync, SyncState.Syncing, SyncState.Syncing);
+            };
+
+            beforeEach(() => {
+                // Put the notifier past its startup sync, where invites are deliberately ignored.
+                mockClient!.emit(ClientEvent.Sync, SyncState.Syncing, null);
+            });
+
+            it("notifies when we are invited to a room", () => {
+                const room = inviteRoomWith("@alice:server.org");
+
+                beInvited(room);
+                syncCompletes();
+
+                expect(MockPlatform.displayNotification).toHaveBeenCalled();
+                expect(MockPlatform.loudNotification).toHaveBeenCalled();
+            });
+
+            it("notifies once, however many syncs redeliver the invite", () => {
+                const room = inviteRoomWith("@alice:server.org");
+
+                beInvited(room);
+                syncCompletes();
+                syncCompletes();
+
+                expect(MockPlatform.displayNotification).toHaveBeenCalledTimes(1);
+            });
+
+            it("does not notify for invites which were already pending before syncing started", () => {
+                notifier.stop();
+                notifier.start();
+                const room = inviteRoomWith("@alice:server.org");
+
+                beInvited(room);
+                syncCompletes();
+
+                expect(MockPlatform.displayNotification).not.toHaveBeenCalled();
+            });
+
+            it("does not notify for an invite we accepted elsewhere in the same sync", () => {
+                // A gappy sync can announce the invite and the join we already made from another
+                // device in one response, leaving us joined by the time it has been applied.
+                const room = inviteRoomWith("@alice:server.org", KnownMembership.Join);
+
+                beInvited(room, KnownMembership.Leave);
+                syncCompletes();
+
+                expect(MockPlatform.displayNotification).not.toHaveBeenCalled();
+            });
+
+            it("does not notify when we join a room", () => {
+                const room = inviteRoomWith("@alice:server.org", KnownMembership.Join);
+
+                beInvited(room, KnownMembership.Invite);
+                syncCompletes();
+
+                expect(MockPlatform.displayNotification).not.toHaveBeenCalled();
+            });
+
+            it("does not notify for an invite we sent to ourselves", () => {
+                const room = inviteRoomWith(userId);
+
+                beInvited(room);
+                syncCompletes();
+
+                expect(MockPlatform.displayNotification).not.toHaveBeenCalled();
+            });
+
+            it("does not notify when the invite does not have a notify push action", () => {
+                mockClient.getPushActionsForEvent.mockReturnValue({ notify: false, tweaks: {} });
+                const room = inviteRoomWith("@alice:server.org");
+
+                beInvited(room);
+                syncCompletes();
+
+                expect(MockPlatform.displayNotification).not.toHaveBeenCalled();
+            });
+        });
     });
 
     describe("displayPopupNotification", () => {
@@ -345,8 +451,8 @@ describe("Notifier", () => {
             { event: { is_silenced: false }, count: 1 },
             { event: undefined, count: 1 },
         ];
-        it.each(testCases)("does not dispatch when notifications are silenced", ({ event, count }) => {
-            mockClient.setAccountData(accountDataEventKey, event!);
+        it.each(testCases)("does not dispatch when notifications are silenced", async ({ event, count }) => {
+            await mockClient.setAccountData(accountDataEventKey, event!);
             notifier.displayPopupNotification(testEvent, testRoom);
             expect(MockPlatform.displayNotification).toHaveBeenCalledTimes(count);
         });
@@ -497,13 +603,13 @@ describe("Notifier", () => {
             { event: { is_silenced: false }, count: 1 },
             { event: undefined, count: 1 },
         ];
-        it.each(testCases)("does not dispatch when notifications are silenced", ({ event, count }) => {
+        it.each(testCases)("does not dispatch when notifications are silenced", async ({ event, count }) => {
             // It's not ideal to only look at whether this function has been called
             // but avoids starting to look into DOM stuff
             notifier.getSoundForRoom = vi.fn();
 
-            mockClient.setAccountData(accountDataEventKey, event!);
-            notifier.playAudioNotification(testEvent, testRoom);
+            await mockClient.setAccountData(accountDataEventKey, event!);
+            await notifier.playAudioNotification(testEvent, testRoom);
             expect(notifier.getSoundForRoom).toHaveBeenCalledTimes(count);
         });
     });
@@ -517,14 +623,14 @@ describe("Notifier", () => {
     describe("playAudioNotification throttle (macOS wake-from-sleep stacking)", () => {
         let playSpy: MockInstance;
 
-        beforeEach(() => {
+        beforeEach(async () => {
             vi.useFakeTimers();
             vi.setSystemTime(0);
 
             // Ensure notifications are not silenced so we exercise the throttle,
             // not the silencing gate.
             accountDataStore = {};
-            mockClient.setAccountData(accountDataEventKey, { is_silenced: false });
+            await mockClient.setAccountData(accountDataEventKey, { is_silenced: false });
 
             // Default sound path (no custom room sound).
             vi.spyOn(notifier, "getSoundForRoom").mockReturnValue(null);
@@ -596,7 +702,7 @@ describe("Notifier", () => {
         });
 
         it("does not play, and does not arm the throttle, when notifications are silenced", async () => {
-            mockClient.setAccountData(accountDataEventKey, { is_silenced: true });
+            await mockClient.setAccountData(accountDataEventKey, { is_silenced: true });
 
             await notifier.playAudioNotification(testEvent, testRoom);
             await notifier.playAudioNotification(testEvent, testRoom);
@@ -606,7 +712,7 @@ describe("Notifier", () => {
 
             // ...and the silenced calls did NOT arm the throttle: once un-silenced, the next event plays
             // immediately (a regression arming the throttle on silenced events would suppress this).
-            mockClient.setAccountData(accountDataEventKey, { is_silenced: false });
+            await mockClient.setAccountData(accountDataEventKey, { is_silenced: false });
             await notifier.playAudioNotification(testEvent, testRoom);
             expect(playSpy).toHaveBeenCalledTimes(1);
         });
@@ -705,7 +811,7 @@ describe("Notifier", () => {
             expect(ToastStore.sharedInstance().addOrReplaceToast).toHaveBeenCalledTimes(1);
         });
 
-        it("shows group call toast even if the call membership is not stored locally", () => {
+        it("shows group call toast even if the call membership is not stored locally", async () => {
             vi.spyOn(testRoom, "findEventById").mockReturnValue(undefined);
             vi.spyOn(mockClient, "fetchRoomEvent").mockImplementation(async (roomId, eventId) => {
                 if (eventId === "$memberEventId" && roomId === testRoom.roomId) {
@@ -719,7 +825,7 @@ describe("Notifier", () => {
             });
 
             const notificationEvent = emitCallNotificationEvent();
-            waitFor(() => {
+            await waitFor(() => {
                 expect(ToastStore.sharedInstance().addOrReplaceToast).toHaveBeenCalledWith(
                     expect.objectContaining({
                         key: getIncomingCallToastKey(callId, roomId),
@@ -736,47 +842,41 @@ describe("Notifier", () => {
             { "m.relates_to": undefined },
             { "m.relates_to": { rel_type: "m.reference" } },
             { "m.relates_to": { event_id: "$memberEventId", rel_type: "something.else" } },
-        ])("ignores invalid relations for call notification", (content) => {
+        ])("ignores invalid relations for call notification", async (content) => {
             emitCallNotificationEvent({ content });
-            waitFor(() => {
+            await waitFor(() => {
                 expect(ToastStore.sharedInstance().addOrReplaceToast).not.toHaveBeenCalled();
             });
         });
 
-        it("ignores a call if the membership is missing", () => {
+        it("ignores a call if the membership is missing", async () => {
             vi.spyOn(testRoom, "findEventById").mockReturnValue(undefined);
             vi.spyOn(mockClient, "fetchRoomEvent").mockImplementation(async () => {
                 throw new Error("Test mockClient.fetchRoomEvent expected not to find event");
             });
 
             emitCallNotificationEvent();
-            waitFor(() => {
+            await waitFor(() => {
                 expect(ToastStore.sharedInstance().addOrReplaceToast).not.toHaveBeenCalled();
             });
         });
 
-        it("should not show toast when group call is already connected", () => {
+        it("should not show toast when group call is already connected", async () => {
             const members = [
-                new CallMembership(
+                await CallMembership.parseFromEvent(
                     mkEvent({
                         event: true,
                         room: testRoom.roomId,
                         user: userId,
                         type: EventType.GroupCallMemberPrefix,
-                        content: {},
-                    }),
-                    {
-                        // TODO: Once https://github.com/matrix-org/matrix-js-sdk/pull/5134 is merged this can be MembershipKind.Session
-                        kind: "session" as any,
-                        data: {
+                        content: {
                             call_id: "123",
                             application: "m.call",
                             focus_active: { type: "livekit", focus_selection: "oldest_membership" },
                             foci_preferred: [],
                             device_id: "DEVICE",
                         },
-                    },
-                    "hashed_id_XXXAAAAA",
+                    }),
                 ),
             ];
 

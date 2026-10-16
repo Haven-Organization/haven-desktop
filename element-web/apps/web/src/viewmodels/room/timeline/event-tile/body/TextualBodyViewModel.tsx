@@ -278,6 +278,11 @@ export class TextualBodyViewModel
     }
 
     public onRootClick = (event: MouseEvent<HTMLDivElement>): void => {
+        // The click was already handled by a child component, e.g. a pill
+        if (event.defaultPrevented) {
+            return;
+        }
+
         let target: HTMLLinkElement | null = event.target as HTMLLinkElement;
 
         if (target.nodeName !== "A") {
@@ -296,7 +301,7 @@ export class TextualBodyViewModel
         // Haven: a bare user permalink (an @mention with no room/event of its own - e.g. one
         // embedded raw inside a repost/quote card's own formatted_body, which never went through
         // the normal Linkify pill wiring that would otherwise have caught this click before it got
-        // here - see the LINKIFIED_DATA_ATTRIBUTE check above) used to fall all the way through to
+        // here; upstream's own check only covers linkified user IDs) used to fall all the way through to
         // the generic local-href handling below, which for a bare user permalink resolves to
         // stock Element's own dedicated, separate "User View" page (#/user/<id> - see
         // tryTransformPermalinkToLocalHref's own userId branch). Navigating there abandons whatever
@@ -310,8 +315,9 @@ export class TextualBodyViewModel
         if (permalink?.userId && !permalink.roomIdOrAlias && !permalink.eventId) {
             event.preventDefault();
             const roomId = this.props.mxEvent.getRoomId();
-            const room = roomId ? MatrixClientPeg.safeGet().getRoom(roomId) : null;
-            const member = room?.getMember(permalink.userId) ?? new User(permalink.userId);
+            const room = roomId ? MatrixClientPeg.get()?.getRoom(roomId) : null;
+            const roomMember = room?.getMember(permalink.userId);
+            const member = roomMember?.userId === permalink.userId ? roomMember : new User(permalink.userId);
             dis.dispatch<ViewUserPayload>({
                 action: Action.ViewUser,
                 member,

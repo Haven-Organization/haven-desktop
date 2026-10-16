@@ -168,7 +168,6 @@ export function PostComposerButtons({
                 room={room}
                 roomId={room.roomId}
                 roomLoading={false}
-                peekLoading={false}
                 shouldPeek={false}
                 membersLoaded
                 numUnreadMessages={0}
@@ -203,7 +202,7 @@ export function PostComposerButtons({
                 liveTimeline={undefined}
                 narrow={false}
                 msc3946ProcessDynamicPredecessor={false}
-                canAskToJoin={false}
+                peekAndSummaryLoading={false}
                 promptAskToJoin={false}
                 isRoomEncrypted={null}
                 roomViewStore={undefined as any}

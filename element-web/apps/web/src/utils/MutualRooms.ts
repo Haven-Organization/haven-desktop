@@ -8,8 +8,6 @@ import { KnownMembership } from "matrix-js-sdk/src/types";
 import { type MatrixClient, type Room } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
-const QUERY_MUTUAL_ROOMS_FEATURE = "uk.half-shot.msc2666.query_mutual_rooms";
-
 /** Sorts rooms by name, so the list (and the button's icon, taken from it) stays stable. */
 function sortByName(rooms: Room[]): Room[] {
     return rooms.sort((a, b) => a.name.localeCompare(b.name));
@@ -52,8 +50,8 @@ export function useMutualRooms(client: MatrixClient, userId: string): Room[] | n
 
         const load = async (): Promise<Room[]> => {
             try {
-                if (await client.doesServerSupportUnstableFeature(QUERY_MUTUAL_ROOMS_FEATURE)) {
-                    const roomIds = await client._unstable_getSharedRooms(userId);
+                if (await client.doesServerSupportMutualRooms()) {
+                    const roomIds = await client.getMutualRooms(userId);
                     return sortByName(roomIds.map((id) => client.getRoom(id)).filter(isListable));
                 }
             } catch (e) {

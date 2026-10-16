@@ -28,7 +28,7 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { sanitizeHtml } from "@element-hq/element-web-shared-utils";
+import { copyPlainTextToClipboard, sanitizeHtml } from "@element-hq/element-web-shared-utils";
 import {
     ChatIcon,
     RoomIcon,
@@ -77,7 +77,6 @@ import { makeUserPermalink } from "../../../../utils/permalinks/Permalinks";
 import { buildActivityScores, buildMemberScores, compareMembers } from "../../../../utils/SortMembers";
 // haven apps-framework patch: shared with Social's Search section
 import { findVisibleRoomMembers, findVisibleRooms } from "../../../../utils/findVisibleRooms";
-import { copyPlaintext } from "../../../../utils/strings";
 import BaseAvatar from "../../avatars/BaseAvatar";
 import DecoratedRoomAvatar from "../../avatars/DecoratedRoomAvatar";
 import { SearchResultAvatar } from "../../avatars/SearchResultAvatar";
@@ -500,7 +499,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
         _setQuery(newQuery);
     };
     useEffect(() => {
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
             const node = rovingContext.state.nodes[0];
             if (node) {
                 rovingContext.dispatch({
@@ -512,6 +511,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                 });
             }
         });
+        return () => clearTimeout(timeout);
         // we intentionally ignore changes to the rovingContext for the purpose of this hook
         // we only want to reset the focus whenever the results or filters change
         // oxlint-disable-next-line react-hooks/exhaustive-deps
@@ -980,7 +980,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                         className="mx_SpotlightDialog_inviteLink"
                         onClick={() => {
                             setInviteLinkCopied(true);
-                            void copyPlaintext(ownInviteLink);
+                            void copyPlainTextToClipboard(ownInviteLink);
                         }}
                         onTooltipOpenChange={(open) => {
                             if (!open) setInviteLinkCopied(false);
