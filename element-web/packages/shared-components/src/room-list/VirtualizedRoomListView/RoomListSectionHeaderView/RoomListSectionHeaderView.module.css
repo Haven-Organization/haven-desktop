@@ -23,7 +23,10 @@
        kept while focus is on the menu button so it stays reachable by Tab — without revealing the
        menu on a mouse-focused header the way :focus-within would */
     &.keyboardActive,
-    &:has(button[data-state="open"]) {
+    &:has(button[data-state="open"]),
+    /* Haven: the pinned overlay copy while the pointer is over it - the real row it mirrors gets the
+       actual :hover but is masked out of view (see .scrollClip in GroupedVirtualizedList.module.css) */
+    [data-hovered] .stickyBackground > & {
         color: var(--cpd-color-text-primary);
 
         svg {

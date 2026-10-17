@@ -59,26 +59,17 @@ first-click-does-nothing/second-click-works glitch as focus shifted mid-gesture.
 affects paint, leaving the real row fully clickable (and focusable) in its normal position even while
 visually hidden here.
 
-Disabled while a header has focus-visible, OR while the pointer is over a stuck header (see the
-stickyRoot rule below) - see .stickyRow:has(:focus-visible) further down for that state's own
-fallback.
+Disabled while a header has focus-visible (see the stickyRoot rule below) - see
+.stickyRow:has(:focus-visible) further down for that state's own fallback.
 
-The hover case exists because masking out this element's own paint doesn't just hide scrolled-past
-room rows (the actual goal) - it equally hides EVERY OTHER paint that would happen in this same
-region, including .stickyRow's own :hover-triggered background from
-RoomListSectionHeaderView.module.css. Without this escape hatch, whichever section happens to be
-pinned at the top - which for most users most of the time is simply "Favorites", sitting there at
-rest with nothing even scrolled yet - permanently loses its own hover feedback, not just while
-something's mid-scroll behind it.
-
-Deliberately NOT paired with .stickyRow's own opaque fallback background below (that one only
-triggers for :focus-visible) - a real account confirmed this looks visibly flat/opaque against the
-common case (Favorites, sitting at rest with nothing scrolled behind it at all, hovered). Hovering
-unmasked with NO fallback background just lets .stickyRow paint its normal single blend, matching
-room tiles exactly - correct for the overwhelmingly common "nothing behind it" case. The rare
-opposite (a room row genuinely scrolled to this exact position while it's also being hovered) can
-briefly bleed through - an easy-to-miss moment right under the cursor, and still far preferable to
-either "never highlights" or "looks wrong at rest".
+Hover deliberately does NOT disable it. Masking hides every paint in this strip, the real header
+row's own :hover background included, so hovering the pinned header used to switch the mask off
+too - for a hover on ANY header row in the list, since nothing in CSS knows which one is pinned.
+Hovering a lower header (e.g. People) then let whatever was scrolled under the strip paint over the
+pinned overlay, and with the pinned row and the overlay both painting there, a collapsed section's
+notification badge showed twice. Instead, GroupedVirtualizedList tracks whether the pointer is over
+the strip and sets data-hovered on the overlay, which draws the hover highlight itself (see
+RoomListSectionHeaderView.module.css) - the overlay is the only layer ever visible here.
 
 position/z-index: mask-image (like clip-path before it) makes this element establish its own
 stacking context, which - since it had no z-index of its own - silently dropped it (and everything
@@ -110,7 +101,7 @@ show through, same as before), it doesn't change who's on top, so the real, stil
     );
 }
 
-.stickyRoot:has(:focus-visible, .stickyRow:hover) .scrollClip {
+.stickyRoot:has(:focus-visible) .scrollClip {
     -webkit-mask-image: none;
     mask-image: none;
 }

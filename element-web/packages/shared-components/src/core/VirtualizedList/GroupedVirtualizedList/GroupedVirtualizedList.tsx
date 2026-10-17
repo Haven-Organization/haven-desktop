@@ -321,6 +321,30 @@ export function GroupedVirtualizedList<Header, Item, Context>(
     // driven by Virtuoso's `onScroll` prop — so no effect needs to re-subscribe when it mounts.
     const scrollerElRef = useRef<HTMLElement | null>(null);
     const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+    // Haven: the scroller's own scrollbar width, so the overlay can stop short of it and sit exactly
+    // over the real header row (which the scrollbar narrows) - otherwise its notification badge and
+    // "..." button land a scrollbar's width to the right of the real row's, and the "..." it shows
+    // isn't where the click actually lands (the real row underneath, see .scrollClip's doc).
+    const [scrollbarWidth, setScrollbarWidth] = useState(0);
+    // Haven: whether the pointer is over the pinned strip. The real, masked header row underneath
+    // gets the actual :hover there (it's on top - see .scrollClip's doc), but it isn't painted, so
+    // the overlay - the only thing visible there - shows the hover highlight instead.
+    const [overlayHovered, setOverlayHovered] = useState(false);
+    const measureScrollbar = useCallback((): void => {
+        const scroller = scrollerElRef.current;
+        if (scroller) setScrollbarWidth(scroller.offsetWidth - scroller.clientWidth);
+    }, []);
+    const handleRootPointerMove = useCallback((e: React.PointerEvent): void => {
+        const rect = overlayRef.current?.getBoundingClientRect();
+        setOverlayHovered(
+            !!rect &&
+                e.clientX >= rect.left &&
+                e.clientX < rect.right &&
+                e.clientY >= rect.top &&
+                e.clientY < rect.bottom,
+        );
+    }, []);
+    const handleRootPointerLeave = useCallback((): void => setOverlayHovered(false), []);
 
     // Recompute which section the overlay backstop should mirror. Runs on every scroll frame, but
     // it's cheap — it only reads scrollTop + the cached item offsets and updates a single state value.
@@ -350,8 +374,9 @@ export function GroupedVirtualizedList<Header, Item, Context>(
         (items: ListItem<NavigationEntry<Header, Item>>[]): void => {
             renderedItemsRef.current = items.map((item) => ({ index: item.index, offset: item.offset }));
             updateSticky();
+            measureScrollbar();
         },
-        [updateSticky],
+        [updateSticky, measureScrollbar],
     );
 
     // Compose the hook's scroller ref so we can also capture the element for imperative use
@@ -375,7 +400,8 @@ export function GroupedVirtualizedList<Header, Item, Context>(
     // lands clear of it) whenever it could have changed. setState bails out when unchanged.
     useLayoutEffect(() => {
         if (overlayRef.current) setHeaderHeight(overlayRef.current.offsetHeight);
-    }, [currentGroupIndex, groups]);
+        measureScrollbar();
+    }, [currentGroupIndex, groups, measureScrollbar]);
 
     // Groups can change (sections added/removed/reordered); re-evaluate against the new layout.
     useEffect(() => {
@@ -389,9 +415,19 @@ export function GroupedVirtualizedList<Header, Item, Context>(
             : null;
 
     return (
-        <div className={styles.stickyRoot}>
+        <div
+            className={styles.stickyRoot}
+            onPointerMove={handleRootPointerMove}
+            onPointerLeave={handleRootPointerLeave}
+        >
             {stickyHeader != null && (
-                <div className={styles.stickyHeader} ref={overlayRef} onWheel={handleOverlayWheel}>
+                <div
+                    className={styles.stickyHeader}
+                    ref={overlayRef}
+                    onWheel={handleOverlayWheel}
+                    data-hovered={overlayHovered || undefined}
+                    style={scrollbarWidth > 0 ? { insetInlineEnd: `${scrollbarWidth}px` } : undefined}
+                >
                     {stickyHeader}
                 </div>
             )}
