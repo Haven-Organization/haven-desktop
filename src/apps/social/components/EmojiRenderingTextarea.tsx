@@ -23,6 +23,7 @@ import React, { type JSX, forwardRef, useLayoutEffect, useMemo, useRef } from "r
 import { type Room } from "matrix-js-sdk/src/matrix";
 
 import { buildEmoticonShortcodeMap } from "../../../../element-web/apps/web/src/utils/ImagePacks";
+import { findMentions } from "../utils/mentionPills";
 
 const SHORTCODE_RE = /(:[a-zA-Z0-9_-]+:)/g;
 
@@ -32,6 +33,29 @@ interface Props extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 
      *  in that case, same as before this component existed, rather than requiring every caller to
      *  conditionally render a plain `<textarea>` fallback of their own. */
     room?: Room;
+}
+
+/**
+ * `text` with each "@user:server" and "#alias:server" marked as a mention, which is sent as a pill
+ * (see mentionPills.ts). Only the background changes, never the text or its width, so the overlay
+ * still lines up with the textarea's caret.
+ */
+function withMentionHighlights(text: string): React.ReactNode {
+    const mentions = findMentions(text);
+    if (mentions.length === 0) return text;
+    const nodes: React.ReactNode[] = [];
+    let pos = 0;
+    for (const { start, end } of mentions) {
+        nodes.push(text.slice(pos, start));
+        nodes.push(
+            <span key={start} className="mx_EmojiRenderingTextarea_mention">
+                {text.slice(start, end)}
+            </span>,
+        );
+        pos = end;
+    }
+    nodes.push(text.slice(pos));
+    return nodes;
 }
 
 export const EmojiRenderingTextarea = forwardRef<HTMLTextAreaElement, Props>(function EmojiRenderingTextarea(
@@ -52,7 +76,7 @@ export const EmojiRenderingTextarea = forwardRef<HTMLTextAreaElement, Props>(fun
         return text.split(SHORTCODE_RE).map((part, i) => {
             const m = /^:([a-zA-Z0-9_-]+):$/.exec(part);
             const mxcUrl = m && shortcodeMap.get(m[1]);
-            if (!mxcUrl || !room) return part;
+            if (!mxcUrl || !room) return <React.Fragment key={i}>{withMentionHighlights(part)}</React.Fragment>;
             return (
                 <img
                     key={i}

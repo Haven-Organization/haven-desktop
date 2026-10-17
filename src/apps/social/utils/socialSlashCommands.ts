@@ -22,6 +22,7 @@ import SettingsStore from "../../../../element-web/apps/web/src/settings/Setting
 import { buildEmoticonShortcodeMap } from "../../../../element-web/apps/web/src/utils/ImagePacks";
 import { getBlockquoteStyle } from "../../framework/config";
 import { toGreentextHTML } from "../../framework/greentext";
+import { pillifyMentions } from "./mentionPills";
 
 const SHORTCODE_RE = /(:[a-zA-Z0-9_-]+:)/g;
 
@@ -126,20 +127,25 @@ export function applyMarkdownAndEmote(
     const room = client && roomId ? client.getRoom(roomId) : null;
     const shortcodeMap = room ? buildEmoticonShortcodeMap(room) : new Map<string, string>();
 
-    if (!SettingsStore.getValue("MessageComposerInput.useMarkdown")) {
-        const { html, matched } = substituteCustomEmojiAsPlainHtml(message, shortcodeMap);
-        return matched ? { body: message, formattedBody: html, isEmote } : { body: message, isEmote };
-    }
-    const md = new Markdown(message);
-    if (md.isPlainText()) {
-        const { html, matched } = substituteCustomEmojiAsPlainHtml(message, shortcodeMap);
-        return matched ? { body: message, formattedBody: html, isEmote } : { body: message, isEmote };
+    // "@user:server" and "#alias:server" become pill links (see mentionPills.ts). Needs a client
+    // for display names, so call sites that pass none keep sending mentions as plain text.
+    const withPills = (html: string): { html: string; changed: boolean } =>
+        client ? pillifyMentions(html, client, room) : { html, changed: false };
+
+    const md = SettingsStore.getValue("MessageComposerInput.useMarkdown") ? new Markdown(message) : null;
+    if (!md || md.isPlainText()) {
+        const emoji = substituteCustomEmojiAsPlainHtml(message, shortcodeMap);
+        const pills = withPills(emoji.html);
+        return emoji.matched || pills.changed
+            ? { body: message, formattedBody: pills.html, isEmote }
+            : { body: message, isEmote };
     }
     // "haven.blockquote_style" (default "stock") decides which of the two renderers below actually
     // runs - toGreentextHTML only exists to override block_quote's rendering, so there's nothing to
     // gate inside it; the choice is made once, here, between it and stock's own Markdown.toHTML().
     let formattedBody = getBlockquoteStyle() === "greentext" ? toGreentextHTML(message) : md.toHTML();
     formattedBody = substituteCustomEmojiInHtml(formattedBody, shortcodeMap);
+    formattedBody = withPills(formattedBody).html;
     return { body: message, formattedBody, isEmote };
 }
 

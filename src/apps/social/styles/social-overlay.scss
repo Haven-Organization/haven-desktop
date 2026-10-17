@@ -1444,6 +1444,16 @@
     vertical-align: bottom;
 }
 
+/* A mention that will be sent as a pill, in the stock pill's colors ($pill-bg-color). box-shadow
+ * pads it visually without changing the text's width, which would knock the overlay out of line
+ * with the textarea's caret. */
+.mx_EmojiRenderingTextarea_mention {
+    color: var(--cpd-color-text-on-solid-primary);
+    background-color: var(--cpd-color-bg-action-primary-rest);
+    box-shadow: 0 0 0 2px var(--cpd-color-bg-action-primary-rest);
+    border-radius: 4px;
+}
+
 .social_ComposeBox_input {
     display: block;
     width: 100%;

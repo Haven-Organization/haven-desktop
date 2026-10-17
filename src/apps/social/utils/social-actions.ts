@@ -28,6 +28,7 @@ import {
 import { markPendingLeave } from "./pendingRoomLeave";
 import { resolveThreadRootId } from "./thread-relations";
 import { applyMarkdownAndEmote } from "./socialSlashCommands";
+import { attachMentions } from "./mentionPills";
 
 /** Dispatched whenever the user's MSC4501 profile_room_id link is set or cleared, so any mounted
  *  component with its own cached copy (e.g. useProfileRoomLink) knows to re-fetch it — needed
@@ -424,6 +425,7 @@ export async function sendPost(
         : formattedBody
           ? { body, msgtype, format: "org.matrix.custom.html", formatted_body: formattedBody }
           : { body, msgtype, format: "plain" };
+    attachMentions(content, client.getUserId());
     await client.sendEvent(roomId, currentPostEventType() as any, content);
 }
 
@@ -473,6 +475,8 @@ export async function sendComment(
         : formattedBody
           ? { body, msgtype, format: "org.matrix.custom.html", formatted_body: formattedBody }
           : { body, msgtype };
+    // Only here, not on the profile cross-post below, so a mentioned user is notified once.
+    attachMentions(content, client.getUserId());
     content["m.relates_to"] = {
         rel_type: "m.thread",
         event_id: rootEventId,
