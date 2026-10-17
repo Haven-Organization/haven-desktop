@@ -45,6 +45,15 @@ describe("withoutWrapperOnlyFields", () => {
         expect(withoutWrapperOnlyFields(content)).toEqual({ body: "hi" });
     });
 
+    it("drops the wrapper sender's per-message profile", () => {
+        const content = {
+            "body": "hi",
+            "com.beeper.per_message_profile": { id: "@reposter:example.org", displayname: "reposter" },
+            [MSC4501_RELATES_TO_KEY]: { rel_type: MSC4501_REL_TYPE_REPOST },
+        };
+        expect(withoutWrapperOnlyFields(content)).toEqual({ body: "hi" });
+    });
+
     it("returns the same object when there's nothing to strip, and passes undefined through", () => {
         const content = { body: "hi" };
         expect(withoutWrapperOnlyFields(content)).toBe(content);

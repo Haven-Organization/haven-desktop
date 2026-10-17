@@ -117,3 +117,46 @@ describe("repostContentMatches", () => {
         });
     });
 });
+
+describe("a bridge snapshot whose social.formatted_body is just its plain body", () => {
+    // Taken from a real bridge-relayed repost and the shitposter.world post it reposted: the
+    // snapshot's social.formatted_body has no tags and lost the original's paragraph break.
+    const TEXT = "About time we threw out this outdated shitNow to see if the Federal government will freak out";
+    const IMAGE = {
+        msgtype: "m.image",
+        url: "mxc://glowers.club/hAgumnXRgTMQsbZPcSjwFVJp",
+        filename: "cc7419a4c31387bb2b4191142b1f433368b440811f7320f9e9ad4fa2aecab0ab.webp?name=2Zxf7bx6H2mTCQ.webp",
+    };
+    const original = {
+        ...IMAGE,
+        body: TEXT,
+        format: "org.matrix.custom.html",
+        formatted_body:
+            "About time we threw out this outdated shit<br><br>Now to see if the Federal government will freak out",
+        info: { h: 474, mimetype: "image/webp", w: 680 },
+    };
+    function snapshot(socialBody: string, socialFormattedBody: string): Record<string, unknown> {
+        return {
+            ...IMAGE,
+            body: "https://matrix.to/#/!xVx-FcCcKrDAO7WPax6sAVXqsvMz6opWBrhHTaO-us8/$dYVpYHJmtfqbhPy6cPNd8O883RfBPm5WW_31TtpaoB4?via=glowers.club",
+            format: "org.matrix.custom.html",
+            formatted_body: "<p>🔁 q reposted cool_boy_mew's post</p><blockquote>" + TEXT + "</blockquote>",
+            info: { h: 67, mimetype: "image/webp", w: 96 },
+            "org.matrix.msc4501.social.body": socialBody,
+            "org.matrix.msc4501.social.formatted_body": socialFormattedBody,
+        };
+    }
+
+    it("accepts the genuine repost", () => {
+        expect(repostContentMatches(snapshot(TEXT, TEXT), original, true)).toBe(true);
+    });
+
+    it("still flags a snapshot whose text differs", () => {
+        const forged = TEXT.replace("Federal", "Provincial");
+        expect(repostContentMatches(snapshot(forged, forged), original, true)).toBe(false);
+    });
+
+    it("still flags a tagless formatted_body that says something other than its own body", () => {
+        expect(repostContentMatches(snapshot(TEXT, "Something else entirely"), original, true)).toBe(false);
+    });
+});

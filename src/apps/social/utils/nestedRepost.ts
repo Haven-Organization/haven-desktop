@@ -12,6 +12,7 @@
  * the whole tile); SocialEventTile only renders the result.
  */
 
+import { PER_MESSAGE_PROFILE_KEY } from "../../../../element-web/apps/web/src/utils/PerMessageProfile";
 import { hasPostBodyOverride } from "./postBody";
 import { MSC4501_RELATES_TO_KEY, MSC4501_REL_TYPE_REPOST } from "./room-classifier";
 
@@ -40,13 +41,17 @@ export interface NestedRepost {
 
 /**
  * content_inline reuses a whole event's own `content` as the embedded snapshot - but that object
- * also carries a field describing the *wrapper* event itself, not the post being embedded: its own
- * relates_to. Left in, it makes the snapshot look like it's itself a repost of whatever it points at.
+ * also carries fields describing the *wrapper* event itself, not the post being embedded:
+ * - its own relates_to. Left in, it makes the snapshot look like it's itself a repost of whatever
+ *   it points at.
+ * - its MSC4144 per-message profile, which names whoever sent the wrapper. Left in, the embedded
+ *   card shows the reposter's name and avatar in place of the original author's. Confirmed live: a
+ *   bridge relaying a user's repost with their per-message profile showed that user on the card.
  * Stripped once, here, rather than at every consumer.
  */
 export function withoutWrapperOnlyFields<T extends Content | undefined>(c: T): T {
-    if (!c || !(MSC4501_RELATES_TO_KEY in c)) return c;
-    const { [MSC4501_RELATES_TO_KEY]: _relatesTo, ...rest } = c;
+    if (!c || !(MSC4501_RELATES_TO_KEY in c || PER_MESSAGE_PROFILE_KEY in c)) return c;
+    const { [MSC4501_RELATES_TO_KEY]: _relatesTo, [PER_MESSAGE_PROFILE_KEY]: _profile, ...rest } = c;
     return rest as T;
 }
 

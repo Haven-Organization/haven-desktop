@@ -1067,8 +1067,8 @@ function formattedBodiesMatch(
     a: { body?: string; formatted_body?: string } | undefined,
     b: { body?: string; formatted_body?: string } | undefined,
 ): boolean {
-    const aFb = a?.formatted_body;
-    const bFb = b?.formatted_body;
+    const aFb = realMarkup(a);
+    const bFb = realMarkup(b);
     if (aFb && bFb) {
         // Both sides have real HTML - require exact structural equality rather than reducing to
         // rendered text, so a forged repost can't smuggle in a different link/mention/style
@@ -1091,9 +1091,30 @@ function formattedBodiesMatch(
     // social.body joins the same paragraphs with a single line break. So every run of whitespace
     // counts as one space on both sides (see collapseWhitespace), with a break put where each HTML
     // block ends so two paragraphs don't run together into one word.
+    //
+    // A side with no HTML is plain text through and through, so it also matches when it's the other
+    // side's own plain body word for word: nothing can hide behind plain text, and the real event's
+    // body is as much its own as its formatted_body. A bridge snapshot built from the original's
+    // plain body can lose the original's line breaks without losing anything else - confirmed live:
+    // a snapshot reading "shitNow" against an original with "shit<br><br>Now" in formatted_body and
+    // "shitNow" in body was flagged as a possible forgery.
     const aText = collapseWhitespace(aFb ? htmlVisibleText(aFb) : (a?.body ?? ""));
     const bText = collapseWhitespace(bFb ? htmlVisibleText(bFb) : (b?.body ?? ""));
-    return aText === bText;
+    if (aText === bText) return true;
+    const aBody = collapseWhitespace(a?.body ?? "");
+    const bBody = collapseWhitespace(b?.body ?? "");
+    return (!aFb && aText === bBody) || (!bFb && bText === aBody);
+}
+
+/** A content's formatted_body, unless it's really plain text: no tags at all, and the same text as
+ *  its own body. Some bridges fill an MSC4501 social.formatted_body with nothing but the plain body,
+ *  which carries no structure for formattedBodiesMatch's exact HTML comparison to check. */
+function realMarkup(c: { body?: string; formatted_body?: string } | undefined): string | undefined {
+    const fb = c?.formatted_body;
+    if (!fb) return undefined;
+    const tagless = !/<[a-z!/]/i.test(fb);
+    if (tagless && collapseWhitespace(htmlVisibleText(fb)) === collapseWhitespace(c?.body ?? "")) return undefined;
+    return fb;
 }
 
 /** Every run of whitespace as a single space. How a post's paragraphs are separated differs between
