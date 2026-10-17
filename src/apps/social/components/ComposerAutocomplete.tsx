@@ -1,13 +1,13 @@
 /*
- * Social Overlay — EmojiAutocomplete
+ * Social Overlay — ComposerAutocomplete
  *
- * The same ":shortcode" completion menu (matching, ranking, and - via this fork's own
- * EmojiProvider - both real unicode emoji and MSC2545 custom pack emoji) the stock room composer
- * shows, wired directly to a plain textarea the same way SlashCommandAutocomplete.tsx already does
- * for "/" commands - see that file's own doc for why driving a provider directly off plain
- * value/selectionStart/selectionEnd is both feasible and already-established practice here, rather
- * than the full multi-provider Autocompleter or the rich EditorModel machinery real Element's own
- * BasicMessageComposer.tsx uses.
+ * The same completion menus the stock room composer shows for "@user", "#room-alias" and
+ * ":shortcode" (the last via this fork's own EmojiProvider - both real unicode emoji and MSC2545
+ * custom pack emoji), wired directly to a plain textarea the same way SlashCommandAutocomplete.tsx
+ * already does for "/" commands - see that file's own doc for why driving the providers directly
+ * off plain value/selectionStart/selectionEnd is both feasible and already-established practice
+ * here, rather than the full multi-provider Autocompleter or the rich EditorModel machinery real
+ * Element's own BasicMessageComposer.tsx uses.
  *
  * One real difference from SlashCommandAutocomplete: CommandProvider's own regex is anchored to
  * the *start* of the string (a command can only ever be the first word), so passing the whole
@@ -17,7 +17,10 @@
  * more than the current Part's own text. Handed the *whole* body instead, that anchor would only
  * ever match a shortcode sitting at the very end of the message - never one being typed in the
  * middle of a longer post. Slicing to `query.slice(0, selectionEnd)` before handing it to the
- * provider makes the caret position play the same role "end of string" does in the rich composer.
+ * providers makes the caret position play the same role "end of string" does in the rich composer.
+ *
+ * There's no pill model in a plain textarea, so a chosen user is inserted as their Matrix ID and a
+ * chosen room as its alias (see toPlainText). Both are linkified when the post is shown.
  *
  * Rendered via FloatingPortal (see this file's own anchor/floating split below) rather than as a
  * plain absolutely-positioned sibling of the textarea - this composer can be used inside a modal
@@ -32,8 +35,11 @@ import React, { type JSX, useEffect, useMemo, useState } from "react";
 import { type Room } from "matrix-js-sdk/src/matrix";
 import { FloatingPortal, autoUpdate, flip, offset, shift, size, useFloating } from "@floating-ui/react";
 
+import type AutocompleteProvider from "../../../../element-web/apps/web/src/autocomplete/AutocompleteProvider";
 import EmojiProvider from "../../../../element-web/apps/web/src/autocomplete/EmojiProvider";
+import RoomProvider from "../../../../element-web/apps/web/src/autocomplete/RoomProvider";
 import { type ICompletion } from "../../../../element-web/apps/web/src/autocomplete/Autocompleter";
+import { SocialUserProvider } from "./SocialUserProvider";
 
 const MAX_MATCHES = 20;
 
@@ -51,7 +57,7 @@ const DROPDOWN_Z_INDEX = 5000;
 const ANCHOR_STYLE: React.CSSProperties = { position: "absolute", top: "100%", left: 0, right: 0, height: 0 };
 
 /** Same shape as SlashCommandAutocompleteHandle - see that file's own doc. */
-export interface EmojiAutocompleteHandle {
+export interface ComposerAutocompleteHandle {
     hasCompletions: () => boolean;
     moveSelection: (delta: number) => void;
     confirmSelection: () => ICompletion | undefined;
@@ -60,17 +66,36 @@ export interface EmojiAutocompleteHandle {
 
 interface Props {
     room: Room;
-    /** The composer's whole current text, not just the part after the last `:` - sliced to the
-     *  caret internally (see this file's own doc for why). */
+    /** The composer's whole current text, not just the part after the trigger character - sliced
+     *  to the caret internally (see this file's own doc for why). */
     query: string;
     selectionStart: number;
     selectionEnd: number;
+    /** Called with `completion.completion` already set to the exact text to splice over `range`. */
     onConfirm: (completion: ICompletion) => void;
     onCompletionsChange: (hasCompletions: boolean) => void;
-    controlRef: React.RefObject<EmojiAutocompleteHandle | null>;
+    controlRef: React.RefObject<ComposerAutocompleteHandle | null>;
 }
 
-export function EmojiAutocomplete({
+interface Section {
+    provider: AutocompleteProvider;
+    completions: ICompletion[];
+}
+
+/**
+ * The text a completion should put in the textarea. Users and rooms get a trailing space (unless
+ * one already follows) so typing can carry on, as the stock composer does after a pill. Emoji keep
+ * their bare completion, as before.
+ */
+export function toPlainText(completion: ICompletion, query: string): ICompletion {
+    if (completion.type !== "user" && completion.type !== "room") return completion;
+    const text =
+        completion.type === "user" ? (completion.completionId ?? completion.completion) : completion.completion;
+    const spaceFollows = /\s/.test(query[completion.range.end] ?? "");
+    return { ...completion, completion: spaceFollows ? text : `${text} ` };
+}
+
+export function ComposerAutocomplete({
     room,
     query,
     selectionStart,
@@ -79,9 +104,16 @@ export function EmojiAutocomplete({
     onCompletionsChange,
     controlRef,
 }: Props): JSX.Element {
-    const provider = useMemo(() => new EmojiProvider(room), [room]);
-    const [completions, setCompletions] = useState<ICompletion[]>([]);
+    // Same order as the stock composer's menu: people, then rooms, then emoji.
+    const providers = useMemo<AutocompleteProvider[]>(
+        () => [new SocialUserProvider(room), new RoomProvider(room), new EmojiProvider(room)],
+        [room],
+    );
+    // SocialUserProvider listens to the client for as long as it exists.
+    useEffect(() => () => providers.forEach((p) => p.destroy()), [providers]);
+    const [sections, setSections] = useState<Section[]>([]);
     const [selectionOffset, setSelectionOffset] = useState(0);
+    const completions = useMemo(() => sections.flatMap((s) => s.completions), [sections]);
 
     const { refs, floatingStyles } = useFloating({
         placement: "bottom-start",
@@ -124,34 +156,53 @@ export function EmojiAutocomplete({
 
     useEffect(() => {
         let cancelled = false;
-        void provider
-            .getCompletions(queryToCaret, { start: selectionStart, end: selectionEnd }, false, MAX_MATCHES)
-            .then((results) => {
-                if (cancelled) return;
-                // EmojiProvider's own commandRegex is `(?:^|\s):[+-\w]*:?)$` - the leading `\s`
-                // alternative is part of the matched range, not just a lookbehind, so a completion
-                // triggered mid-message (as opposed to at the very start) has a range that starts
-                // on the whitespace character right before the ":". The rich composer never notices
-                // this - AutocompleteWrapperModel confirms against the current Part's own text,
-                // which never includes a preceding space, a separate Part of its own. Splicing this
-                // range as-is into a plain string would eat that space along with the ":shortcode:"
-                // text it's replacing - bump range.start past it so it's preserved instead.
-                const adjusted = results.map((c) =>
-                    /\s/.test(queryToCaret[c.range.start] ?? "") ? { ...c, range: { ...c.range, start: c.range.start + 1 } } : c,
-                );
-                setCompletions(adjusted);
-                setSelectionOffset(0);
-                onCompletionsChange(adjusted.length > 0);
-            });
+        const selection = { start: selectionStart, end: selectionEnd };
+        void Promise.all(
+            providers.map((provider) =>
+                provider
+                    .getCompletions(queryToCaret, selection, false, MAX_MATCHES)
+                    .catch((): ICompletion[] => []),
+            ),
+        ).then((results) => {
+            if (cancelled) return;
+            // EmojiProvider's own commandRegex is `(?:^|\s):[+-\w]*:?)$` - the leading `\s`
+            // alternative is part of the matched range, not just a lookbehind, so a completion
+            // triggered mid-message (as opposed to at the very start) has a range that starts
+            // on the whitespace character right before the ":". The rich composer never notices
+            // this - AutocompleteWrapperModel confirms against the current Part's own text,
+            // which never includes a preceding space, a separate Part of its own. Splicing this
+            // range as-is into a plain string would eat that space along with the ":shortcode:"
+            // text it's replacing - bump range.start past it so it's preserved instead.
+            const next = results
+                .map((list, i) => ({
+                    provider: providers[i],
+                    completions: list.map((c) =>
+                        /\s/.test(queryToCaret[c.range.start] ?? "")
+                            ? { ...c, range: { ...c.range, start: c.range.start + 1 } }
+                            : c,
+                    ),
+                }))
+                .filter((s) => s.completions.length > 0);
+            setSections(next);
+            setSelectionOffset(0);
+            onCompletionsChange(next.length > 0);
+        });
         return () => {
             cancelled = true;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider, queryToCaret, selectionStart, selectionEnd]);
+    }, [providers, queryToCaret, selectionStart, selectionEnd]);
 
     const clear = (): void => {
-        setCompletions([]);
+        setSections([]);
         onCompletionsChange(false);
+    };
+
+    const confirm = (completion: ICompletion): ICompletion => {
+        const plain = toPlainText(completion, query);
+        onConfirm(plain);
+        clear();
+        return plain;
     };
 
     controlRef.current = {
@@ -160,16 +211,11 @@ export function EmojiAutocomplete({
             if (completions.length === 0) return;
             setSelectionOffset((i) => (i + delta + completions.length) % completions.length);
         },
-        confirmSelection: () => {
-            if (completions.length === 0) return undefined;
-            const completion = completions[selectionOffset];
-            onConfirm(completion);
-            clear();
-            return completion;
-        },
+        confirmSelection: () => (completions.length === 0 ? undefined : confirm(completions[selectionOffset])),
         close: clear,
     };
 
+    let index = 0;
     return (
         <>
             <div ref={refs.setReference} style={ANCHOR_STYLE} />
@@ -191,22 +237,27 @@ export function EmojiAutocomplete({
                         className="mx_Autocomplete"
                         role="listbox"
                     >
-                        <div className="mx_Autocomplete_ProviderSection" role="presentation">
-                            <div className="mx_Autocomplete_provider_name">{provider.getName()}</div>
-                            {provider.renderCompletions(
-                                completions.map((completion, i) =>
-                                    React.cloneElement(completion.component, {
-                                        key: i,
-                                        className: `mx_Autocomplete_Completion${i === selectionOffset ? " selected" : ""}`,
-                                        onClick: () => {
-                                            onConfirm(completion);
-                                            clear();
-                                        },
-                                        "aria-selected": i === selectionOffset,
+                        {sections.map(({ provider, completions: sectionCompletions }) => (
+                            <div
+                                key={provider.getName()}
+                                className="mx_Autocomplete_ProviderSection"
+                                role="presentation"
+                            >
+                                <div className="mx_Autocomplete_provider_name">{provider.getName()}</div>
+                                {provider.renderCompletions(
+                                    sectionCompletions.map((completion) => {
+                                        const i = index++;
+                                        const selected = i === selectionOffset;
+                                        return React.cloneElement(completion.component, {
+                                            key: i,
+                                            className: `mx_Autocomplete_Completion${selected ? " selected" : ""}`,
+                                            onClick: () => confirm(completion),
+                                            "aria-selected": selected,
+                                        });
                                     }),
-                                ),
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 </FloatingPortal>
             )}

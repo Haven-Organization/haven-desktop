@@ -63,7 +63,7 @@ import {
     SlashCommandAutocomplete,
     type SlashCommandAutocompleteHandle,
 } from "../components/SlashCommandAutocomplete";
-import { EmojiAutocomplete, type EmojiAutocompleteHandle } from "../components/EmojiAutocomplete";
+import { ComposerAutocomplete, type ComposerAutocompleteHandle } from "../components/ComposerAutocomplete";
 import { EmojiRenderingTextarea } from "../components/EmojiRenderingTextarea";
 import { SocialPostView } from "./SocialPostView";
 import {
@@ -390,11 +390,11 @@ export function SocialRoomView({
     // immediately after setPostBody wouldn't yet see the new value in the DOM.
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const autocompleteControlRef = useRef<SlashCommandAutocompleteHandle | null>(null);
-    // Same idea, for ":" emoji completions (see EmojiAutocomplete.tsx) - a separate control ref
-    // since at most one of the two ever has completions for a given cursor position (a slash
-    // command can only ever be the message's first word), but the textarea's own onKeyDown still
-    // needs to know which one, if either, to route arrow/Enter/Escape to.
-    const emojiAutocompleteControlRef = useRef<EmojiAutocompleteHandle | null>(null);
+    // Same idea, for "@" user, "#" room and ":" emoji completions (see ComposerAutocomplete.tsx) -
+    // a separate control ref since at most one of the two ever has completions for a given cursor
+    // position (a slash command can only ever be the message's first word), but the textarea's own
+    // onKeyDown still needs to know which one, if either, to route arrow/Enter/Escape to.
+    const composerAutocompleteControlRef = useRef<ComposerAutocompleteHandle | null>(null);
     const [selection, setSelection] = useState({ start: 0, end: 0 });
     const pendingCursorPos = useRef<number | null>(null);
     useEffect(() => {
@@ -1080,14 +1080,14 @@ export function SocialRoomView({
                             onCompletionsChange={() => {}}
                             controlRef={autocompleteControlRef}
                         />
-                        <EmojiAutocomplete
+                        <ComposerAutocomplete
                             room={room}
                             query={postBody}
                             selectionStart={selection.start}
                             selectionEnd={selection.end}
                             onConfirm={handleConfirmCompletion}
                             onCompletionsChange={() => {}}
-                            controlRef={emojiAutocompleteControlRef}
+                            controlRef={composerAutocompleteControlRef}
                         />
                         <EmojiRenderingTextarea
                             room={room}
@@ -1105,11 +1105,11 @@ export function SocialRoomView({
                             onPaste={handleComposerPaste}
                             onKeyDown={(e) => {
                                 // At most one of these ever has completions for a given cursor
-                                // position - see emojiAutocompleteControlRef's own doc.
+                                // position - see composerAutocompleteControlRef's own doc.
                                 const activeAutocomplete = autocompleteControlRef.current?.hasCompletions()
                                     ? autocompleteControlRef.current
-                                    : emojiAutocompleteControlRef.current?.hasCompletions()
-                                      ? emojiAutocompleteControlRef.current
+                                    : composerAutocompleteControlRef.current?.hasCompletions()
+                                      ? composerAutocompleteControlRef.current
                                       : null;
                                 if (activeAutocomplete) {
                                     if (e.key === "ArrowUp") {

@@ -76,7 +76,7 @@ import {
     SlashCommandAutocomplete,
     type SlashCommandAutocompleteHandle,
 } from "../components/SlashCommandAutocomplete";
-import { EmojiAutocomplete, type EmojiAutocompleteHandle } from "../components/EmojiAutocomplete";
+import { ComposerAutocomplete, type ComposerAutocompleteHandle } from "../components/ComposerAutocomplete";
 import { EmojiRenderingTextarea } from "../components/EmojiRenderingTextarea";
 import { FeedFilterDialog } from "../components/FeedFilterDialog";
 import { useWindowFileDrop } from "../utils/useWindowFileDrop";
@@ -1713,11 +1713,11 @@ function FeedPane({
     // SocialRoomView.tsx, which has the full explanation of this state).
     const feedTextareaRef = useRef<HTMLTextAreaElement>(null);
     const feedAutocompleteControlRef = useRef<SlashCommandAutocompleteHandle | null>(null);
-    // Same idea, for ":" emoji completions (see EmojiAutocomplete.tsx and SocialRoomView.tsx's
-    // identical use) - a separate control ref since at most one of the two ever has completions
-    // for a given cursor position, but the textarea's own onKeyDown still needs to know which one,
-    // if either, to route arrow/Enter/Escape to.
-    const feedEmojiAutocompleteControlRef = useRef<EmojiAutocompleteHandle | null>(null);
+    // Same idea, for "@" user, "#" room and ":" emoji completions (see ComposerAutocomplete.tsx
+    // and SocialRoomView.tsx's identical use) - a separate control ref since at most one of the two
+    // ever has completions for a given cursor position, but the textarea's own onKeyDown still
+    // needs to know which one, if either, to route arrow/Enter/Escape to.
+    const feedComposerAutocompleteControlRef = useRef<ComposerAutocompleteHandle | null>(null);
     const [feedSelection, setFeedSelection] = useState({ start: 0, end: 0 });
     const feedPendingCursorPos = useRef<number | null>(null);
     useEffect(() => {
@@ -1950,14 +1950,14 @@ function FeedPane({
                             />
                         )}
                         {selectedRoomForAutocomplete && (
-                            <EmojiAutocomplete
+                            <ComposerAutocomplete
                                 room={selectedRoomForAutocomplete}
                                 query={postBody}
                                 selectionStart={feedSelection.start}
                                 selectionEnd={feedSelection.end}
                                 onConfirm={handleConfirmFeedCompletion}
                                 onCompletionsChange={() => {}}
-                                controlRef={feedEmojiAutocompleteControlRef}
+                                controlRef={feedComposerAutocompleteControlRef}
                             />
                         )}
                         <EmojiRenderingTextarea
@@ -1976,11 +1976,11 @@ function FeedPane({
                             onPaste={handleComposerPaste}
                             onKeyDown={(e) => {
                                 // At most one of these ever has completions for a given cursor
-                                // position - see feedEmojiAutocompleteControlRef's own doc.
+                                // position - see feedComposerAutocompleteControlRef's own doc.
                                 const activeAutocomplete = feedAutocompleteControlRef.current?.hasCompletions()
                                     ? feedAutocompleteControlRef.current
-                                    : feedEmojiAutocompleteControlRef.current?.hasCompletions()
-                                      ? feedEmojiAutocompleteControlRef.current
+                                    : feedComposerAutocompleteControlRef.current?.hasCompletions()
+                                      ? feedComposerAutocompleteControlRef.current
                                       : null;
                                 if (activeAutocomplete) {
                                     if (e.key === "ArrowUp") {

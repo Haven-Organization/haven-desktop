@@ -22,7 +22,7 @@ import { handleComposerPaste } from "../utils/pasteFile";
 import { PostComposerButtons } from "./PostComposerButtons";
 import { RepostPreview } from "./RepostPreview";
 import { AttachmentShelf } from "./AttachmentShelf";
-import { EmojiAutocomplete, type EmojiAutocompleteHandle } from "./EmojiAutocomplete";
+import { ComposerAutocomplete, type ComposerAutocompleteHandle } from "./ComposerAutocomplete";
 import { EmojiRenderingTextarea } from "./EmojiRenderingTextarea";
 import { type ICompletion } from "../../../../element-web/apps/web/src/autocomplete/Autocompleter";
 
@@ -50,11 +50,12 @@ export function ReplyComposerDialog({
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
     const { attachment, setFile, clear: clearAttachment } = usePendingAttachment();
 
-    // ":" emoji autocomplete (see EmojiAutocomplete.tsx and SocialRoomView.tsx's identical use) -
-    // selection tracks the textarea's own cursor position, kept in sync via onChange/onSelect/
-    // onClick/onKeyUp since a plain textarea has no dedicated "selection changed" event of its own.
+    // "@" user, "#" room and ":" emoji autocomplete (see ComposerAutocomplete.tsx and
+    // SocialRoomView.tsx's identical use) - selection tracks the textarea's own cursor position,
+    // kept in sync via onChange/onSelect/onClick/onKeyUp since a plain textarea has no dedicated
+    // "selection changed" event of its own.
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const emojiAutocompleteControlRef = useRef<EmojiAutocompleteHandle | null>(null);
+    const composerAutocompleteControlRef = useRef<ComposerAutocompleteHandle | null>(null);
     const [selection, setSelection] = useState({ start: 0, end: 0 });
     const pendingCursorPos = useRef<number | null>(null);
     useEffect(() => {
@@ -99,14 +100,14 @@ export function ReplyComposerDialog({
                 <form className="social_ReplyDialog_form" onSubmit={handleSubmit}>
                     <RepostPreview event={replyTargetEvent} />
                     <div className="social_ComposeBox_inputWrap">
-                        <EmojiAutocomplete
+                        <ComposerAutocomplete
                             room={room}
                             query={body}
                             selectionStart={selection.start}
                             selectionEnd={selection.end}
                             onConfirm={handleConfirmCompletion}
                             onCompletionsChange={() => {}}
-                            controlRef={emojiAutocompleteControlRef}
+                            controlRef={composerAutocompleteControlRef}
                         />
                         <EmojiRenderingTextarea
                             room={room}
@@ -123,26 +124,26 @@ export function ReplyComposerDialog({
                             onKeyUp={(e) => updateSelectionFrom(e.currentTarget)}
                             onPaste={handleComposerPaste}
                             onKeyDown={(e) => {
-                                if (emojiAutocompleteControlRef.current?.hasCompletions()) {
+                                if (composerAutocompleteControlRef.current?.hasCompletions()) {
                                     if (e.key === "ArrowUp") {
                                         e.preventDefault();
-                                        emojiAutocompleteControlRef.current.moveSelection(-1);
+                                        composerAutocompleteControlRef.current.moveSelection(-1);
                                         return;
                                     }
                                     if (e.key === "ArrowDown") {
                                         e.preventDefault();
-                                        emojiAutocompleteControlRef.current.moveSelection(1);
+                                        composerAutocompleteControlRef.current.moveSelection(1);
                                         return;
                                     }
                                     if (e.key === "Enter" || e.key === "Tab") {
-                                        if (emojiAutocompleteControlRef.current.confirmSelection()) {
+                                        if (composerAutocompleteControlRef.current.confirmSelection()) {
                                             e.preventDefault();
                                             return;
                                         }
                                     }
                                     if (e.key === "Escape") {
                                         e.preventDefault();
-                                        emojiAutocompleteControlRef.current.close();
+                                        composerAutocompleteControlRef.current.close();
                                         return;
                                     }
                                 }

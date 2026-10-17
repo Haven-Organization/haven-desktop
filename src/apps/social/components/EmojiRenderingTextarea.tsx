@@ -5,7 +5,7 @@
  * matching a real image-pack emoji as an actual inline image, the same size/alignment
  * editor/parts.ts's own CustomEmojiPart uses in the rich room composer - instead of leaving it as
  * literal `:shortcode:` text the way every Social composer previously did even after a pick from
- * EmojiAutocomplete.tsx/the emoji picker button.
+ * ComposerAutocomplete.tsx/the emoji picker button.
  *
  * A real `<textarea>` has no way to embed an inline image inside its own value - value is always
  * plain text. Rather than replacing it with a contenteditable rich editor (a much bigger rewrite
@@ -43,8 +43,8 @@ export const EmojiRenderingTextarea = forwardRef<HTMLTextAreaElement, Props>(fun
 
     // Rebuilt only when `room` itself changes (never mid-composition) - a pack edited by someone
     // else while this composer is open won't retroactively re-render an already-typed shortcode,
-    // the same "resolved once, not live-tracked" tradeoff EmojiAutocomplete.tsx's own provider
-    // instance already makes for the exact same room.
+    // the same "resolved once, not live-tracked" tradeoff ComposerAutocomplete.tsx's own providers
+    // already make for the exact same room.
     const shortcodeMap = useMemo(() => (room ? buildEmoticonShortcodeMap(room) : new Map<string, string>()), [room]);
 
     const text = typeof value === "string" ? value : "";

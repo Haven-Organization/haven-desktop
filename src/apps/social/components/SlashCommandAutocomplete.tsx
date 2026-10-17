@@ -94,7 +94,7 @@ export function SlashCommandAutocomplete({
             // (the composer's own width) directly on the floating element to override that.
             //
             // Also constrains height to whatever room `flip`/`shift` found (`availableHeight`) with
-            // its own scrollbar - see EmojiAutocomplete.tsx's own copy of this comment for why:
+            // its own scrollbar - see ComposerAutocomplete.tsx's own copy of this comment for why:
             // unconstrained, a long completion list's content height regularly exceeds the room
             // below the composer inside a modal, and `flip` (above) reacting to that by moving the
             // whole dropdown above the composer just relocates the overflow to above the viewport's
