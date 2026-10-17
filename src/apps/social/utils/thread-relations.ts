@@ -7,7 +7,7 @@
  * which view happened to compute it.
  */
 
-import { type MatrixClient, type MatrixEvent, type Room, RelationType } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, type MatrixEvent, type Room } from "matrix-js-sdk/src/matrix";
 
 /** The immediate parent's event id. Prefers m.in_reply_to — its whole purpose, universally across
  *  Matrix clients/bridges, is naming the exact message being replied to, unlike m.thread's own
@@ -84,13 +84,10 @@ export function buildDirectReplyCounts(pools: MatrixEvent[][]): Map<string, numb
 }
 
 /**
- * The reply-count to show on `event`'s own card: when matrix-js-sdk recognizes `event` as an actual
- * thread root, this is the server-authoritative total thread size (matrix-js-sdk's own
- * `Thread.length`, the same number stock Element's own thread summary badge shows) — total, not
- * just direct replies, matching how a "thread" is understood when previewed as a single card
- * (Feed/Room view) rather than opened into its own nested reply tree. Otherwise (event isn't a
- * recognized root — e.g. a non-root reply surfaced as its own feed entry), falls back to counting
- * direct replies only, since Social has no broader "total size" concept for a non-root node.
+ * The reply-count to show on `event`'s own card: its direct replies only, never the whole thread's
+ * size - a reply to a reply is counted on the reply it answers, not on the root. A thread root's
+ * local pools usually hold only part of its thread, so SocialEventTile tops this up from the full
+ * thread once it's loaded (see useDirectReplyCount there and utils/threadReplies.ts).
  *
  * Pass `directReplyCounts` (see buildDirectReplyCounts above) when calling this for many events
  * against the same pools — omitting it falls back to a fresh countDirectReplies scan per call,
@@ -98,22 +95,11 @@ export function buildDirectReplyCounts(pools: MatrixEvent[][]): Map<string, numb
  */
 export function replyCountFor(
     event: MatrixEvent,
-    room: Room,
     pools: MatrixEvent[][],
     directReplyCounts?: Map<string, number>,
 ): number {
     const id = event.getId();
     if (!id) return 0;
-    // getServerAggregatedRelation(), not just "does room.getThread(id) exist" - SocialPostView's own
-    // ensureThread creates a synthetic, empty local Thread object for WHATEVER node it's asked
-    // about (root or not), as routing plumbing for matrix-js-sdk's handleRemoteEcho - and Room
-    // objects are singletons per room, so a non-root reply visited there once leaves that synthetic
-    // Thread behind for the rest of the session. The server's own bundled aggregation is the only
-    // signal that can't be polluted by local client-side thread creation.
-    if (event.getServerAggregatedRelation(RelationType.Thread)) {
-        const thread = room.getThread(id);
-        if (thread) return thread.length;
-    }
     return directReplyCounts ? (directReplyCounts.get(id) ?? 0) : countDirectReplies(pools, id);
 }
 

@@ -271,14 +271,9 @@ function aggregatePosts(rooms: Room[], myUserId: string, filter: SocialFeedFilte
                 room,
                 myLikeEventId,
                 myRepostEventId,
-                // replyCountFor uses matrix-js-sdk's own authoritative Thread.length (matching
-                // stock Element's own thread-summary badge) when `event` is a recognized thread
-                // root, so the total shown here always matches whatever the same event shows in
-                // Room view or the opened thread view - instead of each view hand-rolling its own,
-                // potentially-drifting count. Falls back to counting direct replies only for a
-                // non-root reply surfaced as its own feed entry (Social has no "total size" concept
-                // for those - see this file's own isFeedEvent comment on why they appear at all).
-                replyCount: replyCountFor(event, room, [events], directReplyCounts),
+                // Direct replies only, through the same replyCountFor Room view and the opened
+                // thread view use, so the same event shows the same number everywhere.
+                replyCount: replyCountFor(event, [events], directReplyCounts),
             });
         }
     }

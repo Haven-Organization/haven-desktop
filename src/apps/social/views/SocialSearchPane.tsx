@@ -367,7 +367,7 @@ function PostsTab({
                             room={room}
                             isLiked={!!myLikeEventId}
                             isReposted={isReposted}
-                            replyCount={replyCountFor(event, room, [[]])}
+                            replyCount={replyCountFor(event, [[]])}
                             highlights={highlights}
                             pillsGeneration={pillsGeneration}
                             onRoomClick={onViewRoom}

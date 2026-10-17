@@ -46,6 +46,7 @@ import { sendLike, undoLike, sendComment, sendPostReadReceipt } from "../utils/s
 import { processSlashCommand } from "../utils/socialSlashCommands";
 import { getProfileOwnerUserId } from "../utils/room-classifier";
 import { immediateParentId, threadRootId } from "../utils/thread-relations";
+import { ensureThreadRepliesLoaded, getLoadedThreadReplies } from "../utils/threadReplies";
 import { ensurePostReactionsLoaded } from "../utils/postReactions";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
 
@@ -271,26 +272,25 @@ export function SocialPostView({
     }, [client, room, rootEventId, refresh]);
 
     // Every event the SERVER knows declares an m.thread relation targeting the root, fetched
-    // directly via the /relations API rather than relying on whatever's already synced locally.
-    // Needed because a reply that gets edited almost immediately can end up with only its EDIT
-    // event ever separately synced into the room's local timeline/thread model - the original
-    // send itself (which is what actually carries the real m.thread/m.in_reply_to relation data)
-    // may never be locally cached at all, even though it's a perfectly real, permanently existing
-    // event server-side. Without this, such a reply (and anything replying to IT in turn) would be
-    // silently invisible no matter how thoroughly the local room/thread events are scanned.
-    const [rootRelationEvents, setRootRelationEvents] = useState<MatrixEvent[]>([]);
+    // directly via the /relations API (every page - see utils/threadReplies.ts) rather than relying
+    // on whatever's already synced locally. Needed because a reply that gets edited almost
+    // immediately can end up with only its EDIT event ever separately synced into the room's local
+    // timeline/thread model - the original send itself (which is what actually carries the real
+    // m.thread/m.in_reply_to relation data) may never be locally cached at all, even though it's a
+    // perfectly real, permanently existing event server-side - and because a room the account has
+    // left never fills the root's local Thread at all. Without this, such a reply (and anything
+    // replying to IT in turn) would be silently invisible no matter how thoroughly the local
+    // room/thread events are scanned. Failures resolve to [] - local-only data (already covered
+    // by getDirectReplies' other pools) is still better than nothing.
+    const [rootRelationEvents, setRootRelationEvents] = useState<MatrixEvent[]>(
+        () => getLoadedThreadReplies(room.roomId, rootEventId) ?? [],
+    );
     useEffect(() => {
         let cancelled = false;
-        setRootRelationEvents([]);
-        client
-            .relations(room.roomId, rootEventId, RelationType.Thread)
-            .then(({ events }) => {
-                if (!cancelled) setRootRelationEvents(events);
-            })
-            .catch(() => {
-                // Best-effort - local-only data (already covered by getDirectReplies' other pools)
-                // is still better than nothing if the server doesn't support/allow this query.
-            });
+        setRootRelationEvents(getLoadedThreadReplies(room.roomId, rootEventId) ?? []);
+        void ensureThreadRepliesLoaded(client, room, rootEventId).then((events) => {
+            if (!cancelled) setRootRelationEvents(events);
+        });
         return () => {
             cancelled = true;
         };
@@ -385,25 +385,12 @@ export function SocialPostView({
         [room, myUserId, ensureThread, rootEventId, ancestors, rootRelationEvents],
     );
 
-    // The reply-count badge shown on `node`'s own card: for the whole view's true root (per
-    // rootEventId above, established by walking ancestors - never just "does node happen to have a
-    // matrix-js-sdk Thread object", since ensureThread/getDirectReplies create a synthetic, empty
-    // Thread for WHATEVER node they're asked about as routing plumbing, root or not - checking
-    // thread existence alone would wrongly treat every node as "a root" the moment it's been
-    // queried once), this is the server-authoritative total thread size (matrix-js-sdk's own
-    // Thread.length, the same number stock Element's own thread summary badge shows, and the same
-    // number Feed/Room view show for this same event - see SocialHomeView's aggregatePosts) - not
-    // just direct replies. Every other node (ancestors below the root, 1st/2nd-level replies) shows
-    // direct-reply count only, per this file's own nested-reply design.
+    // The reply-count badge shown on `node`'s own card: its direct replies only, for every node
+    // the thread root included - replies-of-replies are counted on the reply they answer, never
+    // added to the root's total (the same count Feed/Room view show - see replyCountFor).
     const replyCountForNode = useCallback(
-        (node: MatrixEvent): number => {
-            if (node.getId() === rootEventId) {
-                const thread = room.getThread(rootEventId);
-                if (thread) return thread.length;
-            }
-            return getDirectReplies(node).length;
-        },
-        [room, getDirectReplies, rootEventId],
+        (node: MatrixEvent): number => getDirectReplies(node).length,
+        [getDirectReplies],
     );
 
     // Each ancestor's own like/repost state, keyed by event id - same lookup as the focused post's

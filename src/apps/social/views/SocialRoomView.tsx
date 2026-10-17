@@ -204,10 +204,8 @@ function buildPostData(events: MatrixEvent[], myUserId: string, room: Room): Pos
                 event,
                 myLikeEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "👍")?.getId(),
                 myRepostEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")?.getId(),
-                // See SocialHomeView's aggregatePosts for why this delegates to matrix-js-sdk's own
-                // Thread.length for a recognized root - keeps this view's number consistent with the
-                // Feed's and the opened thread view's, instead of a third independently-drifting count.
-                replyCount: replyCountFor(event, room, [events], directReplyCounts),
+                // Direct replies only - see SocialHomeView's aggregatePosts.
+                replyCount: replyCountFor(event, [events], directReplyCounts),
             };
         })
         .sort((a, b) => {

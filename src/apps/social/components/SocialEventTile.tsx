@@ -87,6 +87,7 @@ import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride, hasPostBod
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
 import { onPostReactionsLoaded } from "../utils/postReactions";
+import { useDirectReplyCount } from "../utils/threadReplies";
 import { holdScrollPosition } from "../utils/holdScrollPosition";
 import { calculateRoomVia } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
@@ -1325,6 +1326,8 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     const client = useMatrixClientContext();
 
     // All hooks unconditionally before any early returns (Rules of Hooks).
+    // Haven: direct replies only, completed from the full thread when this post is a thread root.
+    const displayedReplyCount = useDirectReplyCount(client, room, event, replyCount);
     const [likeBusy, setLikeBusy] = useState(false);
     const [boostBusy, setBoostBusy] = useState(false);
     // Haven: a boost sent from a room we're only peeking (not joined) still succeeds - it always
@@ -2979,7 +2982,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                     title="Reply"
                 >
                     <ReplyIcon />
-                    {replyCount > 0 && <span>{replyCount}</span>}
+                    {displayedReplyCount > 0 && <span>{displayedReplyCount}</span>}
                 </button>
 
                 <button
