@@ -196,6 +196,13 @@ export default class ScrollPanel extends React.Component<IProps> {
     // onUserScrollIntent below) - only the initial landing needs protecting, not every scroll
     // forever after.
     private stickyScrollToken: string | null = null;
+    // Haven: where the pinned node's top sat in the viewport (pixels below the visible top edge)
+    // when the jump landed. Tracking the node alone isn't enough: the list is bottom-aligned, so
+    // messages loading in *below* the pinned one push it up, and updateHeight's compensation then
+    // keeps it at that new spot. holdStickyNode() puts it back here after every such change
+    // (confirmed live: clicking a reply's quote landed on the original, then the follow-up reload
+    // filled in newer messages and the original slid up out of view).
+    private stickyViewportTop: number | null = null;
 
     public static contextType = SDKContext;
     declare public context: React.ContextType<typeof SDKContext>;
@@ -252,8 +259,36 @@ export default class ScrollPanel extends React.Component<IProps> {
     // that; once the user scrolls under their own power they've clearly moved on; the normal
     // "track whatever's at the bottom of the viewport" behaviour should resume from here.
     private onUserScrollIntent = (): void => {
-        this.stickyScrollToken = null;
+        this.releaseStickyNode();
     };
+
+    // Haven: a mousedown on the scroll container itself (rather than on a message inside it) is a
+    // scrollbar drag, which is the user's own scroll too.
+    private onMouseDown = (ev: React.MouseEvent): void => {
+        if (ev.target === ev.currentTarget) this.releaseStickyNode();
+    };
+
+    private releaseStickyNode(): void {
+        this.stickyScrollToken = null;
+        this.stickyViewportTop = null;
+    }
+
+    /**
+     * Haven: scrolls the pinned node (see stickyViewportTop) back to where the jump put it, if the
+     * layout has moved it since.
+     */
+    private holdStickyNode(): void {
+        if (!this.stickyScrollToken || this.stickyViewportTop === null) return;
+        if (this.scrollState.trackedScrollToken !== this.stickyScrollToken) return;
+        const node = this.getTrackedNode();
+        if (!node) return;
+        const sn = this.getScrollNode();
+        const drift = node.offsetTop - sn.scrollTop - this.stickyViewportTop;
+        if (Math.abs(drift) >= 1) {
+            debuglog("holding pinned node in place, drift was", drift);
+            sn.scrollBy(0, drift);
+        }
+    }
 
     private onResize = (): void => {
         debuglog("onResize called");
@@ -565,6 +600,7 @@ export default class ScrollPanel extends React.Component<IProps> {
      * jump to the top of the content.
      */
     public scrollToTop = (): void => {
+        this.releaseStickyNode();
         this.getScrollNode().scrollTop = 0;
         this.saveScrollState();
     };
@@ -577,6 +613,7 @@ export default class ScrollPanel extends React.Component<IProps> {
         // saved is to do the scroll, then save the updated state. (Calculating
         // it ourselves is hard, and we can't rely on an onScroll callback
         // happening, since there may be no user-visible change here).
+        this.releaseStickyNode();
         const sn = this.getScrollNode();
         sn.scrollTop = sn.scrollHeight;
         this.saveScrollState();
@@ -588,6 +625,7 @@ export default class ScrollPanel extends React.Component<IProps> {
      * @param {number} multiple: -1 to page up, +1 to page down
      */
     public scrollRelative = (multiple: -1 | 1): void => {
+        this.releaseStickyNode();
         const scrollNode = this.getScrollNode();
         // TODO: Document what magic number 0.9 is doing
         const delta = multiple * scrollNode.clientHeight * 0.9;
@@ -641,6 +679,7 @@ export default class ScrollPanel extends React.Component<IProps> {
             trackedScrollToken: scrollToken,
         };
         this.stickyScrollToken = sticky ? scrollToken : null;
+        this.stickyViewportTop = null;
         const trackedNode = this.getTrackedNode();
         const scrollNode = this.getScrollNode();
         if (trackedNode) {
@@ -652,6 +691,7 @@ export default class ScrollPanel extends React.Component<IProps> {
             // enough, so it ends up in the top of the viewport.
             debuglog("scrollToken: setting scrollTop", { offsetBase, pixelOffset, offsetTop: trackedNode.offsetTop });
             scrollNode.scrollTop = trackedNode.offsetTop - scrollNode.clientHeight * offsetBase + pixelOffset;
+            if (sticky) this.stickyViewportTop = trackedNode.offsetTop - scrollNode.scrollTop;
             this.saveScrollState();
         }
     };
@@ -685,7 +725,7 @@ export default class ScrollPanel extends React.Component<IProps> {
                 return;
             }
             // No longer rendered (paged away, or the event was removed) - nothing left to pin.
-            this.stickyScrollToken = null;
+            this.releaseStickyNode();
         }
 
         const itemlist = this.itemlist.current;
@@ -748,6 +788,8 @@ export default class ScrollPanel extends React.Component<IProps> {
                 }
                 debuglog("balancing height because messages below viewport grew by", bottomDiff);
             }
+            // Haven: right away, not only in updateHeight, which can wait out a scroll first.
+            this.holdStickyNode();
         }
         if (!this.heightUpdateInProgress) {
             this.heightUpdateInProgress = true;
@@ -820,6 +862,7 @@ export default class ScrollPanel extends React.Component<IProps> {
                 sn.scrollBy(0, topDiff);
                 debuglog("updateHeight to", { newHeight, topDiff });
             }
+            this.holdStickyNode();
         }
     }
 
@@ -990,6 +1033,7 @@ export default class ScrollPanel extends React.Component<IProps> {
                 onScroll={this.onScroll}
                 onWheel={this.onUserScrollIntent}
                 onTouchStart={this.onUserScrollIntent}
+                onMouseDown={this.onMouseDown}
                 className={`mx_AutoHideScrollbar mx_ScrollPanel ${this.props.className}`}
                 style={this.props.style}
             >

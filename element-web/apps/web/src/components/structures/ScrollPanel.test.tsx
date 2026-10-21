@@ -147,6 +147,7 @@ describe("ScrollPanel sticky highlighted-event anchoring", () => {
     it.each([
         ["wheel", (el: HTMLElement) => fireEvent.wheel(el)],
         ["touchstart", (el: HTMLElement) => fireEvent.touchStart(el)],
+        ["scrollbar drag", (el: HTMLElement) => fireEvent.mouseDown(el)],
     ])("releases the pin on the user's own %s, so normal tracking resumes", (_name, userInput) => {
         const { panel, internals, scrollDiv } = renderPanel();
         panel.scrollToToken("$c", 0, 0, true);
@@ -157,6 +158,50 @@ describe("ScrollPanel sticky highlighted-event anchoring", () => {
         expect(internals.stickyScrollToken).toBeNull();
         fireEvent.scroll(scrollDiv);
         expect(internals.scrollState.trackedScrollToken).toBe("$a");
+    });
+
+    it("puts the pinned message back where the jump left it when the layout moves it", () => {
+        const { panel, scrollDiv } = renderPanel();
+        panel.scrollToToken("$c", 0, 0, true);
+        const landedAt = scrollDiv.scrollTop;
+        const scrollBy = vi.spyOn(scrollDiv, "scrollBy");
+
+        // e.g. newer messages loading in below $c, which pushes the bottom-aligned list up
+        scrollDiv.scrollTop = landedAt - 60;
+        panel.checkScroll();
+
+        expect(scrollBy).toHaveBeenCalledWith(0, 60);
+    });
+
+    it("leaves the position alone once the pin is released", () => {
+        const { panel, scrollDiv } = renderPanel();
+        panel.scrollToToken("$c", 0, 0, true);
+        const landedAt = scrollDiv.scrollTop;
+        fireEvent.wheel(scrollDiv);
+        const scrollBy = vi.spyOn(scrollDiv, "scrollBy");
+
+        scrollDiv.scrollTop = landedAt - 60;
+        panel.checkScroll();
+
+        expect(scrollBy).not.toHaveBeenCalledWith(0, 60);
+    });
+
+    it("keeps the pin when a message inside the timeline is clicked", () => {
+        const { panel, internals, scrollDiv } = renderPanel();
+        panel.scrollToToken("$c", 0, 0, true);
+
+        fireEvent.mouseDown(scrollDiv.querySelector("li")!);
+
+        expect(internals.stickyScrollToken).toBe("$c");
+    });
+
+    it("releases the pin on keyboard paging", () => {
+        const { panel, internals } = renderPanel();
+        panel.scrollToToken("$c", 0, 0, true);
+
+        panel.scrollRelative(-1);
+
+        expect(internals.stickyScrollToken).toBeNull();
     });
 
     it("releases the pin when the pinned event is no longer rendered", () => {
