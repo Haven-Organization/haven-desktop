@@ -160,3 +160,58 @@ describe("a bridge snapshot whose social.formatted_body is just its plain body",
         expect(repostContentMatches(snapshot(TEXT, "Something else entirely"), original, true)).toBe(false);
     });
 });
+
+describe("a bridge's repost of a native post that mentions someone", () => {
+    // Taken from a real bridge-relayed repost: the original native post had the mention as a pill
+    // (display name as the link text, Matrix ID in body), the bridge's snapshot has the user's
+    // fediverse handle in both.
+    const USER = "@fedi_alice_social.example:example.org";
+    const PILL = `https://matrix.to/#/${USER}`;
+    const IMAGE = { msgtype: "m.image", info: { h: 280, mimetype: "image/gif", w: 498 } };
+    const snapshot = (socialBody: string, socialFormattedBody: string): Record<string, unknown> => ({
+        ...IMAGE,
+        url: "mxc://example.org/EWImqpvwMVCcugtvdtNiXhrn",
+        body: "https://matrix.to/#/!1-jTHKU94hqkwKuWMkVFuPEF5YNpTsU4A2C1Mb1vBCw/$QjaL2129IJyqdvOluKKHNX3IlF8Hj5kBuVRrGJc6BNA?via=example.org",
+        format: "org.matrix.custom.html",
+        formatted_body: "<p>🔁 reposted ...</p><blockquote>...</blockquote>",
+        "org.matrix.msc4501.social.body": socialBody,
+        "org.matrix.msc4501.social.formatted_body": socialFormattedBody,
+    });
+    const GENUINE = snapshot(
+        "@alice@social.example  the dogs",
+        `<p><a href="${PILL}">@alice@social.example</a>  the dogs</p>`,
+    );
+    const pillOriginal = {
+        ...IMAGE,
+        url: "mxc://example.org/OBnivaEIfgVIreHeTMbacdSw",
+        body: `${USER}  the dogs`,
+        format: "org.matrix.custom.html",
+        formatted_body: `<a href="${PILL}">alice</a>  the dogs`,
+    };
+
+    it("accepts it although the mention is written differently on each side", () => {
+        expect(repostContentMatches(GENUINE, pillOriginal, true)).toBe(true);
+    });
+
+    it("accepts it when the original's mention was plain text", () => {
+        const plainOriginal = { ...pillOriginal, format: undefined, formatted_body: undefined };
+        expect(repostContentMatches(GENUINE, plainOriginal, true)).toBe(true);
+    });
+
+    it("still flags a mention that links to someone else", () => {
+        const other = "https://matrix.to/#/@someone_else:example.org";
+        const forged = snapshot(
+            "@alice@social.example  the dogs",
+            `<p><a href="${other}">@alice@social.example</a>  the dogs</p>`,
+        );
+        expect(repostContentMatches(forged, pillOriginal, true)).toBe(false);
+    });
+
+    it("still flags changed text around the mention", () => {
+        const forged = snapshot(
+            "@alice@social.example  the cats",
+            `<p><a href="${PILL}">@alice@social.example</a>  the cats</p>`,
+        );
+        expect(repostContentMatches(forged, pillOriginal, true)).toBe(false);
+    });
+});

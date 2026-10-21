@@ -1069,11 +1069,23 @@ function formattedBodiesMatch(
 ): boolean {
     const aFb = realMarkup(a);
     const bFb = realMarkup(b);
-    if (aFb && bFb) {
-        // Both sides have real HTML - require exact structural equality rather than reducing to
-        // rendered text, so a forged repost can't smuggle in a different link/mention/style
-        // behind identical-looking visible text.
-        return aFb === bFb;
+    const aLinks = aFb ? readLinks(aFb) : undefined;
+    const bLinks = bFb ? readLinks(bFb) : undefined;
+    if (aLinks && bLinks) {
+        // Both sides have real HTML - identical markup always matches. Otherwise they must link to
+        // exactly the same places, in the same order, so a forged repost can't smuggle in a
+        // different link or mention behind identical-looking visible text, and say the same thing
+        // once each user mention reads as the user it links to. The same mention is written
+        // differently on each side when a bridge relays a post: a native post's pill carries the
+        // user's display name and its plain body their Matrix ID, while the bridge's snapshot has
+        // their fediverse handle in both - confirmed live, a genuine repost of a post mentioning
+        // "@fedi_alice_social.example:example.org" read "@alice@social.example" in the
+        // snapshot and was flagged as a possible forgery. The bridge also wraps it in <p>.
+        if (aFb === bFb) return true;
+        return (
+            aLinks.hrefs.join("\n") === bLinks.hrefs.join("\n") &&
+            collapseWhitespace(htmlVisibleText(aLinks.html)) === collapseWhitespace(htmlVisibleText(bLinks.html))
+        );
     }
     // At most one side has any HTML at all - the side without one has no richer representation
     // to compare structurally against, so the only meaningful comparison left is visible text:
@@ -1085,6 +1097,7 @@ function formattedBodiesMatch(
     // bridge's repost snapshot (always wraps its social.formatted_body in <p>, even when the
     // original had zero formatting) - confirmed live: a real repost of a plain-text Haven post
     // was flagged as a possible forgery purely because of this, despite identical visible text.
+    // User mentions read as the user they link to, as above.
     //
     // Line breaks are not part of that visible text: the native post separates its paragraphs with
     // a blank line in plain body, the bridge's snapshot has them as <p> elements, and its own plain
@@ -1098,12 +1111,61 @@ function formattedBodiesMatch(
     // plain body can lose the original's line breaks without losing anything else - confirmed live:
     // a snapshot reading "shitNow" against an original with "shit<br><br>Now" in formatted_body and
     // "shitNow" in body was flagged as a possible forgery.
-    const aText = collapseWhitespace(aFb ? htmlVisibleText(aFb) : (a?.body ?? ""));
-    const bText = collapseWhitespace(bFb ? htmlVisibleText(bFb) : (b?.body ?? ""));
+    const aText = collapseWhitespace(aLinks ? htmlVisibleText(aLinks.html) : (a?.body ?? ""));
+    const bText = collapseWhitespace(bLinks ? htmlVisibleText(bLinks.html) : (b?.body ?? ""));
     if (aText === bText) return true;
-    const aBody = collapseWhitespace(a?.body ?? "");
-    const bBody = collapseWhitespace(b?.body ?? "");
+    const aBody = collapseWhitespace(bodyWithMentionIds(a));
+    const bBody = collapseWhitespace(bodyWithMentionIds(b));
     return (!aFb && aText === bBody) || (!bFb && bText === aBody);
+}
+
+/** The links in `html`, in order, and `html` with each user mention's text replaced by the user
+ *  ID it links to - see formattedBodiesMatch. Parsed into an inert <template>, so nothing in the
+ *  HTML loads or runs. */
+function readLinks(html: string): { html: string; hrefs: string[]; mentions: Map<string, string> } {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const hrefs: string[] = [];
+    const mentions = new Map<string, string>();
+    for (const link of template.content.querySelectorAll("a")) {
+        const href = link.getAttribute("href") ?? "";
+        hrefs.push(href);
+        const userId = parsePermalink(href)?.userId;
+        if (!userId) continue;
+        const text = link.textContent?.trim();
+        if (text) mentions.set(text, userId);
+        link.textContent = userId;
+    }
+    return { html: template.innerHTML, hrefs, mentions };
+}
+
+/** A content's plain body with each user mention written the way its own formatted_body shows it
+ *  (a display name, a fediverse handle) replaced by the user ID that mention links to, so the same
+ *  mention reads the same on both sides of a repost. Only whole words are replaced. */
+function bodyWithMentionIds(c: { body?: string; formatted_body?: string } | undefined): string {
+    let body = c?.body ?? "";
+    const fb = realMarkup(c);
+    if (!fb) return body;
+    for (const [text, userId] of readLinks(fb).mentions) {
+        if (text !== userId) body = replaceWholeWord(body, text, userId);
+    }
+    return body;
+}
+
+/** `text` with every occurrence of `word` that stands on its own (whitespace or the start before
+ *  it, whitespace, punctuation or the end after it) replaced by `replacement`. */
+function replaceWholeWord(text: string, word: string, replacement: string): string {
+    if (!word) return text;
+    let out = "";
+    let from = 0;
+    for (let at = text.indexOf(word); at >= 0; at = text.indexOf(word, from)) {
+        const end = at + word.length;
+        const startsAlone = at === 0 || /\s/.test(text[at - 1]);
+        const endsAlone = end === text.length || /[\s.,!?:;)]/.test(text[end]);
+        out += text.slice(from, at) + (startsAlone && endsAlone ? replacement : word);
+        from = end;
+    }
+    return out + text.slice(from);
 }
 
 /** A content's formatted_body, unless it's really plain text: no tags at all, and the same text as
@@ -1157,7 +1219,8 @@ export function repostContentMatches(
     );
     const bodyIsWrapperFiller = !!contentInline && !!aUrl && !hasPostBodyOverride(embeddedSource);
     const textMatches = (x: typeof a, y: typeof a): boolean =>
-        collapseWhitespace(x?.body ?? "") === collapseWhitespace(y?.body ?? "") && formattedBodiesMatch(x, y);
+        collapseWhitespace(bodyWithMentionIds(x)) === collapseWhitespace(bodyWithMentionIds(y)) &&
+        formattedBodiesMatch(x, y);
     // See hasRelationPreamble's own doc - only when the snapshot came through an MSC4501 override
     // and the real post has no override of its own (so its header is still in its stock fields).
     const matchesWithoutRealPreamble =
