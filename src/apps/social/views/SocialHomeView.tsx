@@ -213,6 +213,10 @@ function isFeedEvent(event: MatrixEvent, room: Room, filter: SocialFeedFilter): 
     // isRelation() reads the wire content, so this is reliable even for an edit that's itself
     // been superseded by a later edit.
     if (event.isRelation(RelationType.Replace)) return false;
+    // A deleted post has no content left, so its tile renders nothing - and a zero-height item
+    // stalls the Feed's Virtuoso list. Confirmed live: with a deleted post as the newest entry,
+    // the Feed showed nothing below the composer.
+    if (event.isRedacted()) return false;
     if (senderExcludedFromFeed(event.getSender() ?? null, filter)) return false;
 
     const type = event.getType();
