@@ -12,6 +12,7 @@ import { type IPublicRoomsChunkRoom, type MatrixClient, type Room } from "matrix
 import RoomAvatar from "../../../../element-web/apps/web/src/components/views/avatars/RoomAvatar";
 import BaseAvatar from "../../../../element-web/apps/web/src/components/views/avatars/BaseAvatar";
 import { ROOM_BANNER_EVENT_TYPE } from "../utils/room-classifier";
+import { topicPreviewText } from "../utils/topicPreview";
 
 function GroupCard({
     avatar,
@@ -52,7 +53,7 @@ export function GroupTile({
     client: MatrixClient;
     onView: (id: string) => void;
 }): JSX.Element {
-    const topic: string = room.currentState.getStateEvents("m.room.topic", "")?.getContent().topic ?? "";
+    const topic = topicPreviewText(room.currentState.getStateEvents("m.room.topic", "")?.getContent());
     const bannerMxc: string | undefined = room.currentState
         .getStateEvents(ROOM_BANNER_EVENT_TYPE, "")
         ?.getContent()?.url;
@@ -87,7 +88,7 @@ export function DirectoryGroupTile({
             avatar={<BaseAvatar name={name} idName={entry.room_id} url={avatarUrl} size="72px" />}
             bannerHttpUrl={null}
             name={name}
-            topic={entry.topic ?? ""}
+            topic={topicPreviewText(entry.topic ? { topic: entry.topic } : null)}
             memberCount={entry.num_joined_members}
             onClick={() => onView(entry)}
         />
