@@ -1413,6 +1413,17 @@
     resize: none !important;
 }
 
+/* The textarea shows a scrollbar once the text outgrows it, which narrows the room its text has
+ * to wrap in, but the overlay never shows one. Without a matching gutter the two wrap at different
+ * words and the caret ends up away from the visible text (confirmed live: 620px of text width in
+ * the textarea against 630px in the overlay, the width of the thin scrollbar). Both reserve the
+ * same thin gutter all the time, so the text also doesn't re-wrap when the scrollbar appears. */
+.mx_EmojiRenderingTextarea_input,
+.mx_EmojiRenderingTextarea_overlay {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+}
+
 .mx_EmojiRenderingTextarea_input {
     position: relative;
     // Only the glyphs disappear - the element itself (background, border, native caret and
