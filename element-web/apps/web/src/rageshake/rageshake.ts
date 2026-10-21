@@ -43,6 +43,16 @@ const MAX_LOG_SIZE = 1024 * 1024 * 5; // 5 MB
 /** the length of log data we keep in indexeddb (and include in the reports), if there are less than 24 hours of logs */
 const MAX_LOG_SIZE_24H = 1024 * 1024 * 100; // 100 MB
 
+/** Haven: the longest single log line kept, and how much of a longer one is kept. One log call
+ * with a big object (JSON-stringified in full below) could write hundreds of MB in a single line,
+ * and every later startup read those chunks back out of IndexedDB - confirmed live, ~970 MB
+ * allocated within seconds of launch, enough to crash the renderer at V8's heap limit. */
+const MAX_LINE_LENGTH = 64 * 1024;
+const TRUNCATED_LINE_LENGTH = 16 * 1024;
+
+/** Haven: how many app instances' logs startup pruning keeps (see IndexedDBLogStore.prune). */
+const MAX_KEPT_INSTANCES = 5;
+
 type LogFunction = (...args: (Error | DOMException | object | string)[]) => void;
 const consoleFunctionsToLevels = {
     log: "I",
@@ -99,6 +109,12 @@ export class ConsoleLogger {
         // 2017-01-18T11:23:53.214Z W Failed to set badge count
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         let line = `${ts} ${level} ${args.join(" ")}\n`;
+        // Haven: see MAX_LINE_LENGTH. Cut before the cleanup below, which would otherwise scan the
+        // whole oversized line.
+        if (line.length > MAX_LINE_LENGTH) {
+            const droppedKB = Math.round((line.length - TRUNCATED_LINE_LENGTH) / 1024);
+            line = `${line.slice(0, TRUNCATED_LINE_LENGTH)} [truncated ${droppedKB} KB]\n`;
+        }
         // Do some cleanup
         line = line.replace(/token=[a-zA-Z0-9-]+/gm, "token=xxxxx");
         // Using + really is the quickest way in JS
@@ -246,6 +262,27 @@ export class IndexedDBLogStore {
     }
 
     /**
+     * Haven: delete the logs of all but the newest MAX_KEPT_INSTANCES app instances, and of any
+     * instance not written to in the last 24 hours, without reading any log text. Used for startup
+     * house-keeping instead of consume(), which reads every kept log back out of IndexedDB just to
+     * measure it - see MAX_LINE_LENGTH for what that cost. Only keys and the small last-modified
+     * records are read here.
+     *
+     * @returns Resolves once the old logs are deleted.
+     */
+    public async prune(): Promise<void> {
+        const cutoff = Date.now() - 24 * 3600 * 1000;
+        const instances = await this.fetchLogInstances();
+        const removeLogIds = instances
+            .filter(({ id, ts }, i) => id !== this.id && (i >= MAX_KEPT_INSTANCES || ts < cutoff))
+            .map(({ id }) => id);
+        if (removeLogIds.length === 0) return;
+        logger.log(`rageshake: removing logs: ${removeLogIds}`);
+        await Promise.all(removeLogIds.map((id) => this.deleteLogs(id)));
+        logger.log(`Removed ${removeLogIds.length} old logs.`);
+    }
+
+    /**
      * Consume the most recent logs and return them. Older logs which are not
      * returned are deleted at the same time, so this can be called at startup
      * to do house-keeping to keep the logs from growing too large.
@@ -303,6 +340,11 @@ export class IndexedDBLogStore {
      * Fetch all the application instance names from the database.
      */
     private fetchLogIds(): Promise<string[]> {
+        return this.fetchLogInstances().then((res) => res.map((a) => a.id));
+    }
+
+    /** Haven: fetchLogIds with each instance's last-modified time, newest first. */
+    private fetchLogInstances(): Promise<{ id: string; ts: number }[]> {
         const db = this.db;
         if (!db) return Promise.reject("DB unavailable");
 
@@ -315,11 +357,9 @@ export class IndexedDBLogStore {
             };
         }).then((res) => {
             // Sort IDs by timestamp (newest first)
-            return res
-                .sort((a, b) => {
-                    return b.ts - a.ts;
-                })
-                .map((a) => a.id);
+            return res.sort((a, b) => {
+                return b.ts - a.ts;
+            });
         });
     }
 
@@ -534,7 +574,8 @@ export function tryInitStorage(): Promise<void> {
 
         // Fire off a task in the background which will clean up old logs in the store
         void global.mx_rage_initStoragePromise.then(() => {
-            global.mx_rage_store.consume().catch((e) => {
+            // Haven: prune(), not consume() - see prune.
+            global.mx_rage_store.prune().catch((e) => {
                 logger.error("Error cleaning up rageshake store", e);
             });
         });
@@ -564,7 +605,8 @@ export async function cleanup(): Promise<void> {
     if (!global.mx_rage_store) {
         return;
     }
-    await global.mx_rage_store.consume();
+    // Haven: see prune.
+    await global.mx_rage_store.prune();
 }
 
 /**
