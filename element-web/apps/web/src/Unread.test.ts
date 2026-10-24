@@ -391,6 +391,77 @@ describe("Unread", () => {
 
                 expect(doesRoomHaveUnreadMessages(room, true)).toBe(true);
             });
+
+            // Haven: a thread receipt often points at a reaction to one of the replies, as the receipt
+            // moves past events without a tile. That reaction isn't always loaded, e.g. after a
+            // restart or a sync gap, so the receipt can't be placed among the thread's events.
+            describe("when a thread receipt can't be placed among the thread's events", () => {
+                async function threadWithMainTimelineRead(): Promise<{ rootId: string; events: MatrixEvent[] }> {
+                    // Everything in the thread is from someone else, so only the receipt can mark it read.
+                    const { rootEvent, events } = await populateThread({
+                        room,
+                        client,
+                        authorId: aliceId,
+                        participantUserIds: [aliceId],
+                        // The root and two replies.
+                        length: 3,
+                    });
+                    // The main timeline is read up to the thread root.
+                    room.addReceipt(
+                        new MatrixEvent({
+                            type: "m.receipt",
+                            room_id: "!foo:bar",
+                            content: { [rootEvent.getId()!]: { [ReceiptType.Read]: { [myId]: { ts: 1 } } } },
+                        }),
+                    );
+                    return { rootId: rootEvent.getId()!, events };
+                }
+
+                function threadReceipt(eventId: string, ts: number, rootId: string): MatrixEvent {
+                    return new MatrixEvent({
+                        type: "m.receipt",
+                        room_id: "!foo:bar",
+                        content: { [eventId]: { [ReceiptType.ReadPrivate]: { [myId]: { ts, thread_id: rootId } } } },
+                    });
+                }
+
+                it("returns false when the receipt is on an unloaded event and newer than the thread", async () => {
+                    const { rootId, events } = await threadWithMainTimelineRead();
+                    room.addReceipt(threadReceipt("$unloaded_reaction", events.at(-1)!.getTs() + 100, rootId));
+
+                    expect(doesRoomHaveUnreadMessages(room, true)).toBe(false);
+                });
+
+                it("returns true when a reply is newer than the receipt on an unloaded event", async () => {
+                    const { rootId, events } = await threadWithMainTimelineRead();
+                    room.addReceipt(threadReceipt("$unloaded_reaction", events.at(-1)!.getTs() - 100, rootId));
+
+                    expect(doesRoomHaveUnreadMessages(room, true)).toBe(true);
+                });
+
+                it("returns false when the thread was rebuilt without the receipt's event", async () => {
+                    const { rootId, events } = await threadWithMainTimelineRead();
+                    const latest = events.at(-1)!;
+                    const earlier = events.at(-2)!;
+                    room.addReceipt(threadReceipt(latest.getId()!, latest.getTs() + 100, rootId));
+                    expect(doesRoomHaveUnreadMessages(room, true)).toBe(false);
+
+                    // A sync gap drops the thread's events; only an earlier reply comes back.
+                    const thread = room.getThread(rootId)!;
+                    thread.timelineSet.resetLiveTimeline();
+                    thread.timelineSet.addLiveEvent(earlier, { addToState: false });
+
+                    expect(doesRoomOrThreadHaveUnreadMessages(thread)).toBe(false);
+                });
+
+                it("still uses the timeline order when both events are loaded", async () => {
+                    const { rootId, events } = await threadWithMainTimelineRead();
+                    // The receipt is on an earlier reply, but its clock says later: order wins.
+                    room.addReceipt(threadReceipt(events.at(-2)!.getId()!, events.at(-1)!.getTs() + 100, rootId));
+
+                    expect(doesRoomHaveUnreadMessages(room, true)).toBe(true);
+                });
+            });
         });
 
         it("returns true for a room that only contains a hidden event", async () => {

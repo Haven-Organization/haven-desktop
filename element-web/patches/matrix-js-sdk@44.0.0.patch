@@ -1,0 +1,95 @@
+diff --git a/src/models/room-receipts.ts b/src/models/room-receipts.ts
+index f91afa64e464d53cf9c973a4cc1e0d5e95f8b0be..103d1568fc927a92f222a5a078be406b5f28b036 100644
+--- a/src/models/room-receipts.ts
++++ b/src/models/room-receipts.ts
+@@ -177,10 +177,44 @@ export class RoomReceipts {
+             return true;
+         }
+ 
++        if (threadId !== MAIN_ROOM_TIMELINE && this.threadReceiptIsNewer(threadId, userId, event)) {
++            // The thread receipt couldn't be placed among the thread's events, so its
++            // timestamp is the best guess we have.
++            return true;
++        }
++
+         // Neither of the receipts were after the event, so it's unread.
+         return false;
+     }
+ 
++    /**
++     * Fallback for a thread receipt whose event we can't order against the supplied one.
++     *
++     * A thread receipt often lands on a reaction to one of the replies, because it moves
++     * past events without a tile. That event isn't always loaded (after a restart, or once
++     * a sync gap has reset the thread's timeline), and without it the receipt can't be
++     * compared with the replies, so a thread the user has read would show as unread.
++     * Here we compare timestamps instead, as {@link compareEventOrdering} already does for
++     * events in different threads.
++     *
++     * @returns true if the user's latest thread receipt can't be placed in the thread's
++     *          timeline and is not older than the supplied event.
++     */
++    private threadReceiptIsNewer(threadId: string, userId: string, event: MatrixEvent): boolean {
++        const eventTs = event.getTs();
++
++        const threaded = this.threadedReceipts.get(threadId, userId);
++        // When the two events can be ordered, the order is authoritative and was already checked.
++        if (threaded && this.room.compareEventOrdering(threaded.eventId, event.getId()!) === null) {
++            const receiptTs = this.room.findEventById(threaded.eventId)?.getTs() ?? threaded.ts;
++            if (receiptTs >= eventTs) return true;
++        }
++
++        // A receipt for an event we never loaded is still waiting for that event.
++        const danglingTs = this.danglingReceipts.latestTs(threadId, userId);
++        return danglingTs !== undefined && danglingTs >= eventTs;
++    }
++
+     /**
+      * @returns true if the timeline for this thread ID can be found, and the
+      *          supplied user sent an event in it that is the same as, or after,
+@@ -426,12 +460,33 @@ class DanglingReceipts {
+      */
+     private data = new Map<string, Array<DanglingReceipt>>();
+ 
++    /**
++     * threadId + userId: the newest timestamp of a threaded receipt that arrived dangling.
++     * Kept after the receipt is resolved, as it still records when the user read the thread.
++     */
++    private latestThreadedTs = new Map<string, number>();
++
+     /**
+      * Remember the supplied dangling receipt.
+      */
+     public add(danglingReceipt: DanglingReceipt): void {
+         const danglingReceipts = getOrCreate(this.data, danglingReceipt.eventId, () => []);
+         danglingReceipts.push(danglingReceipt);
++
++        const threadId = danglingReceipt.receipt.thread_id;
++        if (threadId && threadId !== MAIN_ROOM_TIMELINE) {
++            const key = threadUserKey(threadId, danglingReceipt.userId);
++            const ts = danglingReceipt.receipt.ts;
++            if (ts > (this.latestThreadedTs.get(key) ?? -Infinity)) this.latestThreadedTs.set(key, ts);
++        }
++    }
++
++    /**
++     * The newest timestamp of a threaded receipt from this user in this thread that arrived
++     * before its event was loaded, or undefined if there was none.
++     */
++    public latestTs(threadId: string, userId: string): number | undefined {
++        return this.latestThreadedTs.get(threadUserKey(threadId, userId));
+     }
+ 
+     /**
+@@ -446,6 +501,11 @@ class DanglingReceipts {
+     }
+ }
+ 
++function threadUserKey(threadId: string, userId: string): string {
++    // Neither event IDs nor user IDs can contain a newline.
++    return `${threadId}\n${userId}`;
++}
++
+ function getOrCreate<K, V>(m: Map<K, V>, key: K, createFn: () => V): V {
+     const found = m.get(key);
+     if (found) {
