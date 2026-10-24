@@ -8,37 +8,87 @@
  * shelf only ever holds a single pending file.
  */
 
-import React, { type JSX } from "react";
+import React, { type JSX, useEffect, useState } from "react";
 import CloseIcon from "@vector-im/compound-design-tokens/assets/web/icons/close";
 import DocumentIcon from "@vector-im/compound-design-tokens/assets/web/icons/document";
+import LocationPinIcon from "@vector-im/compound-design-tokens/assets/web/icons/location-pin";
+import MicOnIcon from "@vector-im/compound-design-tokens/assets/web/icons/mic-on";
 
 import Spinner from "../../../../element-web/apps/web/src/components/views/elements/Spinner";
+import { mediaFromMxc } from "../../../../element-web/apps/web/src/customisations/Media";
+import { decryptFile } from "../../../../element-web/apps/web/src/utils/DecryptFile";
 import { type PendingAttachment } from "../utils/postAttachment";
+import { type StagedMedia } from "../utils/postEdit";
 
 interface Props {
-    attachment: PendingAttachment;
+    /** A newly picked file, or media the post already has (see postEdit.ts). */
+    attachment: PendingAttachment | StagedMedia;
     /** True while the actual upload (kicked off by hitting Send) is in flight for this file. */
     uploading: boolean;
     onRemove: () => void;
 }
 
+/**
+ * A preview image for media that's already uploaded: its thumbnail, or the image itself, decrypted
+ * first in an encrypted room. Null while loading, and for anything without one.
+ */
+function useStagedMediaPreview(media: StagedMedia | null): string | null {
+    const [url, setUrl] = useState<string | null>(null);
+    useEffect(() => {
+        setUrl(null);
+        if (!media || (media.kind !== "image" && media.kind !== "video")) return;
+        const content = media.content as Record<string, any>;
+        const info = content.info ?? {};
+        const encrypted = info.thumbnail_file ?? (media.kind === "image" ? content.file : undefined);
+        if (!encrypted) {
+            const mxc = info.thumbnail_url ?? (media.kind === "image" ? content.url : undefined);
+            if (mxc) setUrl(mediaFromMxc(mxc).getThumbnailOfSourceHttp(192, 192, "scale"));
+            return;
+        }
+        let objectUrl: string | null = null;
+        let canceled = false;
+        decryptFile(encrypted, info.thumbnail_info ?? info)
+            .then((blob) => {
+                if (canceled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setUrl(objectUrl);
+            })
+            .catch(() => {});
+        return () => {
+            canceled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [media]);
+    return url;
+}
+
+function isStagedMedia(attachment: PendingAttachment | StagedMedia): attachment is StagedMedia {
+    return "kind" in attachment;
+}
+
 export function AttachmentShelf({ attachment, uploading, onRemove }: Props): JSX.Element {
-    const { file, previewUrl } = attachment;
+    const staged = isStagedMedia(attachment) ? attachment : null;
+    const stagedPreviewUrl = useStagedMediaPreview(staged);
+    const name = staged ? staged.name : (attachment as PendingAttachment).file.name;
+    const previewUrl = staged ? stagedPreviewUrl : (attachment as PendingAttachment).previewUrl;
+    const isVideo = staged ? false : (attachment as PendingAttachment).file.type.startsWith("video/");
+    const FallbackIcon =
+        staged?.kind === "location" ? LocationPinIcon : staged?.kind === "voice" ? MicOnIcon : DocumentIcon;
 
     return (
         <div className="social_AttachmentShelf">
-            <div className="social_AttachmentShelf_tile" title={file.name}>
+            <div className="social_AttachmentShelf_tile" title={name}>
                 {previewUrl ? (
-                    file.type.startsWith("video/") ? (
+                    isVideo ? (
                         <video className="social_AttachmentShelf_preview" src={previewUrl} muted playsInline />
                     ) : (
-                        <img className="social_AttachmentShelf_preview" src={previewUrl} alt={file.name} />
+                        <img className="social_AttachmentShelf_preview" src={previewUrl} alt={name} />
                     )
                 ) : (
                     <div className="social_AttachmentShelf_filePreview">
-                        <DocumentIcon className="social_AttachmentShelf_fileIcon" />
-                        <span className="social_AttachmentShelf_fileName" title={file.name}>
-                            {file.name}
+                        <FallbackIcon className="social_AttachmentShelf_fileIcon" />
+                        <span className="social_AttachmentShelf_fileName" title={name}>
+                            {name}
                         </span>
                     </div>
                 )}

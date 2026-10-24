@@ -29,6 +29,8 @@ import { NotificationLevel } from "../../../stores/notifications/NotificationLev
 import InlineSpinner from "../elements/InlineSpinner";
 import { PlaybackManager } from "../../../audio/PlaybackManager";
 import { doMaybeLocalRoomAction } from "../../../utils/local-room";
+// haven apps-framework patch: see composerSendInterceptor.ts
+import { interceptComposerSend } from "../../../../../../../src/apps/framework/composerSendInterceptor";
 import defaultDispatcher from "../../../dispatcher/dispatcher";
 import { attachMentions, attachRelation } from "../../../utils/messages";
 import { addReplyToMessageContent } from "../../../utils/Reply";
@@ -132,6 +134,11 @@ export default class VoiceRecordComposerTile extends React.PureComponent<IProps,
                 });
             }
 
+            // Haven: an app composer (e.g. Social's post editor) can take the voice message instead.
+            if (interceptComposerSend(this.props.room.roomId, content)) {
+                await this.disposeRecording();
+                return;
+            }
             // we don't care if it fails, it'll get queued.
             void doMaybeLocalRoomAction(
                 this.props.room.roomId,

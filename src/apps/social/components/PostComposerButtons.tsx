@@ -66,6 +66,9 @@ interface Props {
      *  see SocialRoomUploadViewModel. Omit to fall back to stock's own immediate-upload behavior
      *  for every case (nothing currently omits this, but keeps this component usable standalone). */
     onFileSelected?: (file: File) => void;
+    /** Editing a post: polls and stickers are their own kinds of event, which an edit can't
+     *  change a post into, so their buttons are hidden. */
+    editing?: boolean;
 }
 
 export function PostComposerButtons({
@@ -77,6 +80,7 @@ export function PostComposerButtons({
     sendButtonTitle,
     recorderSlot,
     onFileSelected,
+    editing = false,
 }: Props): JSX.Element {
     const rootRef = useRef<HTMLDivElement>(null);
     const voiceRef = useRef<VoiceRecordComposerTile>(null);
@@ -132,8 +136,9 @@ export function PostComposerButtons({
     const [isMenuOpen, setMenuOpen] = useState(false);
     const [isStickerPickerOpen, setStickerPickerOpen] = useState(false);
     const [haveRecording, setHaveRecording] = useState(false);
-    const showStickersButton = useSettingValue("MessageComposerInput.showStickersButton") && !isLocalRoom(room);
-    const showPollsButton = useSettingValue("MessageComposerInput.showPollsButton");
+    const showStickersButton =
+        useSettingValue("MessageComposerInput.showStickersButton") && !isLocalRoom(room) && !editing;
+    const showPollsButton = useSettingValue("MessageComposerInput.showPollsButton") && !editing;
     const showLocationButton = !(window as any).electron && SettingsStore.getValue(UIFeature.LocationSharing);
 
     useEffect(() => {
@@ -241,7 +246,7 @@ export function PostComposerButtons({
             {showSendButton && (
                 <SendButton
                     onClick={handleSend}
-                    title={haveRecording ? "Send voice message" : sendButtonTitle}
+                    title={haveRecording ? (editing ? "Add voice message to post" : "Send voice message") : sendButtonTitle}
                 />
             )}
         </div>

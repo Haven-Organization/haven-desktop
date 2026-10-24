@@ -15,7 +15,7 @@
  */
 
 import React, { type JSX } from "react";
-import { VisibilityOnIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
+import { EditIcon, VisibilityOnIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import MessageContextMenu from "../../../../element-web/apps/web/src/components/views/context_menus/MessageContextMenu";
 import { IconizedContextMenuOption } from "../../../../element-web/apps/web/src/components/views/context_menus/IconizedContextMenu";
@@ -25,7 +25,23 @@ import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions"
 import { type ViewRoomPayload } from "../../../../element-web/apps/web/src/dispatcher/payloads/ViewRoomPayload";
 import { _t } from "../../../../element-web/apps/web/src/languageHandler";
 
-export default class SocialMessageContextMenu extends MessageContextMenu {
+type Props = React.ComponentProps<typeof MessageContextMenu> & {
+    /** Shows an Edit item first in the menu, for posts the user can edit (see EditPostDialog.tsx).
+     *  Stock's own Edit item only appears on a right-click and opens stock's message editor. */
+    onEdit?: () => void;
+};
+
+class SocialMessageContextMenu extends MessageContextMenu {
+    // The stock class's props type can't be widened in place, so onEdit is read through this.
+    private get socialOnEdit(): (() => void) | undefined {
+        return (this.props as Props).onEdit;
+    }
+
+    private onSocialEditClick = (): void => {
+        this.props.onFinished();
+        this.socialOnEdit?.();
+    };
+
     private onViewInStockRoomClick = (): void => {
         defaultDispatcher.dispatch<ViewRoomPayload>({
             action: Action.ViewRoom,
@@ -39,16 +55,25 @@ export default class SocialMessageContextMenu extends MessageContextMenu {
 
     public render(): React.ReactNode {
         const original = super.render() as React.ReactElement<{ children: React.ReactNode }>;
-        if (!SettingsStore.getValue("developerMode")) return original;
+        const showViewInRoom = SettingsStore.getValue("developerMode");
+        if (!showViewInRoom && !this.socialOnEdit) return original;
 
-        const extraOption = (
+        const editOption = this.socialOnEdit ? (
+            <IconizedContextMenuOption
+                key="social-edit"
+                icon={<EditIcon />}
+                label={_t("action|edit")}
+                onClick={this.onSocialEditClick}
+            />
+        ) : null;
+        const extraOption = showViewInRoom ? (
             <IconizedContextMenuOption
                 key="social-view-in-stock-room"
                 icon={<VisibilityOnIcon />}
                 label={_t("timeline|mab|view_in_room")}
                 onClick={this.onViewInStockRoomClick}
             />
-        );
+        ) : null;
 
         const [menuElement, ...rest] = React.Children.toArray(original.props.children) as React.ReactElement<{
             children: React.ReactNode;
@@ -72,11 +97,13 @@ export default class SocialMessageContextMenu extends MessageContextMenu {
             (child) => (child as JSX.Element)?.props?.label === _t("timeline|context_menu|view_source"),
         );
         const insertAt = viewSourceIndex === -1 ? targetChildren.length : viewSourceIndex;
+        // Edit leads the section, the way it leads stock's own right-click menu.
         const newTargetChildren = [
+            editOption,
             ...targetChildren.slice(0, insertAt),
             extraOption,
             ...targetChildren.slice(insertAt),
-        ];
+        ].filter(Boolean);
         const newTarget = React.cloneElement(target, {}, ...newTargetChildren);
         const newSections = [...sections];
         newSections[targetIndex] = newTarget;
@@ -85,3 +112,6 @@ export default class SocialMessageContextMenu extends MessageContextMenu {
         return React.cloneElement(original, {}, newMenuElement, ...rest);
     }
 }
+
+// Typed with onEdit, which the stock class's own props type doesn't have.
+export default SocialMessageContextMenu as unknown as React.ComponentClass<Props>;

@@ -7,7 +7,7 @@
  * Clicking the card body navigates to the thread view (when onViewThread is set).
  */
 
-import React, { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { type JSX, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
     MatrixEvent,
     type Relations,
@@ -19,6 +19,7 @@ import {
     MsgType,
     JoinRule,
     RoomEvent,
+    MatrixEventEvent,
 } from "matrix-js-sdk/src/matrix";
 import { M_POLL_START } from "matrix-js-sdk/src/@types/polls";
 import { KnownMembership, type EncryptedFile, type MediaEventInfo } from "matrix-js-sdk/src/types";
@@ -100,6 +101,8 @@ import {
     type EmbeddedRelationPreview,
 } from "./PostRelationHeaderLine";
 import SocialMessageContextMenu from "./SocialMessageContextMenu";
+import { EditPostDialog } from "./EditPostDialog";
+import { canEditPost } from "../utils/postEdit";
 import { LikeButton } from "./LikeButton";
 import { ReplyComposerDialog } from "./ReplyComposerDialog";
 import { RepostDialog } from "./RepostDialog";
@@ -1484,6 +1487,20 @@ export const SocialEventTile = React.memo(function SocialEventTile({
         room.getMyMembership() === KnownMembership.Join && room.currentState.maySendEvent(EventType.Reaction, myUserId);
     const canSelfRedact = room.currentState.maySendEvent(EventType.RoomRedaction, myUserId);
     const [menuDisplayed, menuHandle, openMenu, closeMenu] = useContextMenu<HTMLButtonElement>();
+
+    // An edit changes what event.getContent() returns without changing `event` itself, so this
+    // re-renders when one lands - including the user's own, sent from the "..." menu's Edit.
+    const [, onReplaced] = useReducer((n: number) => n + 1, 0);
+    useEffect(() => {
+        event.on(MatrixEventEvent.Replaced, onReplaced);
+        return () => {
+            event.off(MatrixEventEvent.Replaced, onReplaced);
+        };
+    }, [event]);
+    const canEdit = canEditPost(client, event);
+    const openEditDialog = useCallback(() => {
+        Modal.createDialog(EditPostDialog, { client, event, room }, "social_PostDialog_wrapper");
+    }, [client, event, room]);
     const imgRef = useRef<HTMLImageElement>(null);
     // For the embedded repost/reply-cross-post cards' own images below - separate refs since a
     // post can show all three at once (its own file, a repost card, a quoted-reply card).
@@ -2522,6 +2539,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             // reactionsButton guard (`if (reactions && getReactionGroups(...))`)
                             // never renders the "Reactions" item at all.
                             reactions={reactions}
+                            onEdit={canEdit ? openEditDialog : undefined}
                         />
                     )}
                 </div>

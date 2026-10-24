@@ -23,6 +23,8 @@ import QuestionDialog, { type IQuestionDialogProps } from "../dialogs/QuestionDi
 import SdkConfig from "../../../SdkConfig";
 import { OwnBeaconStore } from "../../../stores/OwnBeaconStore";
 import { doMaybeLocalRoomAction } from "../../../utils/local-room";
+// haven apps-framework patch: see composerSendInterceptor.ts
+import { interceptComposerSend } from "../../../../../../../src/apps/framework/composerSendInterceptor";
 
 export enum LocationShareType {
     Own = "Own",
@@ -139,6 +141,8 @@ export const shareLocation =
                 undefined,
                 assetType,
             ) as RoomMessageEventContent;
+            // Haven: an app composer (e.g. Social's post editor) can take the location instead.
+            if (interceptComposerSend(roomId, content)) return;
             await doMaybeLocalRoomAction(
                 roomId,
                 (actualRoomId: string) => client.sendMessage(actualRoomId, threadId, content),

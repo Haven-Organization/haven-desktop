@@ -31,6 +31,8 @@ import { AttachmentShelf } from "./AttachmentShelf";
 import { ComposerAutocomplete, type ComposerAutocompleteHandle } from "./ComposerAutocomplete";
 import { EmojiRenderingTextarea } from "./EmojiRenderingTextarea";
 import { type ICompletion } from "../../../../element-web/apps/web/src/autocomplete/Autocompleter";
+import { registerComposerSendInterceptor } from "../../framework/composerSendInterceptor";
+import { splitMedia, type StagedMedia } from "../utils/postEdit";
 
 interface Props {
     client: MatrixClient;
@@ -54,7 +56,15 @@ interface Props {
      *  on open, exactly as if the user had picked it here themselves. Only ever read once, on
      *  mount. */
     initialFile?: File;
-    onSubmit: (body: string, targetRoomId: string, file?: File) => Promise<void>;
+    /** Editing a post (see EditPostDialog.tsx): the post's room, which can't change, so there's
+     *  no room picker. A location or voice message picked while editing goes into the post's
+     *  shelf instead of being sent, and polls and stickers, which an edit can't turn a post into,
+     *  aren't offered. */
+    fixedRoomId?: string;
+    /** Media the post already has, shown in the shelf until it's removed or replaced. */
+    initialMedia?: StagedMedia | null;
+    /** `media` is the shelf's already-uploaded media (only ever when editing), when there's no new `file`. */
+    onSubmit: (body: string, targetRoomId: string, file?: File, media?: StagedMedia) => Promise<void>;
     onFinished: (sent?: boolean) => void;
 }
 
@@ -67,9 +77,12 @@ export function PostComposerDialog({
     initialBody,
     initialRoomId,
     initialFile,
+    fixedRoomId,
+    initialMedia,
     onSubmit,
     onFinished,
 }: Props): JSX.Element {
+    const editing = fixedRoomId !== undefined;
     const myUserId = client.getUserId() ?? "";
 
     const postableRooms = useMemo(() => {
@@ -103,7 +116,7 @@ export function PostComposerDialog({
     // pendingRoomPick.ts for why) - reading the bridge here is what makes the freshly-mounted
     // instance actually reflect the room that was just picked, since the plain onChange callback
     // below fires too late, on the already-unmounted previous instance.
-    const [explicitRoomId, setExplicitRoomId] = useState(() => peekPendingRoomPick() ?? initialRoomId ?? "");
+    const [explicitRoomId, setExplicitRoomId] = useState(() => fixedRoomId ?? peekPendingRoomPick() ?? initialRoomId ?? "");
 
     // Only clears on this dialog's own real close (submitted or cancelled) - not on the fake
     // unmount above, since nothing has had a chance to re-set the bridge in between those two
@@ -123,7 +136,20 @@ export function PostComposerDialog({
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [recorderSlot, setRecorderSlot] = useState<HTMLDivElement | null>(null);
-    const { attachment, setFile, clear: clearAttachment } = usePendingAttachment();
+    const { attachment, setFile: setAttachmentFile, clear: clearAttachmentFile } = usePendingAttachment();
+    // The shelf holds one thing: a newly picked file, or media that's already uploaded.
+    const [media, setMedia] = useState<StagedMedia | null>(initialMedia ?? null);
+    const setFile = useCallback(
+        (file: File) => {
+            setMedia(null);
+            setAttachmentFile(file);
+        },
+        [setAttachmentFile],
+    );
+    const clearAttachment = useCallback(() => {
+        setMedia(null);
+        clearAttachmentFile();
+    }, [clearAttachmentFile]);
 
     // "@" user, "#" room and ":" emoji autocomplete (see ComposerAutocomplete.tsx and
     // SocialRoomView.tsx's identical use) - selection tracks the textarea's own cursor position,
@@ -187,10 +213,20 @@ export function PostComposerDialog({
         };
     }, []);
 
+    // While editing, a location or voice message picked from the composer buttons replaces the
+    // shelf's contents instead of going out as a message of its own (see composerSendInterceptor.ts).
+    useEffect(() => {
+        if (!editing || !targetRoomId) return;
+        return registerComposerSendInterceptor(targetRoomId, (_roomId, content) => {
+            clearAttachmentFile();
+            setMedia(splitMedia(content).media);
+        });
+    }, [editing, targetRoomId, clearAttachmentFile]);
+
     const handleSubmit = useCallback(
         async (e?: React.SyntheticEvent): Promise<void> => {
             e?.preventDefault();
-            if ((!body.trim() && !attachment) || !targetRoomId) return;
+            if ((!body.trim() && !attachment && !media) || !targetRoomId) return;
             // Same guard as FeedPane's handleFeedPost in SocialHomeView.tsx: without an explicit
             // user choice, targetRoomId falls back to postableRooms[0] while the real
             // profile_room_id link is still resolving, not necessarily the user's own profile
@@ -199,7 +235,7 @@ export function PostComposerDialog({
             setBusy(true);
             setError(null);
             try {
-                await onSubmit(body.trim(), targetRoomId, attachment?.file);
+                await onSubmit(body.trim(), targetRoomId, attachment?.file, attachment ? undefined : (media ?? undefined));
                 isClosingRef.current = true;
                 onFinished(true);
             } catch (err: unknown) {
@@ -207,7 +243,7 @@ export function PostComposerDialog({
                 setBusy(false);
             }
         },
-        [body, targetRoomId, explicitRoomId, profileRoomId, attachment, onSubmit, onFinished],
+        [body, targetRoomId, explicitRoomId, profileRoomId, attachment, media, onSubmit, onFinished],
     );
 
     const targetRoom = targetRoomId ? client.getRoom(targetRoomId) : null;
@@ -284,22 +320,24 @@ export function PostComposerDialog({
                             autoFocus
                         />
                     </div>
-                    {attachment && (
-                        <AttachmentShelf attachment={attachment} uploading={busy} onRemove={clearAttachment} />
+                    {(attachment ?? media) && (
+                        <AttachmentShelf attachment={(attachment ?? media)!} uploading={busy} onRemove={clearAttachment} />
                     )}
                     {extraContent}
                     {error && <p className="social_Error">{error}</p>}
                     <div className="social_ComposeBox_recorderSlot" ref={setRecorderSlot} />
                     <div className="social_PostComposerDialog_footer">
-                        <div className="social_ComposeBox_roomPicker">
-                            <span className="social_ComposeBox_label">Post to:</span>
-                            <RoomPickerButton
-                                client={client}
-                                value={targetRoomId}
-                                myProfileRoomId={myProfileRoom?.roomId}
-                                onChange={setExplicitRoomId}
-                            />
-                        </div>
+                        {!editing && (
+                            <div className="social_ComposeBox_roomPicker">
+                                <span className="social_ComposeBox_label">Post to:</span>
+                                <RoomPickerButton
+                                    client={client}
+                                    value={targetRoomId}
+                                    myProfileRoomId={myProfileRoom?.roomId}
+                                    onChange={setExplicitRoomId}
+                                />
+                            </div>
+                        )}
                         {targetRoom && !busy && (
                             <PostComposerButtons
                                 room={targetRoom}
@@ -308,8 +346,10 @@ export function PostComposerDialog({
                                     return true;
                                 }}
                                 canSubmit={
-                                    (!!body.trim() || !!attachment) && (!!explicitRoomId || profileRoomId !== undefined)
+                                    (!!body.trim() || !!attachment || !!media) &&
+                                    (!!explicitRoomId || profileRoomId !== undefined)
                                 }
+                                editing={editing}
                                 onSubmit={() => void handleSubmit()}
                                 sendButtonTitle={sendButtonTitle}
                                 recorderSlot={recorderSlot}
