@@ -58,7 +58,9 @@ type ElectronChannel =
     | "userAccessToken"
     | "homeserverUrl"
     | "serverSupportedVersions"
-    | "showToast";
+    | "showToast"
+    // Haven: a matrix.to link a widget opened, sent back by the desktop app
+    | "navigatePermalink";
 
 declare global {
     // use `number` as the return type in all cases for globalThis.set{Interval,Timeout},

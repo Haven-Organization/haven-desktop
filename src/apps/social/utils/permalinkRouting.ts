@@ -31,6 +31,7 @@ import {
     parsePermalink,
     tryTransformPermalinkToLocalHref,
 } from "../../../../element-web/apps/web/src/utils/permalinks/Permalinks";
+import { navigateToPermalink } from "../../../../element-web/apps/web/src/utils/permalinks/navigator";
 import { SOCIAL_HOME_ACTION } from "../homeAction";
 import { setPendingViewPost } from "./pendingViewPost";
 import { setPendingSocialScreen } from "./pendingSocialScreen";
@@ -178,4 +179,15 @@ export function tryRouteSocialHashScreen(screen: string, params?: Record<string,
 
     routeToSocial(roomId, eventId);
     return true;
+}
+
+/**
+ * Opens a permalink that didn't come from a click in Haven's own page: a widget's MSC2931 navigate
+ * request, or a matrix.to link a widget opened as a new window in the desktop app. Social profile
+ * and group rooms (and posts in them) open in Social, like a clicked link; anything else gets the
+ * stock navigation. Throws like navigateToPermalink when the URI isn't a permalink.
+ */
+export function navigateToPermalinkInApp(uri: string): void {
+    if (tryRouteSocialPermalink({}, uri)) return;
+    navigateToPermalink(uri);
 }

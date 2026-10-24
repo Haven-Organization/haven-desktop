@@ -60,7 +60,8 @@ import { CHAT_EFFECTS } from "../../effects";
 import { containsEmoji } from "../../effects/utils";
 import dis from "../../dispatcher/dispatcher";
 import { ElementWidgetCapabilities } from "./ElementWidgetCapabilities";
-import { navigateToPermalink } from "../../utils/permalinks/navigator";
+// Haven: Social profile/group links open in Social, as they do when clicked in the timeline.
+import { navigateToPermalinkInApp } from "../../../../../../src/apps/social/utils/permalinkRouting";
 import { SDKContextClass } from "../../contexts/SDKContextClass";
 import { ModuleApi } from "../../modules/Api";
 import { toWidgetDescriptor } from "../../modules/WidgetLifecycleApi";
@@ -697,7 +698,7 @@ export class ElementWidgetDriver extends WidgetDriver {
     }
 
     public async navigate(uri: string): Promise<void> {
-        navigateToPermalink(uri);
+        navigateToPermalinkInApp(uri);
     }
 
     public async *getTurnServers(): AsyncGenerator<ITurnServer> {

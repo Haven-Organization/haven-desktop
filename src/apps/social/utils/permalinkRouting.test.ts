@@ -15,7 +15,13 @@ vi.mock("./socialHistoryOrigin", () => ({ getLastPopStateOrigin: vi.fn() }));
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { MatrixClientPeg } from "../../../../element-web/apps/web/src/MatrixClientPeg";
 import { getLastPopStateOrigin } from "./socialHistoryOrigin";
-import { tryRouteSocialHashScreen, tryRouteSocialRoom, tryRouteSocialPermalink } from "./permalinkRouting";
+import {
+    navigateToPermalinkInApp,
+    tryRouteSocialHashScreen,
+    tryRouteSocialRoom,
+    tryRouteSocialPermalink,
+} from "./permalinkRouting";
+import { MSC4501_ROOM_TYPE_PROFILE } from "./room-classifier";
 import { SOCIAL_HOME_ACTION } from "../homeAction";
 import { consumePendingViewPost } from "./pendingViewPost";
 import { consumePendingFeedThread } from "./pendingFeedThread";
@@ -150,5 +156,49 @@ describe("via server hints for room-summary lookups", () => {
             tryRouteSocialPermalink({}, "https://matrix.to/#/!room:example.org/$event?via=a.example&via=b.example"),
         ).toBe(true);
         expect(getRoomSummary).toHaveBeenCalledWith("!room:example.org", ["a.example", "b.example"]);
+    });
+});
+
+// Widget navigate requests (and matrix.to links a widget opens in the desktop app) don't come from
+// a click handler, so they need this to reach Social the way a clicked link does.
+describe("navigateToPermalinkInApp", () => {
+    const getRoomSummary = vi.fn();
+
+    beforeEach(() => {
+        vi.spyOn(defaultDispatcher, "dispatch").mockClear().mockImplementation(() => "");
+        consumePendingViewPost();
+        clearPendingActiveAppId();
+        window.location.hash = "";
+        getRoomSummary.mockReset();
+        vi.spyOn(MatrixClientPeg, "get").mockReturnValue({ getRoom: () => null, getRoomSummary } as any);
+    });
+
+    it("opens a post in a Social profile room in Social", async () => {
+        getRoomSummary.mockResolvedValue({ room_id: "!profile:example.org", room_type: MSC4501_ROOM_TYPE_PROFILE });
+        navigateToPermalinkInApp("https://matrix.to/#/!profile:example.org/$post?via=example.org");
+
+        await vi.waitFor(() =>
+            expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({ action: SOCIAL_HOME_ACTION }, true),
+        );
+        expect(consumePendingViewPost()).toMatchObject({ roomId: "!profile:example.org", eventId: "$post" });
+        expect(window.location.hash).toBe("");
+    });
+
+    it("opens any other room in the regular room view", async () => {
+        getRoomSummary.mockResolvedValue({ room_id: "!chat:example.org", room_type: undefined });
+        navigateToPermalinkInApp("https://matrix.to/#/!chat:example.org/$event");
+
+        await vi.waitFor(() => expect(window.location.hash).toBe("#/room/!chat:example.org/$event"));
+        expect(defaultDispatcher.dispatch).not.toHaveBeenCalledWith({ action: SOCIAL_HOME_ACTION }, true);
+    });
+
+    it("opens a user link the stock way", () => {
+        navigateToPermalinkInApp("https://matrix.to/#/@alice:example.org");
+        expect(window.location.hash).toBe("#/user/@alice:example.org");
+        expect(getRoomSummary).not.toHaveBeenCalled();
+    });
+
+    it("throws for a link that isn't a permalink", () => {
+        expect(() => navigateToPermalinkInApp("https://example.org/")).toThrow();
     });
 });

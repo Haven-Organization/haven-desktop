@@ -35,6 +35,8 @@ const CHANNELS = [
     "homeserverUrl",
     "serverSupportedVersions",
     "showToast",
+    // Haven: a matrix.to link a widget opened, for the main window to open in the app
+    "navigatePermalink",
 ];
 
 contextBridge.exposeInMainWorld("electron", {

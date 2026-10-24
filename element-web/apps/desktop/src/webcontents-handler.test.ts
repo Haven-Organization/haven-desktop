@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { dialog, shell, type WebContents } from "electron";
 import fs from "node:fs";
 import os from "node:os";
@@ -307,5 +307,79 @@ describe("widget pop-out windows", () => {
         expect(child.setWindowOpenHandler).toHaveBeenCalled();
         expect(child.handlers["will-navigate"]).toBeDefined();
         expect(child.session.on).not.toHaveBeenCalled();
+    });
+});
+
+// Haven: matrix.to links a widget opens as a new window go to the main window instead of the browser.
+describe("matrix.to links from widgets", () => {
+    const LINK = "https://matrix.to/#/!room:example.org/$event?via=example.org";
+
+    function openHandler(wc: MockWebContents): (details: { url: string; frameName: string }) => unknown {
+        return wc.setWindowOpenHandler.mock.calls[0][0];
+    }
+
+    function makeMainWindow(): { webContents: { send: Mock }; [key: string]: Mock | { send: Mock } } {
+        return {
+            webContents: { send: vi.fn() },
+            isDestroyed: vi.fn().mockReturnValue(false),
+            isMinimized: vi.fn().mockReturnValue(true),
+            restore: vi.fn(),
+            show: vi.fn(),
+            focus: vi.fn(),
+        };
+    }
+
+    beforeEach(() => {
+        vi.mocked(shell.openExternal).mockClear();
+    });
+
+    afterEach(() => {
+        global.mainWindow = null;
+    });
+
+    it("sends the link to the main window and brings it forward", () => {
+        const win = makeMainWindow();
+        global.mainWindow = win as unknown as typeof global.mainWindow;
+        const wc = makeWebContents();
+        registerWebContentsHandlers(wc as unknown as WebContents);
+
+        expect(openHandler(wc)({ url: LINK, frameName: "" })).toEqual({ action: "deny" });
+        expect(win.webContents.send).toHaveBeenCalledWith("navigatePermalink", LINK);
+        expect(win.restore).toHaveBeenCalled();
+        expect(win.focus).toHaveBeenCalled();
+        expect(shell.openExternal).not.toHaveBeenCalled();
+    });
+
+    it("also handles links from a pop-out window's widget", () => {
+        const win = makeMainWindow();
+        global.mainWindow = win as unknown as typeof global.mainWindow;
+        const child = makeWebContents();
+        registerWebContentsHandlers(child as unknown as WebContents, true);
+
+        openHandler(child)({ url: "https://matrix.to/#/@alice:example.org", frameName: "" });
+        expect(win.webContents.send).toHaveBeenCalledWith(
+            "navigatePermalink",
+            "https://matrix.to/#/@alice:example.org",
+        );
+    });
+
+    it("still sends other matrix.to pages and links to the browser", () => {
+        const win = makeMainWindow();
+        global.mainWindow = win as unknown as typeof global.mainWindow;
+        const wc = makeWebContents();
+        registerWebContentsHandlers(wc as unknown as WebContents);
+
+        openHandler(wc)({ url: "https://matrix.to/", frameName: "" });
+        openHandler(wc)({ url: "https://matrix.to.example.org/#/!room:example.org", frameName: "" });
+        expect(win.webContents.send).not.toHaveBeenCalled();
+        expect(shell.openExternal).toHaveBeenCalledTimes(2);
+    });
+
+    it("falls back to the browser when there's no main window", () => {
+        const wc = makeWebContents();
+        registerWebContentsHandlers(wc as unknown as WebContents);
+
+        openHandler(wc)({ url: LINK, frameName: "" });
+        expect(shell.openExternal).toHaveBeenCalledTimes(1);
     });
 });

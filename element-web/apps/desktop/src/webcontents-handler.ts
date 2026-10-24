@@ -321,10 +321,31 @@ export function isWidgetPopout(details: { url: string; frameName: string }): boo
     return details.url === WIDGET_POPOUT_URL && details.frameName.startsWith(WIDGET_POPOUT_NAME_PREFIX);
 }
 
+// Haven: matrix.to links that open a new window (from a widget, which Haven's page can't see clicks
+// in) go to the main window, which opens them the same way it opens timeline links.
+const MATRIX_TO_PERMALINK = /^https:\/\/matrix\.to\/#\/[!#@+$]/;
+
+export function isMatrixToPermalink(target: string): boolean {
+    return MATRIX_TO_PERMALINK.test(target);
+}
+
+function openPermalinkInApp(target: string): boolean {
+    const win = global.mainWindow;
+    if (!win || win.isDestroyed()) return false;
+    win.webContents.send("navigatePermalink", target);
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    return true;
+}
+
 export default function registerWebContentsHandlers(webContents: WebContents, isWidgetPopoutWindow = false): void {
     webContents.setWindowOpenHandler((details) => {
         if (isWidgetPopout(details)) {
             return { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true } };
+        }
+        if (isMatrixToPermalink(details.url) && openPermalinkInApp(details.url)) {
+            return { action: "deny" };
         }
         safeOpenURL(details.url);
         return { action: "deny" };

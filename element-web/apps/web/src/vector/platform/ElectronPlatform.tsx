@@ -38,6 +38,8 @@ import GenericExpiringToast from "../../components/views/toasts/GenericExpiringT
 import { BreadcrumbsStore } from "../../stores/BreadcrumbsStore";
 import { UPDATE_EVENT } from "../../stores/AsyncStore";
 import { avatarUrlForRoom, getInitialLetter } from "../../Avatar";
+// Haven: Social profile/group links open in Social, as they do when clicked in the timeline.
+import { navigateToPermalinkInApp } from "../../../../../../src/apps/social/utils/permalinkRouting";
 import DesktopCapturerSourcePicker from "../../components/views/elements/DesktopCapturerSourcePicker";
 import { MatrixClientPeg } from "../../MatrixClientPeg";
 import { SeshatIndexManager } from "./SeshatIndexManager";
@@ -204,6 +206,17 @@ export default class ElectronPlatform extends BasePlatform {
                 component: GenericToast,
                 priority,
             });
+        });
+
+        // Haven: a matrix.to link opened from a widget, sent here by the main process instead of the
+        // system browser.
+        this.electron.on("navigatePermalink", async (ev, uri: string) => {
+            await this.clientStartedPromiseWithResolvers.promise;
+            try {
+                navigateToPermalinkInApp(uri);
+            } catch (e) {
+                logger.warn("Couldn't open a matrix.to link from a widget", e);
+            }
         });
 
         BreadcrumbsStore.instance.on(UPDATE_EVENT, this.onBreadcrumbsUpdate);

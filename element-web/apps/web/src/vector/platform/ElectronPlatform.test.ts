@@ -153,6 +153,29 @@ describe("ElectronPlatform", () => {
         );
     });
 
+    // Haven: matrix.to links a widget opened come back from the desktop app to be opened here.
+    it("opens matrix.to links sent by the desktop app once the client has started", async () => {
+        window.location.hash = "";
+        new ElectronPlatform();
+        dispatcher.dispatch({ action: Action.ClientStarted }, true);
+
+        const [, handler] = getElectronEventHandlerCall("navigatePermalink")!;
+        handler({} as any, "https://matrix.to/#/!room:example.org/$event");
+
+        await waitFor(() => expect(window.location.hash).toBe("#/room/!room:example.org/$event"));
+    });
+
+    it("logs and ignores a link that isn't a permalink", async () => {
+        const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+        new ElectronPlatform();
+        dispatcher.dispatch({ action: Action.ClientStarted }, true);
+
+        const [, handler] = getElectronEventHandlerCall("navigatePermalink")!;
+        handler({} as any, "https://example.org/");
+
+        await waitFor(() => expect(warnSpy).toHaveBeenCalled());
+    });
+
     describe("updates", () => {
         it("dispatches on check updates action", () => {
             new ElectronPlatform();
