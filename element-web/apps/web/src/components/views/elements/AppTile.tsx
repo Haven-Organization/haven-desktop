@@ -58,6 +58,12 @@ import { parseUrl } from "../../../utils/UrlUtils";
 import { RightPanelPhases } from "../../../stores/right-panel/RightPanelStorePhases.ts";
 import { WidgetContextMenu } from "../../../viewmodels/room/right-panel/WidgetContextMenuViewModel.tsx";
 import { SDKContext } from "../../../contexts/SDKContext.ts";
+// haven patch: pop widgets out into Haven's own window, still connected to the client
+import { WidgetPopoutStore } from "../../../../../../../src/apps/framework/widgetPopout/WidgetPopoutStore";
+import {
+    WidgetPoppedOut,
+    showPopoutRefusedDialog,
+} from "../../../../../../../src/apps/framework/widgetPopout/WidgetPoppedOut";
 
 // Note that there is advice saying allow-scripts shouldn't be used with allow-same-origin
 // because that would allow the iframe to programmatically remove the sandbox attribute, but
@@ -129,6 +135,8 @@ interface IState {
     error: Error | null;
     menuDisplayed: boolean;
     requiresClient: boolean;
+    // haven patch: the widget is popped out into its own window (WidgetPopoutStore)
+    havenPoppedOut: boolean;
 }
 
 export default class AppTile extends React.Component<IProps, IState> {
@@ -155,6 +163,7 @@ export default class AppTile extends React.Component<IProps, IState> {
     private messaging?: WidgetMessaging;
     private dispatcherRef?: string;
     private unmounted = false;
+    private havenUnsubscribePopout?: () => void;
 
     public constructor(props: IProps, context: ContextType<typeof SDKContext>) {
         super(props, context);
@@ -308,6 +317,7 @@ export default class AppTile extends React.Component<IProps, IState> {
             error: null,
             menuDisplayed: false,
             requiresClient: this.determineInitialRequiresClientState(),
+            havenPoppedOut: WidgetPopoutStore.instance.isPoppedOut(WidgetUtils.getWidgetUid(newProps.app)),
         };
     }
 
@@ -387,10 +397,14 @@ export default class AppTile extends React.Component<IProps, IState> {
         this.allowedWidgetsWatchRef = SettingsStore.watchSetting("allowedWidgets", null, this.onAllowedWidgetsChange);
         // Widget action listeners
         this.dispatcherRef = dis.register(this.onAction);
+        // haven patch
+        this.havenUnsubscribePopout = WidgetPopoutStore.instance.subscribe(this.onHavenPopoutChange);
     }
 
     public componentWillUnmount(): void {
         this.unmounted = true;
+        // haven patch: a popped-out widget keeps running in its window while its room isn't shown
+        this.havenUnsubscribePopout?.();
 
         if (!this.props.miniMode) {
             ActiveWidgetStore.instance.undockWidget(
@@ -653,8 +667,65 @@ export default class AppTile extends React.Component<IProps, IState> {
         // iframeParent will now be re-mounted, at which point startMessaging will be called
     }
 
+    // haven patch: the widget popped out or came back. Popping out replaces the iframe with a
+    // placeholder, which unmounts the iframe and ends its connection (see iframeParentRef). Coming
+    // back starts a new connection for the iframe the room loads again.
+    private onHavenPopoutChange = (): void => {
+        const poppedOut = WidgetPopoutStore.instance.isPoppedOut(WidgetUtils.getWidgetUid(this.props.app));
+        if (this.unmounted || poppedOut === this.state.havenPoppedOut) return;
+        if (!poppedOut) this.resetWidget(this.props);
+        this.setState({
+            havenPoppedOut: poppedOut,
+            loading: !poppedOut && !this.props.waitForIframeLoad,
+        });
+    };
+
+    // haven patch: pops the widget out into Haven's own window, where it stays connected to the
+    // client. Returns false to fall back to stock's pop-out (opening its URL in a browser).
+    private havenPopOut(): boolean {
+        if (!this.messaging || WidgetType.JITSI.matches(this.props.app.type)) return false;
+        const props = this.props;
+        const rect = this.iframeParent?.getBoundingClientRect();
+        const opened = WidgetPopoutStore.instance.popOut({
+            uid: WidgetUtils.getWidgetUid(props.app),
+            title: WidgetUtils.getWidgetName(props.app),
+            src: this.messaging.embedUrl,
+            allow: iframeFeatures,
+            sandbox: sandboxFlags,
+            background: getComputedStyle(document.body).backgroundColor,
+            width: rect?.width || 800,
+            height: rect?.height || 600,
+            createMessaging: () => new WidgetMessaging(this.widget, props),
+            onFailed: this.havenPopoutFallback,
+        });
+        if (!opened) this.havenPopoutFallback();
+        return true;
+    }
+
+    // haven patch: the pop-out window was refused (a popup blocker, or a desktop wrapper that sends
+    // new windows to the browser). Maximize the widget in its room instead, or say why nothing
+    // happened when it already is.
+    private havenPopoutFallback = (): void => {
+        if (this.unmounted) return;
+        if (!this.props.room) {
+            this.openPopoutUrl();
+            return;
+        }
+        if (!this.context.widgetLayoutStore.isInContainer(this.props.room, this.props.app, "center")) {
+            this.onToggleMaximisedClick();
+        } else {
+            showPopoutRefusedDialog();
+        }
+    };
+
     // TODO replace with full screen interactions
     private onPopoutWidgetClick = (): void => {
+        // haven patch
+        if (this.havenPopOut()) return;
+        this.openPopoutUrl();
+    };
+
+    private openPopoutUrl(): void {
         // Ensure Jitsi conferences are closed on pop-out, to not confuse the user to join them
         // twice from the same computer, which Jitsi can have problems with (audio echo/gain-loop).
         if (WidgetType.JITSI.matches(this.props.app.type)) {
@@ -667,7 +738,7 @@ export default class AppTile extends React.Component<IProps, IState> {
             href: this.messaging?.popoutUrl,
             rel: "noreferrer noopener",
         }).click();
-    };
+    }
 
     private onToggleMaximisedClick = (): void => {
         if (!this.props.room) return; // ignore action - it shouldn't even be visible
@@ -759,7 +830,18 @@ export default class AppTile extends React.Component<IProps, IState> {
                     </div>
                 );
             } else if (this.messaging) {
-                appTileBody = (
+                const havenUid = WidgetUtils.getWidgetUid(this.props.app);
+                appTileBody = this.state.havenPoppedOut ? (
+                    // haven patch: popped out into its own window. Rendered in place of the iframe's
+                    // container (inside the PersistedElement below), so the iframe unmounts and its
+                    // connection ends.
+                    <div key="havenPoppedOut" className={appTileBodyClass} style={appTileBodyStyles}>
+                        <WidgetPoppedOut
+                            onShowWindow={() => WidgetPopoutStore.instance.focus(havenUid)}
+                            onBringBack={() => WidgetPopoutStore.instance.popIn(havenUid)}
+                        />
+                    </div>
+                ) : (
                     <>
                         <div className={appTileBodyClass} style={appTileBodyStyles} ref={this.iframeParentRef}>
                             {this.state.loading && loadingElement}
@@ -851,7 +933,8 @@ export default class AppTile extends React.Component<IProps, IState> {
                         </span>
                         <span className="mx_AppTileMenuBar_widgets">
                             {layoutButtons}
-                            {this.props.showPopout && !this.state.requiresClient && (
+                            {/* haven patch: widgets that need the client pop out into Haven's own window too */}
+                            {this.props.showPopout && (
                                 <AccessibleButton
                                     className="mx_AppTileMenuBar_widgets_button"
                                     title={_t("widget|popout")}

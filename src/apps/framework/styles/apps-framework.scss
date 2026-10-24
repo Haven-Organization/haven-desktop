@@ -633,3 +633,38 @@
     margin-top: calc(-1 * var(--cpd-space-2x));
     margin-bottom: var(--cpd-space-4x);
 }
+
+// What a widget's tile shows while the widget is popped out into its own window
+// (widgetPopout/WidgetPoppedOut.tsx).
+.haven_WidgetPoppedOut {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--cpd-space-3x);
+    height: 100%;
+    min-height: 160px;
+    padding: var(--cpd-space-4x);
+    box-sizing: border-box;
+    text-align: center;
+    color: var(--cpd-color-text-secondary);
+    font: var(--cpd-font-body-md-regular);
+    background: var(--cpd-color-bg-canvas-default);
+
+    p {
+        margin: 0;
+    }
+}
+
+.haven_WidgetPoppedOut_icon {
+    width: 32px;
+    height: 32px;
+    color: var(--cpd-color-icon-secondary);
+}
+
+.haven_WidgetPoppedOut_buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--cpd-space-2x);
+}

@@ -267,3 +267,45 @@ describe("save dialog filters", () => {
         fs.rmSync(dir, { recursive: true });
     });
 });
+
+describe("widget pop-out windows", () => {
+    const POPOUT = { url: "vector://vector/webapp/widget_popout.html", frameName: "haven_widget_popout_game" };
+
+    function openHandler(wc: MockWebContents): (details: { url: string; frameName: string }) => unknown {
+        return wc.setWindowOpenHandler.mock.calls[0][0];
+    }
+
+    beforeEach(() => {
+        vi.mocked(shell.openExternal).mockClear();
+    });
+
+    it("opens Haven's widget pop-out page as an app window", () => {
+        const wc = makeWebContents();
+        registerWebContentsHandlers(wc as unknown as WebContents);
+        expect(openHandler(wc)(POPOUT)).toMatchObject({ action: "allow" });
+        expect(shell.openExternal).not.toHaveBeenCalled();
+    });
+
+    it("still sends every other new window to the system browser", () => {
+        const wc = makeWebContents();
+        registerWebContentsHandlers(wc as unknown as WebContents);
+        expect(openHandler(wc)({ url: "https://example.org/", frameName: POPOUT.frameName })).toEqual({
+            action: "deny",
+        });
+        expect(shell.openExternal).toHaveBeenCalledTimes(1);
+        // Not opened as a pop-out without its window name (and app URLs never go to the browser).
+        expect(openHandler(wc)({ url: POPOUT.url, frameName: "" })).toEqual({ action: "deny" });
+    });
+
+    it("gives the pop-out window the same link handling, but leaves downloads to the main window", () => {
+        const wc = makeWebContents();
+        registerWebContentsHandlers(wc as unknown as WebContents);
+        const child = makeWebContents();
+        const win = { setMenuBarVisibility: vi.fn(), webContents: child };
+        wc.handlers["did-create-window"](win);
+        expect(win.setMenuBarVisibility).toHaveBeenCalledWith(false);
+        expect(child.setWindowOpenHandler).toHaveBeenCalled();
+        expect(child.handlers["will-navigate"]).toBeDefined();
+        expect(child.session.on).not.toHaveBeenCalled();
+    });
+});

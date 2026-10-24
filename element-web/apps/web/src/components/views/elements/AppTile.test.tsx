@@ -35,6 +35,8 @@ import { ElementWidget, type WidgetMessaging } from "../../../stores/widgets/Wid
 import { WidgetMessagingStore } from "../../../stores/widgets/WidgetMessagingStore";
 import { ModuleApi } from "../../../modules/Api";
 import { RoomPermalinkCreator } from "../../../utils/permalinks/Permalinks";
+import WidgetUtils from "../../../utils/WidgetUtils";
+import { WidgetPopoutStore } from "../../../../../../../src/apps/framework/widgetPopout/WidgetPopoutStore";
 
 vi.mock("../../../../res/img/element-icons/room/default_app.svg", () => ({ default: "image-file-stub" }));
 vi.mock("../../../../res/img/element-icons/room/default_video.svg", () => ({ default: "image-file-stub" }));
@@ -397,13 +399,15 @@ describe("AppTile", () => {
             expect(asFragment()).toMatchSnapshot(); // Take a snapshot of the pinned widget
         });
 
-        it("should not display the »Popout widget« button", async () => {
+        // haven patch: widgets that need the client pop out into Haven's own window, so they get
+        // the button too (stock hides it for them).
+        it("should display the »Popout widget« button", async () => {
             const renderResult = render(
                 <AppTile key={app1.id} app={app1} room={r1} />,
                 clientAndSDKContextRenderOptions(cli, sdkContext),
             );
             await waitForElementToBeRemoved(() => renderResult.queryByRole("progressbar"));
-            expect(renderResult.queryByLabelText("Popout widget")).not.toBeInTheDocument();
+            expect(renderResult.queryByLabelText("Popout widget")).toBeInTheDocument();
         });
 
         it("clicking 'minimise' should send the widget to the right", async () => {
@@ -440,6 +444,78 @@ describe("AppTile", () => {
             await waitForElementToBeRemoved(() => renderResult.queryByRole("progressbar"));
             await userEvent.click(renderResult.getByLabelText("Maximise"));
             expect(moveToContainerSpy).toHaveBeenCalledWith(r1, app1, "center");
+        });
+
+        // haven patch: pop-out into Haven's own window (src/apps/framework/widgetPopout)
+        describe("popping out", () => {
+            const fakePopup = { closed: false, postMessage: vi.fn(), focus: vi.fn(), close: vi.fn() };
+            let open: MockInstance<typeof window.open>;
+            beforeEach(() => {
+                fakePopup.closed = false;
+                fakePopup.close.mockReset().mockImplementation(() => {
+                    fakePopup.closed = true;
+                });
+                open = vi.spyOn(window, "open");
+            });
+            afterEach(() => {
+                WidgetPopoutStore.instance.popIn(WidgetUtils.getWidgetUid(app1));
+                open.mockRestore();
+            });
+
+            async function renderAndPopOut(): Promise<ReturnType<typeof render>> {
+                const renderResult = render(
+                    <AppTile key={app1.id} app={app1} room={r1} />,
+                    clientAndSDKContextRenderOptions(cli, sdkContext),
+                );
+                await waitForElementToBeRemoved(() => renderResult.queryByRole("progressbar"));
+                await userEvent.click(renderResult.getByLabelText("Popout widget"));
+                return renderResult;
+            }
+
+            it("opens Haven's own window and shows a placeholder in the room", async () => {
+                open.mockReturnValue(fakePopup as unknown as Window);
+                const { container, getByText } = await renderAndPopOut();
+                expect(open).toHaveBeenCalledWith(
+                    expect.stringMatching(/widget_popout\.html$/),
+                    expect.stringMatching(/^haven_widget_popout_/),
+                    expect.any(String),
+                );
+                await waitFor(() => expect(getByText("This widget is open in its own window.")).toBeInTheDocument());
+                expect(container.ownerDocument.querySelector("iframe")).toBeNull();
+            });
+
+            it("loads the widget in the room again when brought back", async () => {
+                open.mockReturnValue(fakePopup as unknown as Window);
+                const { getByText } = await renderAndPopOut();
+                await userEvent.click(getByText("Bring back here"));
+                expect(fakePopup.close).toHaveBeenCalled();
+                await waitFor(() => expect(document.querySelector("iframe")).not.toBeNull());
+            });
+
+            it("stays popped out when its room is left", async () => {
+                open.mockReturnValue(fakePopup as unknown as Window);
+                const { unmount } = await renderAndPopOut();
+                unmount();
+                expect(fakePopup.close).not.toHaveBeenCalled();
+                expect(WidgetPopoutStore.instance.isPoppedOut(WidgetUtils.getWidgetUid(app1))).toBe(true);
+            });
+
+            it("says why nothing opened when the window is refused and the widget is already maximized", async () => {
+                open.mockReturnValue(null);
+                const isInContainer = vi.spyOn(WidgetLayoutStore.instance, "isInContainer").mockReturnValue(true);
+                try {
+                    await renderAndPopOut();
+                    await waitFor(() => expect(document.body).toHaveTextContent("Couldn't open a separate window"));
+                } finally {
+                    isInContainer.mockRestore();
+                }
+            });
+
+            it("maximizes the widget instead when the window is refused", async () => {
+                open.mockReturnValue(null);
+                await renderAndPopOut();
+                expect(moveToContainerSpy).toHaveBeenCalledWith(r1, app1, "center");
+            });
         });
 
         it("should render permission request", async () => {

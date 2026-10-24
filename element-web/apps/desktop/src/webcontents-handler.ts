@@ -311,10 +311,29 @@ ipcMain.on("userDownloadAction", async function (ev: IpcMainEvent, { id, open = 
     }
 });
 
-export default (webContents: WebContents): void => {
+// Haven: widgets pop out into Haven's own page (widget_popout.html, see the web app's
+// src/apps/framework/widgetPopout), which keeps them connected to the client. That page opens as
+// an app window; every other new window still goes to the system browser.
+const WIDGET_POPOUT_URL = "vector://vector/webapp/widget_popout.html";
+const WIDGET_POPOUT_NAME_PREFIX = "haven_widget_popout_";
+
+export function isWidgetPopout(details: { url: string; frameName: string }): boolean {
+    return details.url === WIDGET_POPOUT_URL && details.frameName.startsWith(WIDGET_POPOUT_NAME_PREFIX);
+}
+
+export default function registerWebContentsHandlers(webContents: WebContents, isWidgetPopoutWindow = false): void {
     webContents.setWindowOpenHandler((details) => {
+        if (isWidgetPopout(details)) {
+            return { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true } };
+        }
         safeOpenURL(details.url);
         return { action: "deny" };
+    });
+
+    // Haven: the pop-out window gets the same link, navigation and context menu handling.
+    webContents.on("did-create-window", (win): void => {
+        win.setMenuBarVisibility(false);
+        registerWebContentsHandlers(win.webContents, true);
     });
 
     webContents.on("will-navigate", (ev: Event, target: string): void => {
@@ -331,6 +350,9 @@ export default (webContents: WebContents): void => {
             onEditableContextMenu(ev, params, webContents);
         }
     });
+
+    // The session is shared with the main window, which already handles its downloads.
+    if (isWidgetPopoutWindow) return;
 
     webContents.session.on("will-download", (event: Event, item: DownloadItem): void => {
         // Electron only offers "All Files" unless it is told otherwise, so say what this download is
@@ -350,4 +372,4 @@ export default (webContents: WebContents): void => {
             }
         });
     });
-};
+}
