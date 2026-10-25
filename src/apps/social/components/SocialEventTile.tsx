@@ -94,6 +94,7 @@ import { calculateRoomVia } from "../../../../element-web/apps/web/src/utils/per
 import { useProfileRoomLink } from "../utils/useProfileRoomLink";
 import { useLiveUserProfile } from "../utils/liveUserProfile";
 import { ExternalHandleIcon } from "./ExternalHandleIcon";
+import { SocialMediaFrame } from "./SocialMediaFrame";
 import { stripReplyFallback } from "../utils/reply-fallback";
 import {
     PostRelationHeaderLine,
@@ -2262,24 +2263,39 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 </div>
             );
         } else if (fileMime.startsWith("image/")) {
-            fileNode = (
-                <div className="social_EventTile_mediaWrap">
-                    <img
-                        ref={imgRef}
-                        src={httpFileUrl}
-                        alt={fileName}
-                        className={
-                            isSticker ? "social_EventTile_image social_EventTile_image--sticker" : "social_EventTile_image"
-                        }
-                        onClick={handleImageClick}
-                        onLoad={onUnratioedImageLoad}
-                        style={mediaAspectRatioStyle ?? mediaFallbackPlaceholderStyle}
-                    />
-                </div>
+            const image = (
+                <img
+                    ref={imgRef}
+                    src={httpFileUrl}
+                    alt={fileName}
+                    className={
+                        isSticker ? "social_EventTile_image social_EventTile_image--sticker" : "social_EventTile_image"
+                    }
+                    onClick={handleImageClick}
+                    onLoad={onUnratioedImageLoad}
+                    style={mediaAspectRatioStyle ?? mediaFallbackPlaceholderStyle}
+                />
+            );
+            // A sticker keeps its own small size, with nothing behind it.
+            fileNode = isSticker ? (
+                <div className="social_EventTile_mediaWrap">{image}</div>
+            ) : (
+                <SocialMediaFrame
+                    className="social_EventTile_mediaWrap"
+                    info={content.info}
+                    mxc={content.file ? undefined : fileUrl}
+                    fallbackSrc={httpFileUrl}
+                >
+                    {image}
+                </SocialMediaFrame>
             );
         } else if (fileMime.startsWith("video/")) {
             fileNode = (
-                <div className="social_EventTile_mediaWrap">
+                <SocialMediaFrame
+                    className="social_EventTile_mediaWrap"
+                    info={content.info}
+                    mxc={content.file ? undefined : fileUrl}
+                >
                     {/* stopPropagation lives on the <video> itself, not this wrapper - a narrow/
                         portrait video (object-fit: contain within a wider column) leaves real dead
                         space inside the wrapper's own box that isn't actually the player, and that
@@ -2293,7 +2309,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         onLoadedMetadata={onUnratioedImageLoad}
                         onClick={(e) => e.stopPropagation()}
                     />
-                </div>
+                </SocialMediaFrame>
             );
         } else {
             fileNode = (
@@ -2827,7 +2843,11 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         {repostedHttpUrl &&
                             showsMiddleRepostMedia(nestedRepost) &&
                             (repostedMime.startsWith("image/") ? (
-                                <div className="social_EventTile_repostCard_media">
+                                <SocialMediaFrame
+                                    className="social_EventTile_repostCard_media"
+                                    info={repostedMedia.info}
+                                    mxc={repostedFileUrl}
+                                >
                                     <img
                                         ref={repostImgRef}
                                         src={repostedHttpUrl}
@@ -2844,9 +2864,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                         }
                                         style={repostedAspectRatioStyle}
                                     />
-                                </div>
+                                </SocialMediaFrame>
                             ) : repostedMime.startsWith("video/") ? (
-                                <div className="social_EventTile_repostCard_media">
+                                <SocialMediaFrame
+                                    className="social_EventTile_repostCard_media"
+                                    info={repostedMedia.info}
+                                    mxc={repostedFileUrl}
+                                >
                                     {/* stopPropagation lives on the <video> itself - see the plain
                                         post's own identical comment above for why. */}
                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -2857,7 +2881,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                         style={repostedAspectRatioStyle}
                                         onClick={(e) => e.stopPropagation()}
                                     />
-                                </div>
+                                </SocialMediaFrame>
                             ) : null)}
                         {/* Repost of a repost: the nested original, one level deep - see
                             nestedRepostRelation's own doc. Same header line + card treatment as the
@@ -2965,7 +2989,11 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                         )}
                                         {nestedHttpUrl &&
                                             (nestedMime.startsWith("image/") ? (
-                                                <div className="social_EventTile_repostCard_media">
+                                                <SocialMediaFrame
+                                                    className="social_EventTile_repostCard_media"
+                                                    info={nestedMedia.info}
+                                                    mxc={nestedFileUrl}
+                                                >
                                                     <img
                                                         ref={nestedRepostImgRef}
                                                         src={nestedHttpUrl}
@@ -2982,9 +3010,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                                         }
                                                         style={nestedAspectRatioStyle}
                                                     />
-                                                </div>
+                                                </SocialMediaFrame>
                                             ) : nestedMime.startsWith("video/") ? (
-                                                <div className="social_EventTile_repostCard_media">
+                                                <SocialMediaFrame
+                                                    className="social_EventTile_repostCard_media"
+                                                    info={nestedMedia.info}
+                                                    mxc={nestedFileUrl}
+                                                >
                                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                                                     <video
                                                         src={nestedHttpUrl}
@@ -2993,7 +3025,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                                         style={nestedAspectRatioStyle}
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
-                                                </div>
+                                                </SocialMediaFrame>
                                             ) : null)}
                                     </div>
                                 </div>
@@ -3077,7 +3109,11 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         )}
                         {quotedHttpUrl &&
                             (quotedMime.startsWith("image/") ? (
-                                <div className="social_EventTile_repostCard_media">
+                                <SocialMediaFrame
+                                    className="social_EventTile_repostCard_media"
+                                    info={quotedMedia.info}
+                                    mxc={quotedFileUrl}
+                                >
                                     <img
                                         ref={quotedImgRef}
                                         src={quotedHttpUrl}
@@ -3094,9 +3130,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                         }
                                         style={quotedAspectRatioStyle}
                                     />
-                                </div>
+                                </SocialMediaFrame>
                             ) : quotedMime.startsWith("video/") ? (
-                                <div className="social_EventTile_repostCard_media">
+                                <SocialMediaFrame
+                                    className="social_EventTile_repostCard_media"
+                                    info={quotedMedia.info}
+                                    mxc={quotedFileUrl}
+                                >
                                     {/* stopPropagation lives on the <video> itself - see the plain
                                         post's own identical comment above for why. */}
                                     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -3107,7 +3147,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                                         style={quotedAspectRatioStyle}
                                         onClick={(e) => e.stopPropagation()}
                                     />
-                                </div>
+                                </SocialMediaFrame>
                             ) : null)}
                     </div>
                 );

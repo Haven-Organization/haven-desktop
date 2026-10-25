@@ -5,6 +5,14 @@
  * No new colour definitions — only Element Web design tokens.
  */
 
+// Haven: how wide the feed and the other Social panes get. Wider than the 680px it used to be, so
+// posts and their media have more room, but capped so a wide monitor shows empty space beside the
+// feed instead of stretching posts across it.
+$social-pane-max-width: 760px;
+// How tall a post's image or video gets, and one inside a repost or quote card.
+$social-media-max-height: 560px;
+$social-card-media-max-height: 420px;
+
 // ---------------------------------------------------------------------------
 // Social two-column layout: sidebar nav + content
 // Renders directly inside GroupView's flex row, filling the space normally
@@ -392,7 +400,7 @@
     box-sizing: border-box;
     width: 100%;
     padding: var(--cpd-space-6x);
-    max-width: 680px;
+    max-width: $social-pane-max-width;
 }
 
 .social_Pane_header {
@@ -761,7 +769,8 @@
     }
 
     &_body {
-        font: var(--cpd-font-body-md-regular);
+        // Haven: a size up from the room timeline's text, for easier reading in the feed.
+        font: var(--cpd-font-body-lg-regular);
         color: $primary-content;
         line-height: 1.5;
         white-space: pre-wrap;
@@ -922,7 +931,7 @@
     width: 100%;
     // Matches .social_Pane's cap so Feed/Groups/Profile are always the same width, whether or not
     // there happens to be enough content to fill it.
-    max-width: 680px;
+    max-width: $social-pane-max-width;
     // Deliberately NOT its own overflow-y: auto (removed - was a real bug, not a style choice).
     // .social_Content (the ancestor .main - see SocialHomeView.tsx) is already the one shared
     // scrolling viewport for every pane (Feed/Groups/Profile all rely on it); this element having
@@ -1761,6 +1770,10 @@
     flex-direction: column;
     height: 100%;
     overflow-y: auto;
+    // Haven: the same width as the feed, so an open post doesn't stretch across a wide window.
+    box-sizing: border-box;
+    width: 100%;
+    max-width: $social-pane-max-width;
 
     &_backBar {
         padding: var(--cpd-space-3x) var(--cpd-space-6x);
@@ -2160,6 +2173,75 @@
 
 .social_EventTile_repostCard_image {
     cursor: zoom-in;
+}
+
+// ---------------------------------------------------------------------------
+// Media frame (SocialMediaFrame.tsx): media at the post's full width, with a blurred copy of it
+// filling the space beside anything narrower.
+// ---------------------------------------------------------------------------
+
+.social_MediaFrame {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    // Keeps the backdrop's z-index inside this frame.
+    isolation: isolate;
+    background: $quinary-content;
+
+    > img,
+    > video {
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+        max-height: $social-media-max-height;
+        object-fit: contain;
+        border-radius: 0;
+    }
+
+    // Small images keep their own size instead of being blown up and blurry.
+    &--natural > img {
+        width: auto;
+        margin: 0 auto;
+    }
+}
+
+.social_MediaFrame_backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+
+    > img,
+    > canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+    }
+
+    // Blurred and dimmed so it reads as background, scaled up so the blur's soft edges fall
+    // outside the frame.
+    > img {
+        filter: blur(20px) brightness(0.65);
+        transform: scale(1.15);
+    }
+
+    > canvas {
+        filter: brightness(0.65);
+    }
+}
+
+.social_EventTile_repostCard_media.social_MediaFrame {
+    max-height: none;
+    border-radius: 4px;
+
+    > img,
+    > video {
+        max-height: $social-card-media-max-height;
+    }
 }
 
 
