@@ -215,3 +215,89 @@ describe("a bridge's repost of a native post that mentions someone", () => {
         expect(repostContentMatches(forged, pillOriginal, true)).toBe(false);
     });
 });
+
+describe("a bridge's repost card with a shortened copy of the post", () => {
+    const FULL_BODY =
+        "First line of the post.\n\nSecond line\n\nAttachments:\n" +
+        "[one.jpeg](https://cdn.example.org/one.jpeg)\n[two.jpeg](https://cdn.example.org/two.jpeg)";
+    const FULL_HTML =
+        "First line of the post.<br><br>Second line<br><br>Attachments:<br>" +
+        '<a href="https://cdn.example.org/one.jpeg">one.jpeg</a>' +
+        '<br><a href="https://cdn.example.org/two.jpeg">two.jpeg</a>';
+    const original = {
+        msgtype: "m.text",
+        body: FULL_BODY,
+        format: "org.matrix.custom.html",
+        formatted_body: FULL_HTML,
+    };
+
+    function card(preview: string): Record<string, unknown> {
+        return {
+            msgtype: "m.text",
+            body: "https://matrix.to/#/!room:example.org/$post?via=example.org",
+            format: "org.matrix.custom.html",
+            formatted_body: "<p>🔁 alice reposted bob's post</p><blockquote>...</blockquote>",
+            "org.matrix.msc4501.social.body": preview,
+            "org.matrix.msc4501.social.formatted_body": preview,
+        };
+    }
+
+    it("accepts a copy cut off partway through the post", () => {
+        const preview = "First line of the post.\n\nSecond line\n\nAttachments:\n[one.jpeg](https://cdn.exa…";
+        expect(repostContentMatches(card(preview), original, true)).toBe(true);
+    });
+
+    it("still flags a shortened copy that doesn't start the same as the post", () => {
+        const preview = "First line of a different post.\n\nSecond line…";
+        expect(repostContentMatches(card(preview), original, true)).toBe(false);
+    });
+
+    it("still flags a bare ellipsis", () => {
+        expect(repostContentMatches(card("…"), original, true)).toBe(false);
+    });
+
+    it("still flags a copy without the ellipsis that only matches the start", () => {
+        expect(repostContentMatches(card("First line of the post."), original, true)).toBe(false);
+    });
+});
+
+describe("a repost of a quote post whose snapshot keeps the quoted post's link", () => {
+    const QUOTED_URL = "https://social.example/objects/quoted-post";
+    const original = {
+        msgtype: "m.text",
+        body: "my comment\n\n🔁 reposted bob's post:\n> the quoted post",
+        "org.matrix.msc4501.social.body": "my comment",
+        "org.matrix.msc4501.social.formatted_body": "my comment",
+        "org.matrix.msc4501.social.relates_to": {
+            rel_type: "org.matrix.msc4501.social.repost",
+            event_id: "$quoted",
+            room_id: "!bob:example.org",
+            content: { msgtype: "m.text", body: "the quoted post", external_url: QUOTED_URL },
+        },
+    };
+
+    function snapshot(link: string): Record<string, unknown> {
+        return {
+            msgtype: "m.text",
+            body: "https://matrix.to/#/!alice:example.org/$post?via=example.org",
+            format: "org.matrix.custom.html",
+            formatted_body: "<p>🔁 reposted alice's post:</p><blockquote>...</blockquote>",
+            "org.matrix.msc4501.social.body": `my comment\n\nRT: ${link}`,
+            "org.matrix.msc4501.social.formatted_body":
+                `my comment<span><br><br>RT: <a href="${link}">${link}</a></span>`,
+        };
+    }
+
+    it("accepts it when the RT: line links the post the original quotes", () => {
+        expect(repostContentMatches(snapshot(QUOTED_URL), original, true)).toBe(true);
+    });
+
+    it("still flags an RT: line that links somewhere else", () => {
+        expect(repostContentMatches(snapshot("https://social.example/objects/other-post"), original, true)).toBe(false);
+    });
+
+    it("still flags an RT: line when the original doesn't quote anything", () => {
+        const { ["org.matrix.msc4501.social.relates_to"]: _, ...unquoted } = original;
+        expect(repostContentMatches(snapshot(QUOTED_URL), unquoted, true)).toBe(false);
+    });
+});

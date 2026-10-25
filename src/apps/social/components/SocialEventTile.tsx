@@ -1195,6 +1195,66 @@ function htmlVisibleText(html: string): string {
     return sanitizeHtmlText(html.replace(/<\/(?:p|div|li|blockquote|pre|h[1-6])>|<br\s*\/?>/gi, "$&\n"));
 }
 
+/** The web address of the post `content` quotes, from its MSC4501 relation's embedded copy of
+ *  that post - see stripQuoteFallback. */
+function quotedPostUrl(content: Record<string, any> | undefined): string | undefined {
+    const url = content?.[MSC4501_RELATES_TO_KEY]?.content?.external_url;
+    return typeof url === "string" && url ? url : undefined;
+}
+
+function escapeRegExp(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** `content` without a trailing "RT: <link>" line (or QT:/RE:) that links to `quotedUrl`. Fediverse
+ *  servers end a quote post's text with that line so software without quote posts still shows a
+ *  link to the quoted post. A bridge that turns the quote into an MSC4501 relation leaves the line
+ *  out of the post's own text, but a repost's snapshot can still have it - confirmed live, a
+ *  genuine repost of a Pleroma quote post was flagged as a possible forgery over just that line.
+ *  Only a line linking the very post the original quotes is removed, so nothing else can hide
+ *  there. */
+function stripQuoteFallback<T extends { body?: string; formatted_body?: string } | undefined>(
+    content: T,
+    quotedUrl: string,
+): T {
+    if (!content) return content;
+    const url = escapeRegExp(quotedUrl);
+    const htmlUrl = escapeRegExp(quotedUrl.replace(/&/g, "&amp;"));
+    const stripped = { ...content };
+    if (typeof stripped.body === "string") {
+        stripped.body = stripped.body.replace(new RegExp(`(^|\\s)(?:RT|QT|RE):\\s*${url}\\s*$`), "");
+    }
+    if (typeof stripped.formatted_body === "string") {
+        const link = `(?:<a\\s[^>]*href="(?:${url}|${htmlUrl})"[^>]*>[^<]*</a>|${url}|${htmlUrl})`;
+        const line = `(?:<span>)?(?:<p>)?(?:\\s*<br\\s*/?>)*\\s*(?:RT|QT|RE):\\s*${link}\\s*(?:</p>)?(?:</span>)?\\s*$`;
+        // Only the end of the text can hold the line, and matching the whole of a long post could
+        // backtrack for a long time over runs of whitespace.
+        const fb = stripped.formatted_body;
+        const tailStart = Math.max(0, fb.length - (2 * htmlUrl.length + 300));
+        stripped.formatted_body = fb.slice(0, tailStart) + fb.slice(tailStart).replace(new RegExp(line, "i"), "");
+    }
+    return stripped;
+}
+
+/** True when `snapshot` is a shortened copy of `real`: plain text ending in "…", and the start of
+ *  the real post word for word. A bridge's repost card can carry a preview of the post cut off at a
+ *  fixed length instead of the whole text - confirmed live, a genuine repost whose snapshot ended
+ *  mid-link in "https://i.poastc…" was flagged as a possible forgery. Everything the card shows is
+ *  still checked against the original; only the part after the cut isn't shown. */
+function snapshotIsShortenedCopy(
+    snapshot: { body?: string; formatted_body?: string } | undefined,
+    real: { body?: string; formatted_body?: string } | undefined,
+): boolean {
+    const body = snapshot?.body ?? "";
+    if (!body.endsWith("…") || /<[a-z!/]/i.test(snapshot?.formatted_body ?? "")) return false;
+    const start = collapseWhitespace(bodyWithMentionIds({ body: body.slice(0, -1) }));
+    if (!start) return false;
+    const realFb = realMarkup(real);
+    const realTexts = [collapseWhitespace(bodyWithMentionIds(real))];
+    if (realFb) realTexts.push(collapseWhitespace(htmlVisibleText(readLinks(realFb).html)));
+    return realTexts.some((text) => text.length > start.length && text.startsWith(start));
+}
+
 /** Exported for tests only. */
 export function repostContentMatches(
     embeddedSource: Record<string, any> | undefined,
@@ -1221,9 +1281,16 @@ export function repostContentMatches(
         a.info.h === b?.info?.h
     );
     const bodyIsWrapperFiller = !!contentInline && !!aUrl && !hasPostBodyOverride(embeddedSource);
-    const textMatches = (x: typeof a, y: typeof a): boolean =>
+    const exactTextMatches = (x: typeof a, y: typeof a): boolean =>
         collapseWhitespace(bodyWithMentionIds(x)) === collapseWhitespace(bodyWithMentionIds(y)) &&
         formattedBodiesMatch(x, y);
+    // The snapshot (x) may also end with the quoted post's fallback link or be a shortened copy -
+    // see stripQuoteFallback and snapshotIsShortenedCopy.
+    const quotedUrl = quotedPostUrl(realContent);
+    const textMatches = (x: typeof a, y: typeof a): boolean =>
+        exactTextMatches(x, y) ||
+        (!!quotedUrl && exactTextMatches(stripQuoteFallback(x, quotedUrl), y)) ||
+        snapshotIsShortenedCopy(x, y);
     // See hasRelationPreamble's own doc - only when the snapshot came through an MSC4501 override
     // and the real post has no override of its own (so its header is still in its stock fields).
     const matchesWithoutRealPreamble =
