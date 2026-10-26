@@ -95,6 +95,7 @@ import { useProfileRoomLink } from "../utils/useProfileRoomLink";
 import { useLiveUserProfile } from "../utils/liveUserProfile";
 import { ExternalHandleIcon } from "./ExternalHandleIcon";
 import { SocialMediaFrame } from "./SocialMediaFrame";
+import { RichEmbed, useRichEmbedTarget } from "../../../../element-web/apps/web/src/components/views/messages/RichEmbed";
 import { stripReplyFallback } from "../utils/reply-fallback";
 import {
     PostRelationHeaderLine,
@@ -703,6 +704,24 @@ export function showActionRequiresFollowModal(
 type UrlPreviewData = Record<string, unknown> | null;
 
 export function UrlPreview({ url, ts }: { url: string; ts: number }): JSX.Element | null {
+    // Haven: YouTube, Twitch, X and direct image/video links can be embedded in the post.
+    const embedTarget = useRichEmbedTarget(url);
+    if (embedTarget) {
+        return (
+            <RichEmbed
+                url={url}
+                target={embedTarget}
+                ts={ts}
+                renderPreview={(preview) => <UrlPreviewCard url={url} preview={preview} />}
+                loading={<UrlPreviewSkeleton />}
+                className="social_EventTile_richEmbed"
+            />
+        );
+    }
+    return <PlainUrlPreview url={url} ts={ts} />;
+}
+
+function PlainUrlPreview({ url, ts }: { url: string; ts: number }): JSX.Element | null {
     const client = useMatrixClientContext();
     const [preview, setPreview] = useState<UrlPreviewData | undefined>(undefined);
 
@@ -740,21 +759,27 @@ export function UrlPreview({ url, ts }: { url: string; ts: number }): JSX.Elemen
     // still actively scrolling. If the fetch comes back with nothing to show, this collapses away
     // instead - a real height change, but a much rarer one than "every link with OG data" and
     // unavoidable without knowing in advance.
-    if (preview === undefined) {
-        return (
-            <div className="social_EventTile_urlPreview social_EventTile_urlPreview_loading" aria-hidden="true">
-                <div className="social_EventTile_urlPreview_image social_EventTile_urlPreview_loading_bar" />
-                <div className="social_EventTile_urlPreview_body">
-                    <div className="social_EventTile_urlPreview_loading_titleBar social_EventTile_urlPreview_loading_bar" />
-                    <div className="social_EventTile_urlPreview_loading_descBar social_EventTile_urlPreview_loading_bar" />
-                    <div className="social_EventTile_urlPreview_loading_descBar social_EventTile_urlPreview_loading_bar" />
-                    <div className="social_EventTile_urlPreview_loading_hostnameBar social_EventTile_urlPreview_loading_bar" />
-                </div>
-            </div>
-        );
-    }
-
+    if (preview === undefined) return <UrlPreviewSkeleton />;
     if (!preview) return null;
+    return <UrlPreviewCard url={url} preview={preview} />;
+}
+
+function UrlPreviewSkeleton(): JSX.Element {
+    return (
+        <div className="social_EventTile_urlPreview social_EventTile_urlPreview_loading" aria-hidden="true">
+            <div className="social_EventTile_urlPreview_image social_EventTile_urlPreview_loading_bar" />
+            <div className="social_EventTile_urlPreview_body">
+                <div className="social_EventTile_urlPreview_loading_titleBar social_EventTile_urlPreview_loading_bar" />
+                <div className="social_EventTile_urlPreview_loading_descBar social_EventTile_urlPreview_loading_bar" />
+                <div className="social_EventTile_urlPreview_loading_descBar social_EventTile_urlPreview_loading_bar" />
+                <div className="social_EventTile_urlPreview_loading_hostnameBar social_EventTile_urlPreview_loading_bar" />
+            </div>
+        </div>
+    );
+}
+
+function UrlPreviewCard({ url, preview }: { url: string; preview: Record<string, unknown> }): JSX.Element | null {
+    const client = useMatrixClientContext();
 
     const title = typeof preview["og:title"] === "string" ? preview["og:title"].trim() : "";
     const description =

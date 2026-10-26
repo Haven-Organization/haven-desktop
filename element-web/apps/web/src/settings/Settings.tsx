@@ -392,6 +392,10 @@ export interface Settings {
     // Haven: widens the new room list's Unreads filter to include plain activity unreads - see
     // UnreadFilter.ts's own doc.
     "Haven.showAllUnreadRoomsInUnreadsFilter": IBaseSetting<boolean>;
+    // Haven: rich embeds for links - see utils/richEmbeds.ts and components/views/messages/RichEmbed.tsx.
+    "Haven.richEmbeds": IBaseSetting<boolean>;
+    // Haven: sites whose links embed right away instead of showing their preview with an Embed button.
+    "Haven.alwaysEmbedSites": IBaseSetting<string[]>;
     // Haven: temporary stopgap keeping the legacy (pre-MVVM-rewrite) room list alive as an opt-in
     // fallback now that upstream has deleted it outright - see LeftPanel.tsx's own doc.
     "Haven.useOldRoomList": IFeature;
@@ -1519,6 +1523,16 @@ export const SETTINGS: Settings = {
         displayName: _td("settings|preferences|unreads_filter_include_all"),
         description: _td("settings|preferences|unreads_filter_include_all_description"),
         default: false,
+    },
+    "Haven.richEmbeds": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|preferences|rich_embeds"),
+        default: true,
+    },
+    // Kept in account data so the choice follows the user to their other devices.
+    "Haven.alwaysEmbedSites": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        default: [],
     },
     // Haven: MSC4459 (image pack references) opt-out - see utils/imageSourcePacks.ts's own doc.
     // Off by default; does not affect the receiving/"Find Pack" side, only whether this device's

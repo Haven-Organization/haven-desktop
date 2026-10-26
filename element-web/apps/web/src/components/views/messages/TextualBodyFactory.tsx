@@ -21,6 +21,7 @@ import {
     type MediaPreviewGroupEntryContent,
 } from "@element-hq/web-shared-components";
 import { type UrlPreview } from "shared-types";
+import { Button } from "@vector-im/compound-web";
 
 import { type IBodyProps } from "./IBodyProps";
 import RoomContext from "../../../contexts/RoomContext";
@@ -33,6 +34,7 @@ import Modal from "../../../Modal";
 import PosthogTrackers from "../../../PosthogTrackers";
 import ImageView from "../elements/ImageView";
 import {
+    MAX_PREVIEWS_WHEN_LIMITED,
     UrlPreviewGroupViewModel,
     type UrlPreviewKind,
 } from "../../../viewmodels/message-body/UrlPreviewGroupViewModel";
@@ -42,6 +44,7 @@ import { MediaPreviewGroupViewModel } from "../../../viewmodels/message-body/Med
 import PopOutIcon from "@vector-im/compound-design-tokens/assets/web/icons/pop-out";
 import { EditMessageComposerWrapper } from "../rooms/EditMessageComposerWrapper";
 import { ModuleApi } from "../../../modules/Api";
+import { RichEmbed, useRichEmbedResolver } from "./RichEmbed";
 
 const logger = rootLogger.getChild("TextualBodyFactory");
 
@@ -59,6 +62,15 @@ function getTextualBodyClassName(msgtype: MsgType | undefined): string {
     }
 
     return "mx_MTextBody mx_EventTile_content";
+}
+
+/** Haven: one stock preview tile on its own, shown above a rich embed's Embed button. */
+function RichEmbedPreviewCard({ entry }: { entry: MediaPreviewGroupEntry }): JSX.Element {
+    const vm = useCreateAutoDisposedViewModel(() => new MediaPreviewGroupViewModel({ entries: [entry] }));
+    useEffect(() => {
+        vm.setProps({ entries: [entry] });
+    }, [vm, entry]);
+    return <MediaPreviewGroupPreview vm={vm} className="mx_RichEmbed_card" />;
 }
 
 export function TextualBodyFactory(props: Readonly<IBodyProps>): JSX.Element {
@@ -144,7 +156,26 @@ export function TextualBodyFactory(props: Readonly<IBodyProps>): JSX.Element {
             }),
     );
 
-    const { previews, totalPreviewCount, previewsLimited, overPreviewLimit } = useViewModel(urlPreviewVm);
+    const {
+        previews: allPreviews,
+        totalPreviewCount,
+        previewsLimited,
+        overPreviewLimit,
+        links,
+    } = useViewModel(urlPreviewVm);
+
+    // Haven: links that can be embedded (YouTube, Twitch, X, direct media) show a RichEmbed in place
+    // of their stock preview tile. Same limit on how many show as the stock previews.
+    const resolveEmbed = useRichEmbedResolver();
+    const embedLinks = useMemo(() => {
+        if (!props.showUrlPreview) return [];
+        const shown = previewsLimited ? links.slice(0, MAX_PREVIEWS_WHEN_LIMITED) : links;
+        return shown.filter((link) => resolveEmbed(link));
+    }, [props.showUrlPreview, previewsLimited, links, resolveEmbed]);
+    const previews = useMemo(
+        () => allPreviews.filter((preview) => !embedLinks.includes(preview.link)),
+        [allPreviews, embedLinks],
+    );
 
     // Memoised because it feeds the media preview view model from an effect: a fresh object on every
     // render would notify subscribers on every render.
@@ -153,11 +184,11 @@ export function TextualBodyFactory(props: Readonly<IBodyProps>): JSX.Element {
             overPreviewLimit
                 ? {
                       collapsed: previewsLimited,
-                      hiddenCount: totalPreviewCount - previews.length,
+                      hiddenCount: totalPreviewCount - allPreviews.length,
                       onToggle: () => void urlPreviewVm.onTogglePreviewLimit(),
                   }
                 : undefined,
-        [overPreviewLimit, previewsLimited, totalPreviewCount, previews.length, urlPreviewVm],
+        [overPreviewLimit, previewsLimited, totalPreviewCount, allPreviews.length, urlPreviewVm],
     );
 
     const previewToEntry = (preview: UrlPreview): MediaPreviewGroupEntry => {
@@ -316,12 +347,49 @@ export function TextualBodyFactory(props: Readonly<IBodyProps>): JSX.Element {
         );
     }
 
+    const embeds = embedLinks.map((link) => {
+        const target = resolveEmbed(link)!;
+        return (
+            <RichEmbed
+                key={link}
+                url={link}
+                target={target}
+                ts={props.mxEvent.getTs()}
+                allowServerPreview={urlPreviewKind !== "bundledonly"}
+                autoEmbed={mediaVisible}
+                renderPreview={() => {
+                    const preview = allPreviews.find((p) => p.link === link);
+                    return preview ? <RichEmbedPreviewCard entry={previewToEntry(preview)} /> : null;
+                }}
+                className="mx_RichEmbed_timeline"
+            />
+        );
+    });
+    // The stock group carries the "show more" toggle, but draws nothing when it has no tiles of its own.
+    const orphanedToggle = collapse && previews.length === 0 && (
+        <Button kind="tertiary" size="md" className="mx_RichEmbed_moreToggle" onClick={collapse.onToggle}>
+            {collapse.collapsed
+                ? _t("timeline|url_preview|show_n_more", { count: collapse.hiddenCount })
+                : _t("action|collapse")}
+        </Button>
+    );
+
     return (
         <TextualBodyView
             vm={textualBodyVm}
             body={<EventContentBodyView vm={eventContentBodyVm} as={willHaveWrapper ? "span" : "div"} />}
             bodyRef={contentRef}
-            urlPreviews={<MediaPreviewGroupPreview vm={mediaPreviewVm} className="mx_TextualBody_urlPreviews" />}
+            urlPreviews={
+                embeds.length ? (
+                    <>
+                        <div className="mx_TextualBody_urlPreviews mx_RichEmbed_group">{embeds}</div>
+                        <MediaPreviewGroupPreview vm={mediaPreviewVm} className="mx_TextualBody_urlPreviews" />
+                        {orphanedToggle}
+                    </>
+                ) : (
+                    <MediaPreviewGroupPreview vm={mediaPreviewVm} className="mx_TextualBody_urlPreviews" />
+                )
+            }
             className={getTextualBodyClassName(content.msgtype as MsgType | undefined)}
         />
     );

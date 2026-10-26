@@ -245,13 +245,14 @@ describe("UrlPreviewGroupViewModel", () => {
         msg.innerHTML = '<a href="https://example.org">Test</a>';
         await vm.updateEventElement(msg);
         expect(vm.getSnapshot()).toMatchInlineSnapshot(`
-{
-  "overPreviewLimit": false,
-  "previews": [],
-  "previewsLimited": false,
-  "totalPreviewCount": 0,
-}
-`);
+          {
+            "links": [],
+            "overPreviewLimit": false,
+            "previews": [],
+            "previewsLimited": false,
+            "totalPreviewCount": 0,
+          }
+        `);
     });
 
     it.each([

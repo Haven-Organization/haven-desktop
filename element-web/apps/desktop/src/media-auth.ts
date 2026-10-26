@@ -7,6 +7,9 @@ Please see LICENSE files in the repository root for full details.
 
 import { type BrowserWindow, ipcMain, session } from "electron";
 
+import { embedRequestHeaders, embedResponseHeaders } from "./embed-headers.js";
+import { getBuildConfig } from "./build-config.js";
+
 /**
  * Check for feature support from the server.
  * This requires asking the renderer process for supported versions.
@@ -47,6 +50,19 @@ async function getHomeserverUrl(window: BrowserWindow): Promise<string> {
 }
 
 export function setupMediaAuth(window: BrowserWindow): void {
+    const appId = getBuildConfig().appId;
+
+    // Haven: lets Twitch's player be framed by the app - see embed-headers.ts.
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        try {
+            const responseHeaders = embedResponseHeaders(details);
+            if (responseHeaders) return callback({ responseHeaders });
+        } catch (e) {
+            console.error(e);
+        }
+        callback({});
+    });
+
     session.defaultSession.webRequest.onBeforeRequest(async (req, callback) => {
         // This handler emulates the element-web service worker, where URLs are rewritten late in the request
         // for backwards compatibility. As authenticated media becomes more prevalent, this should be replaced
@@ -75,8 +91,13 @@ export function setupMediaAuth(window: BrowserWindow): void {
         }
     });
 
+    // Haven: a session has only one onBeforeSendHeaders listener, so the embedded players' referrer
+    // (embed-headers.ts) is set here too.
     session.defaultSession.webRequest.onBeforeSendHeaders(async (req, callback) => {
         try {
+            const embedHeaders = embedRequestHeaders(req, appId);
+            if (embedHeaders) return callback({ requestHeaders: embedHeaders });
+
             const url = new URL(req.url);
             if (!url.pathname.startsWith("/_matrix/client/v1/media")) {
                 return callback({}); // invoke unmodified

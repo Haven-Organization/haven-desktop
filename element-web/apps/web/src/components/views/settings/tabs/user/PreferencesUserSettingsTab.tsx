@@ -37,6 +37,7 @@ import { MediaPreviewAccountSettings } from "./MediaPreviewAccountSettings.tsx";
 import { InviteRulesAccountSetting } from "./InviteRulesAccountSettings.tsx";
 import SettingsDropdown from "../../../elements/SettingsDropdown.tsx";
 import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
+import { ResetEmbedPreferencesButton } from "../../ResetEmbedPreferencesButton";
 
 interface IState {
     timezone: string | undefined;
@@ -374,6 +375,8 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
                                 requires={["urlPreviewsEnabled", "urlPreviewsEnabled_e2ee"]}
                             />
                         )}
+                        <SettingsFlag name="Haven.richEmbeds" level={SettingLevel.ACCOUNT} />
+                        <ResetEmbedPreferencesButton />
                     </SettingsSubsection>
 
                     <SettingsSubsection heading={_t("settings|preferences|media_heading")} formWrap>

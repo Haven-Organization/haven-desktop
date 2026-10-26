@@ -52,8 +52,14 @@ export interface UrlPreviewGroupViewModelProps {
     moduleUrlPreviewApi: UrlPreviewApi;
 }
 
+/** Haven: the snapshot also lists the event's links, which the timeline uses for rich embeds. */
+export type HavenUrlPreviewGroupViewSnapshot = UrlPreviewGroupViewSnapshot & {
+    /** The event's previewable links, in order. */
+    links: string[];
+};
+
 export class UrlPreviewGroupViewModel
-    extends BaseViewModel<UrlPreviewGroupViewSnapshot, UrlPreviewGroupViewModelProps>
+    extends BaseViewModel<HavenUrlPreviewGroupViewSnapshot, UrlPreviewGroupViewModelProps>
     implements UrlPreviewGroupViewActions
 {
     /**
@@ -135,6 +141,7 @@ export class UrlPreviewGroupViewModel
             totalPreviewCount: 0,
             previewsLimited: true,
             overPreviewLimit: false,
+            links: [],
         });
         this.onImageClick = props.onImageClicked;
         this.storageKey = `hide_preview_${props.mxEvent.getId()}`;
@@ -176,6 +183,7 @@ export class UrlPreviewGroupViewModel
                 totalPreviewCount: 0,
                 previewsLimited: false,
                 overPreviewLimit: false,
+                links: [],
             });
             return;
         }
@@ -228,6 +236,7 @@ export class UrlPreviewGroupViewModel
             totalPreviewCount: this.links.length,
             previewsLimited: this.limitPreviews,
             overPreviewLimit: this.links.length > MAX_PREVIEWS_WHEN_LIMITED,
+            links: this.links,
         });
     }
 

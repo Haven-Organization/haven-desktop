@@ -1270,6 +1270,23 @@ $social-card-media-max-height: 420px;
     }
 }
 
+// Haven: rich embeds (RichEmbed.tsx) span the post like its own media does.
+.mx_RichEmbed.social_EventTile_richEmbed {
+    --RichEmbed-width: 100%;
+    --RichEmbed-media-max-height: #{$social-media-max-height};
+    margin-bottom: var(--cpd-space-3x);
+
+    // The card keeps its own spacing below; the embed's buttons sit right under it.
+    > .social_EventTile_urlPreview {
+        margin-bottom: 0;
+    }
+
+    .mx_RichEmbed_image,
+    .mx_RichEmbed_video {
+        max-width: 100%;
+    }
+}
+
 .social_EventTile_urlPreview_image {
     width: 96px;
     height: 72px;
@@ -1734,6 +1751,7 @@ $social-card-media-max-height: 420px;
     > .social_EventTile_mediaWrap,
     > .social_EventTile_attachment,
     > .social_EventTile_urlPreview,
+    > .social_EventTile_richEmbed,
     > .social_EventTile_reactionsWrap,
     > .social_EventTile_actions {
         margin-left: var(--flat-indent);

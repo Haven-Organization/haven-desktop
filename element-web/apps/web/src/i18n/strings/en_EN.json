@@ -3009,6 +3009,8 @@
             "media_heading": "Images, GIFs and videos",
             "presence_description": "Share your activity and status with others.",
             "publish_timezone": "Publish timezone on public profile",
+            "reset_embed_preferences": "Reset Embed Preferences",
+            "rich_embeds": "Enable rich URL embeds",
             "rm_lifetime": "Read Marker lifetime (ms)",
             "rm_lifetime_offscreen": "Read Marker off-screen lifetime (ms)",
             "room_directory_heading": "Room directory",
@@ -4018,7 +4020,16 @@
         },
         "undecryptable_tooltip": "This message could not be decrypted",
         "url_preview": {
-            "open_link": "Open link"
+            "always_embed_site": "Always embed links from %(site)s",
+            "close_embed": "Show preview instead",
+            "embed": "Embed from %(site)s",
+            "embed_failed": "This couldn't be embedded.",
+            "open_link": "Open link",
+            "placeholder_image": "Image from %(site)s",
+            "placeholder_player": "Video on %(site)s",
+            "placeholder_post": "Post on %(site)s",
+            "placeholder_video": "Video from %(site)s",
+            "play_embed": "Play %(title)s"
         }
     },
     "truncated_list_n_more": {
