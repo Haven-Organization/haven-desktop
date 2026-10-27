@@ -33,6 +33,23 @@
     <content_attribute id="social-info">mild</content_attribute>
   </content_rating>
   <releases>
+    <release version="0.11.0" date="2026-10-27">
+      <description>
+        <p>Sync with upstream Element, games you can play where they're posted, link embeds, and editing Social posts:</p>
+        <ul>
+          <li>Sync with the latest upstream Element (64 commits)</li>
+          <li>Play webxdc games (.xdc files) right in chat and Social, with saves, a Save button, live multiplayer and pop-out windows</li>
+          <li>Play Flash games (.swf files) with the built-in Ruffle player</li>
+          <li>Embed YouTube, Twitch, X and direct media links</li>
+          <li>Edit Social posts, and autocomplete users and rooms in Social's composers</li>
+          <li>Pop widgets out into a window of their own</li>
+          <li>Widen Social posts, show their media at full width, and count only a post's direct replies</li>
+          <li>Open matrix.to links from widgets inside the app</li>
+          <li>Keep read threads read when their receipt's event isn't loaded</li>
+          <li>Fix more genuine bridged reposts being flagged as possible forgeries</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.10.0" date="2026-10-15">
       <description>
         <p>Sync with upstream Element, a Search section in Social, and many Social feed fixes:</p>
