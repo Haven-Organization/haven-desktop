@@ -8,6 +8,9 @@
 # node_modules/ pattern below doesn't match a symlink, so ignore it explicitly here too
 /node_modules
 
+# Haven - Ruffle, the Flash player, put there by scripts/fetch-ruffle.mjs when HAVEN_RUFFLE is set
+/element-web/apps/web/res/ruffle/
+
 # Haven - flatpak build output/staging (the manifest + supporting assets in /flatpak are real,
 # tracked source; everything flatpak-builder or `flatpak build-bundle` generates there isn't)
 /flatpak/builddir

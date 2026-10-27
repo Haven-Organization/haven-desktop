@@ -1287,6 +1287,11 @@ $social-card-media-max-height: 420px;
     }
 }
 
+// Haven: a webxdc game (WebxdcGame.tsx) spans the post like its own media does.
+.mx_WebxdcGame.social_EventTile_webxdc {
+    --WebxdcGame-width: 100%;
+}
+
 .social_EventTile_urlPreview_image {
     width: 96px;
     height: 72px;

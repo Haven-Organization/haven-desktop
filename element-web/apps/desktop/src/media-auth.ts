@@ -8,6 +8,7 @@ Please see LICENSE files in the repository root for full details.
 import { type BrowserWindow, ipcMain, session } from "electron";
 
 import { embedRequestHeaders, embedResponseHeaders } from "./embed-headers.js";
+import { isWebxdcRequestBlocked } from "./webxdc-sandbox.js";
 import { getBuildConfig } from "./build-config.js";
 
 /**
@@ -64,6 +65,10 @@ export function setupMediaAuth(window: BrowserWindow): void {
     });
 
     session.defaultSession.webRequest.onBeforeRequest(async (req, callback) => {
+        // Haven: a webxdc game has no network access - see webxdc-sandbox.ts. A session has only
+        // one onBeforeRequest listener, so it's checked here.
+        if (isWebxdcRequestBlocked(req)) return callback({ cancel: true });
+
         // This handler emulates the element-web service worker, where URLs are rewritten late in the request
         // for backwards compatibility. As authenticated media becomes more prevalent, this should be replaced
         // by the app using authenticated URLs from the outset.

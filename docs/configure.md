@@ -45,6 +45,25 @@ fediverse style: plain green text, no border or indent.
 }
 ```
 
+## Game sandbox
+
+webxdc games (`.xdc` files), and Flash games in a build with Ruffle (see
+[building.md](building.md#flash-games)), play where they're posted, in a sandbox walled off from
+Haven itself. With nothing set, the web app uses a sandbox bundled with Haven: it needs no setup
+and runs most games. A few games need more than it can give (IndexedDB storage, or more than one
+page) and say so when they stop. For those, serve the build's `webxdc-sandbox/` folder from a site
+of its own and point Haven at it:
+
+```json
+"haven": {
+    "webxdc_sandbox_url": "https://{id}.games.example.org/webxdc-sandbox/"
+}
+```
+
+The sandbox must be on a different origin from Haven, or it's ignored. `{id}` is replaced by each
+game's own id, so with a wildcard DNS record and certificate every game gets a hostname of its own;
+a single hostname without `{id}` works too. The desktop app has its own sandbox and ignores this.
+
 ## Native Social post event type
 
 ```json

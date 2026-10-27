@@ -29,6 +29,8 @@ import MVoiceOrAudioBody from "./MVoiceOrAudioBody";
 import MStickerBody from "./MStickerBody";
 import MPollBody from "./MPollBody";
 import MLocationBody from "./MLocationBody";
+import WebxdcBody from "./WebxdcBody";
+import { isGameFile } from "../../../utils/flash";
 import MBeaconBody from "./MBeaconBody";
 import { type GetRelationsForEvent, type IEventTileOps } from "../rooms/EventTile";
 import { MjolnirBodyViewModel } from "../../../viewmodels/room/timeline/event-tile/body/MjolnirBodyViewModel";
@@ -291,6 +293,16 @@ export default class MessageEvent extends React.Component<IProps> implements IMe
                 (BodyType === MStickerBody && !this.validateStickerMimetype(content))
             ) {
                 BodyType = this.bodyTypes.get(MsgType.File)!;
+            }
+
+            // Haven: a game file (webxdc, or Flash when the build has Ruffle) plays where it's posted.
+            if (
+                BodyType === this.bodyTypes.get(MsgType.File) &&
+                !this.props.forExport &&
+                type === EventType.RoomMessage &&
+                isGameFile(content)
+            ) {
+                BodyType = WebxdcBody;
             }
 
             // TODO: move to eventTypes when location sharing spec stabilises

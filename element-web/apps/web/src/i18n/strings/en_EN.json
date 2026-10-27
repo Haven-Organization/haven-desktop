@@ -4030,6 +4030,32 @@
             "placeholder_post": "Post on %(site)s",
             "placeholder_video": "Video from %(site)s",
             "play_embed": "Play %(title)s"
+        },
+        "webxdc": {
+            "bring_back": "Bring back here",
+            "close": "Close",
+            "download_failed": "The game couldn't be downloaded. Try again in a moment.",
+            "failed": "The game couldn't be opened.",
+            "fullscreen": "Full screen",
+            "game": "Game",
+            "kind": "webxdc game",
+            "kind_flash": "Flash game",
+            "left_sandbox": "The game tried to open a page outside its sandbox, so it was stopped.",
+            "loading": "Loading…",
+            "needs_sandbox_fix": "To play it here, whoever runs this Haven site can set up a separate game sandbox (haven.webxdc_sandbox_url in config.json). It also plays in the Haven desktop app.",
+            "needs_sandbox_indexeddb": "This game stores its data in a way Haven's built-in game sandbox doesn't support.",
+            "needs_sandbox_other": "This game needs something Haven's built-in game sandbox doesn't support.",
+            "needs_sandbox_pages": "This game has more than one page, which Haven's built-in game sandbox doesn't support.",
+            "not_a_game": "This file isn't a game Haven can open.",
+            "play": "Play",
+            "play_game": "Play %(name)s",
+            "player_failed": "Haven couldn't load its Flash player. Try again in a moment.",
+            "pop_out": "Pop out",
+            "pop_out_refused": "Haven wasn't allowed to open the game in a window of its own. A browser's popup blocker can stop it, and so can a desktop app that sends every new window to the web browser. Allow popups for Haven to pop games out, or keep playing here.",
+            "pop_out_refused_title": "Couldn't open a separate window",
+            "popped_out": "This game is open in its own window.",
+            "send_failed": "Your moves aren't being saved in this room.",
+            "show_window": "Show window"
         }
     },
     "truncated_list_n_more": {

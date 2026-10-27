@@ -42,6 +42,12 @@ import { _t, AppLocalization } from "./language-helper.js";
 import { setDisplayMediaCallback } from "./displayMediaCallback.js";
 import { setupMacosTitleBar } from "./macos-titlebar.js";
 import { setupMediaAuth } from "./media-auth.js";
+import {
+    isWebxdcNavigationBlocked,
+    isWebxdcPermissionRequest,
+    WEBXDC_SCHEME,
+    webxdcSandboxFile,
+} from "./webxdc-sandbox.js";
 import { handleWindowClose, revealMainWindow } from "./window-close.js";
 import { type RendererRecovery, setupRendererRecovery } from "./renderer-recovery.js";
 import { getBuildConfig } from "./build-config.js";
@@ -117,6 +123,16 @@ protocol.registerSchemesAsPrivileged([
             standard: true,
             secure: true,
             supportFetchAPI: true,
+        },
+    },
+    // Haven: webxdc games, each on an origin of its own - see webxdc-sandbox.ts.
+    {
+        scheme: WEBXDC_SCHEME,
+        privileges: {
+            standard: true,
+            secure: true,
+            supportFetchAPI: true,
+            allowServiceWorkers: true,
         },
     },
 ]);
@@ -223,6 +239,11 @@ app.on("ready", async () => {
         callback({
             path: absTarget,
         });
+    });
+
+    protocol.registerFileProtocol(WEBXDC_SCHEME, (request, callback) => {
+        const file = request.method === "GET" ? webxdcSandboxFile(request.url, asarPath) : undefined;
+        callback(file ? { path: file } : { error: -6 }); // FILE_NOT_FOUND
     });
 
     if (!args.update) {
@@ -362,6 +383,19 @@ app.on("ready", async () => {
     }
 
     webContentsHandler(global.mainWindow.webContents);
+
+    // Haven: a webxdc game can't be navigated out of its sandbox, in any window (games can be
+    // popped out into windows of their own), and gets no permissions.
+    const guardWebxdcFrames = (contents: Electron.WebContents): void => {
+        contents.on("will-frame-navigate", (event) => {
+            if (isWebxdcNavigationBlocked(event.frame, event.url)) event.preventDefault();
+        });
+    };
+    guardWebxdcFrames(global.mainWindow.webContents);
+    app.on("web-contents-created", (_event, contents) => guardWebxdcFrames(contents));
+    session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback, details) => {
+        callback(!isWebxdcPermissionRequest(details.requestingUrl));
+    });
 
     // Auto-recover from an upstream renderer/GPU-process crash (white screen, element-web#32222). This
     // is a MITIGATION of an upstream Electron/Chromium defect, not a root-cause fix — without it a dead

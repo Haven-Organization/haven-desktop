@@ -66,6 +66,16 @@ const cssThemes = {
     "theme-dark-custom": "./res/themes/dark-custom/css/dark-custom.pcss",
 };
 
+/** Haven: the version of Ruffle scripts/fetch-ruffle.mjs packaged in res/ruffle, or "" if none. */
+function rufflePackaged(): string {
+    try {
+        const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, "res/ruffle/ruffle.json"), "utf8"));
+        return String(manifest.version || "custom");
+    } catch {
+        return "";
+    }
+}
+
 // Get the root of a node_modules dependency the name of its import
 function getPackageRoot(dep: string, target = "package.json"): string {
     const targetPath = import.meta.resolve(`${dep}${target ? "/" + target : ""}`);
@@ -220,6 +230,8 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                               // issues with some Unicode characters found within)
                               // https://github.com/terser/terser/issues/1677
                               "widgets/element-call/",
+                              // Haven: Ruffle, the Flash player, comes minified (see HAVEN_RUFFLE)
+                              "ruffle/",
                           ],
                       }),
                       new CssMinimizerPlugin(),
@@ -767,6 +779,11 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                     { from: "themes/**", context: path.resolve(__dirname, "res") },
                     { from: "vector-icons/**", context: path.resolve(__dirname, "res") },
                     { from: "decoder-ring/**", context: path.resolve(__dirname, "res") },
+                    // Haven: the webxdc game sandbox: bundled, or served from a site of its own (see
+                    // haven.webxdc_sandbox_url)
+                    { from: "webxdc-sandbox/**", context: path.resolve(__dirname, "res") },
+                    // Haven: Ruffle, the Flash player, when the build has it (see HAVEN_RUFFLE)
+                    { from: "ruffle/**", context: path.resolve(__dirname, "res"), noErrorOnMissing: true },
                     { from: "media/**", context: path.resolve(__dirname, "res/") },
                     { from: "config.json", noErrorOnMissing: true },
                     // Element Call embedded widget
@@ -792,6 +809,8 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
 
             // We bake the version in so the app knows its version immediately
             new webpack.DefinePlugin({ "process.env.VERSION": JSON.stringify(VERSION) }),
+            // Haven: the version of Ruffle the build has, or "" without it (see HAVEN_RUFFLE)
+            new webpack.DefinePlugin({ "process.env.HAVEN_RUFFLE": JSON.stringify(rufflePackaged()) }),
             // But we also write it to a file which gets polled for update detection
             new VersionFilePlugin({
                 outputFile: "version",

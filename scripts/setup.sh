@@ -32,8 +32,14 @@
 # runtime (set it to [] to remove them, or your own list to replace Haven's default) with no build
 # involvement needed, and it's plain text with no packaging-size concern, unlike the two above.
 #
-# Unlike HAVEN_NO_BRANDING, HAVEN_LOGIN_BACKGROUND/HAVEN_NOTIFICATION_SOUND aren't meant to be
-# hidden - a host running their own build is expected to reach for them.
+# Set HAVEN_RUFFLE to build in Ruffle (https://ruffle.rs), so Flash games (.swf files) posted in
+# rooms and Social play like webxdc games: HAVEN_RUFFLE=latest for the latest stable release from
+# npm, a version such as HAVEN_RUFFLE=0.7.1, or HAVEN_RUFFLE=/path/to/your/copy (a folder with
+# ruffle.js in it, Ruffle's "web-selfhosted" .zip, or an npm package .tgz). Off by default: Ruffle
+# adds about 29 MB to the build. See scripts/fetch-ruffle.mjs.
+#
+# Unlike HAVEN_NO_BRANDING, HAVEN_LOGIN_BACKGROUND/HAVEN_NOTIFICATION_SOUND/HAVEN_RUFFLE aren't meant
+# to be hidden - a host running their own build is expected to reach for them.
 
 set -euo pipefail
 
@@ -219,6 +225,10 @@ cd "$ELEMENT_WEB_DIR"
 corepack enable 2>/dev/null || true
 corepack prepare pnpm@12.11.2 --activate
 pnpm install
+
+# After the install: it reads .zip copies with a dependency of Haven's. Unset, it removes any copy
+# an earlier run left, so the build has no Flash support.
+node "$ROOT_DIR/scripts/fetch-ruffle.mjs"
 
 echo ""
 echo "Done. See the README for how to build and run the web and desktop apps."

@@ -25,6 +25,28 @@ pnpm build
 
 The packaged app for your operating system ends up in `element-web/apps/desktop/dist/`.
 
+## Flash games
+
+Flash games (`.swf` files) need [Ruffle](https://ruffle.rs), the Flash player, built in. It's off
+by default. To build with it, set `HAVEN_RUFFLE` when running the setup script, then build as usual:
+
+```
+HAVEN_RUFFLE=latest ./scripts/setup.sh
+
+cd element-web/apps/web
+pnpm dist
+```
+
+`latest` downloads the newest stable Ruffle release from npm. You can also pin a release
+(`HAVEN_RUFFLE=0.7.1`) or point it at your own copy of Ruffle (`HAVEN_RUFFLE=/path/to/ruffle`, a
+folder, Ruffle's `web-selfhosted` `.zip`, or an npm `.tgz`). The desktop app gets Flash support
+from the web build it wraps. Run `./scripts/setup.sh` again without `HAVEN_RUFFLE` to build
+without Flash. See `HAVEN_RUFFLE` under [Build options](#build-options) for the details.
+
+Flash games run in the same sandbox as webxdc games. On the web, that's the sandbox bundled with
+Haven unless `haven.webxdc_sandbox_url` is set in `config.json` (see
+[configure.md](configure.md#game-sandbox)).
+
 ## Build options
 
 ### Web (and shared by desktop, since desktop wraps the web build)
@@ -46,6 +68,21 @@ Set these as environment variables before `./scripts/setup.sh`. All are optional
   replacing the one played when nobody's set their own custom sound (Settings > Notifications). If
   only the `.mp3` is given, the stock `.ogg` is left in place as a fallback for the rare browser
   that can't play mp3.
+
+- `HAVEN_RUFFLE`: build in [Ruffle](https://ruffle.rs), the Flash player, so Flash games (`.swf`
+  files) posted in rooms and Social play like webxdc games, in the same sandbox and with the same
+  saves. Off by default, since Ruffle adds about 29 MB to the build (fetched by the browser only
+  when someone plays a Flash game). Takes one of:
+    - `HAVEN_RUFFLE=latest`: the latest stable Ruffle release, downloaded from npm
+      (`@ruffle-rs/ruffle`) and checked against npm's integrity hash.
+    - `HAVEN_RUFFLE=0.7.1`: that release, or any other version or dist-tag npm has (such as
+      `nightly`).
+    - `HAVEN_RUFFLE=/path/to/ruffle`: your own copy: a folder with `ruffle.js` in it, Ruffle's
+      `web-selfhosted` `.zip` from its GitHub releases, or an npm package `.tgz`.
+
+  Without it, `setup.sh` removes any copy an earlier run left, so the build doesn't play Flash and
+  shows `.swf` files as plain files. The copy lives in `element-web/apps/web/res/ruffle/`
+  (not tracked by git); see `scripts/fetch-ruffle.mjs`.
 
 There's no build-time option for the login/register footer links (customizing or removing them
 entirely) or for disabling apps - both are `config.json` options instead, see

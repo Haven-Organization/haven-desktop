@@ -27,7 +27,7 @@
         media-src * blob: data:;
         child-src * blob: data:;
         worker-src 'self' blob: <%= csp_extra_source %>;
-        frame-src * blob: data:;
+        frame-src * blob: data: webxdc:;
         form-action 'self' <%= csp_extra_source %>;
         manifest-src 'self' <%= csp_extra_source %>;
     ">

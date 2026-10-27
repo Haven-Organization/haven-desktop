@@ -96,6 +96,8 @@ import { useLiveUserProfile } from "../utils/liveUserProfile";
 import { ExternalHandleIcon } from "./ExternalHandleIcon";
 import { SocialMediaFrame } from "./SocialMediaFrame";
 import { RichEmbed, useRichEmbedTarget } from "../../../../element-web/apps/web/src/components/views/messages/RichEmbed";
+import { WebxdcGame } from "../../../../element-web/apps/web/src/components/views/messages/WebxdcGame";
+import { isGameFile } from "../../../../element-web/apps/web/src/utils/flash";
 import { stripReplyFallback } from "../utils/reply-fallback";
 import {
     PostRelationHeaderLine,
@@ -2274,6 +2276,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
         fileNode = (
             <div className="social_EventTile_mediaWrap" onClick={(e) => e.stopPropagation()}>
                 <MessageEvent mxEvent={event} />
+            </div>
+        );
+    } else if (fileUrl && isGameFile(content)) {
+        // Haven: a game (webxdc, or Flash when the build has Ruffle) plays in the post.
+        fileNode = (
+            <div className="social_EventTile_mediaWrap" onClick={(e) => e.stopPropagation()}>
+                <WebxdcGame mxEvent={event} className="social_EventTile_webxdc" />
             </div>
         );
     } else if (httpFileUrl) {

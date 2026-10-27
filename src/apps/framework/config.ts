@@ -20,6 +20,13 @@ interface HavenConfig {
      * blockquote if absent/unrecognized — "greentext" opts into the imageboard-style green,
      * unboxed rendering instead (see socialSlashCommands.ts's toGreentextHTML). */
     blockquote_style?: BlockquoteStyle;
+    /**
+     * Where webxdc and Flash games run in the web app: a site of its own (not Haven's) serving the
+     * files in webapp/webxdc-sandbox/. "{id}" in it is replaced by each game's own id, to give every
+     * game a hostname of its own. Without it, games run in the sandbox bundled with Haven. The
+     * desktop app has its own sandbox and ignores this.
+     */
+    webxdc_sandbox_url?: string;
 }
 
 function getHavenConfig(): HavenConfig {
@@ -37,6 +44,12 @@ export function isAppEnabled(appId: string): boolean {
         return perApp.enabled !== false;
     }
     return true;
+}
+
+/** Per the "haven.webxdc_sandbox_url" config value, or undefined when it isn't set. */
+export function getWebxdcSandboxUrl(): string | undefined {
+    const url = getHavenConfig().webxdc_sandbox_url;
+    return typeof url === "string" && url ? url : undefined;
 }
 
 /** Per the "haven.blockquote_style" config value — defaults to "stock" if absent/unrecognized. */
