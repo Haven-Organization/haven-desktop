@@ -161,6 +161,8 @@ export default class AppTile extends React.Component<IProps, IState> {
     private allowedWidgetsWatchRef?: string;
     private persistKey: string;
     private messaging?: WidgetMessaging;
+    // The widget API whose events we are listening to, which the messaging hands us when it starts
+    private listenedWidgetApi: ClientWidgetApi | null = null;
     private dispatcherRef?: string;
     private unmounted = false;
     private havenUnsubscribePopout?: () => void;
@@ -434,6 +436,11 @@ export default class AppTile extends React.Component<IProps, IState> {
 
         SettingsStore.unwatchSetting(this.allowedWidgetsWatchRef);
         OwnProfileStore.instance.removeListener(UPDATE_EVENT, this.onUserReady);
+
+        // The messaging can outlive this tile, e.g. while another container keeps the widget alive,
+        // so stop listening to it and to its widget API rather than relying on it to stop
+        if (this.listenedWidgetApi) this.onMessagingStop(this.listenedWidgetApi);
+        this.stopMessagingListeners();
     }
 
     private setupMessagingListeners(): void {
@@ -447,6 +454,7 @@ export default class AppTile extends React.Component<IProps, IState> {
     }
 
     private readonly onMessagingStart = (widgetApi: ClientWidgetApi): void => {
+        this.listenedWidgetApi = widgetApi;
         widgetApi.on("ready", this.onWidgetReady);
         widgetApi.on("error:preparing", this.updateRequiresClient);
         // emits when the capabilities have been set up or changed
@@ -454,6 +462,7 @@ export default class AppTile extends React.Component<IProps, IState> {
     };
 
     private readonly onMessagingStop = (widgetApi: ClientWidgetApi): void => {
+        if (this.listenedWidgetApi === widgetApi) this.listenedWidgetApi = null;
         widgetApi.off("ready", this.onWidgetReady);
         widgetApi.off("error:preparing", this.updateRequiresClient);
         widgetApi.off("capabilitiesNotified", this.updateRequiresClient);

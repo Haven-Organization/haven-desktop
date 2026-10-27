@@ -2706,6 +2706,7 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
                         showUrlPreview={this.state.showUrlPreview}
                         showReactions={true}
                         editState={this.state.editState}
+                        showReadReceipts={this.state.showReadReceipts}
                     />
                 </EventPresentationContextProvider>
             );
