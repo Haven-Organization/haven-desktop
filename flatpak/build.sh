@@ -3,7 +3,7 @@ set -e
 
 ROOT="$PWD"
 
-mkdir -p pnpm-cli pnpm-exe && tar -xzf pnpm-12.11.2.tgz -C pnpm-cli && tar -xzf pnpm-exe-12.11.2.tgz -C pnpm-exe
+mkdir -p pnpm-cli pnpm-exe && tar -xzf pnpm-12.14.0.tgz -C pnpm-cli && tar -xzf pnpm-exe-12.14.0.tgz -C pnpm-exe
 cp pnpm-exe/package/pnpm pnpm-cli/package/pnpm && chmod +x pnpm-cli/package/pnpm
 
 sed -i 's/minimumReleaseAgeStrict: true/minimumReleaseAgeStrict: false/' element-web/pnpm-workspace.yaml
@@ -65,6 +65,9 @@ rm -rf "$EC_SDK/lib" && cp -r "$ROOT/element-call-matrix-js-sdk/lib" "$EC_SDK/li
 EC_COMPONENT="$(realpath element-web/apps/web/node_modules/@element-hq/element-call-component)"
 find "$EC_COMPONENT" -mindepth 1 -delete
 cp -r element-call/component/. "$EC_COMPONENT/"
+
+# Flash games: Ruffle from the vendored npm package (see the manifest), packaged where webpack finds it.
+HAVEN_RUFFLE="$ROOT/ruffle-0.7.1.tgz" node scripts/fetch-ruffle.mjs
 
 (cd element-web/apps/web && HAVEN_INCLUDE_OLD_ROOM_LIST=1 pnpm build)
 

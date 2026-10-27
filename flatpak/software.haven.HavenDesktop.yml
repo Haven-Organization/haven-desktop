@@ -77,19 +77,25 @@ modules:
       # happen offline. build.sh puts this architecture's binary in place of the wrapper's placeholder,
       # next to the dist/ payload it needs, the same way pnpm's own install.js does.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-12.11.2.tgz
-        sha256: eb57341b8b54fddaeededb15dbb77cc30a11750cecca301bfda02478fdff3a00
-        dest-filename: pnpm-12.11.2.tgz
+        url: https://registry.npmjs.org/pnpm/-/pnpm-12.14.0.tgz
+        sha256: ea206e35474bf87be9564a85ca70ed1c8ebdc45da55aafb0a3bf09d1ba69b179
+        dest-filename: pnpm-12.14.0.tgz
       - type: file
         only-arches: [x86_64]
-        url: https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.11.2.tgz
-        sha256: 79008d3130845ee8a0fe4381e6b81815e80e1bd411702f34721b1cc63e6e20bf
-        dest-filename: pnpm-exe-12.11.2.tgz
+        url: https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.14.0.tgz
+        sha256: 1de98ed2e9621113b0887b06322b461efb9df73d913fc1d151039b10b7117a41
+        dest-filename: pnpm-exe-12.14.0.tgz
       - type: file
         only-arches: [aarch64]
-        url: https://registry.npmjs.org/@pnpm/exe.linux-arm64/-/exe.linux-arm64-12.11.2.tgz
-        sha256: c9b5d1a2a254f4593a6fbd878bbbbc81dce4fb36b1c850cc8f31031dbb08ffdb
-        dest-filename: pnpm-exe-12.11.2.tgz
+        url: https://registry.npmjs.org/@pnpm/exe.linux-arm64/-/exe.linux-arm64-12.14.0.tgz
+        sha256: e7ca24224eb626a032828ec584c67903ad2f389911b849d009ed70a19f70d8d3
+        dest-filename: pnpm-exe-12.14.0.tgz
+      # Ruffle, the Flash player, for Flash games (HAVEN_RUFFLE, see scripts/fetch-ruffle.mjs). Same
+      # package scripts/fetch-ruffle.mjs downloads for HAVEN_RUFFLE=latest; build.sh unpacks it from here.
+      - type: file
+        url: https://registry.npmjs.org/@ruffle-rs/ruffle/-/ruffle-0.7.1.tgz
+        sha256: dc9e7407549a91accc41a14932b0b9d9a9d51a3742ce6f020888c8a76682b157
+        dest-filename: ruffle-0.7.1.tgz
       # matrix-seshat's Rust crates, vendored for the offline `cargo build` in build.sh (generated from
       # matrix-seshat-Cargo.lock with flatpak-cargo-generator; the crate itself is the @matrix-org/seshat
       # package pnpm installs).
