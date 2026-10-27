@@ -19,7 +19,7 @@ import React, {
 } from "react";
 import { type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
-import { Button } from "@vector-im/compound-web";
+import { Button, Tooltip } from "@vector-im/compound-web";
 import PlayIcon from "@vector-im/compound-design-tokens/assets/web/icons/play-solid";
 import CloseIcon from "@vector-im/compound-design-tokens/assets/web/icons/close";
 import ExpandIcon from "@vector-im/compound-design-tokens/assets/web/icons/expand";
@@ -47,6 +47,7 @@ import { WebxdcSession, type WebxdcSessionProblem } from "../../../utils/WebxdcS
 import { FlashPlayerError, isFlashFile, readFlashArchive } from "../../../utils/flash";
 import { WEBXDC_IFRAME_ALLOW, webxdcFrameSandbox, WebxdcPopoutStore } from "../../../utils/WebxdcPopoutStore";
 import { WebxdcCartridge } from "./WebxdcCartridge";
+import { PopInIcon, SaveGameIcon } from "./WebxdcIcons";
 
 /** Games this small are read whole for their name and icon before Play; bigger ones in part. */
 const COVER_READ_MAX_SIZE = 5 * 1024 * 1024;
@@ -103,6 +104,38 @@ function problemText(problem: WebxdcSessionProblem): string[] {
         case "failed":
             return [problem.message ?? _t("timeline|webxdc|failed")];
     }
+}
+
+/** How long "Saved" (or why it wasn't) shows on a Save button. */
+const SAVE_RESULT_MS = 2500;
+
+/** A Save button's label and click handler, for saving a game now. */
+function useSaveButton(save: () => Promise<boolean>): { label: string; busy: boolean; onClick: () => Promise<void> } {
+    const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+    const mounted = useRef(true);
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
+    useEffect(() => {
+        if (state !== "saved" && state !== "failed") return;
+        const timer = setTimeout(() => setState("idle"), SAVE_RESULT_MS);
+        return () => clearTimeout(timer);
+    }, [state]);
+    const onClick = useCallback(async () => {
+        setState("saving");
+        const kept = await save();
+        if (mounted.current) setState(kept ? "saved" : "failed");
+    }, [save]);
+    const labels = {
+        idle: _t("timeline|webxdc|save"),
+        saving: _t("timeline|webxdc|saving"),
+        saved: _t("timeline|webxdc|saved"),
+        failed: _t("timeline|webxdc|save_failed"),
+    };
+    return { label: labels[state], busy: state === "saving", onClick };
 }
 
 function fileNameOf(event: MatrixEvent): string {
@@ -271,8 +304,12 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX
         link.click();
     }, [flash, helper, mxEvent]);
 
-    // Must run straight from the click, or popup blockers refuse the window.
-    const onPopOut = (): void => {
+    /** The game playing here is handing over its save to the window it's popping out to. */
+    const [handingOver, setHandingOver] = useState(false);
+
+    // Must run straight from the click, or popup blockers refuse the window. `handover` is the game
+    // that's playing here handing over its save; it stays until it has.
+    const onPopOut = (handover?: Promise<unknown>): void => {
         if (!sandbox) return;
         setPopOutProblem(undefined);
         const opened = popouts.popOut({
@@ -289,15 +326,28 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX
             },
             onProblem: setPopOutProblem,
         });
-        if (opened) setPlaying(false);
-        else showPopOutRefused();
+        if (!opened) {
+            showPopOutRefused();
+        } else if (handover) {
+            setHandingOver(true);
+            void handover.finally(() => {
+                setHandingOver(false);
+                setPlaying(false);
+            });
+        } else {
+            setPlaying(false);
+        }
     };
-    const onBringBack = (): void => {
-        popouts.popIn(eventId);
+    const [bringingBack, setBringingBack] = useState(false);
+    const onPopIn = async (): Promise<void> => {
+        setBringingBack(true);
+        await popouts.bringBack(eventId);
+        setBringingBack(false);
         setPlaying(true);
     };
+    const savePoppedOut = useSaveButton(useCallback(() => popouts.saveNow(eventId), [popouts, eventId]));
 
-    if (playing && !poppedOut && archiveState.kind === "ready" && sandbox) {
+    if (playing && (!poppedOut || handingOver) && archiveState.kind === "ready" && sandbox) {
         return (
             <WebxdcPlayer
                 mxEvent={mxEvent}
@@ -353,44 +403,66 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX
                 <div className="mx_WebxdcGame_buttons">
                     {poppedOut && (
                         <>
-                            <Button kind="primary" size="md" Icon={PopOutIcon} onClick={() => popouts.focus(eventId)}>
-                                {_t("timeline|webxdc|show_window")}
-                            </Button>
-                            <Button kind="secondary" size="md" onClick={onBringBack}>
-                                {_t("timeline|webxdc|bring_back")}
-                            </Button>
+                            <Tooltip description={_t("timeline|webxdc|pop_in_tooltip")}>
+                                <Button
+                                    kind="primary"
+                                    size="md"
+                                    Icon={PopInIcon}
+                                    disabled={bringingBack}
+                                    onClick={onPopIn}
+                                >
+                                    {_t("timeline|webxdc|pop_in")}
+                                </Button>
+                            </Tooltip>
+                            <Tooltip description={_t("timeline|webxdc|save_tooltip")}>
+                                <Button
+                                    kind="secondary"
+                                    size="md"
+                                    Icon={SaveGameIcon}
+                                    disabled={savePoppedOut.busy || bringingBack}
+                                    onClick={savePoppedOut.onClick}
+                                >
+                                    {savePoppedOut.label}
+                                </Button>
+                            </Tooltip>
                         </>
                     )}
                     {canPlay && !poppedOut && (
-                        <Button
-                            kind="primary"
-                            size="md"
-                            Icon={PlayIcon}
-                            disabled={archiveState.kind === "loading"}
-                            onClick={onPlay}
-                        >
-                            {playRequested ? _t("timeline|webxdc|loading") : _t("timeline|webxdc|play")}
-                        </Button>
+                        <Tooltip description={_t("timeline|webxdc|play_tooltip")}>
+                            <Button
+                                kind="primary"
+                                size="md"
+                                Icon={PlayIcon}
+                                disabled={archiveState.kind === "loading"}
+                                onClick={onPlay}
+                            >
+                                {playRequested ? _t("timeline|webxdc|loading") : _t("timeline|webxdc|play")}
+                            </Button>
+                        </Tooltip>
                     )}
                     {canPlay && !poppedOut && (
+                        <Tooltip label={_t("timeline|webxdc|pop_out")} caption={_t("timeline|webxdc|pop_out_tooltip")}>
+                            <Button
+                                kind="secondary"
+                                size="md"
+                                Icon={PopOutIcon}
+                                iconOnly
+                                aria-label={_t("timeline|webxdc|pop_out")}
+                                disabled={archiveState.kind === "loading" && playRequested}
+                                onClick={() => onPopOut()}
+                            />
+                        </Tooltip>
+                    )}
+                    <Tooltip label={_t("action|download")} caption={_t("timeline|webxdc|download_tooltip")}>
                         <Button
                             kind="secondary"
                             size="md"
-                            Icon={PopOutIcon}
+                            Icon={DownloadIcon}
                             iconOnly
-                            aria-label={_t("timeline|webxdc|pop_out")}
-                            disabled={archiveState.kind === "loading" && playRequested}
-                            onClick={onPopOut}
+                            aria-label={_t("action|download")}
+                            onClick={onDownload}
                         />
-                    )}
-                    <Button
-                        kind="secondary"
-                        size="md"
-                        Icon={DownloadIcon}
-                        iconOnly
-                        aria-label={_t("action|download")}
-                        onClick={onDownload}
-                    />
+                    </Tooltip>
                 </div>
             </div>
             {note && <div className="mx_WebxdcGame_note">{note}</div>}
@@ -411,7 +483,8 @@ interface PlayerProps {
     sandbox: WebxdcSandbox;
     name: string;
     onClose: () => void;
-    onPopOut: () => void;
+    /** Pops the game out; it hands over its save on the way (see WebxdcGame's onPopOut). */
+    onPopOut: (handover: Promise<unknown>) => void;
     className?: string;
 }
 
@@ -455,6 +528,15 @@ function WebxdcPlayer({ mxEvent, archive, sandbox, name, onClose, onPopOut, clas
     }, [archive, client, eventId, roomId, sandbox]);
 
     const onFrameLoad = useCallback(() => sessionRef.current?.frameLoaded(), []);
+    const save = useSaveButton(useCallback(() => sessionRef.current?.saveNow() ?? Promise.resolve(false), []));
+    // The game hands over what it hasn't saved before it's closed or popped out.
+    const [closing, setClosing] = useState(false);
+    const onCloseClick = useCallback(async () => {
+        setClosing(true);
+        await sessionRef.current?.flush();
+        onClose();
+    }, [onClose]);
+    const onPopOutClick = (): void => onPopOut(sessionRef.current?.flush() ?? Promise.resolve());
     const onFullscreen = useCallback(() => {
         void wrapperRef.current?.requestFullscreen?.();
     }, []);
@@ -484,18 +566,32 @@ function WebxdcPlayer({ mxEvent, archive, sandbox, name, onClose, onPopOut, clas
                     🎮 {name}
                 </span>
                 {sendFailed && <span className="mx_WebxdcGame_warning">{_t("timeline|webxdc|send_failed")}</span>}
-                <button type="button" onClick={onPopOut}>
-                    <PopOutIcon width={16} height={16} />
-                    {_t("timeline|webxdc|pop_out")}
-                </button>
-                <button type="button" onClick={onFullscreen}>
-                    <ExpandIcon width={16} height={16} />
-                    {_t("timeline|webxdc|fullscreen")}
-                </button>
-                <button type="button" onClick={onClose}>
-                    <CloseIcon width={16} height={16} />
-                    {_t("timeline|webxdc|close")}
-                </button>
+                {!problem && (
+                    <Tooltip description={_t("timeline|webxdc|save_tooltip")}>
+                        <button type="button" onClick={save.onClick} disabled={save.busy || closing}>
+                            <SaveGameIcon width={16} height={16} />
+                            {save.label}
+                        </button>
+                    </Tooltip>
+                )}
+                <Tooltip description={_t("timeline|webxdc|pop_out_tooltip")}>
+                    <button type="button" onClick={onPopOutClick} disabled={closing}>
+                        <PopOutIcon width={16} height={16} />
+                        {_t("timeline|webxdc|pop_out")}
+                    </button>
+                </Tooltip>
+                <Tooltip description={_t("timeline|webxdc|fullscreen_tooltip")}>
+                    <button type="button" onClick={onFullscreen}>
+                        <ExpandIcon width={16} height={16} />
+                        {_t("timeline|webxdc|fullscreen")}
+                    </button>
+                </Tooltip>
+                <Tooltip description={_t("timeline|webxdc|close_tooltip")}>
+                    <button type="button" onClick={onCloseClick} disabled={closing}>
+                        <CloseIcon width={16} height={16} />
+                        {_t("timeline|webxdc|close")}
+                    </button>
+                </Tooltip>
             </div>
         </div>
     );

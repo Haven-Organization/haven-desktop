@@ -32,7 +32,8 @@
             try { Object.defineProperty(window, name, { value: undefined, writable: false, configurable: false }); } catch (e) {}
         });
         post({ type: "xdc.page" });
-        window.addEventListener("pagehide", function () { post({ type: "xdc.leaving" }); });
+        // Only when the page is really being left: a Flash game's page sends its own (see below).
+        window.addEventListener("pagehide", function (e) { if (e.isTrusted) post({ type: "xdc.leaving" }); });
         window.addEventListener("error", function (e) {
             post({ type: "xdc.crash", message: String((e && e.message) || "error") });
         });
@@ -45,7 +46,20 @@
          *
          * The game's address changes with every run (its token) and with the room it's in, and some
          * games put it in their keys: Ruffle names a Flash save after the .swf's URL. So the address is
-         * kept in the save as a placeholder, and the game sees this run's address in its place. */
+         * kept in the save as a placeholder, and the game sees this run's address in its place.
+         *
+         * Haven can ask for the save at once (its Save button, and before it closes the game): the
+         * page sends what's changed, then says it's done. Before that, an "xdc-save" event lets a page
+         * write what it's still holding, as the Flash player's does. */
+        var saveNow = function () {};
+        window.addEventListener("message", function (event) {
+            if (event.source !== window.parent || event.origin !== meta.parentOrigin) return;
+            var data = event.data;
+            if (!data || data.token !== meta.token || data.type !== "xdc.flush") return;
+            try { window.dispatchEvent(new Event("xdc-save")); } catch (e) {}
+            saveNow();
+            post({ type: "xdc.flushed", id: data.id });
+        });
         (function () {
             var real = null;
             try { real = window.localStorage; } catch (e) {}
@@ -98,6 +112,7 @@
                 delete data[key];
             });
             var timer = null, dirty = localUpdated > meta.saveUpdated && Object.keys(data).length > 0;
+            var leaving = false;
             function local(key, value) {
                 if (!real) return;
                 try {
@@ -113,11 +128,13 @@
                 dirty = false;
                 post({ type: "xdc.save", data: data });
             }
-            // A write while the game is being closed goes now: there's no later.
+            saveNow = flush;
+            // A write while the game is being closed goes now: there's no later. That includes the
+            // Flash player's, which writes its saves as the page is left, after this has sent its own.
             function changed() {
                 dirty = true;
                 clearTimeout(timer);
-                if (document.visibilityState === "hidden") flush();
+                if (leaving || document.visibilityState === "hidden") flush();
                 else timer = setTimeout(flush, 3000);
             }
             var methods = Object.create(Storage.prototype, {
@@ -153,7 +170,10 @@
                 },
             });
             Object.defineProperty(window, "localStorage", { configurable: true, get: function () { return view; } });
-            window.addEventListener("pagehide", flush);
+            window.addEventListener("pagehide", function (e) {
+                if (e.isTrusted) leaving = true;
+                flush();
+            });
             document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flush(); });
             if (dirty) timer = setTimeout(flush, 3000);
         })();

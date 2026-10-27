@@ -198,4 +198,85 @@ describe("WebxdcSession", () => {
         vi.advanceTimersByTime(31_000);
         expect(onProblem).toHaveBeenCalledWith({ kind: "failed" });
     });
+
+    describe("saving now", () => {
+        /** The page's answer to the last flush Haven asked for, with what it hadn't saved yet. */
+        function answerFlush(data?: Record<string, string>): void {
+            const ask = post.mock.calls
+                .map(([message]) => message)
+                .reverse()
+                .find((m) => m.type === "xdc.flush");
+            if (data) session.handleMessage({ type: "xdc.save", token: session.token, data });
+            session.handleMessage({ type: "xdc.flushed", token: session.token, id: ask.id });
+        }
+
+        beforeEach(async () => {
+            session.handleMessage({ type: "xdc.ready", token: session.token });
+            await vi.waitFor(() => expect(post).toHaveBeenCalled());
+        });
+
+        it("asks the page for what it hasn't saved, and says once it's kept", async () => {
+            vi.mocked(client.setAccountData).mockResolvedValue({} as any);
+            const saved = session.saveNow();
+            expect(post).toHaveBeenCalledWith(
+                expect.objectContaining({ type: "xdc.flush" }),
+                "https://games.example.org",
+            );
+            answerFlush({ level: "5" });
+            await expect(saved).resolves.toBe(true);
+            expect(client.setAccountData).toHaveBeenCalledWith(
+                "software.haven.webxdc.save.0123456789abcdef",
+                expect.objectContaining({ data: { level: "5" } }),
+            );
+        });
+
+        it("says when the save couldn't be kept", async () => {
+            vi.mocked(client.setAccountData).mockRejectedValue(new Error("offline"));
+            const saved = session.saveNow();
+            answerFlush({ level: "5" });
+            await expect(saved).resolves.toBe(false);
+        });
+
+        it("has nothing to send when the page had saved everything already", async () => {
+            const saved = session.saveNow();
+            answerFlush();
+            await expect(saved).resolves.toBe(true);
+            expect(client.setAccountData).not.toHaveBeenCalled();
+        });
+
+        it("doesn't wait forever for a page that doesn't answer", async () => {
+            const flushed = session.flush();
+            vi.advanceTimersByTime(2000);
+            await expect(flushed).resolves.toBeUndefined();
+        });
+
+        it("has the game's next run start from the save the last one handed over", async () => {
+            let keep!: () => void;
+            vi.mocked(client.setAccountData).mockReturnValue(new Promise((resolve) => (keep = () => resolve({}))));
+            void session.flush();
+            answerFlush({ level: "6" });
+
+            const next = new WebxdcSession({
+                client,
+                roomId: "!room:example.org",
+                eventId: "$game",
+                archive,
+                sandbox: configured,
+                post: post as WebxdcSessionOptions["post"],
+                onProblem,
+                onSendFailed: vi.fn(),
+            } as WebxdcSessionOptions);
+            post.mockClear();
+            next.handleMessage({ type: "xdc.ready", token: next.token });
+            await Promise.resolve();
+            await Promise.resolve();
+            // Not started until the save is kept on the server.
+            expect(post).not.toHaveBeenCalled();
+            keep();
+            await vi.waitFor(() =>
+                expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: "xdc.files" }), expect.anything()),
+            );
+            next.stop();
+        });
+    });
 });

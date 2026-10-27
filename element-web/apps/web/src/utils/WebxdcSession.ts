@@ -27,6 +27,8 @@ import { WebxdcRealtime, WEBXDC_REALTIME_MAX_SIZE } from "./WebxdcRealtime";
 const PAGE_CHECK_MS = 3000;
 /** How long the sandbox has to start (its service worker installs the first time). */
 const SANDBOX_START_MS = 30_000;
+/** How long the game's page has to hand over its save when asked. */
+const FLUSH_MS = 1500;
 
 export type WebxdcSessionProblem =
     /** The sandbox didn't start, or said why it couldn't. */
@@ -57,6 +59,12 @@ export interface WebxdcSessionOptions {
 }
 
 export class WebxdcSession {
+    /**
+     * Saves on their way to the server, by save key. A run of the game that's starting waits for
+     * the one before it to be saved, such as when it's popped out or back in.
+     */
+    private static readonly saving = new Map<string, Promise<unknown>>();
+
     public readonly token = newWebxdcToken();
     /** The URL the game's frame loads. */
     public readonly src: string;
@@ -67,6 +75,10 @@ export class WebxdcSession {
     private unsubscribe?: () => void;
     /** The player's save, read once for every time the sandbox asks for the files. */
     private save?: Promise<WebxdcSave | null>;
+    /** Whether the last save sent was kept. */
+    private stored: Promise<boolean> = Promise.resolve(true);
+    private readonly flushes = new Map<number, () => void>();
+    private nextFlush = 1;
     private leaveRealtime?: () => void;
     private gameOpened = false;
     /** A page of the game said it's being left; the frame's next page has to say it's the game's. */
@@ -84,8 +96,46 @@ export class WebxdcSession {
         this.startCheck = setTimeout(() => this.problem({ kind: "failed" }), SANDBOX_START_MS);
     }
 
+    /**
+     * Asks the game's page for what it hasn't saved yet. Resolves once it has handed it over (or
+     * didn't answer), so the page can be closed; the save goes on to the server after that.
+     */
+    public flush(): Promise<void> {
+        if (this.stopped || !this.gameOpened) return Promise.resolve();
+        const id = this.nextFlush++;
+        const flushed = new Promise<void>((resolve) => {
+            const timer = setTimeout(done, FLUSH_MS);
+            const flushes = this.flushes;
+            function done(): void {
+                clearTimeout(timer);
+                flushes.delete(id);
+                resolve();
+            }
+            flushes.set(id, done);
+        });
+        this.post({ type: "xdc.flush", id });
+        this.track(flushed.then(() => this.stored));
+        return flushed;
+    }
+
+    /** Saves the game now: resolves with whether the save was kept. */
+    public async saveNow(): Promise<boolean> {
+        if (this.stopped || !this.gameOpened) return false;
+        await this.flush();
+        return this.stored;
+    }
+
+    private track(saving: Promise<unknown>): void {
+        const key = this.options.archive.saveKey;
+        WebxdcSession.saving.set(key, saving);
+        void saving.finally(() => {
+            if (WebxdcSession.saving.get(key) === saving) WebxdcSession.saving.delete(key);
+        });
+    }
+
     public stop(): void {
         this.stopped = true;
+        for (const done of this.flushes.values()) done();
         clearTimeout(this.startCheck);
         clearTimeout(this.pageCheck);
         this.unsubscribe?.();
@@ -145,10 +195,13 @@ export class WebxdcSession {
                 clearTimeout(this.startCheck);
                 this.gameOpened = true;
                 const userId = client.getSafeUserId();
-                this.save ??= loadWebxdcSave(client, archive.saveKey).catch((e) => {
-                    logger.warn("webxdc: could not read the game's save", e);
-                    return null;
-                });
+                const before = WebxdcSession.saving.get(archive.saveKey);
+                this.save ??= Promise.resolve(before)
+                    .then(() => loadWebxdcSave(client, archive.saveKey))
+                    .catch((e) => {
+                        logger.warn("webxdc: could not read the game's save", e);
+                        return null;
+                    });
                 const save = await this.save;
                 this.post({
                     type: "xdc.files",
@@ -202,18 +255,23 @@ export class WebxdcSession {
                 // What's kept now is what the frame gets if it reloads (the server may not have it yet).
                 const cleaned = cleanWebxdcSave(data);
                 const kept = cleaned ? { data: cleaned, updated: Date.now() } : null;
-                this.save = storeWebxdcSave(client, archive.saveKey, data).then(
+                this.stored = storeWebxdcSave(client, archive.saveKey, data).then(
                     (stored) => {
                         if (!stored) logger.warn("webxdc: a save was too big to keep");
-                        return kept;
+                        return stored;
                     },
                     (e) => {
                         logger.warn("webxdc: could not keep the game's save", e);
-                        return kept;
+                        return false;
                     },
                 );
+                this.save = this.stored.then(() => kept);
+                this.track(this.stored);
                 return;
             }
+            case "xdc.flushed":
+                this.flushes.get(Number(message.id))?.();
+                return;
             case "xdc.rtJoin":
                 if (this.leaveRealtime) return;
                 try {

@@ -165,6 +165,47 @@ describe("WebxdcPopoutStore", () => {
         expect(store.isPoppedOut("$game")).toBe(false);
     });
 
+    describe("with the game playing in its window", () => {
+        let token: string;
+
+        beforeEach(async () => {
+            store.popOut(request());
+            fromPopup({ [POPOUT_MESSAGE_KEY]: "ready" });
+            await vi.waitFor(() => expect(popup.postMessage).toHaveBeenCalled());
+            token = /#t=([a-z0-9]+)/.exec(popup.postMessage.mock.calls[0][0].src)![1];
+            fromPopup({ [POPOUT_MESSAGE_KEY]: "in", data: { type: "xdc.ready", token } });
+            await vi.waitFor(() => expect(popup.postMessage).toHaveBeenCalledTimes(2));
+        });
+
+        /** The game's page answers the flush Haven asked for. */
+        function answerFlush(): void {
+            const ask = popup.postMessage.mock.calls
+                .map(([m]) => m.data)
+                .reverse()
+                .find((d) => d?.type === "xdc.flush");
+            fromPopup({ [POPOUT_MESSAGE_KEY]: "in", data: { type: "xdc.flushed", token, id: ask.id } });
+        }
+
+        it("saves the game now", async () => {
+            const saved = store.saveNow("$game");
+            answerFlush();
+            await expect(saved).resolves.toBe(true);
+        });
+
+        it("has the game hand over its save before closing its window to pop it in", async () => {
+            const back = store.bringBack("$game");
+            expect(popup.close).not.toHaveBeenCalled();
+            answerFlush();
+            await back;
+            expect(popup.close).toHaveBeenCalled();
+            expect(store.isPoppedOut("$game")).toBe(false);
+        });
+    });
+
+    it("can't save a game that isn't popped out", async () => {
+        await expect(store.saveNow("$other")).resolves.toBe(false);
+    });
+
     it("returns false when the window is refused", () => {
         vi.mocked(win.open).mockReturnValue(null);
         expect(store.popOut(request())).toBe(false);

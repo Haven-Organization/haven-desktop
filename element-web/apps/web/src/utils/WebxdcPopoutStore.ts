@@ -5,7 +5,7 @@
  * src/apps/framework/widgetPopout/), which holds the game's frame and relays its messages. The
  * game's session (WebxdcSession) runs here in the main window, apart from the timeline, so the game
  * keeps going while the user switches rooms or scrolls it out of view. Closing the window, or
- * "Bring back here" on the game's card, ends it.
+ * "Pop in" on the game's card, ends it.
  *
  * Popups can be refused, by a browser's popup blocker or a desktop wrapper that sends new windows
  * to the system browser. popOut() then returns false, or calls onFailed() when the window never
@@ -137,6 +137,17 @@ export class WebxdcPopoutStore {
 
     public focus(eventId: string): void {
         this.entries.get(eventId)?.popup.focus();
+    }
+
+    /** Saves the popped-out game now: resolves with whether the save was kept. */
+    public saveNow(eventId: string): Promise<boolean> {
+        return this.entries.get(eventId)?.session?.saveNow() ?? Promise.resolve(false);
+    }
+
+    /** Has the game hand over its save, then closes its window, to go on playing in the timeline. */
+    public async bringBack(eventId: string): Promise<void> {
+        await this.entries.get(eventId)?.session?.flush();
+        this.popIn(eventId);
     }
 
     /** Closes the game's window and ends the game. */

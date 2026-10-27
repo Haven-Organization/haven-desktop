@@ -5,7 +5,8 @@
  * A Flash game plays like a webxdc game, in the same sandbox, with the same card, saves and pop-out:
  * it's packaged as one here, from the movie, Ruffle's files (served with Haven, under ruffle/), and
  * a page that starts Ruffle on the movie. Ruffle keeps a game's saves (Flash "shared objects") in
- * localStorage, which the sandbox keeps as the player's save.
+ * localStorage, which the sandbox keeps as the player's save. Ruffle only writes them when the game
+ * asks or the page is left, so the page also has it write them when Haven saves, and every 10 seconds.
  */
 
 import { isWebxdcFile, type WebxdcArchive, WebxdcArchiveError, WEBXDC_MAX_ARCHIVE_SIZE, webxdcSaveKey } from "./webxdc";
@@ -16,6 +17,9 @@ export const FLASH_MIMETYPES = new Set(["application/x-shockwave-flash", "applic
 
 /** The movie's name in its package. Fixed, as Ruffle names the game's saves after it. */
 const MOVIE = "movie.swf";
+
+/** How often Ruffle is asked to write the game's saves, for games that don't ask it themselves. */
+const SAVE_EVERY_MS = 10_000;
 
 /** The version of Ruffle this build has, or "" when it has none. */
 export function ruffleVersion(): string {
@@ -102,6 +106,11 @@ function playerPage(title: string): string {
     document.getElementById("player").appendChild(player);
     (player.ruffle ? player.ruffle() : player).load({ url: ${JSON.stringify(MOVIE)} });
   });
+  // Ruffle writes a game's saves when the game asks, and when the page is left. Many games never
+  // ask, so it's also told the page is being left when Haven wants the save, and every little while.
+  function writeSaves() { window.dispatchEvent(new Event("pagehide")); }
+  window.addEventListener("xdc-save", writeSaves);
+  setInterval(writeSaves, ${SAVE_EVERY_MS});
 </script>
 </body>
 </html>

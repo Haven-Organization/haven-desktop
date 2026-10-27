@@ -4032,11 +4032,13 @@
             "play_embed": "Play %(title)s"
         },
         "webxdc": {
-            "bring_back": "Bring back here",
             "close": "Close",
+            "close_tooltip": "Save your progress and close the game",
             "download_failed": "The game couldn't be downloaded. Try again in a moment.",
+            "download_tooltip": "Download the game's file",
             "failed": "The game couldn't be opened.",
             "fullscreen": "Full screen",
+            "fullscreen_tooltip": "Play in full screen",
             "game": "Game",
             "kind": "webxdc game",
             "kind_flash": "Flash game",
@@ -4049,13 +4051,21 @@
             "not_a_game": "This file isn't a game Haven can open.",
             "play": "Play",
             "play_game": "Play %(name)s",
+            "play_tooltip": "Play the game here",
             "player_failed": "Haven couldn't load its Flash player. Try again in a moment.",
+            "pop_in": "Pop in",
+            "pop_in_tooltip": "Close the game's window and play here",
             "pop_out": "Pop out",
             "pop_out_refused": "Haven wasn't allowed to open the game in a window of its own. A browser's popup blocker can stop it, and so can a desktop app that sends every new window to the web browser. Allow popups for Haven to pop games out, or keep playing here.",
             "pop_out_refused_title": "Couldn't open a separate window",
+            "pop_out_tooltip": "Play in a separate window",
             "popped_out": "This game is open in its own window.",
-            "send_failed": "Your moves aren't being saved in this room.",
-            "show_window": "Show window"
+            "save": "Save",
+            "save_failed": "Couldn't save",
+            "save_tooltip": "Save your progress now",
+            "saved": "Saved",
+            "saving": "Saving…",
+            "send_failed": "Your moves aren't being saved in this room."
         }
     },
     "truncated_list_n_more": {

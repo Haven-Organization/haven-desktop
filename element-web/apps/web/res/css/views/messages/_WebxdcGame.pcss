@@ -153,9 +153,14 @@
         font: inherit;
         cursor: pointer;
 
-        &:hover {
+        &:hover:not(:disabled) {
             color: var(--cpd-color-text-primary);
             text-decoration: underline;
+        }
+
+        &:disabled {
+            color: var(--cpd-color-text-disabled);
+            cursor: default;
         }
     }
 }
