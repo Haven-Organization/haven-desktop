@@ -177,6 +177,11 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
             // maplibre-gl v6 locates its worker via `import.meta.url`, which webpack inlines as a file:// path that
             // maplibre rejects, leaving maps blank. Build the worker as its own entry instead; see utils/location/map.ts.
             "maplibre.worker": "maplibre-gl/dist/maplibre-gl-worker.mjs",
+            // haven patch: the IndexedDB the bundled webxdc sandbox gives games (src/webxdc-sandbox)
+            "webxdcidb": {
+                import: "./src/webxdc-sandbox/indexeddb.ts",
+                filename: "webxdc-sandbox/game/idb.js",
+            },
             ...cssThemes,
         },
 
@@ -688,6 +693,7 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                     "widgetpopout", // haven patch
                     "serviceworker",
                     "maplibre.worker",
+                    "webxdcidb", // haven patch
                 ],
                 minify: false,
                 templateParameters: {

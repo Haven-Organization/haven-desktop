@@ -12,8 +12,10 @@
  * and writes the game's index.html in place of itself. The game's root folder is this page's own
  * (".../game/"), so the game's own addresses for its files still make sense.
  *
- * Some games need what only a sandbox on a real origin has: IndexedDB, or pages of their own to go
- * between. This tells Haven ("xdc.limit"), and Haven says the game needs a sandbox URL.
+ * Such an origin has no IndexedDB, so games get one kept in memory and in the player's save
+ * (idb.js, built from src/webxdc-sandbox/indexeddb.ts). Some games need what only a sandbox on a real
+ * origin has: pages of their own to go between. This tells Haven ("xdc.limit"), and Haven says the
+ * game needs a sandbox URL.
  */
 "use strict";
 
@@ -37,15 +39,18 @@
         if (!data || data.type !== "xdc.files" || data.token !== token || !Array.isArray(data.files)) return;
         received = true;
         clearInterval(retry);
-        try {
-            start(data.files, data.meta || {});
-        } catch (e) {
-            post({ type: "xdc.error", message: "The game could not be opened: " + (e && e.message ? e.message : e) });
-        }
+        Promise.resolve()
+            .then(() => start(data.files, data.meta || {}))
+            .catch((e) => {
+                post({
+                    type: "xdc.error",
+                    message: "The game could not be opened: " + (e && e.message ? e.message : e),
+                });
+            });
     });
     ready();
 
-    function start(list, meta) {
+    async function start(list, meta) {
         const base = new URL("./", location.href);
         const details = { ...meta, token, parentOrigin, base: base.href };
         const has = Object.prototype.hasOwnProperty;
@@ -145,6 +150,16 @@
 
         installRedirects({ redirect, rewriteCss, rewriteSrcset, files, blobOf, addressOf });
         const isOtherPage = installLimits(nameOf);
+        // The game's IndexedDB, back from its save before the game starts. New copies go into the
+        // save through the page guard, once the game's page has it.
+        const idb = self.xdcIndexedDB;
+        if (idb) {
+            await idb.install({
+                win: window,
+                saved: meta.save && typeof meta.save === "object" ? meta.save[idb.SAVE_SLOT] : null,
+                keep: (snapshot) => window.__xdcSaveSlot && window.__xdcSaveSlot(snapshot),
+            });
+        }
 
         // The game's page, its addresses pointed at the blobs, written in place of this one.
         const source = text(files["index.html"]);
@@ -430,16 +445,19 @@
             limit(what);
             throw new DOMException("This needs a webxdc sandbox URL.", "SecurityError");
         };
-        const idb = {
-            open: refuse("indexeddb"),
-            deleteDatabase: refuse("indexeddb"),
-            databases: () => Promise.resolve([]),
-            cmp: (a, b) => (a < b ? -1 : a > b ? 1 : 0),
-        };
-        try {
-            Object.defineProperty(window, "indexedDB", { configurable: true, get: () => idb });
-        } catch {
-            // Then the browser's own error reaches the game.
+        // Only when this build has no idb.js to give the game an IndexedDB of its own.
+        if (!self.xdcIndexedDB) {
+            const idb = {
+                open: refuse("indexeddb"),
+                deleteDatabase: refuse("indexeddb"),
+                databases: () => Promise.resolve([]),
+                cmp: (a, b) => (a < b ? -1 : a > b ? 1 : 0),
+            };
+            try {
+                Object.defineProperty(window, "indexedDB", { configurable: true, get: () => idb });
+            } catch {
+                // Then the browser's own error reaches the game.
+            }
         }
 
         // Going to another of the game's pages: the frame would load it from Haven's server instead.

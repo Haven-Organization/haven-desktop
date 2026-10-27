@@ -50,15 +50,24 @@
          *
          * Haven can ask for the save at once (its Save button, and before it closes the game): the
          * page sends what's changed, then says it's done. Before that, an "xdc-save" event lets a page
-         * write what it's still holding, as the Flash player's does. */
+         * write what it's still holding, as the Flash player's does, and wait for something that takes
+         * a moment (detail.wait(promise)), as the bundled sandbox's IndexedDB does.
+         *
+         * The bundled sandbox keeps the game's IndexedDB in the save too, under a key of its own that
+         * the game's localStorage doesn't show; it's given to window.__xdcSaveSlot(). */
         var saveNow = function () {};
         window.addEventListener("message", function (event) {
             if (event.source !== window.parent || event.origin !== meta.parentOrigin) return;
             var data = event.data;
             if (!data || data.token !== meta.token || data.type !== "xdc.flush") return;
-            try { window.dispatchEvent(new Event("xdc-save")); } catch (e) {}
-            saveNow();
-            post({ type: "xdc.flushed", id: data.id });
+            var waits = [];
+            try {
+                window.dispatchEvent(new CustomEvent("xdc-save", { detail: { wait: function (p) { waits.push(p); } } }));
+            } catch (e) {}
+            Promise.all(waits).catch(function () {}).then(function () {
+                saveNow();
+                post({ type: "xdc.flushed", id: data.id });
+            });
         });
         (function () {
             var real = null;
@@ -86,6 +95,8 @@
                     pathname: location.pathname.slice(0, at + appPath.length) };
             }
             var has = Object.prototype.hasOwnProperty;
+            var SLOT = "{xdc-indexeddb}";
+            function gameKeys() { return Object.keys(data).filter(function (k) { return k !== SLOT; }); }
             // In the save, the game's address is a placeholder, the same in either sandbox and on any
             // site. Longest first. Ruffle, for one, uses the host name without its port; with or
             // without, it's the same name, and the game is shown the host name.
@@ -138,23 +149,23 @@
                 else timer = setTimeout(flush, 3000);
             }
             var methods = Object.create(Storage.prototype, {
-                getItem: { value: function (key) { key = saved(key); return has.call(data, key) ? data[key] : null; } },
+                getItem: { value: function (key) { key = saved(key); return key !== SLOT && has.call(data, key) ? data[key] : null; } },
                 setItem: { value: function (key, value) {
                     key = saved(key); value = String(value);
-                    if (data[key] === value) return;
+                    if (key === SLOT || data[key] === value) return;
                     data[key] = value; local(key, value); changed();
                 } },
                 removeItem: { value: function (key) {
                     key = saved(key);
-                    if (!has.call(data, key)) return;
+                    if (key === SLOT || !has.call(data, key)) return;
                     delete data[key]; local(key, null); changed();
                 } },
                 clear: { value: function () {
-                    Object.keys(data).forEach(function (key) { local(key, null); });
-                    data = {}; changed();
+                    gameKeys().forEach(function (key) { local(key, null); delete data[key]; });
+                    changed();
                 } },
-                key: { value: function (n) { var keys = Object.keys(data); return n >= 0 && n < keys.length ? shown(keys[n]) : null; } },
-                length: { get: function () { return Object.keys(data).length; } },
+                key: { value: function (n) { var keys = gameKeys(); return n >= 0 && n < keys.length ? shown(keys[n]) : null; } },
+                length: { get: function () { return gameKeys().length; } },
             });
             var store = Object.create(methods);
             // localStorage.foo and localStorage["foo"] too, as with the real one.
@@ -162,14 +173,19 @@
                 get: function (t, p) { return typeof p === "symbol" || p in t ? t[p] : t.getItem(p); },
                 set: function (t, p, v) { if (typeof p === "symbol" || p in t) return false; t.setItem(p, v); return true; },
                 deleteProperty: function (t, p) { t.removeItem(p); return true; },
-                has: function (t, p) { return p in t || (typeof p === "string" && has.call(data, saved(p))); },
-                ownKeys: function () { return Object.keys(data).map(shown); },
+                has: function (t, p) { return p in t || (typeof p === "string" && saved(p) !== SLOT && has.call(data, saved(p))); },
+                ownKeys: function () { return gameKeys().map(shown); },
                 getOwnPropertyDescriptor: function (t, p) {
-                    if (typeof p !== "string" || !has.call(data, saved(p))) return undefined;
+                    if (typeof p !== "string" || saved(p) === SLOT || !has.call(data, saved(p))) return undefined;
                     return { value: data[saved(p)], writable: true, enumerable: true, configurable: true };
                 },
             });
             Object.defineProperty(window, "localStorage", { configurable: true, get: function () { return view; } });
+            Object.defineProperty(window, "__xdcSaveSlot", { value: function (value) {
+                value = String(value);
+                if (data[SLOT] === value) return;
+                data[SLOT] = value; local(SLOT, value); changed();
+            } });
             window.addEventListener("pagehide", function (e) {
                 if (e.isTrusted) leaving = true;
                 flush();

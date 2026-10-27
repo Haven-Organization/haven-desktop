@@ -37,7 +37,7 @@ export type WebxdcSessionProblem =
     | { kind: "left_sandbox" }
     /**
      * The game tried something the bundled sandbox can't give it, and needs haven.webxdc_sandbox_url:
-     * IndexedDB, or going to another of its pages.
+     * going to another of its pages, or IndexedDB in a build without the sandbox's own (idb.js).
      */
     | { kind: "needs_sandbox"; what: WebxdcSandboxNeed };
 

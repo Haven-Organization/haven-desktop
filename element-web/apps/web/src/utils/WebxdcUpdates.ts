@@ -1,16 +1,26 @@
 /*
  * Haven: a webxdc game's moves ("updates"), kept in the room as events that reference the game's
  * file event. See webxdc.ts.
+ *
+ * Moves go out one event at a time. Moves a game makes while one is on its way go together in the
+ * next event ("updates", a list, where a lone move is "update"), so a game sending many moves
+ * quickly doesn't run into the server's limit on how fast messages can be sent. When it does
+ * anyway, the event is sent again once the server says it can be.
+ *
+ * A move's payload can be any JSON, but events can't hold numbers with a fraction or past 2^53, so
+ * it's kept as JSON text ("payload_json"). Moves with a "payload" of their own are read too.
  */
 
 import {
     Direction,
     EventStatus,
     type MatrixClient,
+    MatrixError,
     type MatrixEvent,
     type Room,
     RoomEvent,
     RelationType,
+    safeGetRetryAfterMs,
 } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
@@ -34,6 +44,19 @@ const TEXT_FIELDS = ["info", "summary", "document", "href"] as const;
 
 /** Pages of history read when a game starts, 100 moves each. */
 const MAX_HISTORY_PAGES = 50;
+/** How many times an event the server turned away for coming too fast is tried again. */
+const MAX_RATE_LIMIT_RETRIES = 20;
+/** How long to wait before trying again, when the server doesn't say. */
+const DEFAULT_RETRY_MS = 5000;
+
+/** A move waiting to go out. */
+interface Outgoing {
+    update: Record<string, unknown>;
+    size: number;
+    description: string;
+    sent: () => void;
+    failed: (error: unknown) => void;
+}
 
 export class WebxdcUpdateTooLargeError extends Error {}
 
@@ -44,6 +67,8 @@ export class WebxdcUpdates {
     private loaded = false;
     private stopped = false;
     private buffered: MatrixEvent[] = [];
+    private outgoing: Outgoing[] = [];
+    private sending = false;
 
     public constructor(
         private readonly client: MatrixClient,
@@ -80,7 +105,7 @@ export class WebxdcUpdates {
         this.loaded = true;
         const buffered = this.buffered;
         this.buffered = [];
-        this.deliver(buffered.map((event) => this.add(event)).filter((u): u is StoredUpdate => !!u));
+        this.deliver(buffered.flatMap((event) => this.add(event)));
     }
 
     public stop(): void {
@@ -106,25 +131,78 @@ export class WebxdcUpdates {
         return () => this.listeners.delete(listener);
     }
 
-    /** Send a move. It reaches the game, like everyone else's, once the server has it. */
-    public async send(update: unknown, description: string): Promise<void> {
-        if (!update || typeof update !== "object" || !("payload" in update)) return;
+    /**
+     * Send a move. It reaches the game, like everyone else's, once the server has it. Resolves once
+     * it's sent; moves are sent in the order they're made, even after this stops.
+     */
+    public send(update: unknown, description: string): Promise<void> {
+        if (!update || typeof update !== "object" || !("payload" in update)) return Promise.resolve();
         const source = update as Record<string, unknown>;
-        const kept: Record<string, unknown> = { payload: source.payload };
+        const kept: Record<string, unknown> = { payload_json: JSON.stringify(source.payload ?? null) };
         for (const field of TEXT_FIELDS) {
             if (typeof source[field] === "string") kept[field] = source[field];
         }
-        if (new TextEncoder().encode(JSON.stringify(kept)).length > WEBXDC_MAX_UPDATE_SIZE) {
-            throw new WebxdcUpdateTooLargeError();
+        const size = new TextEncoder().encode(JSON.stringify(kept)).length;
+        if (size > WEBXDC_MAX_UPDATE_SIZE) return Promise.reject(new WebxdcUpdateTooLargeError());
+        return new Promise((sent, failed) => {
+            this.outgoing.push({ update: kept, size, description, sent, failed });
+            void this.sendOutgoing();
+        });
+    }
+
+    /** Sends the waiting moves, as many to an event as fit, one event at a time. */
+    private async sendOutgoing(): Promise<void> {
+        if (this.sending) return;
+        this.sending = true;
+        try {
+            while (this.outgoing.length) {
+                let size = 0;
+                let count = 0;
+                while (
+                    count < this.outgoing.length &&
+                    (count === 0 || size + this.outgoing[count].size <= WEBXDC_MAX_UPDATE_SIZE)
+                ) {
+                    size += this.outgoing[count].size;
+                    count++;
+                }
+                const batch = this.outgoing.splice(0, count);
+                try {
+                    await this.sendEvent(batch);
+                    for (const move of batch) move.sent();
+                } catch (e) {
+                    for (const move of batch) move.failed(e);
+                }
+            }
+        } finally {
+            this.sending = false;
         }
-        await this.client.sendEvent(this.roomId, WEBXDC_UPDATE_EVENT_TYPE as any, {
+    }
+
+    private async sendEvent(batch: Outgoing[]): Promise<void> {
+        // The latest move's description that has one.
+        const description = batch
+            .map((move) => move.description)
+            .reverse()
+            .find(Boolean);
+        const content = {
             "m.relates_to": {
                 rel_type: RelationType.Reference,
                 event_id: this.gameEventId,
             },
-            "update": kept,
-            "body": description.slice(0, 200),
-        });
+            ...(batch.length === 1 ? { update: batch[0].update } : { updates: batch.map((move) => move.update) }),
+            "body": (description ?? "").slice(0, 200),
+        };
+        for (let attempt = 0; ; attempt++) {
+            try {
+                await this.client.sendEvent(this.roomId, WEBXDC_UPDATE_EVENT_TYPE as any, content);
+                return;
+            } catch (e) {
+                if (!(e instanceof MatrixError) || !e.isRateLimitError() || attempt >= MAX_RATE_LIMIT_RETRIES) throw e;
+                // Not left in the room as a message that failed: it's sent again in a moment.
+                if (e.event) this.client.cancelPendingEvent(e.event);
+                await new Promise((resolve) => setTimeout(resolve, safeGetRetryAfterMs(e, DEFAULT_RETRY_MS)));
+            }
+        }
     }
 
     private readonly onTimeline = (
@@ -150,27 +228,44 @@ export class WebxdcUpdates {
             this.buffered.push(event);
             return;
         }
-        const update = this.add(event);
-        if (update) this.deliver([update]);
+        this.deliver(this.add(event));
     }
 
-    /** Keep an update, unless it's already kept or not yet on the server. */
-    private add(event: MatrixEvent): StoredUpdate | undefined {
-        if (event.status !== null && event.status !== EventStatus.SENT) return undefined;
+    /** Keep an event's updates, unless they're already kept or not yet on the server. */
+    private add(event: MatrixEvent): StoredUpdate[] {
+        if (event.status !== null && event.status !== EventStatus.SENT) return [];
         const id = event.getId();
-        if (!id || id.startsWith("~") || this.seen.has(id) || event.isRedacted()) return undefined;
-        const update = event.getContent().update;
-        if (!update || typeof update !== "object" || !("payload" in update)) return undefined;
+        if (!id || id.startsWith("~") || this.seen.has(id) || event.isRedacted()) return [];
+        const content = event.getContent();
+        const updates: unknown[] = Array.isArray(content.updates) ? content.updates : [content.update];
         this.seen.add(id);
-        const stored: StoredUpdate = {
-            payload: update.payload,
-            serial: this.updates.length + 1,
-        };
-        for (const field of TEXT_FIELDS) {
-            if (typeof update[field] === "string") stored[field] = update[field];
+        const kept: StoredUpdate[] = [];
+        for (const update of updates) {
+            if (!update || typeof update !== "object") continue;
+            const fields = update as Record<string, unknown>;
+            let payload: unknown;
+            if (typeof fields.payload_json === "string") {
+                try {
+                    payload = JSON.parse(fields.payload_json);
+                } catch {
+                    continue;
+                }
+            } else if ("payload" in fields) {
+                payload = fields.payload;
+            } else {
+                continue;
+            }
+            const stored: StoredUpdate = {
+                payload,
+                serial: this.updates.length + 1,
+            };
+            for (const field of TEXT_FIELDS) {
+                if (typeof fields[field] === "string") stored[field] = fields[field];
+            }
+            this.updates.push(stored);
+            kept.push(stored);
         }
-        this.updates.push(stored);
-        return stored;
+        return kept;
     }
 
     private deliver(updates: StoredUpdate[]): void {
