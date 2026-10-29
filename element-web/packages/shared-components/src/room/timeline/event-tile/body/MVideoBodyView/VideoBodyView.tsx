@@ -206,9 +206,19 @@ export function VideoBodyView({
         );
     }
 
+    // Haven: without a size in the event there's no aspect ratio to reserve, so let the video take
+    // its own shape (from the poster, then the video) within the max size. A fixed box cropped
+    // portrait videos, controls included.
+    const unsized = aspectRatio === undefined;
+    const readyContainerStyle: CSSProperties = unsized ? { maxWidth, maxHeight } : containerStyle;
+
     return (
         <span className={rootClassName}>
-            <div className={resolvedContainerClassName} style={containerStyle} data-video-body-mask-target="">
+            <div
+                className={classNames(resolvedContainerClassName, unsized && styles.unsized)}
+                style={readyContainerStyle}
+                data-video-body-mask-target=""
+            >
                 {/* Captions will be supplied from app-side data once the VM wiring is in place. */}
                 <video
                     className={styles.video}

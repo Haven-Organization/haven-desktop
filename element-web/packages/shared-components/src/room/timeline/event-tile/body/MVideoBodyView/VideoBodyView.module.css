@@ -14,6 +14,18 @@
     height: 100%;
 }
 
+/* Haven: no size in the event, so the video sizes itself within the container's max size. */
+.unsized {
+    width: fit-content;
+}
+
+.unsized .video {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: inherit;
+}
+
 .hiddenButton {
     border: none;
     width: 100%;

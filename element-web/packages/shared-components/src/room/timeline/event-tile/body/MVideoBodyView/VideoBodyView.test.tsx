@@ -132,6 +132,36 @@ describe("VideoBodyView", () => {
     // "Unable to play video due to error" label - it false-positived (e.g. right after a video
     // played through to the end), so the wiring was dropped. An upstream merge that brings back an
     // onError prop on the <video>, or on VideoBodyViewActions, fails here.
+    describe("Haven: videos without a size in the event", () => {
+        const ready = (aspectRatio?: string): TestVideoBodyViewModel =>
+            new TestVideoBodyViewModel({
+                state: VideoBodyViewState.READY,
+                videoLabel: "clip.mp4",
+                maxWidth: 324,
+                maxHeight: 324,
+                aspectRatio,
+                src: "https://example.org/clip.mp4",
+                controls: true,
+            });
+
+        it("lets the video take its own shape within the max size, so its controls aren't cropped", () => {
+            const { container } = render(<VideoBodyView vm={ready()} />);
+            const box = container.querySelector<HTMLElement>("[data-video-body-mask-target]")!;
+            expect(box.className).toMatch(/unsized/);
+            expect(box.style.width).toBe("");
+            expect(box.style.maxWidth).toBe("324px");
+            expect(box.style.maxHeight).toBe("324px");
+        });
+
+        it("still reserves a fixed box when the event gives a size", () => {
+            const { container } = render(<VideoBodyView vm={ready("9/16")} />);
+            const box = container.querySelector<HTMLElement>("[data-video-body-mask-target]")!;
+            expect(box.className).not.toMatch(/unsized/);
+            expect(box.style.width).toBe("min(100%, 324px)");
+            expect(box.style.aspectRatio).toBe("9 / 16");
+        });
+    });
+
     describe("Haven: no runtime playback-error overlay", () => {
         const readySnapshot: VideoBodyViewSnapshot = {
             state: VideoBodyViewState.READY,
