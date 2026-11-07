@@ -1,0 +1,24 @@
+/*
+Copyright 2026 Haven
+
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+*/
+
+/* The options of the blockquote style dropdown, each drawn the way that style shows in the timeline. */
+
+/* Matches the timeline's blockquote (see _EventTile.pcss). Its own line height keeps the bar as
+   tall as the text, not the dropdown row. */
+.mx_BlockquoteStyleSwitcher_quote {
+    display: inline-block;
+    line-height: 1.3;
+    border-left: 2px solid $blockquote-bar-color;
+    border-radius: 2px;
+    padding: 0 6px;
+    color: $secondary-content;
+}
+
+/* The color greentext is sent in (see src/apps/framework/greentext.ts). */
+.mx_BlockquoteStyleSwitcher_greentext {
+    color: #789922;
+}

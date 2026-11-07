@@ -44,6 +44,9 @@ Please see LICENSE files in the repository root for full details.
     display: flex;
     align-items: center;
     gap: var(--cpd-space-2x);
+    /* Fill the dropdown row (see _Dropdown.pcss), so a preview shorter than the row's line height,
+       like the blockquote style's quote, sits in the middle of it rather than at the top. */
+    min-height: 35px;
 }
 
 .mx_EmojiPreferenceDropdown_preview {

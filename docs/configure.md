@@ -45,6 +45,9 @@ fediverse style: plain green text, no border or indent.
 }
 ```
 
+This is only the default. Each user can pick their own style under Settings > Preferences >
+Composer, which then applies to what they send on every device.
+
 ## Game sandbox
 
 webxdc games (`.xdc` files), and Flash games in a build with Ruffle (see

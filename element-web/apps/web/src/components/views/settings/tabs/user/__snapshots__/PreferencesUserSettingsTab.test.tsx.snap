@@ -746,6 +746,67 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                     </label>
                   </div>
                 </div>
+                <div
+                  class="mx_EmojiPreferenceDropdown"
+                >
+                  <div
+                    class="mx_EmojiPreferenceDropdown_text"
+                  >
+                    <label
+                      class="mx_EmojiPreferenceDropdown_label"
+                      for="react-use-id-6"
+                    >
+                      Blockquote style
+                    </label>
+                    <div
+                      class="mx_EmojiPreferenceDropdown_description"
+                    >
+                      How a line you start with &gt; looks in messages you send.
+                    </div>
+                  </div>
+                  <div
+                    class="mx_Dropdown"
+                  >
+                    <div
+                      aria-describedby="react-use-id-6_value"
+                      aria-expanded="false"
+                      aria-haspopup="listbox"
+                      aria-label="Blockquote style"
+                      aria-owns="react-use-id-6_input"
+                      class="mx_AccessibleButton mx_Dropdown_input mx_no_textinput"
+                      role="button"
+                      tabindex="0"
+                    >
+                      <div
+                        class="mx_Dropdown_option"
+                        id="react-use-id-6_value"
+                      >
+                        <div
+                          aria-label="Quote"
+                          class="mx_EmojiPreferenceDropdown_option"
+                        >
+                          <span
+                            class="mx_BlockquoteStyleSwitcher_quote"
+                          >
+                            Quote
+                          </span>
+                        </div>
+                      </div>
+                      <svg
+                        class="mx_Dropdown_arrow"
+                        fill="currentColor"
+                        height="1em"
+                        viewBox="0 0 24 24"
+                        width="1em"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 14.95q-.2 0-.375-.062a.9.9 0 0 1-.325-.213l-4.6-4.6a.95.95 0 0 1-.275-.7q0-.425.275-.7a.95.95 0 0 1 .7-.275q.425 0 .7.275l3.9 3.9 3.9-3.9a.95.95 0 0 1 .7-.275q.425 0 .7.275a.95.95 0 0 1 .275.7.95.95 0 0 1-.275.7l-4.6 4.6q-.15.15-.325.212a1.1 1.1 0 0 1-.375.063"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </form>
@@ -1534,7 +1595,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                     >
                       <input
                         class="_input"
-                        id="react-use-id-6"
+                        id="react-use-id-7"
                         role="switch"
                         type="checkbox"
                       />
@@ -1548,7 +1609,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   >
                     <label
                       class="_label"
-                      for="react-use-id-6"
+                      for="react-use-id-7"
                     >
                       Hide avatars of room and inviter
                     </label>
@@ -1562,13 +1623,13 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                 >
                   <label
                     class="_label"
-                    for="radix-react-use-id-7"
+                    for="radix-react-use-id-8"
                   >
                     Show media in timeline
                   </label>
                   <span
                     class="_message _help-message mx_MediaPreviewAccountSetting_RadioHelp"
-                    id="radix-react-use-id-8"
+                    id="radix-react-use-id-9"
                   >
                     Hidden media can always be shown by selecting it
                   </span>
@@ -1681,7 +1742,7 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                         checked=""
                         class="_input"
                         disabled=""
-                        id="react-use-id-9"
+                        id="react-use-id-10"
                         role="switch"
                         type="checkbox"
                       />
@@ -1695,13 +1756,13 @@ exports[`PreferencesUserSettingsTab > should render 1`] = `
                   >
                     <label
                       class="_label"
-                      for="react-use-id-9"
+                      for="react-use-id-10"
                     >
                       Allow users to invite you to rooms
                     </label>
                     <span
                       class="_message _help-message"
-                      id="radix-react-use-id-10"
+                      id="radix-react-use-id-11"
                     >
                       Your account provider does not offer this feature.
                     </span>

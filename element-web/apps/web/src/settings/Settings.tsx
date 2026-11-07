@@ -394,6 +394,9 @@ export interface Settings {
     "Haven.showAllUnreadRoomsInUnreadsFilter": IBaseSetting<boolean>;
     // Haven: rich embeds for links - see utils/richEmbeds.ts and components/views/messages/RichEmbed.tsx.
     "Haven.richEmbeds": IBaseSetting<boolean>;
+    // Haven: the user's own blockquote style, overriding the host's "haven.blockquote_style" - see
+    // src/apps/framework/config.ts's getBlockquoteStyle. null means "use the host's".
+    "Haven.blockquoteStyle": IBaseSetting<"stock" | "greentext" | null>;
     // Haven: sites whose links embed right away instead of showing their preview with an Embed button.
     "Haven.alwaysEmbedSites": IBaseSetting<string[]>;
     // Haven: temporary stopgap keeping the legacy (pre-MVVM-rewrite) room list alive as an opt-in
@@ -1528,6 +1531,13 @@ export const SETTINGS: Settings = {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|preferences|rich_embeds"),
         default: true,
+    },
+    // Account-level so it follows the user to every device. Unset until they pick one, so the
+    // host's choice applies until then.
+    "Haven.blockquoteStyle": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|preferences|blockquote_style"),
+        default: null,
     },
     // Kept in account data so the choice follows the user to their other devices.
     "Haven.alwaysEmbedSites": {

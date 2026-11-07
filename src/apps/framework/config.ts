@@ -1,4 +1,5 @@
 import SdkConfig from "../../../element-web/apps/web/src/SdkConfig";
+import SettingsStore from "../../../element-web/apps/web/src/settings/SettingsStore";
 
 /**
  * Shape of Haven's own "haven" config.json block — kept out of stock Element's IConfigOptions
@@ -53,6 +54,15 @@ export function getWebxdcSandboxUrl(): string | undefined {
 }
 
 /** Per the "haven.blockquote_style" config value — defaults to "stock" if absent/unrecognized. */
-export function getBlockquoteStyle(): BlockquoteStyle {
+export function getHostBlockquoteStyle(): BlockquoteStyle {
     return getHavenConfig().blockquote_style === "greentext" ? "greentext" : "stock";
+}
+
+/**
+ * How a line starting with "> " renders in what this user sends: their own choice from Settings >
+ * Preferences > Composer ("Haven.blockquoteStyle") if they've made one, otherwise the host's.
+ */
+export function getBlockquoteStyle(): BlockquoteStyle {
+    const own = SettingsStore.getValue("Haven.blockquoteStyle");
+    return own === "stock" || own === "greentext" ? own : getHostBlockquoteStyle();
 }

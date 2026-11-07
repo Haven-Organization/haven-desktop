@@ -38,6 +38,7 @@ import { InviteRulesAccountSetting } from "./InviteRulesAccountSettings.tsx";
 import SettingsDropdown from "../../../elements/SettingsDropdown.tsx";
 import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
 import { ResetEmbedPreferencesButton } from "../../ResetEmbedPreferencesButton";
+import { BlockquoteStyleSwitcher } from "../../BlockquoteStyleSwitcher";
 
 interface IState {
     timezone: string | undefined;
@@ -351,6 +352,7 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
 
                     <SettingsSubsection heading={_t("settings|preferences|composer_heading")} formWrap>
                         {this.renderGroup(PreferencesUserSettingsTab.COMPOSER_SETTINGS)}
+                        <BlockquoteStyleSwitcher />
                     </SettingsSubsection>
 
                     <SettingsSubsection heading={_t("settings|preferences|code_blocks_heading")} formWrap>

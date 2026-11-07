@@ -54,24 +54,37 @@ interface EmojiPreferenceDropdownProps {
     value: string;
     options: EmojiPreferenceOption[];
     onChange(value: string): void;
+    /** Width of the open menu, for options wider than an emoji and a word. */
+    menuWidth?: number;
+    /** The previews already say what each option is, so show them alone, without the label. */
+    previewIsLabel?: boolean;
 }
 
-function EmojiPreferenceDropdown({
+/** Also used by other Haven settings that pick one of a few styles, such as BlockquoteStyleSwitcher. */
+export function EmojiPreferenceDropdown({
     label,
     description,
     value,
     options,
     onChange,
+    menuWidth = 200,
+    previewIsLabel = false,
 }: EmojiPreferenceDropdownProps): JSX.Element {
     const id = useId();
-    const children = options.map((option) => (
-        <div key={option.value} className="mx_EmojiPreferenceDropdown_option">
-            <span className="mx_EmojiPreferenceDropdown_preview" aria-hidden="true">
+    const children = options.map((option) =>
+        previewIsLabel ? (
+            <div key={option.value} className="mx_EmojiPreferenceDropdown_option" aria-label={option.label}>
                 {option.preview}
-            </span>
-            {option.label}
-        </div>
-    )) as DropdownProps["children"];
+            </div>
+        ) : (
+            <div key={option.value} className="mx_EmojiPreferenceDropdown_option">
+                <span className="mx_EmojiPreferenceDropdown_preview" aria-hidden="true">
+                    {option.preview}
+                </span>
+                {option.label}
+            </div>
+        ),
+    ) as DropdownProps["children"];
 
     return (
         <div className="mx_EmojiPreferenceDropdown">
@@ -81,7 +94,7 @@ function EmojiPreferenceDropdown({
                 </label>
                 <div className="mx_EmojiPreferenceDropdown_description">{description}</div>
             </div>
-            <Dropdown id={id} label={label} value={value} menuWidth={200} onOptionChange={onChange}>
+            <Dropdown id={id} label={label} value={value} menuWidth={menuWidth} onOptionChange={onChange}>
                 {children}
             </Dropdown>
         </div>
