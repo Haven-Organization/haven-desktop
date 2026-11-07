@@ -98,10 +98,36 @@ global.addEventListener("fetch", (event: FetchEvent) => {
             // byte ranges to seek, and re-issuing the request with only Authorization dropped that,
             // so the server always answered with the whole file (200, not 206) and the browser
             // treated the media as unseekable - clicking the seek bar did nothing.
-            return fetch(url, fetchConfigForToken(auth?.accessToken, event.request.headers?.get("Range")));
+            return fetchMediaWithRetry(
+                url,
+                fetchConfigForToken(auth?.accessToken, event.request.headers?.get("Range")),
+                event.request.signal,
+            );
         })(),
     );
 });
+
+/**
+ * Haven: how long to wait before each retry of a media fetch that failed at the network level.
+ * Such failures come in short bursts (every image the room asked for at that moment fails at once)
+ * while the same request succeeds a moment later, but the image never asks again, so it showed
+ * "Unable to show image due to error" until the page was reloaded.
+ */
+const MEDIA_FETCH_RETRY_DELAYS_MS = [500, 2000];
+
+async function fetchMediaWithRetry(url: URL, init: RequestInit | undefined, signal?: AbortSignal): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await fetch(url, init);
+        } catch (err) {
+            // A rejection means no response at all (an HTTP error status still resolves), so it is
+            // worth another try, unless the page no longer wants the media.
+            if (attempt >= MEDIA_FETCH_RETRY_DELAYS_MS.length || signal?.aborted) throw err;
+            console.warn(`SW: Media fetch failed, retrying (attempt ${attempt + 2}).`, err);
+            await new Promise<void>((resolve) => setTimeout(resolve, MEDIA_FETCH_RETRY_DELAYS_MS[attempt]));
+        }
+    }
+}
 
 async function tryUpdateServerSupportMap(clientApiUrl: string, accessToken?: string): Promise<void> {
     // only update if we don't know about it, or if the data is stale

@@ -176,4 +176,84 @@ describe("serviceworker", () => {
         expect(init).toBeUndefined();
         expect(lastRewriteFailureCause()).toMatchObject({ message: "no pickle key found" });
     });
+
+    describe("Haven: media fetches that fail at the network level", () => {
+        /** Make the next `failures` media fetches reject the way a dropped connection does. */
+        function failMediaFetches(failures: number): void {
+            let remaining = failures;
+            fetchSpy.mockImplementation(async (input: URL | string) => {
+                if (input.toString().endsWith("/_matrix/client/versions")) {
+                    return { json: async () => ({ versions: ["v1.11"] }) };
+                }
+                if (remaining-- > 0) throw new TypeError("Failed to fetch");
+                return new Response("media");
+            });
+        }
+
+        function mediaFetchCount(): number {
+            return fetchSpy.mock.calls.filter(([input]) => !String(input).endsWith("/versions")).length;
+        }
+
+        /** Drive the fetch handler, letting the retry delays pass, and return what it responded with. */
+        async function respond(signal?: AbortSignal): Promise<PromiseSettledResult<Response>> {
+            vi.useFakeTimers();
+            try {
+                let responded: Promise<Response> | undefined;
+                emit("fetch", {
+                    request: { method: "GET", url: mediaUrl, signal },
+                    clientId: "client-1",
+                    respondWith: (response: Promise<Response>) => {
+                        responded = response;
+                    },
+                });
+                const settled = Promise.allSettled([responded!]);
+                await vi.runAllTimersAsync();
+                return (await settled)[0];
+            } finally {
+                vi.useRealTimers();
+            }
+        }
+
+        beforeEach(() => {
+            vi.spyOn(console, "warn").mockImplementation(() => {});
+        });
+
+        it("retries until the media loads", async () => {
+            failMediaFetches(2);
+
+            const result = await respond();
+
+            expect(result.status).toBe("fulfilled");
+            expect(mediaFetchCount()).toBe(3);
+        });
+
+        it("gives up after the last retry", async () => {
+            failMediaFetches(10);
+
+            const result = await respond();
+
+            expect(result).toMatchObject({ status: "rejected", reason: { message: "Failed to fetch" } });
+            expect(mediaFetchCount()).toBe(3);
+        });
+
+        it("does not retry an HTTP error, which is a response from the server", async () => {
+            fetchSpy.mockImplementation(async () => new Response("nope", { status: 404 }));
+
+            const result = await respond();
+
+            expect(result).toMatchObject({ status: "fulfilled", value: { status: 404 } });
+            expect(mediaFetchCount()).toBe(1);
+        });
+
+        it("does not retry once the page has given up on the media", async () => {
+            failMediaFetches(10);
+            const controller = new AbortController();
+            controller.abort();
+
+            const result = await respond(controller.signal);
+
+            expect(result.status).toBe("rejected");
+            expect(mediaFetchCount()).toBe(1);
+        });
+    });
 });
