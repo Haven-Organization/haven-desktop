@@ -38,6 +38,7 @@ import { _t } from "../../languageHandler";
 import ThreadListContextMenu from "../views/context_menus/ThreadListContextMenu";
 import RightPanelStore from "../../stores/right-panel/RightPanelStore";
 import SettingsStore from "../../settings/SettingsStore";
+import { isAppPageOpen } from "../../../../../../src/apps/framework/appPageOpen";
 import { type ViewRoomPayload } from "../../dispatcher/payloads/ViewRoomPayload";
 import FileDropTarget from "./FileDropTarget";
 import { getKeyBindingsManager } from "../../KeyBindingsManager";
@@ -125,7 +126,10 @@ export default class ThreadView extends React.Component<IProps, IState> {
         SettingsStore.unwatchSetting(this.layoutWatcherRef);
 
         const hasRoomChanged = this.context.roomViewStore.getRoomId() !== roomId;
-        if (this.props.initialEvent && !hasRoomChanged) {
+        // Haven: not when the thread is closing because a Haven app (e.g. Social) replaced the room
+        // view. Re-viewing the room here sent the user straight back to its timeline, every time
+        // while this thread stayed open in the right panel.
+        if (this.props.initialEvent && !hasRoomChanged && !isAppPageOpen()) {
             dis.dispatch<ViewRoomPayload>({
                 action: Action.ViewRoom,
                 room_id: this.props.room.roomId,

@@ -152,6 +152,7 @@ import { type QrLoginCredentials } from "../views/auth/LoginWithQR.tsx";
 import { configureFromCompletedOAuthLogin } from "../../Lifecycle";
 // haven apps-framework patch
 import { getAppByHomeAction } from "../../../../../../src/apps/framework/registry";
+import { noteAppPageOpen } from "../../../../../../src/apps/framework/appPageOpen";
 import { tryRouteSocialHashScreen } from "../../../../../../src/apps/social/utils/permalinkRouting";
 import { LegacyCryptoUnsupportedViewModel } from "../../viewmodels/crypto/legacyCryptoUnsupportedViewModel.ts";
 
@@ -1023,6 +1024,8 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
     };
 
     private setPage(pageType: PageType): void {
+        // Haven: so stock code unmounted by a switch to an app can tell (see appPageOpen.ts)
+        noteAppPageOpen(!!getAppByHomeAction(pageType));
         this.setState({
             page_type: pageType,
         });
@@ -1133,6 +1136,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
         if (roomInfo.event_id && roomInfo.highlighted) {
             presentedId += "/" + roomInfo.event_id;
         }
+        noteAppPageOpen(false); // Haven: see appPageOpen.ts
         this.setState(
             {
                 view: Views.LOGGED_IN,
@@ -2106,6 +2110,7 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
                 subAction: params?.action,
             });
         } else if (ModuleApi.instance.navigation.locationRenderers.get(screen)) {
+            noteAppPageOpen(false); // Haven: see appPageOpen.ts
             this.setState({ page_type: screen });
         } else {
             // Unknown screen requested

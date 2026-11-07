@@ -37,6 +37,7 @@ import { ScopedRoomContextProvider } from "../../contexts/ScopedRoomContext.tsx"
 import { TimelineRenderingType } from "../../contexts/RoomContext.ts";
 import { type ComposerInsertPayload, ComposerType } from "../../dispatcher/payloads/ComposerInsertPayload.ts";
 import { SDKContext } from "../../contexts/SDKContext.ts";
+import { noteAppPageOpen } from "../../../../../../src/apps/framework/appPageOpen";
 
 describe("ThreadView", () => {
     const ROOM_ID = "!roomId:example.org";
@@ -215,6 +216,21 @@ describe("ThreadView", () => {
             room_id: room.roomId,
             metricsTrigger: undefined,
         });
+    });
+
+    it("Haven: leaves the user in the app that replaced the room view", async () => {
+        vi.spyOn(SDKContextClass.instance.roomViewStore, "getRoomId").mockReturnValue(room.roomId);
+        const mock = vi.spyOn(dispatcher, "dispatch");
+        const { unmount } = await getComponent(rootEvent);
+        mock.mockClear();
+        noteAppPageOpen(true);
+        try {
+            unmount();
+        } finally {
+            noteAppPageOpen(false);
+        }
+        expect(mock).not.toHaveBeenCalledWith(expect.objectContaining({ action: Action.ViewRoom }));
+        expect(mock).toHaveBeenCalledWith({ action: Action.ViewThread, thread_id: null });
     });
 
     describe("handles Action.ComposerInsert", () => {
