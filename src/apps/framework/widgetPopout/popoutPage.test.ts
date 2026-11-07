@@ -69,7 +69,10 @@ describe("runPopoutPage", () => {
     it("relays the widget's messages to the main window, and the main window's to the widget", () => {
         message(win, { [K]: "load", src: "about:blank", title: "x", allow: "", sandbox: "", background: "" }, opener);
         const frame = document.querySelector("iframe")!;
-        const widgetWindow = frame.contentWindow!;
+        // The test setup turns off child frame loading, so the iframe has no window of its own.
+        // Stand one in for the widget.
+        const widgetWindow = { postMessage: vi.fn() };
+        Object.defineProperty(frame, "contentWindow", { value: widgetWindow });
 
         message(win, { api: "fromWidget", action: "get_openid" }, widgetWindow, "https://widget.example.org");
         expect(opener.postMessage).toHaveBeenLastCalledWith(
@@ -77,9 +80,8 @@ describe("runPopoutPage", () => {
             ORIGIN,
         );
 
-        const post = vi.spyOn(widgetWindow, "postMessage").mockImplementation(() => {});
         message(win, { [K]: "out", data: { api: "toWidget" }, targetOrigin: "https://widget.example.org" }, opener);
-        expect(post).toHaveBeenCalledWith({ api: "toWidget" }, "https://widget.example.org");
+        expect(widgetWindow.postMessage).toHaveBeenCalledWith({ api: "toWidget" }, "https://widget.example.org");
     });
 
     it("tells the main window when it closes", () => {
