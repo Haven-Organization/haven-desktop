@@ -367,6 +367,43 @@ describe("bodyToNode", () => {
         },
     );
 
+    describe("Haven: custom emoji", () => {
+        const emote = (name: string): string =>
+            `<img data-mx-emoticon height="32" src="mxc://example.org/${name}" alt=":${name}:" title=":${name}:" />`;
+        const bigEmoji = (formatted_body: string, opts: Parameters<typeof bodyToNode>[2] = {}): boolean =>
+            bodyToNode({ body: "x", msgtype: "m.text", format: "org.matrix.custom.html", formatted_body }, [], {
+                stripReplyFallback: true,
+                ...opts,
+            }).className.includes("mx_EventTile_bigEmoji");
+
+        it("makes a message of only custom emoji big", () => {
+            expect(bigEmoji(emote("blobcat"))).toBe(true);
+            expect(bigEmoji(`${emote("blobcat")} ${emote("neko")}`)).toBe(true);
+        });
+
+        it("makes custom emoji mixed with Unicode emoji big", () => {
+            expect(bigEmoji(`${emote("blobcat")} 🥰`)).toBe(true);
+        });
+
+        it("makes an emoji-only reply big", () => {
+            expect(
+                bigEmoji(
+                    `<mx-reply><blockquote>In reply to <a href="https://matrix.to/#/@alice:example.org">Alice</a></blockquote></mx-reply>${emote("blobcat")}`,
+                ),
+            ).toBe(true);
+        });
+
+        it("leaves a message with text, a link or a regular image alone", () => {
+            expect(bigEmoji(`${emote("blobcat")} hello`)).toBe(false);
+            expect(bigEmoji(`<a href="https://example.org">${emote("blobcat")}</a>`)).toBe(false);
+            expect(bigEmoji(`${emote("blobcat")}<img src="mxc://example.org/photo" />`)).toBe(false);
+        });
+
+        it("follows the big emoji setting", () => {
+            expect(bigEmoji(emote("blobcat"), { disableBigEmoji: true })).toBe(false);
+        });
+    });
+
     afterEach(() => {
         vi.resetAllMocks();
     });

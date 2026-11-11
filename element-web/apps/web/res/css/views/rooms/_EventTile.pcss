@@ -311,6 +311,17 @@ $left-gutter: 64px;
     .mx_Emoji {
         font-size: inherit !important;
     }
+
+    /* Haven: custom emoji, as tall as the big Unicode ones. A message only gets this class when its
+       images are all custom emoji (see isCustomEmojiOnly in HtmlUtils.tsx), and !important beats
+       the inline max-height each image gets from its own height attribute. */
+    img {
+        height: 48px !important;
+        max-height: 48px !important;
+        width: auto !important;
+        max-width: none !important;
+        vertical-align: bottom;
+    }
 }
 
 .mx_EventTile_body {

@@ -444,15 +444,13 @@ function analyseEvent(content: IContent, highlights?: string[], opts: EventRende
                 isHtmlMessage = !isPlainText;
 
                 if (isHtmlMessage && SettingsStore.getValue("feature_latex_maths")) {
-                    [...phtml.querySelectorAll<HTMLElement>("div[data-mx-maths], span[data-mx-maths]")].forEach(
-                        (e) => {
-                            e.outerHTML = katex.renderToString(decode(e.getAttribute("data-mx-maths")), {
-                                throwOnError: false,
-                                displayMode: e.tagName == "DIV",
-                                output: "htmlAndMathml",
-                            });
-                        },
-                    );
+                    [...phtml.querySelectorAll<HTMLElement>("div[data-mx-maths], span[data-mx-maths]")].forEach((e) => {
+                        e.outerHTML = katex.renderToString(decode(e.getAttribute("data-mx-maths")), {
+                            throwOnError: false,
+                            displayMode: e.tagName == "DIV",
+                            output: "htmlAndMathml",
+                        });
+                    });
                     safeBody = phtml.body.innerHTML;
                 }
             } catch (e) {
@@ -471,6 +469,27 @@ function analyseEvent(content: IContent, highlights?: string[], opts: EventRende
     } finally {
         delete sanitizeParams.textFilter;
     }
+}
+
+/**
+ * Haven: true when a message is only custom emoji (MSC2545 `<img data-mx-emoticon>`), optionally
+ * mixed with Unicode emoji, so it gets the same big-emoji treatment as a Unicode-only one. Read from
+ * the raw formatted_body because sanitizing drops data-mx-emoticon, which would leave no way to tell
+ * a custom emoji from any other inline image. DOMParser builds an inert document, so nothing loads.
+ */
+function isCustomEmojiOnly(content: IContent, opts: EventRenderOpts): boolean {
+    if (content.format !== "org.matrix.custom.html" || typeof content.formatted_body !== "string") return false;
+    let html = content.formatted_body;
+    if (!html.includes("data-mx-emoticon") || html.length >= BIGEMOJI_REGEX_MAX_LENGTH) return false;
+    if (opts.stripReplyFallback) html = stripHTMLReply(html);
+
+    const body = new DOMParser().parseFromString(html, "text/html").body;
+    const emotes = body.querySelectorAll("img[data-mx-emoticon]").length;
+    // Any other element (a link, a pill, formatting, a regular image) means it isn't emoji only.
+    if (emotes === 0 || body.querySelectorAll("*").length !== emotes) return false;
+
+    const text = (body.textContent ?? "").replace(EMOJI_SEPARATOR_REGEX, "");
+    return text === "" || BIGEMOJI_REGEX.test(text);
 }
 
 interface BodyToNodeReturn {
@@ -519,6 +538,8 @@ export function bodyToNode(content: IContent, highlights?: string[], opts: Event
                     (!content.formatted_body.includes("http:") && !content.formatted_body.includes("https:")));
         }
 
+        if (!opts.disableBigEmoji && !emojiBody) emojiBody = isCustomEmojiOnly(content, opts);
+
         const className = classNames({
             "mx_EventTile_body": true,
             "mx_EventTile_bigEmoji": emojiBody,
@@ -546,7 +567,7 @@ export function bodyToNode(content: IContent, highlights?: string[], opts: Event
             strippedBody: eventInfo.strippedBody,
             formattedBody: undefined,
             emojiBodyElements: undefined,
-            className: classNames({ "mx_EventTile_body": true, "translate": true }),
+            className: classNames({ mx_EventTile_body: true, translate: true }),
         };
     }
 }
