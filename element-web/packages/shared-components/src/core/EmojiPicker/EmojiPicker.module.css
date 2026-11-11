@@ -430,6 +430,18 @@
     margin: 0;
 }
 
+.previewName {
+    /* Haven: a custom emoji's name is its pack description, which can be any length. Cap it at two
+       lines with an ellipsis so it can never grow past the footer's fixed 72px height. */
+    line-height: 1.25rem;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
 .footer {
     border-top: 1px solid var(--cpd-color-gray-400);
     min-height: 72px;
@@ -437,6 +449,20 @@
 
     display: flex;
     align-items: center;
+}
+
+/* Haven: last guard so nothing in the emoji preview can ever draw outside its 72px shelf. Kept off
+   .footer itself, which Quick Reactions also uses and whose focus rings must not be clipped. */
+.previewFooter {
+    overflow: hidden;
+}
+
+/* Haven: one line at most, so a long shortcode can't push the name out of the shelf either. */
+.previewShortcode {
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .previewEmoji {
@@ -467,10 +493,15 @@
 .previewText {
     display: flex;
     flex: 1;
+    /* Haven: min-width lets the text shrink so the ellipses below can kick in; the vertical padding
+       was trimmed from 1rem so two name lines plus the shortcode fit the 72px footer. */
+    min-width: 0;
+    max-height: 100%;
     overflow: hidden;
-    padding-top: 1rem;
-    padding-bottom: 1rem;
+    padding-top: var(--cpd-space-1x);
+    padding-bottom: var(--cpd-space-1x);
     flex-direction: column;
+    justify-content: center;
 }
 
 /* Haven: a freeform reaction's own .previewEmoji icon is skipped entirely (see Preview.tsx) - its
@@ -482,6 +513,11 @@
 
 .name {
     text-transform: capitalize;
+}
+
+/* Haven: custom (pack) emoji names are the pack owner's own description, so keep their casing. */
+.nameAsWritten {
+    text-transform: none;
 }
 
 .shortcode {

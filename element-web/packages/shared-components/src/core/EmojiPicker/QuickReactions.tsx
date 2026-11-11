@@ -73,7 +73,13 @@ export const QuickReactions: React.FC<IProps> = ({ selectedEmojis, onClick, getA
                     _t("emoji|quick_reactions")
                 ) : (
                     <React.Fragment>
-                        <span className={styles.name}>{hover.label}</span>
+                        <span
+                            className={classNames(styles.name, {
+                                [styles.nameAsWritten]: !!(hover as { imageUrl?: string }).imageUrl,
+                            })}
+                        >
+                            {hover.label}
+                        </span>
                         <span className={styles.shortcode}>{hover.shortcodes[0]}</span>
                     </React.Fragment>
                 )}

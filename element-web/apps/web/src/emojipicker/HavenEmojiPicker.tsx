@@ -141,7 +141,15 @@ function buildPackCategories(
         } as Category & { manageRoomId?: string; manageStateKey?: string });
         const imageSize = usage === "sticker" ? STICKER_IMAGE_SIZE : EMOJI_IMAGE_SIZE;
         dataByCategory[id] = imagesForUsage(pack, usage).map(({ shortcode, image }) => {
-            const custom = makeCustomEmoji(shortcode, image.url, name, pack.roomId, pack.stateKey, image.info);
+            const custom = makeCustomEmoji(
+                shortcode,
+                image.url,
+                name,
+                pack.roomId,
+                pack.stateKey,
+                image.info,
+                image.body,
+            );
             // Haven: was .srcHttp (the original, full-resolution image) - for a grid of dozens/
             // hundreds of tiny cells that's a lot of unnecessary decode work piling up as the
             // picker scrolls and mounts more of them, easily enough to exhaust the renderer's heap
@@ -276,10 +284,13 @@ export function HavenEmojiPicker({
         [room],
     );
 
-    const onManageClick = useCallback((roomId: string, stateKey?: string) => {
-        onFinished();
-        openManagePack(roomId, stateKey);
-    }, [onFinished]);
+    const onManageClick = useCallback(
+        (roomId: string, stateKey?: string) => {
+            onFinished();
+            openManagePack(roomId, stateKey);
+        },
+        [onFinished],
+    );
 
     const onOpenSettings = useCallback(() => {
         onFinished();

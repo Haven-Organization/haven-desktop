@@ -40,6 +40,17 @@ describe("customEmoji", () => {
             expect(a.hexcode).not.toBe(b.hexcode);
         });
 
+        it("uses the pack image's description (body) as its name, keeping its casing", () => {
+            const emoji = makeCustomEmoji("huh", "mxc://example.org/1", "Pack", "!r:x", "pack", undefined, "HUHHH?!");
+            expect(emoji.label).toBe("HUHHH?!");
+            expect(emoji.shortcodes).toEqual(["huh"]);
+        });
+
+        it("falls back to the shortcode when the description is missing or blank", () => {
+            const emoji = makeCustomEmoji("huh", "mxc://example.org/1", "Pack", "!r:x", "pack", undefined, "  ");
+            expect(emoji.label).toBe("huh");
+        });
+
         it("leaves imageInfo undefined when none is given", () => {
             const emoji = makeCustomEmoji("wave", "mxc://example.org/1", "Pack", "!r:x", "pack");
             expect(emoji.imageInfo).toBeUndefined();

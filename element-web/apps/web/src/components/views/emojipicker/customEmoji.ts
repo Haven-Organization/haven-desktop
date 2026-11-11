@@ -47,11 +47,14 @@ export function makeCustomEmoji(
     roomId: string,
     stateKey: string,
     imageInfo?: ImagePackImageInfo,
+    body?: string,
 ): CustomEmojiLike {
     const value = `:${shortcode}:`;
     return {
         unicode: value,
-        label: shortcode,
+        // Haven: MSC2545's `body` is the image's description (set in the pack editor), shown as
+        // the emoji's name the way stock emoji show theirs; the shortcode is the spec's fallback.
+        label: body?.trim() || shortcode,
         shortcodes: [shortcode],
         hexcode: `custom-${packName}-${shortcode}`,
         emoticon: undefined,

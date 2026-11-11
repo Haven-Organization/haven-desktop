@@ -42,6 +42,28 @@ describe("Preview", () => {
         expect(screen.getByAltText("party_parrot")).toHaveAttribute("src", "https://example.org/party-parrot.png");
     });
 
+    it("shows a custom emoji's name as written, without the stock emoji capitalization", () => {
+        const emoji = {
+            unicode: ":huh:",
+            label: "HUHHH?! what",
+            shortcodes: ["huh"],
+            hexcode: "custom-huh",
+            imageUrl: "https://example.org/huh.png",
+        } as PickerEmoji;
+
+        const { container } = render(<Preview emoji={emoji} />);
+
+        expect(container.querySelector(`.${styles.previewName}`)).toHaveClass(styles.nameAsWritten);
+    });
+
+    it("keeps the stock capitalization for a real emoji's name", () => {
+        const emoji = { unicode: "👍", label: "thumbs up", shortcodes: ["thumbsup"], hexcode: "1F44D" } as PickerEmoji;
+
+        const { container } = render(<Preview emoji={emoji} />);
+
+        expect(container.querySelector(`.${styles.previewName}`)).not.toHaveClass(styles.nameAsWritten);
+    });
+
     it("skips the big text preview for a freeform (previously-sent) reaction, keeping only the caption", () => {
         const emoji = {
             unicode: "based",

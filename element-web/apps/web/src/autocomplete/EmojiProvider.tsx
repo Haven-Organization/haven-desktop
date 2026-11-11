@@ -84,7 +84,7 @@ function buildCustomEmojiPool(room: Room): ISortedEmoji[] {
         const name = packDisplayName(pack.content, pack.stateKey);
         for (const { shortcode, image } of imagesForUsage(pack, "emoticon")) {
             pool.push({
-                emoji: makeCustomEmoji(shortcode, image.url, name, pack.roomId, pack.stateKey, image.info),
+                emoji: makeCustomEmoji(shortcode, image.url, name, pack.roomId, pack.stateKey, image.info, image.body),
                 _orderBy: orderBy++,
             });
         }

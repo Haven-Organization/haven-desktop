@@ -33,7 +33,7 @@ export const Preview: React.FC<IProps> = ({ emoji }) => {
     } = emoji;
 
     return (
-        <div className={styles.footer}>
+        <div className={classNames(styles.footer, styles.previewFooter)}>
             {/* Haven: a freeform (previously-sent, non-emoji) reaction's own `unicode` is just its
                 arbitrary text - unlike a real emoji's single glyph or a custom pack emoji's own
                 small image, that read as an oversized, out-of-place word at this box's heading-xl
@@ -46,16 +46,15 @@ export const Preview: React.FC<IProps> = ({ emoji }) => {
                         text here (like a real emoji's actual unicode) showed that whole string at
                         heading-xl font size, ballooning this box wide enough to push .previewText
                         itself out of the footer instead of showing the pack's own image. */}
-                    {imageUrl ? (
-                        <img src={imageUrl} alt={label} className={styles.previewEmojiImage} />
-                    ) : (
-                        unicode
-                    )}
+                    {imageUrl ? <img src={imageUrl} alt={label} className={styles.previewEmojiImage} /> : unicode}
                 </div>
             )}
             <div className={classNames(styles.previewText, { [styles.previewTextNoIcon]: isFreeform })}>
-                <div className={classNames(styles.name, styles.previewName)}>{label}</div>
-                <div className={styles.shortcode}>{shortcode}</div>
+                {/* Haven: a custom emoji's name is its pack description, shown exactly as written. */}
+                <div className={classNames(styles.name, styles.previewName, { [styles.nameAsWritten]: !!imageUrl })}>
+                    {label}
+                </div>
+                <div className={classNames(styles.shortcode, styles.previewShortcode)}>{shortcode}</div>
             </div>
         </div>
     );
