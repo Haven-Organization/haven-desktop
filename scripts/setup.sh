@@ -151,6 +151,21 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
     # changes happen to touch the exact same lines Haven's branding did, `git apply` leaves real
     # conflict markers and exits non-zero, which this script's own `set -e` turns into a hard stop
     # instead of silently shipping a broken revert - resolve the conflict by hand if that ever happens.
+    #
+    # The file list is read into a variable first, not fed to the loop through `< <(git diff ...)`:
+    # set -e ignores a failure inside process substitution, so a clone missing BRANDING_COMMIT (a
+    # shallow clone, or one made from a bundle) used to print git's error, revert nothing, and carry
+    # on building a tarball that still had Haven's branding.
+    if ! git -C "$ROOT_DIR" cat-file -e "${BRANDING_COMMIT}^{commit}" 2>/dev/null ||
+        ! git -C "$ROOT_DIR" cat-file -e "${BRANDING_COMMIT}^^{commit}" 2>/dev/null; then
+        echo "HAVEN_NO_BRANDING: commit $BRANDING_COMMIT or its parent isn't in this clone (shallow clone?) - fetch the full history (git fetch --unshallow) and run this again" >&2
+        exit 1
+    fi
+    branding_files="$(git -C "$ROOT_DIR" diff --name-status "${BRANDING_COMMIT}^" "$BRANDING_COMMIT")"
+    if [ -z "$branding_files" ]; then
+        echo "HAVEN_NO_BRANDING: found no files to revert in $BRANDING_COMMIT" >&2
+        exit 1
+    fi
     while IFS=$'\t' read -r status path; do
         skip=0
         for excluded_file in "${BRANDING_REVERT_EXCLUDE[@]}"; do
@@ -171,7 +186,7 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
                 fi
                 ;;
         esac
-    done < <(git -C "$ROOT_DIR" diff --name-status "${BRANDING_COMMIT}^" "$BRANDING_COMMIT")
+    done <<<"$branding_files"
 
     # electron-builder.ts's own branding-commit diff bundled in a real, non-branding improvement
     # alongside the actual rebrand (its DEFAULT_VARIANT line) - AppImage packaging support, added in
