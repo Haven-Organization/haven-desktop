@@ -73,8 +73,13 @@
     /* Haven: see ReactionsRowButtonView.tsx's own doc - was a hardcoded width="22" height="22"
        HTML attribute pair; moved here so Haven.reactionPillSize's Normal option (16px, stock
        Element's original size) can actually take effect. */
-    width: var(--haven-reaction-pill-image-size, 22px);
+    /* Haven: only the height is fixed. The width follows the image's own aspect ratio, so a
+       non-square custom emoji is never stretched or squashed. A very wide image is capped at three
+       times the height, and object-fit scales it down to fit that box rather than distorting it. */
     height: var(--haven-reaction-pill-image-size, 22px);
+    width: auto;
+    max-width: calc(var(--haven-reaction-pill-image-size, 22px) * 3);
+    object-fit: contain;
 }
 
 .reactionsRowButtonCount {
