@@ -103,6 +103,23 @@ describe("editor/serialize", function () {
             expect(html3).toBe(undefined);
         });
 
+        it("unformatted text with escapes keeps its line breaks as <br />", function () {
+            const pc = createPartCreator();
+            const model = new EditorModel([pc.plain("first\\_line\nsecond line\n\nnext paragraph")], pc);
+            const html = htmlSerializeIfNeeded(model, {});
+            expect(html).toBe("first_line<br />second line<br /><br />next paragraph");
+        });
+        it("unformatted text keeps line-ending backslashes and indentation", function () {
+            const pc = createPartCreator();
+            const model = new EditorModel(
+                [pc.plain("curl -H \"Authorization: Bearer <token>\" \\\n  'https://example.org/a_b'")],
+                pc,
+            );
+            const html = htmlSerializeIfNeeded(model, {});
+            expect(html).toBe(
+                "curl -H &quot;Authorization: Bearer &lt;token&gt;&quot; \\<br />  &#39;https://example.org/a_b&#39;",
+            );
+        });
         it("lists with a single non-empty item are still markdown", function () {
             const pc = createPartCreator();
             const model = new EditorModel([pc.plain("2021. foo")], pc);

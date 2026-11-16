@@ -387,26 +387,45 @@ export default class Markdown {
      * which has no formatting.  Otherwise it emits HTML(!).
      */
     public toPlaintext(): string {
-        const renderer = new commonmark.HtmlRenderer({ safe: false });
+        // Haven: the result goes out as formatted_body, which is HTML, so line breaks have to be
+        // <br />s - a bare "\n" collapses to a space and a pasted multi-line message arrives as one
+        // run-on line. Two more things a message with no formatting means literally rather than as
+        // markdown, both common in text pasted from a terminal: a backslash at the end of a line (a
+        // shell line continuation, not a hard break that swallows it) and indentation at the start
+        // of a line (which commonmark strips; non-breaking spaces survive both it and HTML).
+        const input = this.input
+            .replace(/^[ \t]+(?=\S)/gm, (ws) => ws.replace(/\t/g, "    ").replace(/ /g, " "))
+            .replace(/\\(?=\n)/g, "\\\\");
+        const parsed = new commonmark.Parser().parse(input);
+        const renderer = new commonmark.HtmlRenderer({ safe: false, softbreak: "<br />" });
 
         renderer.paragraph = function (node: commonmark.Node, entering: boolean) {
             // as with toHTML, only append lines to paragraphs if there are
             // multiple paragraphs
             if (isMultiLine(node)) {
                 if (!entering && node.next) {
-                    this.lit("\n\n");
+                    this.lit("<br /><br />");
                 }
             }
         };
 
-        renderer.html_block = function (node: commonmark.Node) {
-            if (node.literal) this.lit(node.literal);
-            if (isMultiLine(node) && node.next) this.lit("\n\n");
+        renderer.linebreak = function () {
+            this.lit("<br />");
         };
 
-        // We inhibit the default escape function as we escape the entire output string to correctly handle backslashes
-        renderer.esc = (input: string) => input;
+        // Not an allowed tag (or this wouldn't be plain text), so it's shown as typed.
+        renderer.html_inline = function (node: commonmark.Node) {
+            if (node.literal) this.lit(escape(node.literal));
+        };
 
-        return escape(renderer.render(this.parsed));
+        renderer.html_block = function (node: commonmark.Node) {
+            if (node.literal) this.lit(escape(node.literal).replace(/\n/g, "<br />"));
+            if (isMultiLine(node) && node.next) this.lit("<br /><br />");
+        };
+
+        // Text is escaped node by node, so the line breaks above stay real tags.
+        renderer.esc = (input: string) => escape(input);
+
+        return renderer.render(parsed);
     }
 }
