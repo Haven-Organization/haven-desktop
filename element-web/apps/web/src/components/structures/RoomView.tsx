@@ -151,6 +151,7 @@ import { EncryptionEventViewModel } from "../../viewmodels/room/timeline/event-t
 import { ModuleApi } from "../../modules/Api.ts";
 import { RoomUploadContextProvider } from "../../viewmodels/room/RoomUploadViewModel.tsx";
 import { EventPresentationContextProvider } from "../../utils/EventPresentationContextProvider";
+import { rejectInvite } from "../../../../../../src/apps/framework/inviteRejection";
 
 const DEBUG = false;
 const PREVENT_MULTIPLE_JITSI_WITHIN = 30_000;
@@ -2014,7 +2015,8 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             actions.push(this.context.client.reportRoom(this.state.room.roomId, reportRoom!));
         }
 
-        actions.push(this.context.client.leave(this.state.room.roomId));
+        // haven: see inviteRejection.ts
+        actions.push(rejectInvite(this.context.client, this.state.room.roomId));
         try {
             await Promise.all(actions);
             defaultDispatcher.dispatch({ action: Action.ViewHomePage });
@@ -2051,7 +2053,8 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
             this.setState({
                 rejecting: true,
             });
-            await this.context.client.leave(this.state.room.roomId);
+            // haven: see inviteRejection.ts
+            await rejectInvite(this.context.client, this.state.room.roomId);
             defaultDispatcher.dispatch({ action: Action.ViewHomePage });
             this.setState({
                 rejecting: false,

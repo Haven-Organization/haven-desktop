@@ -32,8 +32,19 @@ import { type AfterLeaveRoomPayload } from "../dispatcher/payloads/AfterLeaveRoo
 import { bulkSpaceBehaviour } from "./space";
 import { SDKContextClass } from "../contexts/SDKContextClass";
 import { markPendingLeave } from "../../../../../src/apps/social/utils/pendingRoomLeave";
+import { rejectInvite } from "../../../../../src/apps/framework/inviteRejection";
 import SettingsStore from "../settings/SettingsStore";
 import { CallStore } from "../stores/CallStore";
+
+function leaveError(e: unknown): Error {
+    if (e instanceof MatrixError) {
+        const message = e.data.error || _t("room|leave_unexpected_error");
+        return Object.assign(new Error(message), { errcode: e.data.errcode, data: e.data });
+    } else if (e instanceof Error) {
+        return e;
+    }
+    return new Error("Failed to leave room for unknown causes");
+}
 
 export async function leaveRoomBehaviour(
     matrixClient: MatrixClient,
@@ -113,7 +124,12 @@ export async function leaveRoomBehaviour(
     );
 
     let results: { [roomId: string]: Error | MatrixError | null } = {};
-    if (!leavingAllVersions) {
+    if (room.getMyMembership() === KnownMembership.Invite) {
+        // haven: declining an invite from the room list. rejectInvite() makes the rejection stick and
+        // handles its own failures quietly, since none are anything the user can act on (see
+        // inviteRejection.ts).
+        await rejectInvite(matrixClient, roomId);
+    } else if (!leavingAllVersions) {
         try {
             await matrixClient.leave(roomId);
             // haven apps-framework patch: client.leave() is a bare REST call with no local echo of
@@ -131,14 +147,7 @@ export async function leaveRoomBehaviour(
             // pendingRoomLeave.ts.
             markPendingLeave(roomId);
         } catch (e) {
-            if (e instanceof MatrixError) {
-                const message = e.data.error || _t("room|leave_unexpected_error");
-                results[roomId] = Object.assign(new Error(message), { errcode: e.data.errcode, data: e.data });
-            } else if (e instanceof Error) {
-                results[roomId] = e;
-            } else {
-                results[roomId] = new Error("Failed to leave room for unknown causes");
-            }
+            results[roomId] = leaveError(e);
         }
     } else {
         results = await matrixClient.leaveRoomChain(roomId, retry);
