@@ -8,6 +8,9 @@
  */
 
 import * as commonmark from "commonmark";
+import { escape } from "lodash";
+
+import { isAllowedHtmlTag } from "../../../element-web/apps/web/src/Markdown";
 
 // Matches the glowers.club element-web-patches repo's own greentext.patch exactly.
 const GREENTEXT_COLOR = "#789922";
@@ -88,6 +91,16 @@ export function toGreentextHTML(message: string): string {
         this.cr();
         this.tag(entering ? "font" : "/font", entering ? [["color", GREENTEXT_COLOR]] : undefined);
         this.cr();
+    };
+    // Same as Markdown.toHTML(): only the tags Element allows go out as HTML. Anything else that
+    // looks like a tag (`<admin token>`, `<not a tag>`) is text the user typed, so it's escaped to
+    // show as typed. Passed through raw, the receiving client would strip it as an unknown tag and
+    // the words inside it would silently vanish.
+    renderer.html_inline = function (this: commonmark.HtmlRenderer, node: commonmark.Node) {
+        if (node.literal) this.lit(isAllowedHtmlTag(node) ? node.literal : escape(node.literal));
+    };
+    renderer.html_block = function (this: commonmark.HtmlRenderer, node: commonmark.Node) {
+        renderer.html_inline.call(this, node);
     };
     return renderer
         .render(parsed)

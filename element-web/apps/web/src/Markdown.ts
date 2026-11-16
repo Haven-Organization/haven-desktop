@@ -18,7 +18,8 @@ const ALLOWED_HTML_TAGS = ["sub", "sup", "del", "s", "u", "br", "br/"];
 // These types of node are definitely text
 const TEXT_NODES = ["text", "softbreak", "linebreak", "paragraph", "document"];
 
-function isAllowedHtmlTag(node: commonmark.Node): boolean {
+// Haven: exported for apps/framework/greentext.ts, whose renderer has to treat tags the same way.
+export function isAllowedHtmlTag(node: commonmark.Node): boolean {
     if (!node.literal) {
         return false;
     }

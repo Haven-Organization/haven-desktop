@@ -20,4 +20,19 @@ describe("toGreentextHTML", () => {
         const html = toGreentextHTML(message);
         expect(html).toContain("line one<br />line two");
     });
+
+    it("escapes text that only looks like an HTML tag instead of letting it vanish", () => {
+        const html = toGreentextHTML("Bearer <admin token> and <not a tag>\n> quoted <thing>");
+        expect(html).toContain("Bearer &lt;admin token&gt; and &lt;not a tag&gt;");
+        expect(html).toContain("&gt;quoted &lt;thing&gt;");
+    });
+
+    it("still sends the tags Element allows as real HTML", () => {
+        const html = toGreentextHTML("H<sub>2</sub>O and <del>old</del>");
+        expect(html).toContain("H<sub>2</sub>O and <del>old</del>");
+    });
+
+    it("escapes a line that is only an unknown tag", () => {
+        expect(toGreentextHTML("<admin token>")).toContain("&lt;admin token&gt;");
+    });
 });
