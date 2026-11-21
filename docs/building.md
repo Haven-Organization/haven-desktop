@@ -125,7 +125,12 @@ gh-releases-zsync|Haven-Organization|haven-desktop|latest|Haven-*.AppImage.zsync
 That string is only a pointer (embedded by `scripts/appimage-update-info.ts`, run as electron-
 builder's `afterAllArtifactBuild` hook). The deltas themselves are worked out on the user's machine
 from a `.zsync` control file, so **every release must publish `Haven-<version>.AppImage.zsync` as an
-asset next to the AppImage**, or update attempts will fail. The build generates it with `zsyncmake`
+asset next to the AppImage**, or update attempts will fail.
+
+An arm64 AppImage (`Haven-<version>-arm64.AppImage`) points at `Haven-*-arm64.zsync` instead, and its
+control file is named `Haven-<version>-arm64.zsync`, without `.AppImage`. Every x64 AppImage already
+released looks for `Haven-*.AppImage.zsync`, which would also match an arm64
+`Haven-<version>-arm64.AppImage.zsync` and could update an x64 install to the arm64 build. The build generates it with `zsyncmake`
 (Arch: `pacman -S zsync`, Debian/Ubuntu: `apt install zsync`); if that isn't installed the build
 still succeeds but prints a loud warning and no `.zsync` file is produced. It only runs for Haven's
 own default build - not when `VARIANT_PATH` selects another identity.
@@ -134,3 +139,19 @@ One known wrinkle: electron-builder writes `latest-linux.yml` (its `electron-upd
 after that hook runs, so its recorded AppImage checksum predates the update information being
 filled in. Nothing reads it - Haven ships no `electron-updater` on Linux - but it would need
 revisiting if that ever changes.
+
+## Release builds on GitHub Actions
+
+`.github/workflows/release.yml` builds every public release file on GitHub's runners: the web
+tarball, the Linux AppImage, `.deb` and `.pacman` packages and the Flatpak bundle for x64 and arm64,
+and the Windows installer for x64 and arm64 (signed through SignPath once it's set up, see
+[code-signing.md](code-signing.md)).
+
+It runs for every pushed `haven-v*` tag, or by hand from the Actions tab ("Release build", with an
+optional branch, tag or commit). Each run's files are its `haven-*` artifacts. A tag push never makes
+a release, since a web-only version bump is a tag with no release. To make one, run it by hand for
+the `haven-vX.Y.Z` tag with "Make a draft release" ticked: once every build has passed, it makes a
+draft release with all the files attached, ready for its notes to be written and published.
+
+The Linux packages are built on Ubuntu 22.04, whose glibc 2.35 is the oldest the `.deb` allows, and
+the run fails if a native module needs a newer one.

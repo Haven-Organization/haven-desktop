@@ -17,6 +17,7 @@ import {
     embedUpdateInformation,
     githubZsyncUpdateInformation,
     locateSection,
+    zsyncFileName,
 } from "../scripts/appimage-update-info.js";
 
 // Haven: regression coverage for the two AppImage build changes (issues #8 and #9): building with
@@ -95,6 +96,21 @@ describe("githubZsyncUpdateInformation", () => {
         );
     });
 
+    it("gives other architectures a pattern that x64's can't match, and the other way round", () => {
+        const arm64 = githubZsyncUpdateInformation("o", "r", "Haven-0.12.0-arm64.AppImage");
+        expect(arm64).toBe("gh-releases-zsync|o|r|latest|Haven-*-arm64.zsync");
+
+        // Every released x64 AppImage asks for Haven-*.AppImage.zsync; it must never match the arm64 one.
+        const glob = (pattern: string): RegExp =>
+            new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`);
+        const x64Pattern = glob("Haven-*.AppImage.zsync");
+        const arm64Pattern = glob(arm64.split("|")[4]);
+        expect(x64Pattern.test(zsyncFileName("Haven-0.12.0-arm64.AppImage"))).toBe(false);
+        expect(x64Pattern.test(zsyncFileName("Haven-0.12.0.AppImage"))).toBe(true);
+        expect(arm64Pattern.test(zsyncFileName("Haven-0.12.0-arm64.AppImage"))).toBe(true);
+        expect(arm64Pattern.test(zsyncFileName("Haven-0.12.0.AppImage"))).toBe(false);
+    });
+
     it("refuses a file name it can't make a version-independent pattern from", () => {
         expect(() => githubZsyncUpdateInformation("o", "r", "Haven.AppImage")).toThrow();
         expect(() => githubZsyncUpdateInformation("o", "r", "Haven-0.8.5.deb")).toThrow();
@@ -164,6 +180,17 @@ describe("embedUpdateInformation", () => {
     });
 });
 
+describe("zsyncFileName", () => {
+    it("adds .zsync to an x64 AppImage's name", () => {
+        expect(zsyncFileName("/out/Haven-0.12.0.AppImage")).toBe("Haven-0.12.0.AppImage.zsync");
+    });
+
+    it("replaces .AppImage with .zsync for other architectures", () => {
+        expect(zsyncFileName("Haven-0.12.0-arm64.AppImage")).toBe("Haven-0.12.0-arm64.zsync");
+        expect(zsyncFileName("Haven-0.12.0-armv7l.AppImage")).toBe("Haven-0.12.0-armv7l.zsync");
+    });
+});
+
 describe("createAppImageUpdateInfoHook", () => {
     let dir: string;
     let binDir: string;
@@ -221,6 +248,26 @@ echo fake-zsync-control-file > "$out"
             file,
         ]);
         expect(await readFile(deb, "utf8")).toBe("not an appimage");
+    });
+
+    it("names an arm64 AppImage's .zsync so x64 updates can't pick it up", async () => {
+        const argsFile = await installFakeZsyncmake();
+        const { file, offset } = await writeFakeAppImage(dir, "Haven-1.0.0-arm64.AppImage");
+
+        const extra = await createAppImageUpdateInfoHook("o", "r")(resultFor([file]));
+
+        const zsync = path.join(dir, "Haven-1.0.0-arm64.zsync");
+        expect(extra).toEqual([zsync]);
+        expect((await readFile(file)).toString("latin1", offset, offset + 60)).toContain(
+            "gh-releases-zsync|o|r|latest|Haven-*-arm64.zsync",
+        );
+        expect((await readFile(argsFile, "utf8")).trim().split("\n")).toEqual([
+            "-u",
+            "Haven-1.0.0-arm64.AppImage",
+            "-o",
+            zsync,
+            file,
+        ]);
     });
 
     it("still embeds the update info, warns loudly, and doesn't fail the build when zsyncmake is missing", async () => {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   SignPath artifact configuration "windows-installer": the zipped installer ("Haven Setup X.Y.Z.exe")
-  uploaded by .github/workflows/windows.yml, built from the already signed app folder. SignPath keeps
+  uploaded by .github/workflows/release.yml, built from the already signed app folder. SignPath keeps
   its own copy of this file; paste any change into the project's artifact configuration there as well.
 -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
