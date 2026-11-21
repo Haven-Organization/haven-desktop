@@ -1,0 +1,244 @@
+name: Windows build
+
+# Builds the Windows installer on GitHub's own runners, from this repository's source, so it can be
+# code signed by SignPath (https://signpath.org, free for open source projects). SignPath only signs
+# files a GitHub Actions run built and uploaded itself; it fetches them from the run's artifacts
+# and checks where they came from, so a locally built exe can't be signed this way.
+#
+# Signing happens only once SignPath is set up (see docs/code-signing.md). Until then, or for a run
+# without the SignPath settings, the same steps produce an unsigned installer.
+#
+# The Windows app is signed in two rounds, because the installer contains the app:
+#   1. Build the app folder (dist/win-unpacked) and have SignPath sign Haven.exe in it.
+#   2. Build the installer from that signed folder, then have SignPath sign the installer itself.
+# The uninstaller electron-builder writes into the installer stays unsigned: it's made while the
+# installer is built, and only ever runs from the installed folder, which Windows doesn't check.
+
+on:
+    workflow_dispatch:
+        inputs:
+            ref:
+                description: "Branch, tag or commit to build (defaults to the one this runs from)"
+                required: false
+                type: string
+    push:
+        tags: ["haven-v*"]
+
+permissions:
+    contents: read
+    # SignPath reads the run's details and artifacts to check where the files it signs came from.
+    actions: read
+
+env:
+    COREPACK_ENABLE_STRICT: "0"
+    PNPM_CONFIG_PM_ON_FAIL: ignore
+    npm_config_pm_on_fail: ignore
+    # Ruffle version built into every release; keep it the same as flatpak/software.haven.HavenDesktop.yml.
+    HAVEN_RUFFLE: "0.7.1"
+
+jobs:
+    webapp:
+        name: Build the web app
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.version.outputs.version }}
+            full-version: ${{ steps.version.outputs.full-version }}
+        steps:
+            # Full history: compute-haven-version.sh describes the last upstream merge by its tags.
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+                  fetch-depth: 0
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: element-web/apps/desktop/.node-version
+
+            - name: Enable corepack
+              run: corepack enable
+
+            - name: Install dependencies
+              run: ./scripts/setup.sh
+
+            # VERSION must be plain X.Y.Z for Windows packaging. The full string is what Help & About
+            # shows (see haven_full_version in electron-builder.ts).
+            - name: Work out the version
+              id: version
+              run: |
+                  version="$(tr -d '[:space:]' < HAVEN_VERSION)"
+                  if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "HAVEN_VERSION '$version' isn't a plain X.Y.Z version" >&2
+                      exit 1
+                  fi
+                  full_version="$(./scripts/compute-haven-version.sh)"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+                  echo "full-version=$full_version" >> "$GITHUB_OUTPUT"
+                  echo "Building $version ($full_version)"
+
+            - name: Build the web app
+              working-directory: element-web/apps/web
+              env:
+                  VERSION: ${{ steps.version.outputs.full-version }}
+                  HAVEN_INCLUDE_OLD_ROOM_LIST: "1"
+              run: pnpm build
+
+            # The desktop app ships the sample config, which defaults to matrix.org. Copied from the
+            # source path: a bare `pnpm build` doesn't put config.sample.json in webapp/.
+            - name: Pack webapp.asar
+              run: |
+                  rm -f element-web/apps/web/webapp/config.json
+                  cp element-web/apps/web/config.sample.json element-web/apps/web/webapp/config.json
+                  cd element-web/apps/desktop
+                  pnpm exec asar pack ../web/webapp webapp.asar
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: webapp-asar
+                  path: element-web/apps/desktop/webapp.asar
+                  if-no-files-found: error
+                  retention-days: 1
+
+    windows:
+        name: Build and sign the Windows installer
+        needs: webapp
+        runs-on: windows-2025
+        # SignPath waits for a person to approve each release signing request.
+        timeout-minutes: 300
+        defaults:
+            run:
+                shell: bash
+        env:
+            VERSION: ${{ needs.webapp.outputs.version }}
+            HAVEN_FULL_VERSION: ${{ needs.webapp.outputs.full-version }}
+            NX_SKIP_NX_CACHE: "true"
+            # Only whether SignPath is set up, not the token itself, so no build step can see the token.
+            SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        steps:
+            # nx needs LF line endings (https://github.com/nrwl/nx/issues/35828).
+            - name: Configure git line endings
+              run: |
+                  git config --global core.autocrlf false
+                  git config --global core.eol lf
+
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: element-web/apps/desktop/.node-version
+
+            - name: Enable corepack
+              run: corepack enable
+
+            - uses: actions/download-artifact@v4
+              with:
+                  name: webapp-asar
+                  path: element-web/apps/desktop
+
+            - name: Install dependencies
+              working-directory: element-web/apps/desktop
+              run: pnpm install --frozen-lockfile --filter element-desktop
+
+            # Round 1: the app folder only (dist/win-unpacked), no installer yet.
+            - name: Build the Windows app
+              working-directory: element-web/apps/desktop
+              run: pnpm run build --publish never --x64 --win dir
+
+            - name: Upload the app for signing
+              id: unsigned-app
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: windows-app-unsigned
+                  path: element-web/apps/desktop/dist/win-unpacked/
+                  include-hidden-files: true
+                  if-no-files-found: error
+                  retention-days: 1
+
+            - name: Sign the app (SignPath)
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
+              with:
+                  api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+                  organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+                  project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+                  signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+                  artifact-configuration-slug: windows-app
+                  github-artifact-id: ${{ steps.unsigned-app.outputs.artifact-id }}
+                  wait-for-completion-timeout-in-seconds: 7200
+                  output-artifact-directory: ${{ runner.temp }}/signed-app
+
+            - name: Swap in the signed app
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              working-directory: element-web/apps/desktop
+              run: |
+                  rm -rf dist/win-unpacked
+                  mv "$RUNNER_TEMP/signed-app" dist/win-unpacked
+                  test -f dist/win-unpacked/Haven.exe
+
+            # Round 2: the installer, packed from the (signed) app folder rather than built again.
+            - name: Build the installer
+              working-directory: element-web/apps/desktop
+              run: pnpm exec electron-builder --publish never --x64 --win nsis --prepackaged dist/win-unpacked
+
+            - name: Find the installer
+              id: installer
+              working-directory: element-web/apps/desktop
+              run: |
+                  installer="dist/Haven Setup $VERSION.exe"
+                  test -f "$installer"
+                  echo "path=element-web/apps/desktop/$installer" >> "$GITHUB_OUTPUT"
+
+            - name: Upload the installer for signing
+              id: unsigned-installer
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: windows-installer-unsigned
+                  path: ${{ steps.installer.outputs.path }}
+                  if-no-files-found: error
+                  retention-days: 1
+
+            - name: Sign the installer (SignPath)
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
+              with:
+                  api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+                  organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+                  project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+                  signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+                  artifact-configuration-slug: windows-installer
+                  github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+                  wait-for-completion-timeout-in-seconds: 7200
+                  output-artifact-directory: ${{ runner.temp }}/signed-installer
+
+            - name: Swap in the signed installer
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              env:
+                  INSTALLER: ${{ steps.installer.outputs.path }}
+              run: cp "$RUNNER_TEMP/signed-installer/$(basename "$INSTALLER")" "$INSTALLER"
+
+            # Fails a signed run unless both files carry a valid, timestamped signature, so an
+            # unsigned exe can't slip out of a run that was meant to sign it.
+            - name: Check the signatures
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              shell: pwsh
+              env:
+                  INSTALLER: ${{ steps.installer.outputs.path }}
+              run: |
+                  $failed = $false
+                  foreach ($file in @("element-web/apps/desktop/dist/win-unpacked/Haven.exe", $env:INSTALLER)) {
+                      $sig = Get-AuthenticodeSignature -FilePath $file
+                      $signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { "none" }
+                      Write-Host "$file : $($sig.Status), signed by $signer"
+                      if ($sig.Status -ne "Valid" -or -not $sig.TimeStamperCertificate) { $failed = $true }
+                  }
+                  if ($failed) { throw "A Windows file isn't validly signed and timestamped" }
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: haven-windows-${{ needs.webapp.outputs.version }}${{ env.SIGNPATH_CONFIGURED != 'true' && '-unsigned' || '' }}
+                  path: ${{ steps.installer.outputs.path }}
+                  if-no-files-found: error
+                  retention-days: 30

@@ -130,6 +130,12 @@ too.
 - [MSC4503](https://github.com/matrix-org/matrix-spec-proposals/pull/4503): External handles,
   used to link a non-Matrix identity (e.g. a Fediverse account) to your profile.
 
+## Code signing
+
+Windows releases are signed with free code signing provided by [SignPath.io](https://about.signpath.io),
+certificate by [SignPath Foundation](https://signpath.org). See the
+[code signing policy](docs/code-signing.md).
+
 ## License
 
 Element Web itself remains under its own upstream license, contained within the `element-web`
