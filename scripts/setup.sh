@@ -241,8 +241,15 @@ fi
 
 echo "==> Installing dependencies (this can take a while)"
 cd "$ELEMENT_WEB_DIR"
-corepack enable 2>/dev/null || true
-corepack prepare pnpm@12.11.2 --activate
+# Node 25 and later no longer ship corepack; use it where it exists, and otherwise the pnpm already
+# installed (element-web/package.json's devEngines then has pnpm switch to the version it pins).
+if command -v corepack >/dev/null 2>&1; then
+    corepack enable 2>/dev/null || true
+    corepack prepare pnpm@12.11.2 --activate
+elif ! command -v pnpm >/dev/null 2>&1; then
+    echo "Neither corepack nor pnpm was found. Install pnpm (https://pnpm.io/installation) and run this again." >&2
+    exit 1
+fi
 pnpm install
 
 # After the install: it reads .zip copies with a dependency of Haven's. Unset, it removes any copy
