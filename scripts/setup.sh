@@ -115,6 +115,11 @@ BRANDING_COMMIT="e92aa1bd70d07a9e9ffba574bf21ee637d57faaf"
 #   (confirmed live 2026-09-21, caught by the "Unbranded build stays buildable" CI step this same fix
 #   added). Same reasoning as AppImage packaging below: a real, unrelated capability bundled into the
 #   branding commit, kept for an unbranded build the same as a branded one.
+# - electron-builder.ts: the branding commit changed its DEFAULT_VARIANT path (the real branding),
+#   added AppImage packaging and a comment about building with system wine. Upstream has since
+#   reworked the lines around that comment (2026-11-21 sync, `publish: null` landed right next to
+#   it), so reverse-applying the commit's diff conflicts there for good, like SdkConfig.ts. It gets
+#   a direct patch of just the variant path below instead; AppImage packaging and the comment stay.
 #
 # Excluded from the revert loop below rather than folded into BRANDING_COMMIT^'s content, so an
 # unbranded build keeps these fixes; only the *visual identity* (logos/icons/backgrounds/copy)
@@ -131,6 +136,7 @@ BRANDING_REVERT_EXCLUDE=(
     "element-web/apps/web/scripts/package.sh"
     "element-web/apps/web/src/SdkConfig.ts"
     "element-web/apps/web/src/audio/BackgroundAudio.ts"
+    "element-web/apps/desktop/electron-builder.ts"
 )
 
 if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
@@ -188,17 +194,15 @@ if [ -n "${HAVEN_NO_BRANDING:-}" ]; then
         esac
     done <<<"$branding_files"
 
-    # electron-builder.ts's own branding-commit diff bundled in a real, non-branding improvement
-    # alongside the actual rebrand (its DEFAULT_VARIANT line) - AppImage packaging support, added in
-    # the same commit. Reverse-applying that commit's diff undoes that too, same as it undoes the
-    # variant path, since both are genuinely part of what that commit changed on this exact line;
-    # unlike the webpack.config.ts staleness this script used to work around (see BRANDING_COMMIT's
-    # own comment above), this one isn't a bug to fix so much as a choice - keep AppImage packaging
-    # even in an unbranded build - patched back in here. This sed pattern matches text that's only
-    # ever present right after the revert above ran, so it's a no-op otherwise (HAVEN_NO_BRANDING
-    # unset, or this line changes shape again upstream).
-    sed -i 's/target: \["tar.gz", "deb"\],/target: ["tar.gz", "deb", "AppImage"],/' \
+    # electron-builder.ts (see its exclusion above): point the desktop build back at Element's own
+    # build variant. The loop above removed Haven's (desktop/haven/release/build.json, added by the
+    # branding commit), so a desktop build would fail if this line didn't change - stop here instead.
+    sed -i 's#path.join("haven", "release", "build.json")#path.join("element.io", "release", "build.json")#' \
         "$ROOT_DIR/element-web/apps/desktop/electron-builder.ts"
+    if ! grep -q 'path.join("element.io", "release", "build.json")' "$ROOT_DIR/element-web/apps/desktop/electron-builder.ts"; then
+        echo "HAVEN_NO_BRANDING: couldn't point electron-builder.ts back at the element.io build variant" >&2
+        exit 1
+    fi
 
     # SdkConfig.ts (see this file's own exclusion above for why it's not in the revert loop): a
     # direct substitution of the three actual branding values, matching this file's current
