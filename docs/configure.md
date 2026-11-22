@@ -24,6 +24,8 @@ each app already uses internally — matches its directory name under `src/apps/
 | App | id |
 | --- | --- |
 | Social | `social` |
+| Room widgets added to Apps | `widgets` |
+| Games added to Apps | `games` |
 
 ```json
 "haven": {
@@ -32,6 +34,17 @@ each app already uses internally — matches its directory name under `src/apps/
     }
 }
 ```
+
+`widgets` controls the "Add to Apps" button on room widgets. With it on (the default), anyone can
+add a widget from a room they're in to their own apps, from the button in the widget's title bar or
+on its row in the room's Extensions list. The widget then opens full-width from the apps picker
+and the space bar, still running in its room. Turning it off hides the button and the widgets
+users already added; their lists are kept, in their account data.
+
+`games` does the same for webxdc and Flash games shared as files: the "Add to Apps" button on a
+game's card adds it to the user's own apps, where it opens on a page of its own and plays full
+size. It stays a link to the message it was shared in, so its moves and saves are the same as
+playing it from the room. Turning it off hides the button and the games users already added.
 
 ## Blockquote style
 

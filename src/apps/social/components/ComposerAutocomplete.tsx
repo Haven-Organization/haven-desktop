@@ -115,7 +115,7 @@ export function ComposerAutocomplete({
     const [selectionOffset, setSelectionOffset] = useState(0);
     const completions = useMemo(() => sections.flatMap((s) => s.completions), [sections]);
 
-    const { refs, floatingStyles } = useFloating({
+    const { refs, floatingStyles, elements } = useFloating({
         placement: "bottom-start",
         whileElementsMounted: autoUpdate,
         middleware: [
@@ -159,9 +159,7 @@ export function ComposerAutocomplete({
         const selection = { start: selectionStart, end: selectionEnd };
         void Promise.all(
             providers.map((provider) =>
-                provider
-                    .getCompletions(queryToCaret, selection, false, MAX_MATCHES)
-                    .catch((): ICompletion[] => []),
+                provider.getCompletions(queryToCaret, selection, false, MAX_MATCHES).catch((): ICompletion[] => []),
             ),
         ).then((results) => {
             if (cancelled) return;
@@ -220,7 +218,8 @@ export function ComposerAutocomplete({
         <>
             <div ref={refs.setReference} style={ANCHOR_STYLE} />
             {completions.length > 0 && (
-                <FloatingPortal>
+                // Into the page of the window the composer is in: Social can pop out into its own.
+                <FloatingPortal root={elements.domReference?.ownerDocument.body}>
                     <div
                         ref={refs.setFloating}
                         // Haven: .mx_Autocomplete's own stylesheet rule sets `bottom: 0` (for its
@@ -249,9 +248,9 @@ export function ComposerAutocomplete({
                                         const i = index++;
                                         const selected = i === selectionOffset;
                                         return React.cloneElement(completion.component, {
-                                            key: i,
-                                            className: `mx_Autocomplete_Completion${selected ? " selected" : ""}`,
-                                            onClick: () => confirm(completion),
+                                            "key": i,
+                                            "className": `mx_Autocomplete_Completion${selected ? " selected" : ""}`,
+                                            "onClick": () => confirm(completion),
                                             "aria-selected": selected,
                                         });
                                     }),

@@ -421,6 +421,44 @@ $social-card-media-max-height: 420px;
     }
 }
 
+// Haven: a deleted post in a thread (see SocialPostView's DeletedPostTile). Laid out like a flat
+// tile (.social_EventTile--flat): same padding, an empty 40px circle where the avatar goes, so the
+// thread's connecting line runs into it like any other post. The circle is opaque to hide the line.
+.social_DeletedPost {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-3x);
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--cpd-space-4x) var(--cpd-space-6x);
+    color: $secondary-content;
+    font: var(--cpd-font-body-md-regular);
+    font-style: italic;
+    text-align: left;
+
+    &--button {
+        background: none;
+        border: none;
+        cursor: pointer;
+
+        &:hover .social_DeletedPost_text {
+            text-decoration: underline;
+        }
+    }
+
+    &_avatar {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        border: 2px dashed $quinary-content;
+        background: $background;
+        position: relative;
+        z-index: 1;
+    }
+}
+
 .social_ContentEmpty {
     color: $secondary-content;
     font: var(--cpd-font-body-md-regular);
@@ -1803,6 +1841,7 @@ $social-card-media-max-height: 420px;
         border-bottom: 1px solid $quinary-content;
         flex-shrink: 0;
     }
+
 
     // Ancestor chain + focused post, in DOM order root-first, ending at the focused post - see
     // SocialPostView.tsx's own header comment for why the focused post isn't always the root.

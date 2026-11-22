@@ -29,15 +29,7 @@
  *   this file's own X/Twitter reference layout, not an oversight.
  */
 
-import React, {
-    type JSX,
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import React, { type JSX, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type MatrixEvent, type Room, RelationType, EventType, ThreadEvent } from "matrix-js-sdk/src/matrix";
 
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
@@ -46,6 +38,7 @@ import { sendLike, undoLike, sendComment, sendPostReadReceipt } from "../utils/s
 import { processSlashCommand } from "../utils/socialSlashCommands";
 import { getProfileOwnerUserId } from "../utils/room-classifier";
 import { immediateParentId, threadRootId } from "../utils/thread-relations";
+import { rememberedParentId, rememberedThreadRootId, rememberPostRelation } from "../utils/postRelationMemory";
 import { ensureThreadRepliesLoaded, getLoadedThreadReplies } from "../utils/threadReplies";
 import { ensurePostReactionsLoaded } from "../utils/postReactions";
 import { getMyReactions } from "../../../../element-web/apps/web/src/components/views/rooms/EventTile/ReactionsRowAdapter";
@@ -80,6 +73,39 @@ interface ThreadNode {
  * including `event` itself. Stops (rather than throwing) on a cycle or a parent that's missing
  * after a fetch attempt — same graceful-degradation spirit as the rest of this app.
  */
+/**
+ * Haven: the post `e` replies to. A deleted post has lost its own relation, so for one of those this
+ * falls back to what postRelationMemory recorded before it was deleted.
+ */
+function parentOf(e: MatrixEvent): string | undefined {
+    const id = e.getId();
+    return immediateParentId(e) ?? (id && e.isRedacted() ? rememberedParentId(id) : undefined);
+}
+
+/** Haven: the thread root of `e`, with the same fallback as parentOf for a deleted post. */
+function rootOf(e: MatrixEvent): string | undefined {
+    const id = e.getId();
+    return threadRootId(e) ?? (id && e.isRedacted() ? rememberedThreadRootId(id) : undefined);
+}
+
+async function fetchEvent(
+    client: ReturnType<typeof useMatrixClientContext>,
+    room: Room,
+    eventId: string,
+): Promise<MatrixEvent | null> {
+    const local = room.findEventById(eventId);
+    if (local) return local;
+    try {
+        const fetched = new (await import("matrix-js-sdk/src/matrix")).MatrixEvent(
+            await client.fetchRoomEvent(room.roomId, eventId),
+        );
+        rememberPostRelation(fetched);
+        return fetched;
+    } catch {
+        return null;
+    }
+}
+
 async function findThreadAncestors(
     client: ReturnType<typeof useMatrixClientContext>,
     room: Room,
@@ -88,46 +114,60 @@ async function findThreadAncestors(
     const ancestors: MatrixEvent[] = [];
     let current = event;
     const seen = new Set<string>([event.getId()!]);
+    // Haven: the thread root as last known on the way up. A deleted post may not say where it sat
+    // (see parentOf), but the reply below it still names the thread's root.
+    let knownRootId = rootOf(event);
+    const pushRoot = async (): Promise<void> => {
+        if (!knownRootId || seen.has(knownRootId)) return;
+        const root = await fetchEvent(client, room, knownRootId);
+        if (root) ancestors.push(root);
+    };
     for (;;) {
-        const parentId = immediateParentId(current);
-        if (!parentId || seen.has(parentId)) break;
-        let parent = room.findEventById(parentId);
+        knownRootId = rootOf(current) ?? knownRootId;
+        const parentId = parentOf(current);
+        if (!parentId) {
+            // Haven: a deleted post with no known parent - still connect the chain to the root,
+            // even if the posts in between can't be shown.
+            if (current.isRedacted()) await pushRoot();
+            break;
+        }
+        if (seen.has(parentId)) break;
+        const parent = await fetchEvent(client, room, parentId);
         if (!parent) {
-            try {
-                parent = new (await import("matrix-js-sdk/src/matrix")).MatrixEvent(
-                    await client.fetchRoomEvent(room.roomId, parentId),
-                );
-            } catch {
-                // The immediate-parent lookup (preferring m.in_reply_to) didn't resolve to
-                // anything real - can happen when a bridge's own m.in_reply_to names the *other
-                // side's* own parent message (e.g. the original fediverse toot being replied to)
-                // rather than anything that was ever mirrored into this room as Matrix content.
-                // Falling back to the thread's own root (always spec-guaranteed correct, regardless
-                // of what m.in_reply_to says) means the walk still reaches a real ancestor - the
-                // true root specifically - instead of stopping short and leaving nothing above the
-                // focused post at all, even if some intermediate hop couldn't be resolved.
-                const rootId = threadRootId(current);
-                if (rootId && !seen.has(rootId)) {
-                    let root = room.findEventById(rootId) ?? null;
-                    if (!root) {
-                        try {
-                            root = new (await import("matrix-js-sdk/src/matrix")).MatrixEvent(
-                                await client.fetchRoomEvent(room.roomId, rootId),
-                            );
-                        } catch {
-                            root = null;
-                        }
-                    }
-                    if (root) ancestors.push(root);
-                }
-                break;
-            }
+            // The immediate-parent lookup (preferring m.in_reply_to) didn't resolve to
+            // anything real - can happen when a bridge's own m.in_reply_to names the *other
+            // side's* own parent message (e.g. the original fediverse toot being replied to)
+            // rather than anything that was ever mirrored into this room as Matrix content.
+            // Falling back to the thread's own root (always spec-guaranteed correct, regardless
+            // of what m.in_reply_to says) means the walk still reaches a real ancestor - the
+            // true root specifically - instead of stopping short and leaving nothing above the
+            // focused post at all, even if some intermediate hop couldn't be resolved.
+            await pushRoot();
+            break;
         }
         ancestors.push(parent);
         seen.add(parentId);
         current = parent;
     }
     return ancestors.reverse();
+}
+
+/** Haven: stands in for a deleted post in a thread, lined up with a flat tile so the line connects. */
+function DeletedPostTile({ onOpen }: { onOpen?: () => void }): JSX.Element {
+    const content = (
+        <>
+            <div className="social_DeletedPost_avatar" />
+            <span className="social_DeletedPost_text">This post was deleted.</span>
+        </>
+    );
+    // In the replies list it opens, so the replies under it can be reached.
+    return onOpen ? (
+        <button type="button" className="social_DeletedPost social_DeletedPost--button" onClick={onOpen}>
+            {content}
+        </button>
+    ) : (
+        <div className="social_DeletedPost">{content}</div>
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -190,9 +230,12 @@ export function SocialPostView({
     useEffect(() => {
         room.on("Room.timeline" as any, refresh);
         room.on("Room.localEchoUpdated" as any, refresh);
+        // Haven: a post deleted while it's open turns into the "deleted" placeholder below.
+        room.on("Room.redaction" as any, refresh);
         return () => {
             room.off("Room.timeline" as any, refresh);
             room.off("Room.localEchoUpdated" as any, refresh);
+            room.off("Room.redaction" as any, refresh);
         };
     }, [room, refresh]);
 
@@ -363,8 +406,15 @@ export function SocialPostView({
             // aggregate/report a reaction's *count* without that specific reaction event ever
             // landing in a synced timeline/thread window) - see SocialHomeView's aggregatePosts for
             // the same fix and fuller explanation.
+            for (const e of all) rememberPostRelation(e);
+            // Haven: a deleted post shows (as a placeholder) only when someone replied to it, so the
+            // conversation below it stays connected. Its parent is the one remembered from before
+            // it was deleted (see postRelationMemory.ts).
+            const hasReplies = (id: string): boolean => all.some((child) => immediateParentId(child) === id);
+            const isChildOfParent = (e: MatrixEvent): boolean =>
+                e.isRedacted() ? parentOf(e) === parentId && hasReplies(e.getId()!) : immediateParentId(e) === parentId;
             return all
-                .filter((e) => immediateParentId(e) === parentId)
+                .filter(isChildOfParent)
                 .sort((a, b) => {
                     const tsDiff = a.getTs() - b.getTs();
                     if (tsDiff !== 0) return tsDiff;
@@ -372,12 +422,18 @@ export function SocialPostView({
                 })
                 .map((e) => {
                     const eid = e.getId()!;
-                    const reactions = room.relations.getChildEventsForEvent(eid, RelationType.Annotation, EventType.Reaction);
+                    const reactions = room.relations.getChildEventsForEvent(
+                        eid,
+                        RelationType.Annotation,
+                        EventType.Reaction,
+                    );
                     const myReactions = getMyReactions(reactions, myUserId) ?? [];
                     return {
                         event: e,
                         myLikeEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "👍")?.getId(),
-                        myRepostEventId: myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")?.getId(),
+                        myRepostEventId: myReactions
+                            .find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")
+                            ?.getId(),
                         replyCount: 0,
                     };
                 });
@@ -422,7 +478,11 @@ export function SocialPostView({
         // not by scanning live/pending/thread events for annotations pointing at focusedEventId -
         // see getDirectReplies' own comment (same fix) for why that scan is unreliable for
         // reactions specifically.
-        const reactions = room.relations.getChildEventsForEvent(focusedEventId, RelationType.Annotation, EventType.Reaction);
+        const reactions = room.relations.getChildEventsForEvent(
+            focusedEventId,
+            RelationType.Annotation,
+            EventType.Reaction,
+        );
         const myReactions = getMyReactions(reactions, myUserId) ?? [];
         const liked = myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "👍")?.getId();
         const reposted = myReactions.find((r) => r.getContent()?.["m.relates_to"]?.key === "🔁")?.getId();
@@ -461,7 +521,9 @@ export function SocialPostView({
         () => [
             event,
             ...ancestors,
-            ...directReplies.flatMap((node) => (node.replyOfReply ? [node.event, node.replyOfReply.event] : [node.event])),
+            ...directReplies.flatMap((node) =>
+                node.replyOfReply ? [node.event, node.replyOfReply.event] : [node.event],
+            ),
         ],
         [event, ancestors, directReplies],
     );
@@ -576,18 +638,22 @@ export function SocialPostView({
                             const likeState = ancestorLikeState.get(ancestorId);
                             return (
                                 <div className="social_PostView_threadItem" key={ancestorId}>
-                                    <SocialEventTile
-                                        event={ancestor}
-                                        room={room}
-                                        isLiked={!!likeState?.myLikeEventId}
-                                        isReposted={!!likeState?.myRepostEventId}
-                                        replyCount={replyCountForNode(ancestor)}
-                                        hideRoomName={hideRoomName}
-                                        onLike={() => handleLikeFor(ancestorId, likeState?.myLikeEventId)}
-                                        onReply={(body, file) => handleReplyTo(ancestorId, body, file)}
-                                        flat
-                                        {...tileProps}
-                                    />
+                                    {ancestor.isRedacted() ? (
+                                        <DeletedPostTile />
+                                    ) : (
+                                        <SocialEventTile
+                                            event={ancestor}
+                                            room={room}
+                                            isLiked={!!likeState?.myLikeEventId}
+                                            isReposted={!!likeState?.myRepostEventId}
+                                            replyCount={replyCountForNode(ancestor)}
+                                            hideRoomName={hideRoomName}
+                                            onLike={() => handleLikeFor(ancestorId, likeState?.myLikeEventId)}
+                                            onReply={(body, file) => handleReplyTo(ancestorId, body, file)}
+                                            flat
+                                            {...tileProps}
+                                        />
+                                    )}
                                 </div>
                             );
                         })}
@@ -597,37 +663,44 @@ export function SocialPostView({
                     className={`social_PostView_focusedWrap${ancestors.length > 0 ? " social_PostView_focusedWrap--connected" : ""}`}
                 >
                     <div className="social_PostView_threadItem" ref={focusedTileRef}>
-                        <SocialEventTile
-                            // Unlike every other SocialEventTile render site (ancestors' own wrapping
-                            // div above, replies list below, home feed, room view), this one sits in a
-                            // fixed, unkeyed position rather than inside a .map() over a list - so when
-                            // this view re-focuses on a different post (e.g. clicking through from a
-                            // reply up to the thread root), React was reusing the very same component
-                            // instance instead of remounting it, since neither the event prop nor its
-                            // position in the tree looked "new" to React. SocialEventTile's own reaction
-                            // state only initializes once per mount (see its own comment on `reactions`)
-                            // and has no effect that resets it on an event *identity* change, only on a
-                            // Relations object coming into existence for the first time - so the old
-                            // post's reactions (a real reaction on a totally different event) kept
-                            // showing on whatever post got focused next. Keying by event id forces a
-                            // fresh mount whenever the focused post is actually a different event.
-                            key={focusedEventId}
-                            event={event}
-                            room={room}
-                            isLiked={!!myLikeEventId}
-                            isReposted={!!myRepostEventId}
-                            replyCount={replyCount}
-                            hideRoomName={hideRoomName}
-                            onLike={() => handleLikeFor(focusedEventId, myLikeEventId)}
-                            onReply={(body, file) => handleReplyTo(focusedEventId, body, file)}
-                            // The only tile in this whole view that ever shows the full date/time - not
-                            // ancestors, not even the thread root when it isn't also the focused post.
-                            forceFullTimestamp
-                            isHighlighted={highlightFocusedPost}
-                            flat
-                            isFocused
-                            {...tileProps}
-                        />
+                        {event.isRedacted() ? (
+                            // Haven: a deleted post's tile has no content left and renders nothing,
+                            // which left a link to one (say from a bridge's notification) opening a
+                            // blank page. Its replies, if any, still show below.
+                            <DeletedPostTile />
+                        ) : (
+                            <SocialEventTile
+                                // Unlike every other SocialEventTile render site (ancestors' own wrapping
+                                // div above, replies list below, home feed, room view), this one sits in a
+                                // fixed, unkeyed position rather than inside a .map() over a list - so when
+                                // this view re-focuses on a different post (e.g. clicking through from a
+                                // reply up to the thread root), React was reusing the very same component
+                                // instance instead of remounting it, since neither the event prop nor its
+                                // position in the tree looked "new" to React. SocialEventTile's own reaction
+                                // state only initializes once per mount (see its own comment on `reactions`)
+                                // and has no effect that resets it on an event *identity* change, only on a
+                                // Relations object coming into existence for the first time - so the old
+                                // post's reactions (a real reaction on a totally different event) kept
+                                // showing on whatever post got focused next. Keying by event id forces a
+                                // fresh mount whenever the focused post is actually a different event.
+                                key={focusedEventId}
+                                event={event}
+                                room={room}
+                                isLiked={!!myLikeEventId}
+                                isReposted={!!myRepostEventId}
+                                replyCount={replyCount}
+                                hideRoomName={hideRoomName}
+                                onLike={() => handleLikeFor(focusedEventId, myLikeEventId)}
+                                onReply={(body, file) => handleReplyTo(focusedEventId, body, file)}
+                                // The only tile in this whole view that ever shows the full date/time - not
+                                // ancestors, not even the thread root when it isn't also the focused post.
+                                forceFullTimestamp
+                                isHighlighted={highlightFocusedPost}
+                                flat
+                                isFocused
+                                {...tileProps}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
@@ -645,18 +718,22 @@ export function SocialPostView({
                         const replyOfReply = node.replyOfReply;
                         const mainTile = (
                             <div className="social_PostView_threadItem">
-                                <SocialEventTile
-                                    event={node.event}
-                                    room={room}
-                                    isLiked={!!node.myLikeEventId}
-                                    isReposted={!!node.myRepostEventId}
-                                    replyCount={node.replyCount}
-                                    hideRoomName={true}
-                                    onReply={(body, file) => handleReplyTo(node.event.getId()!, body, file)}
-                                    onLike={() => handleLikeFor(node.event.getId()!, node.myLikeEventId)}
-                                    flat
-                                    {...tileProps}
-                                />
+                                {node.event.isRedacted() ? (
+                                    <DeletedPostTile onOpen={() => onFocusEvent?.(node.event)} />
+                                ) : (
+                                    <SocialEventTile
+                                        event={node.event}
+                                        room={room}
+                                        isLiked={!!node.myLikeEventId}
+                                        isReposted={!!node.myRepostEventId}
+                                        replyCount={node.replyCount}
+                                        hideRoomName={true}
+                                        onReply={(body, file) => handleReplyTo(node.event.getId()!, body, file)}
+                                        onLike={() => handleLikeFor(node.event.getId()!, node.myLikeEventId)}
+                                        flat
+                                        {...tileProps}
+                                    />
+                                )}
                             </div>
                         );
                         return (
@@ -676,8 +753,15 @@ export function SocialPostView({
                                                 isReposted={!!replyOfReply.myRepostEventId}
                                                 replyCount={replyOfReply.replyCount}
                                                 hideRoomName={true}
-                                                onReply={(body, file) => handleReplyTo(replyOfReply.event.getId()!, body, file)}
-                                                onLike={() => handleLikeFor(replyOfReply.event.getId()!, replyOfReply.myLikeEventId)}
+                                                onReply={(body, file) =>
+                                                    handleReplyTo(replyOfReply.event.getId()!, body, file)
+                                                }
+                                                onLike={() =>
+                                                    handleLikeFor(
+                                                        replyOfReply.event.getId()!,
+                                                        replyOfReply.myLikeEventId,
+                                                    )
+                                                }
                                                 flat
                                                 {...tileProps}
                                             />

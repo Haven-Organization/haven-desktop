@@ -34,4 +34,6 @@ export interface HavenApp {
      * SocialSettingsTab.tsx for the reference shape).
      */
     SettingsComponent?: ComponentType<Record<string, never>>;
+    /** Whether the app can pop out into its own window (appPopout/AppPopoutStore.ts). */
+    canPopOut?: boolean;
 }

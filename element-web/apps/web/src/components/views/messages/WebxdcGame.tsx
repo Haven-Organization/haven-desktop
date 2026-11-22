@@ -9,8 +9,10 @@
 
 import React, {
     type JSX,
+    type Ref,
     useCallback,
     useEffect,
+    useImperativeHandle,
     useLayoutEffect,
     useMemo,
     useRef,
@@ -48,6 +50,9 @@ import { FlashPlayerError, isFlashFile, readFlashArchive } from "../../../utils/
 import { WEBXDC_IFRAME_ALLOW, webxdcFrameSandbox, WebxdcPopoutStore } from "../../../utils/WebxdcPopoutStore";
 import { WebxdcCartridge } from "./WebxdcCartridge";
 import { PopInIcon, SaveGameIcon } from "./WebxdcIcons";
+// Haven: games can be added to the user's apps (src/apps/framework/gameApps)
+import { AddGameToAppsButton } from "../../../../../../../src/apps/framework/gameApps/AddGameToAppsButton";
+import { shrinkGameIcon } from "../../../../../../../src/apps/framework/gameApps/gameIcon";
 
 /** Games this small are read whole for their name and icon before Play; bigger ones in part. */
 const COVER_READ_MAX_SIZE = 5 * 1024 * 1024;
@@ -152,14 +157,26 @@ function fallbackName(event: MatrixEvent): string {
     );
 }
 
+/** What a game's page in the user's apps (GameAppView) can do with the game from its header. */
+export interface WebxdcGameControl {
+    /** Pops the game out, handing over what it hasn't saved. Must be called from a click. */
+    popOut(): void;
+}
+
 interface Props {
     mxEvent: MatrixEvent;
     /** The timeline's helper for the event's file, when there is one to share. */
     mediaEventHelper?: MediaEventHelper;
     className?: string;
+    /**
+     * The game is the whole of its page in the user's apps: it fills the page and starts straight
+     * away, and the page's header has the pop-out button and the way back to the room.
+     */
+    appMode?: boolean;
+    controlRef?: Ref<WebxdcGameControl>;
 }
 
-export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX.Element {
+export function WebxdcGame({ mxEvent, mediaEventHelper, className, appMode, controlRef }: Props): JSX.Element {
     const [mediaVisible] = useMediaVisible(mxEvent);
     const ownHelper = useMemo(
         () => (mediaEventHelper ? undefined : new MediaEventHelper(mxEvent)),
@@ -347,6 +364,42 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX
     };
     const savePoppedOut = useSaveButton(useCallback(() => popouts.saveNow(eventId), [popouts, eventId]));
 
+    // The player's handover of what it hasn't saved, for popping out from outside the player.
+    const flushRef = useRef<(() => Promise<unknown>) | null>(null);
+    useImperativeHandle(controlRef, () => ({
+        popOut: () => {
+            if (poppedOut) popouts.focus(eventId);
+            else onPopOut(playing ? (flushRef.current?.() ?? Promise.resolve()) : undefined);
+        },
+    }));
+
+    // On its page in the user's apps, the game starts as the page opens.
+    const autoStarted = useRef(false);
+    useEffect(() => {
+        if (!appMode || autoStarted.current || !sandbox || poppedOut) return;
+        autoStarted.current = true;
+        void onPlay();
+    }, [appMode, sandbox, poppedOut, onPlay]);
+
+    /** The game's name and a small copy of its icon, for adding it to the user's apps. */
+    const describeForApps = useCallback(async (): Promise<{ name: string; icon?: string }> => {
+        let archive = archiveState.kind === "ready" ? archiveState.archive : undefined;
+        // Nothing read yet (a big or encrypted game): read it for its icon.
+        if (!archive && !iconUrl && !flash) archive = await loadArchive();
+        let icon: string | undefined;
+        if (iconUrl) {
+            icon = await shrinkGameIcon(iconUrl);
+        } else if (archive?.icon) {
+            const url = URL.createObjectURL(archive.icon);
+            try {
+                icon = await shrinkGameIcon(url);
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        }
+        return { name: archive?.manifest.name || name, icon };
+    }, [archiveState, iconUrl, flash, loadArchive, name]);
+
     if (playing && (!poppedOut || handingOver) && archiveState.kind === "ready" && sandbox) {
         return (
             <WebxdcPlayer
@@ -356,7 +409,8 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX
                 name={name}
                 onClose={() => setPlaying(false)}
                 onPopOut={onPopOut}
-                className={className}
+                flushRef={flushRef}
+                className={classNames(className, { "mx_WebxdcGame--app": appMode })}
             />
         );
     }
@@ -377,7 +431,7 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX
     } else if (popOutProblem) note = problemText(popOutProblem).join(" ");
 
     return (
-        <div className={classNames("mx_WebxdcGame", className)}>
+        <div className={classNames("mx_WebxdcGame", className, { "mx_WebxdcGame--app": appMode })}>
             {canPlay ? (
                 <button
                     type="button"
@@ -453,6 +507,14 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className }: Props): JSX
                             />
                         </Tooltip>
                     )}
+                    {!appMode && gameId && (
+                        <AddGameToAppsButton
+                            mxEvent={mxEvent}
+                            gameId={gameId}
+                            flash={flash}
+                            describe={describeForApps}
+                        />
+                    )}
                     <Tooltip label={_t("action|download")} caption={_t("timeline|webxdc|download_tooltip")}>
                         <Button
                             kind="secondary"
@@ -485,10 +547,21 @@ interface PlayerProps {
     onClose: () => void;
     /** Pops the game out; it hands over its save on the way (see WebxdcGame's onPopOut). */
     onPopOut: (handover: Promise<unknown>) => void;
+    /** Set to the game's handover of what it hasn't saved, while it's playing. */
+    flushRef?: React.MutableRefObject<(() => Promise<unknown>) | null>;
     className?: string;
 }
 
-function WebxdcPlayer({ mxEvent, archive, sandbox, name, onClose, onPopOut, className }: PlayerProps): JSX.Element {
+function WebxdcPlayer({
+    mxEvent,
+    archive,
+    sandbox,
+    name,
+    onClose,
+    onPopOut,
+    flushRef,
+    className,
+}: PlayerProps): JSX.Element {
     const client = useMatrixClientContext();
     const roomId = mxEvent.getRoomId()!;
     const eventId = mxEvent.getId()!;
@@ -515,6 +588,7 @@ function WebxdcPlayer({ mxEvent, archive, sandbox, name, onClose, onPopOut, clas
             onSendFailed: () => setSendFailed(true),
         });
         sessionRef.current = session;
+        if (flushRef) flushRef.current = () => session.flush();
         const onMessage = (event: MessageEvent): void => {
             if (event.source === frame.contentWindow) session.handleMessage(event.data);
         };
@@ -524,8 +598,9 @@ function WebxdcPlayer({ mxEvent, archive, sandbox, name, onClose, onPopOut, clas
             window.removeEventListener("message", onMessage);
             session.stop();
             sessionRef.current = undefined;
+            if (flushRef) flushRef.current = null;
         };
-    }, [archive, client, eventId, roomId, sandbox]);
+    }, [archive, client, eventId, roomId, sandbox, flushRef]);
 
     const onFrameLoad = useCallback(() => sessionRef.current?.frameLoaded(), []);
     const save = useSaveButton(useCallback(() => sessionRef.current?.saveNow() ?? Promise.resolve(false), []));

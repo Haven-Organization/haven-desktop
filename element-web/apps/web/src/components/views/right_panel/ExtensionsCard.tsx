@@ -32,6 +32,8 @@ import { shouldShowComponent } from "../../../customisations/helpers/UIComponent
 import { UIComponent } from "../../../settings/UIFeature.ts";
 import { WidgetContextMenu } from "../../../viewmodels/room/right-panel/WidgetContextMenuViewModel.tsx";
 import { SDKContext } from "../../../contexts/SDKContext.ts";
+// haven patch
+import { AddToAppsButton } from "../../../../../../../src/apps/framework/widgetApps/AddToAppsButton";
 
 interface Props {
     room: Room;
@@ -90,6 +92,8 @@ const AppRow: React.FC<IAppRowProps> = ({ app, room }) => {
 
     const classes = classNames("mx_BaseCard_Button mx_ExtensionsCard_Button", {
         mx_ExtensionsCard_Button_pinned: isPinned,
+        // haven patch: room for the Add to Apps button, next to the options button when there is one
+        haven_ExtensionsCard_Button_withOptions: canModifyWidget,
     });
 
     return (
@@ -124,6 +128,9 @@ const AppRow: React.FC<IAppRowProps> = ({ app, room }) => {
                     }
                 />
             )}
+
+            {/* haven patch: add the room's widget to the user's apps */}
+            <AddToAppsButton app={app} room={room} className="haven_ExtensionsCard_app_addToApps" />
 
             <AccessibleButton
                 className="mx_ExtensionsCard_app_pinToggle"

@@ -26,4 +26,5 @@ export const socialApp: HavenApp = {
     homeAction: SOCIAL_HOME_ACTION,
     Component,
     SettingsComponent,
+    canPopOut: true,
 };

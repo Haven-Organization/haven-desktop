@@ -17,7 +17,9 @@ import { IconButton, Tooltip } from "@vector-im/compound-web";
 import { useContextMenu, toRightOf } from "../../../../element-web/apps/web/src/components/structures/ContextMenu";
 import { AppsGridIcon } from "../icons/AppsGridIcon";
 import { AppsPickerModal } from "./AppsPickerModal";
-import { getEnabledApps } from "../registry";
+import { getLaunchableApps } from "../registry";
+import { useWidgetAppEntries } from "../widgetApps/widgetApps";
+import { useGameAppEntries } from "../gameApps/gameApps";
 
 interface Props {
     client: MatrixClient;
@@ -30,10 +32,16 @@ export function AppsButton({ client, variant, isPanelCollapsed }: Props): JSX.El
     // target. SpacePanel.tsx's own divider right after this button (spacebar variant) is
     // conditioned on this same emptiness check, so the two disappear together.
     const [menuDisplayed, handle, openMenu, closeMenu] = useContextMenu<HTMLButtonElement>();
-    if (getEnabledApps().length === 0) return null;
+    useWidgetAppEntries(client); // re-render when the user's widget apps change
+    useGameAppEntries(client); // and their game apps
+    if (getLaunchableApps().length === 0) return null;
 
     const popup = menuDisplayed && handle.current && (
-        <AppsPickerModal {...toRightOf(handle.current.getBoundingClientRect())} client={client} onFinished={closeMenu} />
+        <AppsPickerModal
+            {...toRightOf(handle.current.getBoundingClientRect())}
+            client={client}
+            onFinished={closeMenu}
+        />
     );
 
     if (variant === "compact") {

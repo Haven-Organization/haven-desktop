@@ -60,6 +60,7 @@ import { WidgetContextMenu } from "../../../viewmodels/room/right-panel/WidgetCo
 import { SDKContext } from "../../../contexts/SDKContext.ts";
 // haven patch: pop widgets out into Haven's own window, still connected to the client
 import { WidgetPopoutStore } from "../../../../../../../src/apps/framework/widgetPopout/WidgetPopoutStore";
+import { AddToAppsButton } from "../../../../../../../src/apps/framework/widgetApps/AddToAppsButton";
 import {
     WidgetPoppedOut,
     showPopoutRefusedDialog,
@@ -70,13 +71,14 @@ import {
 // this would only be for content hosted on the same origin as the element client: anything
 // hosted on the same origin as the client will get the same access as if you clicked
 // a link to it.
-const sandboxFlags =
+// haven patch: exported for widgets popped out from outside their tile (widgetApps/popOutWidgetApp.ts)
+export const sandboxFlags =
     "allow-forms allow-popups allow-popups-to-escape-sandbox " +
     "allow-same-origin allow-scripts allow-presentation allow-downloads";
 
 // Additional iframe feature permissions
 // (see - https://sites.google.com/a/chromium.org/dev/Home/chromium-security/deprecating-permissions-in-cross-origin-iframes and https://wicg.github.io/feature-policy/)
-const iframeFeatures =
+export const iframeFeatures =
     "microphone; camera; encrypted-media; autoplay; display-capture; clipboard-write; clipboard-read;";
 
 interface IProps {
@@ -121,6 +123,9 @@ interface IProps {
     // This is useful because: Widget B is sticky. Making widget A sticky will kill widget B immediately.
     // This promise allows to do Widget B related cleanup before Widget A becomes sticky. (e.g. hangup a Voip call)
     stickyPromise?: () => Promise<void>;
+    // haven patch: called instead of maximizing the widget in its room when its pop-out window is
+    // refused, for a tile shown outside the room (a widget opened as an app)
+    havenOnPopoutRefused?: () => void;
 }
 
 interface IState {
@@ -716,6 +721,10 @@ export default class AppTile extends React.Component<IProps, IState> {
     // happened when it already is.
     private havenPopoutFallback = (): void => {
         if (this.unmounted) return;
+        if (this.props.havenOnPopoutRefused) {
+            this.props.havenOnPopoutRefused();
+            return;
+        }
         if (!this.props.room) {
             this.openPopoutUrl();
             return;
@@ -726,6 +735,12 @@ export default class AppTile extends React.Component<IProps, IState> {
             showPopoutRefusedDialog();
         }
     };
+
+    // haven patch: pops the widget out from a button outside the tile's own menu bar (a widget
+    // opened as an app has its own header). Must be called from a click, like the menu bar's button.
+    public havenPopOutClick(): void {
+        this.onPopoutWidgetClick();
+    }
 
     // TODO replace with full screen interactions
     private onPopoutWidgetClick = (): void => {
@@ -942,6 +957,15 @@ export default class AppTile extends React.Component<IProps, IState> {
                         </span>
                         <span className="mx_AppTileMenuBar_widgets">
                             {layoutButtons}
+                            {/* haven patch: add the room's widget to the user's apps */}
+                            {!this.props.userWidget && (
+                                <AddToAppsButton
+                                    app={this.props.app}
+                                    room={this.props.room}
+                                    className="mx_AppTileMenuBar_widgets_button"
+                                    iconClassName="mx_Icon mx_Icon_12"
+                                />
+                            )}
                             {/* haven patch: widgets that need the client pop out into Haven's own window too */}
                             {this.props.showPopout && (
                                 <AccessibleButton

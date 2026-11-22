@@ -17,6 +17,7 @@ import React, {
     useMemo,
     useRef,
     useState,
+    useSyncExternalStore,
 } from "react";
 import {
     type MatrixEvent,
@@ -36,6 +37,7 @@ import {
     FilterIcon,
     ArrowLeftIcon,
     ComposeIcon,
+    PopOutIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { Resizable } from "re-resizable";
 import { Virtuoso, type VirtuosoHandle, type StateSnapshot } from "react-virtuoso";
@@ -50,6 +52,11 @@ import RightPanel from "../../../../element-web/apps/web/src/components/structur
 import NotificationPanel from "../../../../element-web/apps/web/src/components/structures/NotificationPanel";
 import MainSplit from "../../../../element-web/apps/web/src/components/structures/MainSplit";
 import Modal from "../../../../element-web/apps/web/src/Modal";
+import AccessibleButton from "../../../../element-web/apps/web/src/components/views/elements/AccessibleButton";
+import { AppPopoutContext } from "../../framework/appPopout/AppPopoutContext";
+import { AppPopoutStore } from "../../framework/appPopout/AppPopoutStore";
+import { popOutApp } from "../../framework/appPopout/popOutApp";
+import { socialApp } from "../app";
 import { RightPanelPhases } from "../../../../element-web/apps/web/src/stores/right-panel/RightPanelStorePhases";
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
@@ -72,10 +79,7 @@ import { handleComposerPaste } from "../utils/pasteFile";
 import { RoomPickerButton } from "../components/RoomPickerButton";
 import { SocialEventTile, resolveAndOpenPost, showPrivateProfileModal } from "../components/SocialEventTile";
 import { SocialScrollToTopButton } from "../components/SocialScrollToTopButton";
-import {
-    SlashCommandAutocomplete,
-    type SlashCommandAutocompleteHandle,
-} from "../components/SlashCommandAutocomplete";
+import { SlashCommandAutocomplete, type SlashCommandAutocompleteHandle } from "../components/SlashCommandAutocomplete";
 import { ComposerAutocomplete, type ComposerAutocompleteHandle } from "../components/ComposerAutocomplete";
 import { EmojiRenderingTextarea } from "../components/EmojiRenderingTextarea";
 import { FeedFilterDialog } from "../components/FeedFilterDialog";
@@ -93,12 +97,7 @@ import { FEED_COMPOSER_DRAFT_KEY, useComposerDraft } from "../utils/composerDraf
 import { writeSocialScreen } from "../utils/socialScreen";
 import { clearPendingSocialScreen } from "../utils/pendingSocialScreen";
 import { consumePendingPostModal } from "../utils/pendingPostModal";
-import {
-    isGroupRoom,
-    isProfileRoom,
-    getProfileOwnerUserId,
-    isSocialPostEventType,
-} from "../utils/room-classifier";
+import { isGroupRoom, isProfileRoom, getProfileOwnerUserId, isSocialPostEventType } from "../utils/room-classifier";
 import {
     type SocialFeedFilter,
     loadSocialFeedFilter,
@@ -305,7 +304,35 @@ function hasProfileOwner(room: Room): boolean {
 // Main component
 // ---------------------------------------------------------------------------
 
+/**
+ * Haven: Social can pop out into its own window (framework/appPopout). The main
+ * window then shows where it went instead, and the window shows SocialHomeViewInner.
+ */
 export function SocialHomeView(): JSX.Element {
+    const inPopout = useContext(AppPopoutContext);
+    const popoutStore = AppPopoutStore.instance;
+    const poppedOut = useSyncExternalStore(popoutStore.subscribe, () => popoutStore.isPoppedOut("social"));
+    if (poppedOut && !inPopout) {
+        return (
+            <div className="haven_WidgetPoppedOut social_PoppedOut">
+                <PopOutIcon className="haven_WidgetPoppedOut_icon" aria-hidden />
+                <p>Social is open in its own window.</p>
+                <div className="haven_WidgetPoppedOut_buttons">
+                    <AccessibleButton kind="primary_sm" onClick={() => popoutStore.focus()}>
+                        Show window
+                    </AccessibleButton>
+                    <AccessibleButton kind="link_sm" onClick={() => popoutStore.popIn()}>
+                        Bring back here
+                    </AccessibleButton>
+                </div>
+            </div>
+        );
+    }
+    return <SocialHomeViewInner />;
+}
+
+function SocialHomeViewInner(): JSX.Element {
+    const inPopout = useContext(AppPopoutContext);
     const client = useMatrixClientContext();
     const myUserId = client.getUserId() ?? "";
     const sdkContext = useContext(SDKContext);
@@ -469,9 +496,8 @@ export function SocialHomeView(): JSX.Element {
         };
     }, []);
     const backdropImage =
-        (roomListBackgroundImageOverride
-            ? mediaFromMxc(roomListBackgroundImageOverride).srcHttp
-            : ownAvatarUrl) ?? undefined;
+        (roomListBackgroundImageOverride ? mediaFromMxc(roomListBackgroundImageOverride).srcHttp : ownAvatarUrl) ??
+        undefined;
     const setUserMenuPortalTarget = useSetUserMenuPortalTarget();
     const sidebarCollapsed = sidebarWidth < SIDEBAR_COLLAPSE_THRESHOLD;
     // re-resizable's `delta` is cumulative from resize start, not incremental per event — track the
@@ -502,9 +528,7 @@ export function SocialHomeView(): JSX.Element {
 
     useEffect(() => {
         const onRightPanelStoreUpdate = (): void => {
-            setRightPanelRoomId((cur) =>
-                cur !== null && sdkContext.rightPanelStore.isOpenForRoom(cur) ? cur : null,
-            );
+            setRightPanelRoomId((cur) => (cur !== null && sdkContext.rightPanelStore.isOpenForRoom(cur) ? cur : null));
         };
         sdkContext.rightPanelStore.on(UPDATE_EVENT, onRightPanelStoreUpdate);
         return () => {
@@ -592,10 +616,18 @@ export function SocialHomeView(): JSX.Element {
                             }));
                             break;
                         case "private":
-                            setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "private" }));
+                            setNav((prev: SocialNav) => ({
+                                section: prev.section,
+                                viewUserId: userId,
+                                viewUserReason: "private",
+                            }));
                             break;
                         case "invalid":
-                            setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "no_profile" }));
+                            setNav((prev: SocialNav) => ({
+                                section: prev.section,
+                                viewUserId: userId,
+                                viewUserReason: "no_profile",
+                            }));
                             break;
                     }
                 }),
@@ -604,7 +636,11 @@ export function SocialHomeView(): JSX.Element {
                 .catch((err: unknown) => {
                     // eslint-disable-next-line no-console
                     console.error("handleViewUser: resolving profile room failed", err);
-                    setNav((prev: SocialNav) => ({ section: prev.section, viewUserId: userId, viewUserReason: "error" }));
+                    setNav((prev: SocialNav) => ({
+                        section: prev.section,
+                        viewUserId: userId,
+                        viewUserReason: "error",
+                    }));
                 })
                 .finally(() => {
                     // No-op for every caller except the pending-user mount case above - see
@@ -787,6 +823,13 @@ export function SocialHomeView(): JSX.Element {
     // reset to the feed and close whatever thread might be open.
     useDispatcher(defaultDispatcher, (payload) => {
         if (payload.action !== SOCIAL_HOME_ACTION) return;
+        // Haven: popped out, Social still hears the main window opening Social (its button in the
+        // space bar, say), which there only shows where Social went. Going somewhere particular
+        // (a profile, a post) happens here, with this window brought forward; a plain open
+        // leaves this window as it is, rather than resetting it to the top of the feed.
+        const bringForward = (): void => {
+            if (inPopout) AppPopoutStore.instance.focus();
+        };
         // A "View Profile" click from the stock member RightPanel (see SocialProfileButton.tsx)
         // dispatches this same action, same as when Social isn't mounted yet - but if Social is
         // already the active app (e.g. the RightPanel was opened via a post's own avatar - see
@@ -796,23 +839,29 @@ export function SocialHomeView(): JSX.Element {
         // Feed) instead of actually navigating anywhere.
         const pendingUser = consumePendingViewUserId();
         if (pendingUser) {
+            bringForward();
             handleViewUser(pendingUser);
             return;
         }
         const feedThread = consumePendingFeedThread();
         if (feedThread) {
+            bringForward();
             setNav({ section: "feed" });
             resolveAndOpenPost(client, feedThread.roomId, feedThread.eventId, undefined, (event, room) => {
                 setOpenThreadTarget({ event, room });
             });
             return;
         }
-        if (consumePendingPost()) return;
+        if (consumePendingPost()) {
+            bringForward();
+            return;
+        }
         // Same reasoning as pendingSection just below, for a "#/social?post=1[&body=...]" deep
         // link re-dispatching this action while Social is already open - the mount effect that
         // normally consumes this never runs again for an already-mounted component.
         const pendingModal = consumePendingPostModal();
         if (pendingModal) {
+            bringForward();
             Modal.createDialog(PostDialog, { client, initialBody: pendingModal.body }, "social_PostDialog_wrapper");
             return;
         }
@@ -823,10 +872,12 @@ export function SocialHomeView(): JSX.Element {
         // "social" case just below, resetting to Feed instead of actually switching tabs.
         const pendingSection = peekPendingSocialSection();
         if (pendingSection) {
+            bringForward();
             clearPendingSocialSection();
             setNav({ section: pendingSection });
             return;
         }
+        if (inPopout) return;
         setNav({ section: "feed" });
         setCloseThreadToken((t) => t + 1);
     });
@@ -924,12 +975,12 @@ export function SocialHomeView(): JSX.Element {
             <NotificationPanel onClose={() => setNotificationsOpen(false)} />
         </aside>
     ) : rightPanelRoom ? (
-            <RightPanel
-                room={rightPanelRoom}
-                resizeNotifier={sdkContext.resizeNotifier}
-                permalinkCreator={new RoomPermalinkCreator(rightPanelRoom)}
-            />
-        ) : undefined;
+        <RightPanel
+            room={rightPanelRoom}
+            resizeNotifier={sdkContext.resizeNotifier}
+            permalinkCreator={new RoomPermalinkCreator(rightPanelRoom)}
+        />
+    ) : undefined;
 
     // Social rooms are never opened via the normal RoomView, so nothing else
     // ever paginates their timelines beyond the initial sync window — backfill
@@ -1216,7 +1267,10 @@ export function SocialHomeView(): JSX.Element {
                     }}
                     onResize={(_e, _dir, _ref, delta) =>
                         setSidebarWidth(
-                            Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, resizeStartWidthRef.current + delta.width)),
+                            Math.min(
+                                SIDEBAR_MAX_WIDTH,
+                                Math.max(SIDEBAR_MIN_WIDTH, resizeStartWidthRef.current + delta.width),
+                            ),
                         )
                     }
                     onResizeStop={(_e, _dir, _ref, delta) => {
@@ -1294,6 +1348,15 @@ export function SocialHomeView(): JSX.Element {
                             collapsed={sidebarCollapsed}
                             onClick={() => setNav({ section: "profile" })}
                         />
+                        {!inPopout && (
+                            <NavButton
+                                icon={<PopOutIcon />}
+                                label="Pop out"
+                                active={false}
+                                collapsed={sidebarCollapsed}
+                                onClick={() => popOutApp(client, socialApp)}
+                            />
+                        )}
                         <NavButton
                             icon={<ComposeIcon />}
                             label="Post"
@@ -1306,7 +1369,9 @@ export function SocialHomeView(): JSX.Element {
                         />
                     </nav>
                 </Resizable>
-                <main className="social_Content" ref={contentRef}>{mainContent}</main>
+                <main className="social_Content" ref={contentRef}>
+                    {mainContent}
+                </main>
                 {isDraggingFile && (
                     <div className="social_DropOverlay">
                         <div className="social_DropOverlay_label">Drop file to attach</div>
@@ -1439,8 +1504,7 @@ function FeedPane({
         // so the Feed's top is still showing for a while after scrolling starts.
         const scroller = scrollContainerRef.current;
         const list = scroller?.querySelector<HTMLElement>(".social_Feed");
-        const atTop =
-            !!scroller && !!list && list.getBoundingClientRect().top >= scroller.getBoundingClientRect().top;
+        const atTop = !!scroller && !!list && list.getBoundingClientRect().top >= scroller.getBoundingClientRect().top;
         firstItemIndexRef.current = nextFirstItemIndex(
             firstItemIndexRef.current,
             posts.map((p) => p.event.getId()),
@@ -1505,9 +1569,7 @@ function FeedPane({
     // post's own tile (mirrors Element's own permalink highlight convention) - set only when this
     // thread was opened by resolving a direct/external link (openThreadTarget below), never for
     // regular in-app navigation (handleViewThread, the in-thread onFocusEvent re-focus).
-    const [threadView, setThreadView] = useState<{ event: MatrixEvent; room: Room; highlight?: boolean } | null>(
-        null,
-    );
+    const [threadView, setThreadView] = useState<{ event: MatrixEvent; room: Room; highlight?: boolean } | null>(null);
     // Skips the very first render (closeThreadToken starts at 0, same as its initial value) so this
     // doesn't fire a spurious close on mount - only actual increments (real hash-driven resets)
     // should act.
@@ -1669,11 +1731,7 @@ function FeedPane({
     const postableRooms = useMemo(
         () =>
             rooms
-                .filter(
-                    (r) =>
-                        r.getMyMembership() === KnownMembership.Join &&
-                        (isProfileRoom(r) || isGroupRoom(r)),
-                )
+                .filter((r) => r.getMyMembership() === KnownMembership.Join && (isProfileRoom(r) || isGroupRoom(r)))
                 .sort((a, b) => {
                     const aOwn = getProfileOwnerUserId(a) === myUserId;
                     const bOwn = getProfileOwnerUserId(b) === myUserId;
@@ -1701,7 +1759,10 @@ function FeedPane({
     // old profile room, still joined) for the brief moment before the real link landed, flashing
     // its avatar/name before snapping to "Your Profile" - not just "no room selected yet".
     const selectedRoomId =
-        explicitRoomId || myProfileRoom?.roomId || (profileRoomId === null ? postableRooms[0]?.roomId : undefined) || "";
+        explicitRoomId ||
+        myProfileRoom?.roomId ||
+        (profileRoomId === null ? postableRooms[0]?.roomId : undefined) ||
+        "";
 
     // Haven: kept for the session (see composerDrafts.ts) rather than plain state, so leaving Social
     // to grab something and coming back doesn't lose a half-written post.
@@ -1761,7 +1822,15 @@ function FeedPane({
             }
             const result = await processSlashCommand(client, roomId, body);
             if (!result.handled) {
-                await sendComment(client, roomId, result.body, eventId, undefined, result.formattedBody, result.isEmote);
+                await sendComment(
+                    client,
+                    roomId,
+                    result.body,
+                    eventId,
+                    undefined,
+                    result.formattedBody,
+                    result.isEmote,
+                );
             }
             // handled (ran as a command, or declined/errored) - nothing left to send as a reply.
         },
@@ -1831,7 +1900,14 @@ function FeedPane({
                 // that.
                 const result = await processSlashCommand(client, selectedRoomId, body, false);
                 if (!result.handled) {
-                    await sendPost(client, selectedRoomId, result.body, result.formattedBody, undefined, result.isEmote);
+                    await sendPost(
+                        client,
+                        selectedRoomId,
+                        result.body,
+                        result.formattedBody,
+                        undefined,
+                        result.isEmote,
+                    );
                     setPostBody("");
                     onRefresh();
                 } else if (result.success) {
@@ -1842,7 +1918,16 @@ function FeedPane({
                 setPostBusy(false);
             }
         },
-        [client, selectedRoomId, postBody, feedPendingAttachment, clearFeedAttachment, onRefresh, explicitRoomId, profileRoomId],
+        [
+            client,
+            selectedRoomId,
+            postBody,
+            feedPendingAttachment,
+            clearFeedAttachment,
+            onRefresh,
+            explicitRoomId,
+            profileRoomId,
+        ],
     );
 
     // "Scroll to top" button (SocialScrollToTopButton.tsx) - shown once the composer scrolls out
@@ -1863,10 +1948,9 @@ function FeedPane({
     const [composerVisible, setComposerVisible] = useState(true);
     useEffect(() => {
         if (postableRooms.length === 0 || !composerRef.current || !scrollContainerRef.current) return;
-        const observer = new IntersectionObserver(
-            ([entry]) => setComposerVisible(entry.isIntersecting),
-            { root: scrollContainerRef.current },
-        );
+        const observer = new IntersectionObserver(([entry]) => setComposerVisible(entry.isIntersecting), {
+            root: scrollContainerRef.current,
+        });
         observer.observe(composerRef.current);
         return () => observer.disconnect();
     }, [postableRooms.length, scrollContainerRef, threadView]);
@@ -1887,7 +1971,11 @@ function FeedPane({
     // composer's own "Post to:" picker was already set to.
     const openScrolledAwayPostModal = useCallback(
         (file: File) => {
-            Modal.createDialog(PostDialog, { client, initialRoomId: selectedRoomId, initialFile: file }, "social_PostDialog_wrapper");
+            Modal.createDialog(
+                PostDialog,
+                { client, initialRoomId: selectedRoomId, initialFile: file },
+                "social_PostDialog_wrapper",
+            );
         },
         [client, selectedRoomId],
     );
@@ -1923,9 +2011,7 @@ function FeedPane({
 
     return (
         <div className="social_Pane">
-            {postableRooms.length > 0 && !composerVisible && (
-                <SocialScrollToTopButton onClick={scrollFeedToTop} />
-            )}
+            {postableRooms.length > 0 && !composerVisible && <SocialScrollToTopButton onClick={scrollFeedToTop} />}
             <div className="social_Feed_filterRow">
                 <button
                     type="button"

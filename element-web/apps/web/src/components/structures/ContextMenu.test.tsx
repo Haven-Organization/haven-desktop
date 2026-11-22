@@ -16,6 +16,7 @@ import ContextMenu, { toRightOf, ChevronFace } from "./ContextMenu";
 import UIStore from "../../stores/UIStore";
 import Modal from "../../Modal";
 import BaseDialog from "../views/dialogs/BaseDialog";
+import { PortalWindowContext } from "../../../../../../src/apps/framework/appPopout/PortalWindowContext";
 
 describe("ContextMenu", () => {
     const rect = {
@@ -217,6 +218,40 @@ describe("ContextMenu", () => {
             expect(onFinished).not.toHaveBeenCalled();
             Modal.appendDialog(BaseDialog);
             expect(onFinished).not.toHaveBeenCalled();
+        });
+    });
+
+    // haven patch: menus opened from an app popped out into its own window
+    describe("in another window", () => {
+        let other: Window;
+
+        beforeEach(() => {
+            // The main window's size, as UIStore measures it.
+            vi.spyOn(UIStore, "instance", "get").mockReturnValue({
+                windowWidth: 1280,
+                windowHeight: 800,
+            } as unknown as UIStore);
+            // A stand-in for a pop-out window: its own page, and its own size.
+            const doc = document.implementation.createHTMLDocument("pop-out");
+            other = { document: doc, innerWidth: 1000, innerHeight: 700 } as unknown as Window;
+        });
+
+        it("opens in that window's page, measured from its edges", () => {
+            render(
+                <PortalWindowContext.Provider value={other}>
+                    <ContextMenu right={300} bottom={200} onFinished={vi.fn()} managed={false} hasBackground={false}>
+                        <div className="haven_test_menu">menu</div>
+                    </ContextMenu>
+                </PortalWindowContext.Provider>,
+            );
+
+            expect(document.querySelector(".haven_test_menu")).toBeNull();
+            const menu = other.document.querySelector(".haven_test_menu");
+            expect(menu).not.toBeNull();
+            const style = menu!.closest<HTMLElement>(".mx_ContextualMenu_wrapper")!.style;
+            // 300 and 200 from the main window's edges are 20 and 100 from this window's.
+            expect(style.right).toBe("20px");
+            expect(style.bottom).toBe("100px");
         });
     });
 });

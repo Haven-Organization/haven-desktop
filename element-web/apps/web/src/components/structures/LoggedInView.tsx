@@ -38,12 +38,7 @@ import { Action } from "../../dispatcher/actions";
 import LeftPanel from "./LeftPanel";
 import ResizeHandle from "../views/elements/ResizeHandle";
 import Resizer from "../../resizer/resizer";
-import {
-    CollapseDistributor,
-    type ICollapseConfig,
-    CollapseItem,
-    LEGACY_ROOM_LIST_AVAILABLE,
-} from "legacy-room-list";
+import { CollapseDistributor, type ICollapseConfig, CollapseItem, LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
 import { BackdropPanel } from "../views/rooms/BackdropPanel";
 import { type ViewRoomDeltaPayload } from "../../dispatcher/payloads/ViewRoomDeltaPayload";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
@@ -77,8 +72,13 @@ import { SDKContext } from "../../contexts/SDKContext.ts";
 import { ResizerViewModel } from "../../viewmodels/structures/ResizerViewModel.ts";
 // haven apps-framework patch
 import { getAppByHomeAction } from "../../../../../../src/apps/framework/registry";
+import { AppPopoutHost } from "../../../../../../src/apps/framework/appPopout/AppPopoutHost";
 import { UserMenuPortalContext } from "../../../../../../src/apps/framework/UserMenuPortalContext";
-import { installJKMenuNavigation, uninstallJKMenuNavigation } from "../../../../../../src/apps/framework/jkMenuNavigation";
+import {
+    installJKMenuNavigation,
+    uninstallJKMenuNavigation,
+} from "../../../../../../src/apps/framework/jkMenuNavigation";
+import { startPostRelationMemory } from "../../../../../../src/apps/social/utils/postRelationMemory";
 
 // We need to fetch each pinned message individually (if we don't already have it)
 // so each pinned message may trigger a request. Limit the number per room for sanity.
@@ -140,6 +140,8 @@ class LoggedInView extends React.Component<IProps, IState> {
     public static displayName = "LoggedInView";
 
     protected readonly _matrixClient: MatrixClient;
+    // haven: stops recording where Social posts sit (see postRelationMemory.ts).
+    private stopPostRelationMemory?: () => void;
     protected readonly _roomView: React.RefObject<RoomView | null>;
     protected readonly _resizeContainer: React.RefObject<HTMLDivElement | null>;
     protected readonly resizeHandler: React.RefObject<HTMLDivElement | null>;
@@ -182,6 +184,7 @@ class LoggedInView extends React.Component<IProps, IState> {
         document.addEventListener("keydown", this.onNativeKeyDown, false);
         // haven apps-framework patch
         installJKMenuNavigation();
+        this.stopPostRelationMemory = startPostRelationMemory(this._matrixClient);
         this.context.legacyCallHandler.addListener(LegacyCallHandlerEvent.CallState, this.onCallState);
 
         void this.updateServerNoticeEvents();
@@ -280,6 +283,7 @@ class LoggedInView extends React.Component<IProps, IState> {
         document.removeEventListener("keydown", this.onNativeKeyDown, false);
         // haven apps-framework patch
         uninstallJKMenuNavigation();
+        this.stopPostRelationMemory?.();
         this.context.legacyCallHandler.removeListener(LegacyCallHandlerEvent.CallState, this.onCallState);
         this._matrixClient.removeListener(ClientEvent.AccountData, this.onAccountData);
         this._matrixClient.removeListener(ClientEvent.Sync, this.onSync);
@@ -850,9 +854,7 @@ class LoggedInView extends React.Component<IProps, IState> {
                             <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
                         </div>
                     )}
-                    {!useNewRoomList && (
-                        <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />
-                    )}
+                    {!useNewRoomList && <SpacePanel userMenuPortalTarget={this.state.userMenuPortalTarget} />}
                     <div className="mx_LeftPanel_backdropClip">
                         <BackdropPanel blurMultiplier={0.5} backgroundImage={this.state.backgroundImage} />
                     </div>
@@ -988,6 +990,8 @@ class LoggedInView extends React.Component<IProps, IState> {
                     </div>
                 </div>
                 <PipContainer />
+                {/* haven patch: an app popped out into its own window */}
+                <AppPopoutHost />
                 <NonUrgentToastContainer />
                 {audioFeedArraysForCalls}
             </MatrixClientContextProvider>

@@ -530,7 +530,8 @@ describe("ElementWidgetDriver", () => {
             driver = mkDefaultDriver();
         });
 
-        it("reads related events from the current room", async () => {
+        // Haven: a room widget reads from its own room, not the one on screen (ElementWidgetDriver.ts)
+        it("reads related events from the widget's own room", async () => {
             vi.spyOn(SDKContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!this-room-id");
 
             client.relations.mockResolvedValue({
@@ -544,7 +545,7 @@ describe("ElementWidgetDriver", () => {
                 prevBatch: undefined,
             });
 
-            expect(client.relations).toHaveBeenCalledWith("!this-room-id", "$event", null, null, {});
+            expect(client.relations).toHaveBeenCalledWith("!1:example.org", "$event", null, null, {});
         });
 
         it("reads related events from a selected room", async () => {
@@ -595,6 +596,49 @@ describe("ElementWidgetDriver", () => {
         });
     });
 
+    // Haven: a room widget open outside its room (as one of Haven's apps, or popped out) mustn't
+    // send into whichever room is on screen.
+    describe("the room a widget sends to", () => {
+        beforeEach(() => {
+            vi.spyOn(SDKContextClass.instance.roomViewStore, "getRoomId").mockReturnValue("!viewed:example.org");
+            client.sendEvent.mockResolvedValue({ event_id: "$sent" });
+        });
+
+        it("is a room widget's own room", async () => {
+            await expect(
+                mkDefaultDriver().sendEvent(EventType.RoomMessage, { msgtype: MsgType.Text, body: "hi" }, null, null),
+            ).resolves.toEqual({ roomId: "!1:example.org", eventId: "$sent" });
+            expect(client.sendEvent).toHaveBeenCalledWith("!1:example.org", EventType.RoomMessage, expect.anything());
+        });
+
+        it("is the room on screen for an account widget", async () => {
+            const driver = new ElementWidgetDriver(
+                new Widget({
+                    id: "test",
+                    creatorUserId: "@alice:example.org",
+                    type: "example",
+                    url: "https://example.org",
+                }),
+                WidgetKind.Account,
+                false,
+            );
+            await expect(
+                driver.sendEvent(EventType.RoomMessage, { msgtype: MsgType.Text, body: "hi" }, null, null),
+            ).resolves.toEqual({ roomId: "!viewed:example.org", eventId: "$sent" });
+        });
+
+        it("is the room the widget names, when it names one", async () => {
+            await expect(
+                mkDefaultDriver().sendEvent(
+                    EventType.RoomMessage,
+                    { msgtype: MsgType.Text, body: "hi" },
+                    null,
+                    "!other:example.org",
+                ),
+            ).resolves.toEqual({ roomId: "!other:example.org", eventId: "$sent" });
+        });
+    });
+
     describe("chat effects", () => {
         let driver: WidgetDriver;
         // let client: MatrixClient;
@@ -637,7 +681,8 @@ describe("ElementWidgetDriver", () => {
 
     describe("sendDelayedEvent", () => {
         let driver: WidgetDriver;
-        const roomId = "!this-room-id";
+        // Haven: the widget's own room (see mkDefaultDriver), not the one on screen
+        const roomId = "!1:example.org";
 
         beforeEach(() => {
             driver = mkDefaultDriver();
@@ -728,7 +773,8 @@ describe("ElementWidgetDriver", () => {
 
     describe("StickyEvent", () => {
         let driver: WidgetDriver;
-        const roomId = "!this-room-id";
+        // Haven: the widget's own room (see mkDefaultDriver), not the one on screen
+        const roomId = "!1:example.org";
 
         beforeEach(() => {
             driver = mkDefaultDriver();
@@ -791,7 +837,8 @@ describe("ElementWidgetDriver", () => {
 
     describe("sendDelayedStickyEvent", () => {
         let driver: WidgetDriver;
-        const roomId = "!this-room-id";
+        // Haven: the widget's own room (see mkDefaultDriver), not the one on screen
+        const roomId = "!1:example.org";
 
         beforeEach(() => {
             driver = mkDefaultDriver();

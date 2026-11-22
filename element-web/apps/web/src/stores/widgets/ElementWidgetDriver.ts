@@ -303,7 +303,10 @@ export class ElementWidgetDriver extends WidgetDriver {
 
     private getSendEventTarget(roomId: string | null = null): { client: MatrixClient; roomId: string } {
         const client = MatrixClientPeg.safeGet();
-        roomId = roomId || SDKContextClass.instance.roomViewStore.getRoomId() || null;
+        // Haven: a room widget acts in its own room. Stock went straight to the room on screen,
+        // so a widget open somewhere else (e.g. as one of Haven's apps) sent into whatever room
+        // the user last viewed. Account widgets (no room of their own) still use the viewed room.
+        roomId = roomId || this.inRoomId || SDKContextClass.instance.roomViewStore.getRoomId() || null;
         if (!roomId) throw new Error("No room specified and no room in RoomViewStore focus.");
         return { client, roomId };
     }
@@ -806,7 +809,8 @@ export class ElementWidgetDriver extends WidgetDriver {
     ): Promise<IReadEventRelationsResult> {
         const client = MatrixClientPeg.safeGet();
         const dir = direction as Direction;
-        roomId = roomId ?? SDKContextClass.instance.roomViewStore.getRoomId() ?? undefined;
+        // Haven: its own room first, as in getSendEventTarget.
+        roomId = roomId ?? this.inRoomId ?? SDKContextClass.instance.roomViewStore.getRoomId() ?? undefined;
 
         if (typeof roomId !== "string") {
             throw new Error("Error while reading the current room");

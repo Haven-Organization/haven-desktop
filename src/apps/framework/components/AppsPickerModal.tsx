@@ -9,6 +9,7 @@
 
 import React, { type JSX, useCallback } from "react";
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
+import { Tooltip } from "@vector-im/compound-web";
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import ContextMenu, {
@@ -17,8 +18,10 @@ import ContextMenu, {
     useContextMenu,
     toRightOf,
 } from "../../../../element-web/apps/web/src/components/structures/ContextMenu";
-import { getEnabledApps } from "../registry";
+import { getLaunchableApps } from "../registry";
 import { usePinnedAppIds } from "../pinnedApps";
+import { useWidgetAppEntries } from "../widgetApps/widgetApps";
+import { useGameAppEntries } from "../gameApps/gameApps";
 import { AppContextMenu } from "./AppContextMenu";
 import { type HavenApp } from "../types";
 
@@ -40,18 +43,21 @@ function AppTile({ app, client, pinned, onLaunched }: TileProps): JSX.Element {
 
     return (
         <div className="haven_AppsPickerModal_tileWrapper">
-            <button
-                ref={handle}
-                className="haven_AppsPickerModal_tile"
-                onClick={handleClick}
-                onContextMenu={openMenu}
-                aria-label={app.name}
-            >
-                <div className="haven_AppsPickerModal_tileIcon" aria-hidden="true">
-                    {app.image ? <img src={app.image} alt="" /> : <Icon />}
-                </div>
-                <span className="haven_AppsPickerModal_tileLabel">{app.name}</span>
-            </button>
+            {/* The full name: under the icon, a long one is cut short. */}
+            <Tooltip label={app.name} placement="bottom">
+                <button
+                    ref={handle}
+                    className="haven_AppsPickerModal_tile"
+                    onClick={handleClick}
+                    onContextMenu={openMenu}
+                    aria-label={app.name}
+                >
+                    <div className="haven_AppsPickerModal_tileIcon" aria-hidden="true">
+                        {app.image ? <img src={app.image} alt="" /> : <Icon />}
+                    </div>
+                    <span className="haven_AppsPickerModal_tileLabel">{app.name}</span>
+                </button>
+            </Tooltip>
             {menuDisplayed && handle.current && (
                 <AppContextMenu
                     {...toRightOf(handle.current.getBoundingClientRect())}
@@ -71,12 +77,25 @@ interface Props extends IContextMenuProps {
 
 export function AppsPickerModal({ client, onFinished, ...props }: Props): JSX.Element {
     const pinnedIds = usePinnedAppIds(client);
+    useWidgetAppEntries(client); // re-render when the user's widget apps change
+    useGameAppEntries(client); // and their game apps
 
     return (
-        <ContextMenu {...props} onFinished={onFinished} menuClassName="haven_AppsPickerModal" chevronFace={ChevronFace.None}>
+        <ContextMenu
+            {...props}
+            onFinished={onFinished}
+            menuClassName="haven_AppsPickerModal"
+            chevronFace={ChevronFace.None}
+        >
             <div className="haven_AppsPickerModal_grid">
-                {getEnabledApps().map((app) => (
-                    <AppTile key={app.id} app={app} client={client} pinned={pinnedIds.includes(app.id)} onLaunched={onFinished} />
+                {getLaunchableApps().map((app) => (
+                    <AppTile
+                        key={app.id}
+                        app={app}
+                        client={client}
+                        pinned={pinnedIds.includes(app.id)}
+                        onLaunched={onFinished}
+                    />
                 ))}
             </div>
         </ContextMenu>

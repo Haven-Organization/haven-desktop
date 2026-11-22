@@ -187,7 +187,9 @@
     font: var(--cpd-font-body-md-regular);
     text-align: left;
     position: relative;
-    transition: background 0.1s, color 0.1s;
+    transition:
+        background 0.1s,
+        color 0.1s;
 
     &:hover {
         // rgba($accent, 0.08) is invalid once $accent is a CSS custom property (var(...)) rather
@@ -262,7 +264,9 @@
         // space panel's own background.
         background-color: $panel-actions;
         color: $secondary-content;
-        transition: background 0.1s, color 0.1s;
+        transition:
+            background 0.1s,
+            color 0.1s;
         box-sizing: border-box;
         overflow: hidden;
 
@@ -667,4 +671,223 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: var(--cpd-space-2x);
+}
+
+// "Add to Apps" on a room widget (widgetApps/AddToAppsButton.tsx). In a widget's title bar it
+// borrows mx_AppTileMenuBar_widgets_button; once added, its icon takes the accent colour, the same
+// way a pinned widget's pin does in the Extensions list.
+.mx_AppTileMenuBar_widgets_button.haven_AddToAppsButton--added .mx_Icon {
+    color: $accent;
+}
+
+// On a widget's row in the room's Extensions list: one more of the row's absolutely placed
+// 24px buttons, left of the options button (when the user can change widgets) and the pin.
+.mx_ExtensionsCard .mx_ExtensionsCard_Button {
+    .mx_ExtensionsCard_icon_app {
+        padding-right: calc(var(--cpd-space-12x) + 24px);
+    }
+
+    &.haven_ExtensionsCard_Button_withOptions .mx_ExtensionsCard_icon_app {
+        padding-right: calc(var(--cpd-space-12x) + 48px);
+    }
+
+    .haven_ExtensionsCard_app_addToApps {
+        position: absolute;
+        top: 0;
+        right: 32px; // left of the pin (8px + 24px)
+        height: 100%;
+        width: 24px;
+        padding: var(--cpd-space-3x) var(--cpd-space-1x);
+        box-sizing: border-box;
+
+        svg {
+            width: 16px;
+            height: 16px;
+            color: $icon-button-color;
+        }
+
+        &.haven_AddToAppsButton--added svg {
+            color: $accent;
+        }
+
+        &:hover::after {
+            content: "";
+            position: absolute;
+            height: 24px;
+            width: 24px;
+            top: var(--cpd-space-2x);
+            left: 0;
+            border-radius: 12px;
+            background-color: rgb(141, 151, 165, 0.1);
+        }
+    }
+
+    &.haven_ExtensionsCard_Button_withOptions .haven_ExtensionsCard_app_addToApps {
+        right: 56px; // left of the options button (32px + 24px)
+    }
+}
+
+// A room widget opened as an app (widgetApps/WidgetAppView.tsx): a slim header naming the widget
+// and its room, then the widget filling the rest of the page.
+.haven_WidgetAppView {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--cpd-color-bg-canvas-default);
+}
+
+.haven_WidgetAppView_header {
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-2x);
+    padding: var(--cpd-space-2x) var(--cpd-space-4x);
+    min-height: 48px;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--cpd-color-border-interactive-secondary);
+}
+
+.haven_WidgetAppView_title {
+    margin: 0;
+    font: var(--cpd-font-body-lg-semibold);
+    color: var(--cpd-color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.haven_WidgetAppView_headerButtons {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--cpd-space-1x);
+}
+
+.haven_WidgetAppView_headerButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--cpd-color-icon-secondary);
+
+    &:hover,
+    &[aria-expanded="true"] {
+        color: var(--cpd-color-icon-primary);
+        background: var(--cpd-color-bg-subtle-secondary);
+    }
+}
+
+.haven_WidgetAppView_body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    // As the right panel's WidgetCard does: the tile fills its space, with no frame of its own.
+    .mx_AppTileFullWidth {
+        flex: 1;
+        max-width: unset;
+        width: auto !important;
+        height: 100%;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .mx_AppTileBody {
+        border-radius: 0;
+    }
+}
+
+.haven_WidgetAppView_unavailable {
+    margin: auto;
+    max-width: 480px;
+    padding: var(--cpd-space-6x);
+    text-align: center;
+    color: var(--cpd-color-text-secondary);
+    font: var(--cpd-font-body-md-regular);
+
+    h2 {
+        margin: 0 0 var(--cpd-space-2x);
+        font: var(--cpd-font-heading-sm-semibold);
+        color: var(--cpd-color-text-primary);
+    }
+
+    p {
+        margin: 0 0 var(--cpd-space-6x);
+    }
+}
+
+.haven_WidgetAppView_unavailableButtons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--cpd-space-3x);
+}
+
+// Haven: an app's page while the app is popped out into its own window
+.social_PoppedOut {
+    flex: 1;
+    min-width: 0;
+}
+
+// A game app's page: the game fills it (gameApps/GameAppView.tsx)
+.haven_GameAppView_icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    object-fit: contain;
+    color: var(--cpd-color-icon-secondary);
+}
+
+.haven_GameAppView_body {
+    overflow: auto;
+
+    .mx_WebxdcGame--app {
+        --WebxdcGame-width: 100%;
+        flex: 1;
+        width: 100%;
+        max-width: none;
+        min-height: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        padding: var(--cpd-space-4x);
+    }
+
+    // Not playing: the cartridge, big, in the middle of the page.
+    .mx_WebxdcGame--app:not(.mx_WebxdcGame--playing) {
+        align-items: center;
+        justify-content: center;
+        gap: var(--cpd-space-4x);
+
+        .mx_WebxdcGame_cartridge {
+            width: min(240px, 40vh);
+        }
+
+        .mx_WebxdcGame_footer {
+            width: min(100%, 480px);
+        }
+    }
+
+    .mx_WebxdcGame--app.mx_WebxdcGame--playing {
+        padding: 0;
+
+        .mx_WebxdcGame_frame {
+            flex: 1;
+            height: auto;
+            min-height: 0;
+            border-radius: 0;
+        }
+
+        .mx_WebxdcGame_bar {
+            border-radius: 0;
+        }
+    }
 }

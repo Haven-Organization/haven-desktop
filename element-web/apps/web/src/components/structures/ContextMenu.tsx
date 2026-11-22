@@ -24,6 +24,8 @@ import { TooltipProvider } from "@vector-im/compound-web";
 
 import { type Writeable } from "../../@types/common";
 import UIStore from "../../stores/UIStore";
+// haven patch: menus opened from an app popped out into its own window go into that window
+import { PortalWindowContext } from "../../../../../../src/apps/framework/appPopout/PortalWindowContext";
 import { checkInputableElement, RovingTabIndexProvider } from "../../accessibility/RovingTabIndex";
 import { KeyBindingAction } from "../../accessibility/KeyboardShortcuts";
 import { getKeyBindingsManager } from "../../KeyBindingsManager";
@@ -36,13 +38,14 @@ import Modal, { ModalManagerEvent } from "../../Modal";
 const WINDOW_PADDING = 10;
 const ContextualMenuContainerId = "mx_ContextualMenu_Container";
 
-function getOrCreateContainer(): HTMLDivElement {
-    let container = document.getElementById(ContextualMenuContainerId) as HTMLDivElement;
+// haven patch: the container is in the document of the window the menu opens in
+function getOrCreateContainer(doc: Document = document): HTMLDivElement {
+    let container = doc.getElementById(ContextualMenuContainerId) as HTMLDivElement;
 
     if (!container) {
-        container = document.createElement("div");
+        container = doc.createElement("div");
         container.id = ContextualMenuContainerId;
-        document.body.appendChild(container);
+        doc.body.appendChild(container);
     }
 
     return container;
@@ -124,13 +127,23 @@ export default class ContextMenu extends React.PureComponent<React.PropsWithChil
         managed: true,
     };
 
-    public constructor(props: IProps) {
-        super(props);
+    // haven patch: the window this menu opens in, when it isn't the main window (PortalWindowContext)
+    public static contextType = PortalWindowContext;
+    declare public context: React.ContextType<typeof PortalWindowContext>;
+
+    public constructor(props: IProps, context: React.ContextType<typeof PortalWindowContext>) {
+        super(props, context);
 
         this.state = {};
 
         // persist what had focus when we got initialized so we can return it after
-        this.initialFocus = document.activeElement as HTMLElement;
+        // haven patch: in the window the menu opens in, so closing it doesn't focus the main window
+        this.initialFocus = (context ?? window).document.activeElement as HTMLElement;
+    }
+
+    // haven patch
+    private get targetWindow(): Window {
+        return this.context ?? window;
     }
 
     public componentDidMount(): void {
@@ -184,7 +197,7 @@ export default class ContextMenu extends React.PureComponent<React.PropsWithChil
                     button: 0, // Left
                     relatedTarget: null,
                 });
-                document.elementFromPoint(x, y)?.dispatchEvent(clickEvent);
+                this.targetWindow.document.elementFromPoint(x, y)?.dispatchEvent(clickEvent);
             }, 0);
         }
     };
@@ -292,6 +305,18 @@ export default class ContextMenu extends React.PureComponent<React.PropsWithChil
             chevronFace = ChevronFace.Right;
         }
 
+        // haven patch: the placement helpers (aboveLeftOf and the rest) measure right and bottom
+        // from the main window's edges. In another window, measure them from that window's instead.
+        const targetWindow = this.targetWindow;
+        if (targetWindow !== window) {
+            if (position.bottom !== undefined) {
+                position.bottom += targetWindow.innerHeight - UIStore.instance.windowHeight;
+            }
+            if (position.right !== undefined) {
+                position.right += targetWindow.innerWidth - UIStore.instance.windowWidth;
+            }
+        }
+
         const contextMenuRect = this.state.contextMenuElem ? this.state.contextMenuElem.getBoundingClientRect() : null;
 
         const chevronOffset: CSSProperties = {};
@@ -308,7 +333,11 @@ export default class ContextMenu extends React.PureComponent<React.PropsWithChil
 
         // If we know the dimensions of the context menu, adjust its position to
         // keep it within the bounds of the (padded) window
-        const { windowWidth, windowHeight } = UIStore.instance;
+        // haven patch: kept within the window the menu opens in
+        const { windowWidth, windowHeight } =
+            targetWindow === window
+                ? UIStore.instance
+                : { windowWidth: targetWindow.innerWidth, windowHeight: targetWindow.innerHeight };
         if (contextMenuRect) {
             if (position.top !== undefined) {
                 let maxTop = windowHeight - WINDOW_PADDING;
@@ -463,7 +492,7 @@ export default class ContextMenu extends React.PureComponent<React.PropsWithChil
             return this.renderMenu();
         } else {
             // Render as a child of a container at the root of the DOM
-            return ReactDOM.createPortal(this.renderMenu(), getOrCreateContainer());
+            return ReactDOM.createPortal(this.renderMenu(), getOrCreateContainer(this.targetWindow.document));
         }
     }
 }

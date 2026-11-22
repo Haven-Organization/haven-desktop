@@ -15,8 +15,11 @@ import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { useContextMenu, toRightOf } from "../../../../element-web/apps/web/src/components/structures/ContextMenu";
-import { getEnabledApps } from "../registry";
+import { getLaunchableApps } from "../registry";
 import { usePinnedAppIds } from "../pinnedApps";
+import { useWidgetAppEntries } from "../widgetApps/widgetApps";
+import { useGameAppEntries } from "../gameApps/gameApps";
+import { useWidgetAppsWatcher } from "../widgetApps/useWidgetAppsWatcher";
 import { useActiveAppId } from "../hooks/useActiveAppId";
 import { AppContextMenu } from "./AppContextMenu";
 import { type HavenApp } from "../types";
@@ -44,7 +47,8 @@ function AppButton({ app, client, pinned, isPanelCollapsed, isActive }: AppButto
             className={`haven_SpaceAppItem${isPanelCollapsed ? " haven_SpaceAppItem--collapsed" : ""}`}
             role="treeitem"
             aria-selected={isActive}
-            title={isPanelCollapsed ? app.name : undefined}
+            // The full name, which a long one is cut short of in the expanded panel too.
+            title={app.name}
             data-app-id={app.id}
         >
             <button
@@ -81,13 +85,16 @@ interface Props {
 export function SpacePanelAppButtons({ client, isPanelCollapsed }: Props): JSX.Element {
     const pinnedIds = usePinnedAppIds(client);
     const activeAppId = useActiveAppId();
+    // Re-render when the user's widget apps change: they're part of getLaunchableApps.
+    useWidgetAppEntries(client);
+    useGameAppEntries(client); // and their game apps
+    // Here because SpacePanel stays mounted all session, even while the spaces bar is hidden.
+    useWidgetAppsWatcher(client);
 
-    const enabledApps = getEnabledApps();
+    const enabledApps = getLaunchableApps();
     const pinnedApps = enabledApps.filter((app) => pinnedIds.includes(app.id));
     const activeUnpinnedApp =
-        activeAppId && !pinnedIds.includes(activeAppId)
-            ? enabledApps.find((app) => app.id === activeAppId)
-            : undefined;
+        activeAppId && !pinnedIds.includes(activeAppId) ? enabledApps.find((app) => app.id === activeAppId) : undefined;
 
     // Open (unpinned) app first, then pinned apps — the Apps button above always shows regardless,
     // so this list itself may legitimately be empty.

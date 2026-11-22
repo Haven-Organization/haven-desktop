@@ -109,7 +109,11 @@ export function RecordKeyboardShortcutDialog({
     };
 
     return (
-        <BaseDialog className="haven_RecordShortcutDialog" onFinished={onCancel} title={`Change shortcut: ${actionDisplayName}`}>
+        <BaseDialog
+            className="haven_RecordShortcutDialog"
+            onFinished={onCancel}
+            title={`Change shortcut: ${actionDisplayName}`}
+        >
             <div className="mx_Dialog_content">
                 {currentValue && (
                     <div className="haven_RecordShortcutDialog_current">

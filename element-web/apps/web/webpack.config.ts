@@ -168,6 +168,8 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
             "jitsi": "./src/vector/jitsi/index.ts",
             // haven patch: the window widgets pop out into (src/apps/framework/widgetPopout)
             "widgetpopout": "../../../src/apps/framework/widgetPopout/popoutEntry.ts",
+            // haven patch: the window apps pop out into
+            "apppopout": "../../../src/apps/framework/appPopout/appPopoutEntry.ts",
             "usercontent": "./src/usercontent/index.ts",
             "usercontent-pdf": "./src/usercontent/pdf/index.ts",
             "serviceworker": {
@@ -691,6 +693,7 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                     "usercontent-pdf",
                     "jitsi",
                     "widgetpopout", // haven patch
+                    "apppopout", // haven patch
                     "serviceworker",
                     "maplibre.worker",
                     "webxdcidb", // haven patch
@@ -716,6 +719,14 @@ export default (env: string, argv: Record<string, any>): webpack.Configuration =
                 filename: "widget_popout.html",
                 minify: false,
                 chunks: ["widgetpopout"],
+            }),
+
+            // haven patch: the window apps pop out into (src/apps/framework/appPopout)
+            new HtmlWebpackPlugin({
+                template: "../../../src/apps/framework/appPopout/appPopoutPage.html",
+                filename: "app_popout.html",
+                minify: false,
+                chunks: ["apppopout"],
             }),
 
             // This is the mobile guide's entry point (separate for faster mobile loading)

@@ -83,7 +83,7 @@ import { useMatrixClientContext } from "../../../contexts/MatrixClientContext.ts
 import { SpacePanelAppButtons } from "../../../../../../../src/apps/framework/components/SpacePanelAppButtons";
 import { AppsButton } from "../../../../../../../src/apps/framework/components/AppsButton";
 import { useActiveAppId } from "../../../../../../../src/apps/framework/hooks/useActiveAppId";
-import { getEnabledApps } from "../../../../../../../src/apps/framework/registry";
+import { getLaunchableApps } from "../../../../../../../src/apps/framework/registry";
 import { KeyboardShortcut } from "../settings/KeyboardShortcut";
 import { ModuleApi } from "../../../modules/Api.ts";
 import { useModuleSpacePanelItems } from "../../../modules/ExtrasApi.ts";
@@ -433,7 +433,7 @@ const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
                     divider with nothing above it to separate from the spaces below. */}
                 <AppsButton client={client} variant="spacebar" isPanelCollapsed={isPanelCollapsed} />
                 <SpacePanelAppButtons client={client} isPanelCollapsed={isPanelCollapsed} />
-                {getEnabledApps().length > 0 && (
+                {getLaunchableApps().length > 0 && (
                     <li className="haven_SpacePanel_divider" role="none" aria-hidden="true" />
                 )}
                 {deselectedMetaSpacesSection}

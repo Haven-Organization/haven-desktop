@@ -157,7 +157,9 @@ export function ReactionsRowButtonTooltipView({
         <>
             {trigger}
             {context.open && (
-                <FloatingPortal>
+                // Haven: into the page of the window the reaction is in, which isn't the main
+                // window's for an app popped out into its own window.
+                <FloatingPortal root={context.elements.domReference?.ownerDocument.body}>
                     <div
                         ref={refs.setFloating}
                         style={floatingStyles}

@@ -79,7 +79,7 @@ export function SlashCommandAutocomplete({
     const [completions, setCompletions] = useState<ICompletion[]>([]);
     const [selectionOffset, setSelectionOffset] = useState(0);
 
-    const { refs, floatingStyles } = useFloating({
+    const { refs, floatingStyles, elements } = useFloating({
         placement: "bottom-start",
         whileElementsMounted: autoUpdate,
         middleware: [
@@ -153,7 +153,8 @@ export function SlashCommandAutocomplete({
         <>
             <div ref={refs.setReference} style={ANCHOR_STYLE} />
             {completions.length > 0 && (
-                <FloatingPortal>
+                // Into the page of the window the composer is in: Social can pop out into its own.
+                <FloatingPortal root={elements.domReference?.ownerDocument.body}>
                     <div
                         ref={refs.setFloating}
                         // Haven: .mx_Autocomplete's own stylesheet rule sets `bottom: 0` (for its
@@ -175,9 +176,9 @@ export function SlashCommandAutocomplete({
                             {provider.renderCompletions(
                                 completions.map((completion, i) =>
                                     React.cloneElement(completion.component, {
-                                        key: i,
-                                        className: `mx_Autocomplete_Completion${i === selectionOffset ? " selected" : ""}`,
-                                        onClick: () => {
+                                        "key": i,
+                                        "className": `mx_Autocomplete_Completion${i === selectionOffset ? " selected" : ""}`,
+                                        "onClick": () => {
                                             onConfirm(completion);
                                             clear();
                                         },

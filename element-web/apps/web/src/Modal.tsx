@@ -21,6 +21,9 @@ import { type ActionPayload } from "./dispatcher/payloads";
 import { filterBoolean } from "./utils/arrays.ts";
 import { SDKContext } from "./contexts/SDKContext.ts";
 import { LinkedTextConfiguration } from "./Linkify";
+// haven patch: dialogs opened from an app popped out into its own window open in that window
+import { getDialogWindow } from "../../../../src/apps/framework/appPopout/dialogWindow";
+import { PortalWindowContext } from "../../../../src/apps/framework/appPopout/PortalWindowContext";
 
 const DIALOG_CONTAINER_ID = "mx_Dialog_Container";
 const STATIC_DIALOG_CONTAINER_ID = "mx_Dialog_StaticContainer";
@@ -55,6 +58,8 @@ export type ComponentProps<C extends ComponentType> = Defaultize<
 export interface IModal<C extends ComponentType> {
     elem: React.ReactNode;
     className?: string;
+    // haven patch: the window the dialog opens in (dialogWindow.ts)
+    havenWindow: Window;
     beforeClosePromise?: Promise<boolean>;
     closeReason?: ModalCloseReason;
     onBeforeClose?(reason?: ModalCloseReason): Promise<boolean>;
@@ -114,12 +119,13 @@ type HandlerMap = {
 
 type ModalCloseReason = "backgroundClick";
 
-function getOrCreateContainer(id: string): HTMLDivElement {
-    let container = document.getElementById(id) as HTMLDivElement | null;
+// haven patch: in the document of the window the dialog opens in
+function getOrCreateContainer(id: string, doc: Document = document): HTMLDivElement {
+    let container = doc.getElementById(id) as HTMLDivElement | null;
     if (!container) {
-        container = document.createElement("div");
+        container = doc.createElement("div");
         container.id = id;
-        document.body.appendChild(container);
+        doc.body.appendChild(container);
     }
     return container;
 }
@@ -138,22 +144,30 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
     // Neither the static nor priority modal will be in this list.
     private modals: IModal<any>[] = [];
 
-    private static root?: Root;
-    private static getOrCreateRoot(): Root {
-        if (!ModalManager.root) {
-            const container = getOrCreateContainer(DIALOG_CONTAINER_ID);
-            ModalManager.root = createRoot(container);
+    // haven patch: a React root for each container in each window that has shown a dialog, as
+    // dialogs can open in an app's pop-out window (dialogWindow.ts) as well as the main window
+    private static roots = new Map<string, Map<Window, Root>>();
+    private static getOrCreateRootIn(id: string, win: Window): Root {
+        let forId = ModalManager.roots.get(id);
+        if (!forId) {
+            forId = new Map();
+            ModalManager.roots.set(id, forId);
         }
-        return ModalManager.root;
+        let root = forId.get(win);
+        if (!root) {
+            root = createRoot(getOrCreateContainer(id, win.document));
+            forId.set(win, root);
+        }
+        return root;
     }
 
-    private static staticRoot?: Root;
-    private static getOrCreateStaticRoot(): Root {
-        if (!ModalManager.staticRoot) {
-            const container = getOrCreateContainer(STATIC_DIALOG_CONTAINER_ID);
-            ModalManager.staticRoot = createRoot(container);
+    // haven patch: shows `node` in the container in `win`, and empties that container in the
+    // other windows, so a dialog that moved between windows isn't left behind in the old one
+    private static renderIn(id: string, win: Window, node: React.ReactNode): void {
+        for (const [otherWin, root] of ModalManager.roots.get(id) ?? []) {
+            if (otherWin !== win) root.render(<></>);
         }
-        return ModalManager.staticRoot;
+        ModalManager.getOrCreateRootIn(id, win).render(node);
     }
 
     public constructor() {
@@ -236,6 +250,8 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
 
             // these will be set below but we need an object reference to pass to getCloseFn before we can do that
             elem: null,
+            // haven patch
+            havenWindow: getDialogWindow(),
         } as IModal<C>;
 
         const [closeDialog, onFinishedProm] = this.getCloseFn<C>(modal);
@@ -411,6 +427,32 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
         modal.closeReason = undefined;
     };
 
+    // haven patch: menus a dialog opens go into the dialog's window (PortalWindowContext)
+    private static inWindow(modal: IModal<any>): React.ReactNode {
+        return (
+            <PortalWindowContext.Provider value={modal.havenWindow === window ? null : modal.havenWindow}>
+                {modal.elem}
+            </PortalWindowContext.Provider>
+        );
+    }
+
+    /**
+     * haven patch: moves the dialogs open in `win` to the main window, for when `win` - an app's
+     * pop-out window - is about to close.
+     */
+    public havenReturnDialogsFrom(win: Window): void {
+        for (const modal of [...this.modals, this.priorityModal, this.staticModal]) {
+            if (modal?.havenWindow === win) modal.havenWindow = window;
+        }
+        for (const forId of ModalManager.roots.values()) {
+            const root = forId.get(win);
+            if (!root) continue;
+            forId.delete(win);
+            root.unmount();
+        }
+        void this.reRender();
+    }
+
     private getCurrentModal(): IModal<any> {
         return this.priorityModal ? this.priorityModal : this.modals[0] || this.staticModal;
     }
@@ -422,8 +464,8 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
             defaultDispatcher.dispatch({
                 action: "aria_unhide_main_app",
             });
-            ModalManager.getOrCreateRoot().render(<></>);
-            ModalManager.getOrCreateStaticRoot().render(<></>);
+            ModalManager.renderIn(DIALOG_CONTAINER_ID, window, <></>);
+            ModalManager.renderIn(STATIC_DIALOG_CONTAINER_ID, window, <></>);
             return;
         }
 
@@ -446,7 +488,7 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
                                 <TooltipProvider>
                                     <div className={classes}>
                                         <Glass className="mx_Dialog_border">
-                                            <div className="mx_Dialog">{this.staticModal.elem}</div>
+                                            <div className="mx_Dialog">{ModalManager.inWindow(this.staticModal)}</div>
                                         </Glass>
                                         {/* We break the rule here as this is a mouse-only interaction */}
                                         {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events */}
@@ -463,10 +505,10 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
                 </StrictMode>
             );
 
-            ModalManager.getOrCreateStaticRoot().render(staticDialog);
+            ModalManager.renderIn(STATIC_DIALOG_CONTAINER_ID, this.staticModal.havenWindow, staticDialog);
         } else {
             // This is safe to call repeatedly if we happen to do that
-            ModalManager.getOrCreateStaticRoot().render(<></>);
+            ModalManager.renderIn(STATIC_DIALOG_CONTAINER_ID, window, <></>);
         }
 
         const modal = this.getCurrentModal();
@@ -484,7 +526,7 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
                                 <TooltipProvider>
                                     <div className={classes}>
                                         <Glass className="mx_Dialog_border">
-                                            <div className="mx_Dialog">{modal.elem}</div>
+                                            <div className="mx_Dialog">{ModalManager.inWindow(modal)}</div>
                                         </Glass>
                                         {/* We break the rule here as this is a mouse-only interaction */}
                                         {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events */}
@@ -501,10 +543,10 @@ export class ModalManager extends TypedEventEmitter<ModalManagerEvent, HandlerMa
                 </StrictMode>
             );
 
-            ModalManager.getOrCreateRoot().render(dialog);
+            ModalManager.renderIn(DIALOG_CONTAINER_ID, modal.havenWindow, dialog);
         } else {
             // This is safe to call repeatedly if we happen to do that
-            ModalManager.getOrCreateRoot().render(<></>);
+            ModalManager.renderIn(DIALOG_CONTAINER_ID, window, <></>);
         }
     }
 }
