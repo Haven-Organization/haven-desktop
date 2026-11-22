@@ -2,7 +2,7 @@
  * Haven apps framework - the message a game app's game was shared in.
  */
 
-import { KnownMembership, type MatrixClient, type MatrixEvent } from "matrix-js-sdk/src/matrix";
+import { KnownMembership, MatrixError, type MatrixClient, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
 import { MediaEventHelper } from "../../../../element-web/apps/web/src/utils/MediaEventHelper";
@@ -14,9 +14,18 @@ export function isInRoom(client: MatrixClient, roomId: string): boolean {
     return client.getRoom(roomId)?.getMyMembership() === KnownMembership.Join;
 }
 
+/** Whether the server says the message doesn't exist, or isn't one the user may see. */
+export function isMissingEventError(e: unknown): boolean {
+    return (
+        e instanceof MatrixError &&
+        (e.errcode === "M_NOT_FOUND" || e.errcode === "M_FORBIDDEN" || e.httpStatus === 404 || e.httpStatus === 403)
+    );
+}
+
 /**
  * The game's message, from the room's loaded timeline or else the server, decrypted. Null when the
- * server doesn't have it for the user.
+ * server says it doesn't have it for the user. Any other failure (no connection yet, a server
+ * error) throws, since the message may well be there: try again later.
  */
 export async function fetchGameEvent(
     client: MatrixClient,
@@ -29,7 +38,8 @@ export async function fetchGameEvent(
             event = client.getEventMapper()(await client.fetchRoomEvent(roomId, eventId));
         } catch (e) {
             logger.warn("Couldn't fetch a game app's message", e);
-            return null;
+            if (isMissingEventError(e)) return null;
+            throw e;
         }
     }
     await client.decryptEventIfNeeded(event);

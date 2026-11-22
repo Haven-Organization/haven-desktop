@@ -30,7 +30,7 @@ export function popOutGameApp(client: MatrixClient, entry: GameAppEntry): void {
         roomId,
         eventId,
         archive: (async () => {
-            const event = await fetchGameEvent(client, roomId, eventId);
+            const event = await fetchGameEvent(client, roomId, eventId).catch(() => null);
             return event && isGameEvent(event) ? readGameArchive(event, entry) : undefined;
         })(),
         sandbox: webxdcSandbox(entry.game_id),

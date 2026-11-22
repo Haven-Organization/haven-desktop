@@ -9,7 +9,7 @@
  */
 
 import React, { type JSX, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { type MatrixClient, type MatrixEvent, RoomEvent } from "matrix-js-sdk/src/matrix";
+import { ClientEvent, type MatrixClient, type MatrixEvent, RoomEvent, SyncState } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 import { PopOutIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
@@ -39,26 +39,57 @@ type GameStatus =
     | { kind: "missing" }
     | { kind: "left" };
 
+/** How long to wait before fetching the message again after a failure, doubling each time up to the last. */
+const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000];
+
 /** The game's message, kept up to date as it's deleted and the user leaves or rejoins the room. */
 function useGameStatus(client: MatrixClient, roomId: string, eventId: string): GameStatus {
     const [status, setStatus] = useState<GameStatus>({ kind: "loading" });
     const [attempt, setAttempt] = useState(0);
+    const failures = useRef(0);
 
     useEffect(() => {
         let canceled = false;
+        let retry: number | undefined;
         if (!isInRoom(client, roomId)) {
             setStatus({ kind: "left" });
         } else {
-            void fetchGameEvent(client, roomId, eventId).then((event) => {
-                if (canceled) return;
-                if (!event) setStatus({ kind: "missing" });
-                else setStatus(isGameEvent(event) ? { kind: "ready", event } : { kind: "deleted" });
-            });
+            fetchGameEvent(client, roomId, eventId).then(
+                (event) => {
+                    if (canceled) return;
+                    failures.current = 0;
+                    if (!event) setStatus({ kind: "missing" });
+                    else setStatus(isGameEvent(event) ? { kind: "ready", event } : { kind: "deleted" });
+                },
+                () => {
+                    // Not an answer about the message (often no connection yet, as when Haven has just
+                    // started): keep loading and ask again, rather than saying the game is gone.
+                    if (canceled) return;
+                    const delay = RETRY_DELAYS_MS[Math.min(failures.current, RETRY_DELAYS_MS.length - 1)];
+                    failures.current++;
+                    retry = window.setTimeout(() => setAttempt((n) => n + 1), delay);
+                },
+            );
         }
         return () => {
             canceled = true;
+            window.clearTimeout(retry);
         };
     }, [client, roomId, eventId, attempt]);
+
+    // Ask again as soon as the connection to the server is back, rather than waiting out the delay.
+    useEffect(() => {
+        const onSync = (state: SyncState, previous: SyncState | null): void => {
+            const reconnected =
+                (state === SyncState.Syncing || state === SyncState.Prepared) &&
+                (previous === SyncState.Error || previous === SyncState.Reconnecting || previous === null);
+            if (reconnected && failures.current > 0) setAttempt((n) => n + 1);
+        };
+        client.on(ClientEvent.Sync, onSync);
+        return () => {
+            client.removeListener(ClientEvent.Sync, onSync);
+        };
+    }, [client]);
 
     useEffect(() => {
         const recheck = (): void => setAttempt((n) => n + 1);
