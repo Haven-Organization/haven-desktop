@@ -45,6 +45,10 @@ import PopOutIcon from "@vector-im/compound-design-tokens/assets/web/icons/pop-o
 import { EditMessageComposerWrapper } from "../rooms/EditMessageComposerWrapper";
 import { ModuleApi } from "../../../modules/Api";
 import { RichEmbed, useRichEmbedResolver } from "./RichEmbed";
+import {
+    getTranslatableText,
+    MessageTranslation,
+} from "../../../../../../../src/apps/framework/translation/MessageTranslation";
 
 const logger = rootLogger.getChild("TextualBodyFactory");
 
@@ -374,6 +378,10 @@ export function TextualBodyFactory(props: Readonly<IBodyProps>): JSX.Element {
         </Button>
     );
 
+    // Haven: "Translate with ..." under the message's own text (not a media caption).
+    const translatableText = getTranslatableText(props.mxEvent);
+    const translation = translatableText !== undefined && <MessageTranslation text={translatableText} />;
+
     return (
         <TextualBodyView
             vm={textualBodyVm}
@@ -382,12 +390,16 @@ export function TextualBodyFactory(props: Readonly<IBodyProps>): JSX.Element {
             urlPreviews={
                 embeds.length ? (
                     <>
+                        {translation}
                         <div className="mx_TextualBody_urlPreviews mx_RichEmbed_group">{embeds}</div>
                         <MediaPreviewGroupPreview vm={mediaPreviewVm} className="mx_TextualBody_urlPreviews" />
                         {orphanedToggle}
                     </>
                 ) : (
-                    <MediaPreviewGroupPreview vm={mediaPreviewVm} className="mx_TextualBody_urlPreviews" />
+                    <>
+                        {translation}
+                        <MediaPreviewGroupPreview vm={mediaPreviewVm} className="mx_TextualBody_urlPreviews" />
+                    </>
                 )
             }
             className={getTextualBodyClassName(content.msgtype as MsgType | undefined)}

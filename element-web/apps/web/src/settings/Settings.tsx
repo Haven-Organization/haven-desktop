@@ -397,6 +397,11 @@ export interface Settings {
     // Haven: the user's own blockquote style, overriding the host's "haven.blockquote_style" - see
     // src/apps/framework/config.ts's getBlockquoteStyle. null means "use the host's".
     "Haven.blockquoteStyle": IBaseSetting<"stock" | "greentext" | null>;
+    // Haven: message translation - see src/apps/framework/translation/. The translation site's id
+    // ("off" for none) and the language to translate into; null means the host's site and the app's
+    // language.
+    "Haven.translationService": IBaseSetting<string | null>;
+    "Haven.translationTargetLanguage": IBaseSetting<string | null>;
     // Haven: sites whose links embed right away instead of showing their preview with an Embed button.
     "Haven.alwaysEmbedSites": IBaseSetting<string[]>;
     // Haven: temporary stopgap keeping the legacy (pre-MVVM-rewrite) room list alive as an opt-in
@@ -1537,6 +1542,18 @@ export const SETTINGS: Settings = {
     "Haven.blockquoteStyle": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|preferences|blockquote_style"),
+        default: null,
+    },
+    // Account-level so both follow the user to every device. A host can set the default site, or
+    // turn translation off entirely, with "haven.translation" (see src/apps/framework/config.ts).
+    "Haven.translationService": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|preferences|translation_service"),
+        default: null,
+    },
+    "Haven.translationTargetLanguage": {
+        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
+        displayName: _td("settings|preferences|translation_target_language"),
         default: null,
     },
     // Kept in account data so the choice follows the user to their other devices.

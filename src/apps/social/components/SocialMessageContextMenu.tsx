@@ -29,12 +29,18 @@ type Props = React.ComponentProps<typeof MessageContextMenu> & {
     /** Shows an Edit item first in the menu, for posts the user can edit (see EditPostDialog.tsx).
      *  Stock's own Edit item only appears on a right-click and opens stock's message editor. */
     onEdit?: () => void;
+    /** The post's text as its tile shows it, for "Translate with ..." (see MessageTranslation.tsx). */
+    translatableText?: string;
 };
 
 class SocialMessageContextMenu extends MessageContextMenu {
     // The stock class's props type can't be widened in place, so onEdit is read through this.
     private get socialOnEdit(): (() => void) | undefined {
         return (this.props as Props).onEdit;
+    }
+
+    protected havenTranslatableText(): string | undefined {
+        return (this.props as Props).translatableText ?? super.havenTranslatableText();
     }
 
     private onSocialEditClick = (): void => {

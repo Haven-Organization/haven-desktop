@@ -3028,6 +3028,12 @@
             "startup_window_behaviour_label": "Start-up and window behaviour",
             "surround_text": "Surround selected text when typing special characters",
             "time_heading": "Displaying time",
+            "translation_description": "Messages in a language you don't read get a link that opens them in the translation site you pick here, which is sent the message's text. Haven doesn't translate anything itself.",
+            "translation_heading": "Translation",
+            "translation_service": "Translate messages with",
+            "translation_service_off": "Off (no translate links)",
+            "translation_target_language": "Translate into",
+            "translation_target_language_app": "App language (%(language)s)",
             "unreads_filter_include_all": "Include all unread rooms in Unreads",
             "unreads_filter_include_all_description": "When off, the Unreads filter only shows rooms with a real notification: mentions, keywords, and rooms set to notify on all messages, like DMs. When on, it also includes rooms with plain unread activity.",
             "user_timezone": "Set timezone"

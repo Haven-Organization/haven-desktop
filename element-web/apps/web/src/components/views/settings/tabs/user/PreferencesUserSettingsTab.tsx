@@ -38,6 +38,8 @@ import { InviteRulesAccountSetting } from "./InviteRulesAccountSettings.tsx";
 import SettingsDropdown from "../../../elements/SettingsDropdown.tsx";
 import { LEGACY_ROOM_LIST_AVAILABLE } from "legacy-room-list";
 import { ResetEmbedPreferencesButton } from "../../ResetEmbedPreferencesButton";
+import { isTranslationAllowedByHost } from "../../../../../../../../../src/apps/framework/config";
+import { TranslationSettings } from "../../../../../../../../../src/apps/framework/translation/TranslationSettings";
 import { BlockquoteStyleSwitcher } from "../../BlockquoteStyleSwitcher";
 
 interface IState {
@@ -380,6 +382,17 @@ export default class PreferencesUserSettingsTab extends React.Component<EmptyObj
                         <SettingsFlag name="Haven.richEmbeds" level={SettingLevel.ACCOUNT} />
                         <ResetEmbedPreferencesButton />
                     </SettingsSubsection>
+
+                    {/* Haven: message translation - see src/apps/framework/translation/. */}
+                    {isTranslationAllowedByHost() && (
+                        <SettingsSubsection
+                            heading={_t("settings|preferences|translation_heading")}
+                            description={_t("settings|preferences|translation_description")}
+                            formWrap
+                        >
+                            <TranslationSettings />
+                        </SettingsSubsection>
+                    )}
 
                     <SettingsSubsection heading={_t("settings|preferences|media_heading")} formWrap>
                         {this.renderGroup(PreferencesUserSettingsTab.IMAGES_AND_VIDEOS_SETTINGS)}

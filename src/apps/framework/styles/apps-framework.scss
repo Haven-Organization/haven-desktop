@@ -891,3 +891,35 @@
         }
     }
 }
+
+// Haven: message translation - see src/apps/framework/translation/MessageTranslation.tsx. A plain
+// text link, so it doesn't compete with the message.
+.haven_Translation_button {
+    display: block;
+    width: fit-content;
+    margin-top: var(--cpd-space-1x);
+    font: var(--cpd-font-body-sm-regular);
+    color: var(--cpd-color-text-secondary);
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+        color: var(--cpd-color-text-primary);
+        text-decoration: underline;
+    }
+}
+
+// Settings > Preferences > Translation (TranslationSettings.tsx): room for the select's chevron,
+// which sits over its right edge, after the longest option.
+.haven_TranslationSettings_select select {
+    padding-right: 28px;
+}
+
+// A quoted reply (and the reply preview above the composer) shows just the message, not its
+// Translate link: that belongs under the message itself.
+.mx_ReplyChain,
+.mx_ReplyPreview {
+    .haven_Translation_button {
+        display: none;
+    }
+}

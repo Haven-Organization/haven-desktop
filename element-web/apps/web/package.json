@@ -72,6 +72,7 @@
         "fake-indexeddb": "^6.0.0",
         "file-saver": "^2.0.5",
         "filesize": "11.0.24",
+        "franc": "6.2.0",
         "github-markdown-css": "^5.5.1",
         "glob-to-regexp": "^0.4.1",
         "highlight.js": "^11.3.1",

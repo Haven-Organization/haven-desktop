@@ -80,6 +80,48 @@ The sandbox must be on a different origin from Haven, or it's ignored. `{id}` is
 game's own id, so with a wildcard DNS record and certificate every game gets a hostname of its own;
 a single hostname without `{id}` works too. The desktop app has its own sandbox and ignores this.
 
+## Message translation
+
+Messages and Social posts in a language the user doesn't read get a "Translate with LibreTranslate"
+link, and every message not clearly in their language offers the same in its options menu. Haven
+doesn't translate anything itself: the link opens the translation site in a new tab (the system
+browser, in the desktop app) with the message's text and the language to translate into filled in,
+so the site is sent the message's text. The link always names the site.
+
+Each user picks the site (LibreTranslate, Google Translate, DeepL, Bing Translator, Yandex
+Translate, or Off) and the language to translate into (the app's language by default) under
+Settings > Preferences > Translation.
+
+To change the site everyone starts with, or add one of your own, such as a LibreTranslate you host:
+
+```json
+"haven": {
+    "translation": {
+        "default_service": "ours",
+        "services": [
+            {
+                "id": "ours",
+                "name": "Example Translate",
+                "url": "https://translate.example.org/?source={source}&target={target}&q={text}"
+            }
+        ]
+    }
+}
+```
+
+`{text}` is replaced with the message's text, `{target}` with the language to translate into and
+`{source}` (optional) with the message's language, or `auto` when it isn't known. The url must be
+https. `default_service` can also be a built-in site's id (`libretranslate`, `google`, `deepl`,
+`bing`, `yandex`), or `off` to have translation off until each user turns it on.
+
+To turn translation off for everyone, removing its links and settings:
+
+```json
+"haven": {
+    "translation": { "enabled": false }
+}
+```
+
 ## Native Social post event type
 
 ```json

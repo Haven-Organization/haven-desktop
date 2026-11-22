@@ -36,6 +36,7 @@ import {
     UnpinIcon,
     DeleteIcon,
     ForwardIcon,
+    TranslateIcon,
     PopOutIcon,
     VisibilityOnIcon,
     ShareIcon,
@@ -78,6 +79,12 @@ import { getShareableLocationEvent } from "../../../events/location/getShareable
 import { type ShowThreadPayload } from "../../../dispatcher/payloads/ShowThreadPayload";
 import { CardContext } from "../right_panel/context";
 import PinningUtils from "../../../utils/PinningUtils";
+import {
+    getMenuTranslationService,
+    getTranslatableText,
+    openTranslation,
+    translateLabel,
+} from "../../../../../../../src/apps/framework/translation/MessageTranslation";
 import PosthogTrackers from "../../../PosthogTrackers.ts";
 import { getPackableImageFromEvent } from "../../../utils/ImagePacks";
 import AddToPackDialog from "../dialogs/AddToPackDialog";
@@ -438,6 +445,14 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
         this.closeMenu();
     };
 
+    /**
+     * Haven: the text "Translate with ..." sends. Social's menu (SocialMessageContextMenu) overrides
+     * it with the text its post tile shows, which can differ from the stock body.
+     */
+    protected havenTranslatableText(): string | undefined {
+        return getTranslatableText(this.props.mxEvent);
+    }
+
     public render(): React.ReactNode {
         const cli = MatrixClientPeg.safeGet();
         const me = cli.getUserId();
@@ -708,6 +723,24 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
             );
         }
 
+        // Haven: open the message in a translation site - see src/apps/framework/translation/.
+        let translateButton: JSX.Element | undefined;
+        const translatableText = this.havenTranslatableText();
+        const translationService =
+            translatableText !== undefined ? getMenuTranslationService(translatableText) : undefined;
+        if (translatableText !== undefined && translationService) {
+            translateButton = (
+                <IconizedContextMenuOption
+                    icon={<TranslateIcon />}
+                    label={translateLabel(translationService)}
+                    onClick={(): void => {
+                        openTranslation(translationService, translatableText);
+                        this.closeMenu();
+                    }}
+                />
+            );
+        }
+
         let editButton: JSX.Element | undefined;
         if (rightClick && canEditContent(cli, mxEvent)) {
             editButton = (
@@ -801,6 +834,7 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
                 {viewInRoomButton}
                 {openInMapSiteButton}
                 {endPollButton}
+                {translateButton}
                 {forwardButton}
                 {reactionsButton}
                 {addToPackButton}

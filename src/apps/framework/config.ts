@@ -28,6 +28,14 @@ interface HavenConfig {
      * desktop app has its own sandbox and ignores this.
      */
     webxdc_sandbox_url?: string;
+    /**
+     * "Translate with <site>" on messages in other languages (see translation/). `enabled: false`
+     * turns it off for everyone, removing its buttons and settings. `default_service` is the site
+     * used until a user picks one (a built-in id such as "google", a `services` id, or "off").
+     * `services` adds sites of the host's own: `{ id, name, url }`, with "{text}", "{target}" and
+     * optionally "{source}" in the url.
+     */
+    translation?: { enabled?: boolean; default_service?: string; services?: unknown[] };
 }
 
 function getHavenConfig(): HavenConfig {
@@ -51,6 +59,20 @@ export function isAppEnabled(appId: string): boolean {
 export function getWebxdcSandboxUrl(): string | undefined {
     const url = getHavenConfig().webxdc_sandbox_url;
     return typeof url === "string" && url ? url : undefined;
+}
+
+/** Whether the host allows message translation, per "haven.translation.enabled" (default true). */
+export function isTranslationAllowedByHost(): boolean {
+    return getHavenConfig().translation?.enabled !== false;
+}
+
+/** The "haven.translation" config block's site settings. */
+export function getHostTranslationConfig(): { defaultService?: string; services: unknown[] } {
+    const translation = getHavenConfig().translation;
+    return {
+        defaultService: typeof translation?.default_service === "string" ? translation.default_service : undefined,
+        services: Array.isArray(translation?.services) ? translation.services : [],
+    };
 }
 
 /** Per the "haven.blockquote_style" config value — defaults to "stock" if absent/unrecognized. */

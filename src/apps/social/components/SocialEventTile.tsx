@@ -105,6 +105,7 @@ import {
     type EmbeddedRelationPreview,
 } from "./PostRelationHeaderLine";
 import SocialMessageContextMenu from "./SocialMessageContextMenu";
+import { MessageTranslation } from "../../framework/translation/MessageTranslation";
 import { EditPostDialog } from "./EditPostDialog";
 import { canEditPost } from "../utils/postEdit";
 import { LikeButton } from "./LikeButton";
@@ -2184,6 +2185,20 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // against `fileUrl` (either shape), not just `content.url` - an encrypted attachment has just
     // as much claim to "body is really just the filename" as an unencrypted one.
     const fileName = content.filename ?? (fileUrl ? body : "");
+    const showsPostBody =
+        !!displayBody &&
+        !suppressBoostBody &&
+        !(fileUrl && displayBody === fileName) &&
+        !isLocationMessage &&
+        !isPollMessage;
+    // The post's text as the body below shows it (displayContent, without a reply's quoted
+    // fallback), for "Translate with ..." - see MessageTranslation.tsx.
+    const displayedBody = typeof displayContent?.body === "string" ? displayContent.body : "";
+    const translatableText = showsPostBody
+        ? inReplyToId && displayedBody.startsWith("> ")
+            ? stripReplyFallback(displayedBody)
+            : displayedBody
+        : "";
     const fileMime =
         content.info?.mimetype ??
         (fileUrl
@@ -2657,6 +2672,7 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             // never renders the "Reactions" item at all.
                             reactions={reactions}
                             onEdit={canEdit ? openEditDialog : undefined}
+                            translatableText={translatableText}
                         />
                     )}
                 </div>
@@ -2720,11 +2736,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                 caption of its own (its body is only a permalink, per MSC4501 — not meant to be read
                 as commentary; see the "Reposted" label below instead) — unless it has a
                 real caption worth keeping (HTML or plain-text), see boostHasCaption above. */}
-            {displayBody && !suppressBoostBody && !(fileUrl && displayBody === fileName) && !isLocationMessage && !isPollMessage && (
+            {showsPostBody && (
                 <div key={pillsGeneration} className="social_EventTile_body" onClick={handleBodyClick}>
                     <EventContentBodyView vm={eventContentBodyVm} as="div" />
                 </div>
             )}
+            {/* Haven: "Translate with ..." under the post's text. */}
+            {showsPostBody && <MessageTranslation text={translatableText} />}
 
             {/* Embedded reposted post (m.social.repost_of — covers boosts, retweets, and quote-posts).
                 Body/formatted_body render via repostedBodyVm — the same EventContentBodyView
