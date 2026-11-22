@@ -33,6 +33,24 @@
     <content_attribute id="social-info">mild</content_attribute>
   </content_rating>
   <releases>
+    <release version="0.12.0" date="2026-11-21">
+      <description>
+        <p>Sync with upstream Element, room widgets and games in your apps, pop-out apps, and translate links:</p>
+        <ul>
+          <li>Sync with the latest upstream Element (249 commits)</li>
+          <li>Add a room's widget to your apps and open it full size, without going to the room</li>
+          <li>Add webxdc and Flash games to your apps and play them on a page of their own</li>
+          <li>Pop apps such as Social out into a window of their own</li>
+          <li>Messages in other languages get a "Translate with" link to the translation site you pick, or none</li>
+          <li>Pick your own blockquote style: a quote or greentext</li>
+          <li>Show custom emoji at big emoji size in emoji-only messages, and keep custom emoji reactions at their own shape</li>
+          <li>Deleted Social posts keep their place in a thread</li>
+          <li>Declining an invite always sticks, without error dialogs</li>
+          <li>Keep line breaks in pasted text that has no formatting</li>
+          <li>Builds for 64-bit ARM Linux</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.11.0" date="2026-10-27">
       <description>
         <p>Sync with upstream Element, games you can play where they're posted, link embeds, and editing Social posts:</p>
