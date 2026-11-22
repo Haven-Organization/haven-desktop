@@ -46,6 +46,8 @@ Haven is a fork of [Element Web](https://github.com/element-hq/element-web) buil
 - Old room list re-added as an option
 - Optimized room list rendering for large lists
 
+See [docs/features.md](docs/features.md) for the full list of what Haven adds to Element.
+
 ## Install
 
 - **Flathub:** [software.haven.HavenDesktop](https://flathub.org/apps/software.haven.HavenDesktop)
