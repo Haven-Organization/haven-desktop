@@ -183,7 +183,11 @@ jobs:
                   PNPM_CONFIG_PM_ON_FAIL: ignore
                   npm_config_pm_on_fail: ignore
                   HAVEN_NO_BRANDING: "1"
+              # The checkout is shallow, so fetch just the branding commit and its parent, which is
+              # all the revert reads. Without them setup.sh stops (it used to revert nothing and pass).
               run: |
+                  branding_commit="$(sed -n 's/^BRANDING_COMMIT="\([0-9a-f]*\)"$/\1/p' scripts/setup.sh)"
+                  git fetch --no-tags --depth=2 origin "$branding_commit"
                   ./scripts/setup.sh
                   cd element-web/apps/web
                   pnpm exec tsc --noEmit
