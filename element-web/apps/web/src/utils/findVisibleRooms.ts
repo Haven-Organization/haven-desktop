@@ -1,6 +1,6 @@
 /*
  * Haven: the rooms and people Spotlight searches locally, moved out of SpotlightDialog.tsx
- * unchanged so Social's Search section (usePeopleSearch) finds people the same way.
+ * so Social's Search section (usePeopleSearch) finds people the same way.
  */
 
 import { type MatrixClient, type Room, type RoomMember } from "matrix-js-sdk/src/matrix";
@@ -10,8 +10,8 @@ import DMRoomMap from "./DMRoomMap";
 import { isLocalRoom } from "./localRoom/isLocalRoom";
 
 /** Joined and invited rooms, excluding local (not yet created) rooms. */
-export const findVisibleRooms = (cli: MatrixClient, msc3946ProcessDynamicPredecessor: boolean): Room[] => {
-    return cli.getVisibleRooms(msc3946ProcessDynamicPredecessor).filter((room) => {
+export const findVisibleRooms = (cli: MatrixClient): Room[] => {
+    return cli.getVisibleRooms().filter((room) => {
         // Do not show local rooms
         if (isLocalRoom(room)) return false;
 

@@ -65,8 +65,6 @@ modules:
           - element-web/apps/web/webapp
           - element-web/apps/desktop/dist
       - generated-sources.json
-      # Element Call's source and the packages its component build needs - see build.sh.
-      - element-call-sources.json
       - type: script
         dest: pnpm-cli/bin
         dest-filename: pnpm
@@ -77,19 +75,19 @@ modules:
       # happen offline. build.sh puts this architecture's binary in place of the wrapper's placeholder,
       # next to the dist/ payload it needs, the same way pnpm's own install.js does.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-12.14.0.tgz
-        sha256: ea206e35474bf87be9564a85ca70ed1c8ebdc45da55aafb0a3bf09d1ba69b179
-        dest-filename: pnpm-12.14.0.tgz
+        url: https://registry.npmjs.org/pnpm/-/pnpm-12.21.0.tgz
+        sha256: 0791469382b579869c51827759876616bc3eae5296d8fa880bbc3c9c1e8cf6f7
+        dest-filename: pnpm-12.21.0.tgz
       - type: file
         only-arches: [x86_64]
-        url: https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.14.0.tgz
-        sha256: 1de98ed2e9621113b0887b06322b461efb9df73d913fc1d151039b10b7117a41
-        dest-filename: pnpm-exe-12.14.0.tgz
+        url: https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.21.0.tgz
+        sha256: 5e853227a4fa387a95cf6f61400a83d1fc7e3164943c00e275f8756b75939de2
+        dest-filename: pnpm-exe-12.21.0.tgz
       - type: file
         only-arches: [aarch64]
-        url: https://registry.npmjs.org/@pnpm/exe.linux-arm64/-/exe.linux-arm64-12.14.0.tgz
-        sha256: e7ca24224eb626a032828ec584c67903ad2f389911b849d009ed70a19f70d8d3
-        dest-filename: pnpm-exe-12.14.0.tgz
+        url: https://registry.npmjs.org/@pnpm/exe.linux-arm64/-/exe.linux-arm64-12.21.0.tgz
+        sha256: 0726f98c09f0f0fe6fb91e376c4d3e7793a544c1f1ec3e20baaeb2bb91c47e1f
+        dest-filename: pnpm-exe-12.21.0.tgz
       # Ruffle, the Flash player, for Flash games (HAVEN_RUFFLE, see scripts/fetch-ruffle.mjs). Same
       # package scripts/fetch-ruffle.mjs downloads for HAVEN_RUFFLE=latest; build.sh unpacks it from here.
       - type: file

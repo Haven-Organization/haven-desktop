@@ -26,6 +26,7 @@ import { Action } from "../../../dispatcher/actions";
 import SettingsStore from "../../../settings/SettingsStore";
 import { type ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPayload";
 import { doesRoomVersionSupport, PreferredRoomVersions } from "../../../utils/PreferredRoomVersions";
+import { UIFeature } from "../../../settings/UIFeature";
 import LabelledCheckbox from "../elements/LabelledCheckbox";
 import { socialRoomKind } from "../../../../../../../src/apps/social/utils/room-classifier";
 import { SDKContextClass } from "../../../contexts/SDKContextClass.ts";
@@ -54,6 +55,9 @@ const JoinRuleSettings: React.FC<JoinRuleSettingsProps> = ({
     const cli = room.client;
 
     const askToJoinEnabled = SettingsStore.getValue("feature_ask_to_join");
+    const allowPublicRooms = room.isSpaceRoom()
+        ? SettingsStore.getValue(UIFeature.AllowCreatingPublicSpaces)
+        : SettingsStore.getValue(UIFeature.AllowCreatingPublicRooms);
     const roomSupportsKnock = doesRoomVersionSupport(room.getVersion(), PreferredRoomVersions.KnockRooms);
     const preferredKnockVersion = !roomSupportsKnock && promptUpgrade ? PreferredRoomVersions.KnockRooms : undefined;
 
@@ -209,6 +213,7 @@ const JoinRuleSettings: React.FC<JoinRuleSettingsProps> = ({
             value: JoinRule.Public,
             label: withRecommendLabel(_t("room_settings|security|join_rule_public"), JoinRule.Public),
             description: <>{_t("room_settings|security|join_rule_public_description")}</>,
+            disabled: disabled || !allowPublicRooms,
         },
     ];
 

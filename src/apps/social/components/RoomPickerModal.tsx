@@ -29,7 +29,6 @@ import TruncatedList from "../../../../element-web/apps/web/src/components/views
 import { sortRoomsByRecency } from "../../../../element-web/apps/web/src/utils/room/sortRoomsByRecency";
 import QueryMatcher from "../../../../element-web/apps/web/src/autocomplete/QueryMatcher";
 import { filterBoolean } from "../../../../element-web/apps/web/src/utils/arrays";
-import { useSettingValue } from "../../../../element-web/apps/web/src/hooks/useSettings";
 import { getKeyBindingsManager } from "../../../../element-web/apps/web/src/KeyBindingsManager";
 import { KeyBindingAction } from "../../../../element-web/apps/web/src/accessibility/KeyboardShortcuts";
 import {
@@ -78,17 +77,15 @@ export function RoomPickerModal({ client: cli, onFinished }: Props): JSX.Element
     const [query, setQuery] = useState("");
     const lcQuery = query.toLowerCase();
     const [scopedToSocial, setScopedToSocial] = useState(true);
-    const msc3946DynamicRoomPredecessors = useSettingValue("feature_dynamic_room_predecessors");
-
     let rooms = useMemo(
         () =>
             sortRoomsByRecency(
                 cli
-                    .getVisibleRooms(msc3946DynamicRoomPredecessors)
+                    .getVisibleRooms()
                     .filter((room) => room.getMyMembership() === KnownMembership.Join && !room.isSpaceRoom()),
                 cli.getSafeUserId(),
             ),
-        [cli, msc3946DynamicRoomPredecessors],
+        [cli],
     );
 
     if (scopedToSocial) {

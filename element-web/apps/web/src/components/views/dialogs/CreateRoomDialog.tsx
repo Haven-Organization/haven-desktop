@@ -16,6 +16,7 @@ import React, {
     type ChangeEventHandler,
 } from "react";
 import { type Room, RoomType, JoinRule, Preset, Visibility } from "matrix-js-sdk/src/matrix";
+import { removeHiddenChars } from "matrix-js-sdk/src/utils";
 import { Alert, Form, SettingsToggleInput } from "@vector-im/compound-web";
 
 import SdkConfig from "../../../SdkConfig";
@@ -41,7 +42,6 @@ interface IProps {
     defaultName?: string;
     parentSpace?: Room;
     defaultEncrypted?: boolean;
-    defaultStateEncrypted?: boolean;
     /**
      * When set, this is really creating a Haven social profile/group room rather than a normal
      * room — swaps the title, visibility/public labels, join-rule copy, "ask to join" label, and
@@ -79,11 +79,6 @@ interface IState {
      * Indicates whether end-to-end encryption is enabled for the room.
      */
     isEncrypted: boolean;
-    /**
-     * Indicates whether end-to-end state encryption is enabled for this room.
-     * See MSC4362. Available if feature_msc4362_encrypted_state_events is enabled.
-     */
-    isStateEncrypted: boolean;
     /**
      * The room name.
      */
@@ -158,7 +153,6 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         this.state = {
             isPublicKnockRoom: defaultPublic || false,
             isEncrypted: this.props.defaultEncrypted ?? privateShouldBeEncrypted(cli),
-            isStateEncrypted: this.props.defaultStateEncrypted ?? false,
             joinRule,
             name: this.props.defaultName || "",
             topic: "",
@@ -181,7 +175,8 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         const opts: IOpts = {};
         const createOpts: IOpts["createOpts"] = (opts.createOpts = {});
         opts.roomType = this.props.type;
-        opts.name = this.state.name;
+        // Leading and trailing whitespace is not part of the name.
+        opts.name = this.state.name.trim();
 
         if (this.state.joinRule === JoinRule.Public) {
             createOpts.visibility = Visibility.Public;
@@ -190,10 +185,7 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
             const { alias } = this.state;
             createOpts.room_alias_name = alias.substring(1, alias.indexOf(":"));
         } else {
-            const encryptedStateFeature = SettingsStore.getValue("feature_msc4362_encrypted_state_events", null, false);
-
             opts.encryption = this.state.isEncrypted;
-            opts.stateEncryption = encryptedStateFeature && this.state.isStateEncrypted;
         }
 
         if (this.state.topic) {
@@ -298,10 +290,6 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         this.setState({ isEncrypted: evt.target.checked });
     };
 
-    private onStateEncryptedChange: ChangeEventHandler<HTMLInputElement> = (evt): void => {
-        this.setState({ isStateEncrypted: evt.target.checked });
-    };
-
     private onAliasChange = (alias: string): void => {
         this.setState({ alias });
     };
@@ -344,7 +332,8 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
         rules: [
             {
                 key: "required",
-                test: async ({ value }) => !!value,
+                // A name made only of whitespace or zero-width characters would leave the room with no visible name.
+                test: ({ value }) => !!removeHiddenChars(value ?? ""),
                 invalid: () =>
                     this.props.entityNoun === "profile"
                         ? _t("create_room|name_validation_required_profile")
@@ -474,29 +463,6 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                     label={_t("create_room|encryption_label")}
                     onChange={this.onEncryptedChange}
                     checked={this.state.isEncrypted}
-                    disabled={!this.state.canChangeEncryption}
-                    helpMessage={microcopy}
-                />
-            );
-        }
-
-        let e2eeStateSection: JSX.Element | undefined;
-        if (
-            SettingsStore.getValue("feature_msc4362_encrypted_state_events", null, false) &&
-            this.state.joinRule !== JoinRule.Public
-        ) {
-            let microcopy: string;
-            if (!this.state.canChangeEncryption) {
-                microcopy = _t("create_room|encryption_forced");
-            } else {
-                microcopy = _t("create_room|state_encrypted_warning");
-            }
-            e2eeStateSection = (
-                <SettingsToggleInput
-                    name="state-encryption-toggle"
-                    label={_t("create_room|state_encryption_label")}
-                    onChange={this.onStateEncryptedChange}
-                    checked={this.state.isStateEncrypted}
                     disabled={!this.state.canChangeEncryption}
                     helpMessage={microcopy}
                 />
@@ -639,7 +605,6 @@ export default class CreateRoomDialog extends React.Component<IProps, IState> {
                         {spamWarningSection}
                         {crossPostRepliesSection}
                         {e2eeSection}
-                        {e2eeStateSection}
                         {aliasField}
                         {this.advancedSettingsEnabled && (
                             <details onToggle={this.onDetailsToggled} className="mx_CreateRoomDialog_details">

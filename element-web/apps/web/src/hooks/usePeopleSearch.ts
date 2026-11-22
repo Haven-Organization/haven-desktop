@@ -10,7 +10,6 @@ import { type MatrixClient, type RoomMember } from "matrix-js-sdk/src/matrix";
 import { useUserDirectory } from "./useUserDirectory";
 import { useProfileInfo } from "./useProfileInfo";
 import { useDebouncedCallback } from "./spotlight/useDebouncedCallback";
-import { useFeatureEnabled } from "./useSettings";
 import { findVisibleRoomMembers, findVisibleRooms } from "../utils/findVisibleRooms";
 import { DirectoryMember, type Member } from "../utils/direct-messages";
 import { buildActivityScores, buildMemberScores, compareMembers } from "../utils/SortMembers";
@@ -32,7 +31,6 @@ export interface PeopleSearchResult {
  */
 export function usePeopleSearch(cli: MatrixClient, query: string): PeopleSearchResult {
     const trimmedQuery = query.trim();
-    const msc3946ProcessDynamicPredecessor = useFeatureEnabled("feature_dynamic_room_predecessors");
     const { loading: directoryLoading, users: directoryUsers, search: searchDirectory } = useUserDirectory();
     const { loading: profileLoading, profile, search: searchProfile } = useProfileInfo();
 
@@ -47,7 +45,7 @@ export function usePeopleSearch(cli: MatrixClient, query: string): PeopleSearchR
 
     const people = useMemo(() => {
         const myUserId = cli.getUserId();
-        const roomMembers = findVisibleRoomMembers(findVisibleRooms(cli, msc3946ProcessDynamicPredecessor), cli, false);
+        const roomMembers = findVisibleRoomMembers(findVisibleRooms(cli), cli, false);
         const byId = new Map<string, Member | RoomMember>();
 
         if (!trimmedQuery) {
@@ -69,7 +67,7 @@ export function usePeopleSearch(cli: MatrixClient, query: string): PeopleSearchR
 
         byId.delete(myUserId ?? "");
         return Array.from(byId.values()).sort(memberComparator);
-    }, [cli, msc3946ProcessDynamicPredecessor, trimmedQuery, directoryUsers, profile, memberComparator]);
+    }, [cli, trimmedQuery, directoryUsers, profile, memberComparator]);
 
     return { people, loading: !!trimmedQuery && (directoryLoading || profileLoading) };
 }

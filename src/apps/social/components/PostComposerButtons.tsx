@@ -206,7 +206,6 @@ export function PostComposerButtons({
                 mainSplitContentType={MainSplitContentType.Timeline}
                 liveTimeline={undefined}
                 narrow={false}
-                msc3946ProcessDynamicPredecessor={false}
                 peekAndSummaryLoading={false}
                 promptAskToJoin={false}
                 isRoomEncrypted={null}

@@ -16,7 +16,6 @@ import { AutoHideScrollbar } from "@element-hq/web-shared-components";
 
 import { _t } from "../../../languageHandler";
 import dis from "../../../dispatcher/dispatcher";
-import { useSettingValue } from "../../../hooks/useSettings";
 import BaseDialog from "./BaseDialog";
 import SearchBox from "../../structures/SearchBox";
 import DecoratedRoomAvatar from "../avatars/DecoratedRoomAvatar";
@@ -177,8 +176,6 @@ const CopyPackDialog: React.FC<IProps> = ({ matrixClient: cli, pack, closeSettin
     const [query, setQuery] = useState("");
     const lcQuery = query.toLowerCase();
 
-    const msc3946DynamicRoomPredecessors = useSettingValue("feature_dynamic_room_predecessors");
-
     // Haven: only rooms the user can actually add a pack to at all (see canManageImagePacks) - per
     // explicit direction, not every joined room the way ForwardDialog's own list is. `eligibleRooms`
     // (pre-search) is what decides between the two empty states below: no eligible rooms anywhere
@@ -187,7 +184,7 @@ const CopyPackDialog: React.FC<IProps> = ({ matrixClient: cli, pack, closeSettin
         () =>
             sortRoomsByRecency(
                 cli
-                    .getVisibleRooms(msc3946DynamicRoomPredecessors)
+                    .getVisibleRooms()
                     .filter(
                         (room) =>
                             room.getMyMembership() === KnownMembership.Join &&
@@ -196,7 +193,7 @@ const CopyPackDialog: React.FC<IProps> = ({ matrixClient: cli, pack, closeSettin
                     ),
                 userId,
             ),
-        [cli, msc3946DynamicRoomPredecessors, userId],
+        [cli, userId],
     );
 
     let rooms = eligibleRooms;

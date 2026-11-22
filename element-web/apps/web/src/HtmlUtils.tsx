@@ -12,7 +12,7 @@ Please see LICENSE files in the repository root for full details.
 import React, { type JSX, type Key, type LegacyRef, type ReactNode } from "react";
 import { sanitizeHtml, type HtmlSanitizeOptions } from "@element-hq/element-web-shared-utils";
 import classNames from "classnames";
-import katex from "katex";
+import { once } from "lodash";
 import { decode } from "html-entities";
 import { type IContent } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
@@ -24,6 +24,7 @@ import SettingsStore from "./settings/SettingsStore";
 import { stripHTMLReply, stripPlainReply } from "./utils/Reply";
 import { sanitizeHtmlParams, transformTags, linkifyHtml } from "./Linkify";
 import { graphemeSegmenter } from "./utils/strings";
+import { getKatex } from "./utils/katex";
 
 export { linkifyAndSanitizeHtml } from "./Linkify";
 export { isUrlPermitted, sanitizeHtmlText } from "@element-hq/element-web-shared-utils";
@@ -40,13 +41,17 @@ const SYMBOL_PATTERN = /([\u2100-\u2bff])/;
 // (Zero-Width Space, other whitespace)
 const EMOJI_SEPARATOR_REGEX = /[\u200B\s]/g;
 
-// Regex for emoji. This includes any RGI_Emoji sequence followed by an optional
-// emoji presentation VS (U+FE0F), but not those sequences that are followed by
-// a text presentation VS (U+FE0E). We also count lone regional indicators
-// (U+1F1E6-U+1F1FF). Technically this regex produces false negatives for emoji
-// followed by U+FE0E when the emoji doesn't have a text variant, but in
-// practice this doesn't matter.
-export const EMOJI_REGEX = (() => {
+/**
+ * Regex for emoji. This includes any RGI_Emoji sequence followed by an optional
+ * emoji presentation VS (U+FE0F), but not those sequences that are followed by
+ * a text presentation VS (U+FE0E). We also count lone regional indicators
+ * (U+1F1E6-U+1F1FF). Technically this regex produces false negatives for emoji
+ * followed by U+FE0E when the emoji doesn't have a text variant, but in
+ * practice this doesn't matter.
+ *
+ * Built on first use rather than at import, as compiling `\p{RGI_Emoji}` is slow enough to delay app startup.
+ */
+export const getEmojiRegex = once((): RegExp => {
     try {
         // Per our support policy, v mode is available to us, but we still don't
         // want the app to completely crash on older platforms. We use the
@@ -56,16 +61,16 @@ export const EMOJI_REGEX = (() => {
         // v mode not supported; fall back to matching nothing
         return /(?!)/;
     }
-})();
+});
 
-const BIGEMOJI_REGEX = (() => {
+const getBigEmojiRegex = once((): RegExp => {
     try {
-        return new RegExp(`^(${EMOJI_REGEX.source})+$`, "iv");
+        return new RegExp(`^(${getEmojiRegex().source})+$`, "iv");
     } catch {
-        // Fall back, just like for EMOJI_REGEX
+        // Fall back, just like for getEmojiRegex
         return /(?!)/;
     }
-})();
+});
 
 // A message this long or longer skips the BIGEMOJI_REGEX check entirely (see its call site in
 // bodyToNode) rather than ever running the regex on it - found 2026-07-20 profiling a real freeze
@@ -93,7 +98,7 @@ const EMOJI_ONLY_MAX_LENGTH = 64;
  */
 export function isEmojiOnly(text: string): boolean {
     if (!text || text.length > EMOJI_ONLY_MAX_LENGTH) return false;
-    return BIGEMOJI_REGEX.test(text);
+    return getBigEmojiRegex().test(text);
 }
 
 /*
@@ -299,7 +304,7 @@ export function formatEmojis(message: string | undefined, isHtmlMessage?: boolea
     let emojiCount = 0;
 
     for (const data of graphemeSegmenter.segment(message)) {
-        if (EMOJI_REGEX.test(data.segment)) {
+        if (getEmojiRegex().test(data.segment)) {
             if (emojiCount >= MAX_EMOJI_SUBSTITUTIONS_PER_MESSAGE) {
                 // Deliberately not `message.slice(data.index)` - see this cap's own comment above.
                 // A short plain-text marker is also safe to append even mid-way through the
@@ -443,7 +448,9 @@ function analyseEvent(content: IContent, highlights?: string[], opts: EventRende
                 const isPlainText = phtml.body.innerHTML === phtml.body.textContent;
                 isHtmlMessage = !isPlainText;
 
-                if (isHtmlMessage && SettingsStore.getValue("feature_latex_maths")) {
+                // KaTeX is loaded on demand; until it is, maths is left as the sender's fallback
+                const katex = getKatex();
+                if (isHtmlMessage && katex && SettingsStore.getValue("feature_latex_maths")) {
                     [...phtml.querySelectorAll<HTMLElement>("div[data-mx-maths], span[data-mx-maths]")].forEach((e) => {
                         e.outerHTML = katex.renderToString(decode(e.getAttribute("data-mx-maths")), {
                             throwOnError: false,
@@ -489,7 +496,7 @@ function isCustomEmojiOnly(content: IContent, opts: EventRenderOpts): boolean {
     if (emotes === 0 || body.querySelectorAll("*").length !== emotes) return false;
 
     const text = (body.textContent ?? "").replace(EMOJI_SEPARATOR_REGEX, "");
-    return text === "" || BIGEMOJI_REGEX.test(text);
+    return text === "" || getBigEmojiRegex().test(text);
 }
 
 interface BodyToNodeReturn {
@@ -527,7 +534,7 @@ export function bodyToNode(content: IContent, highlights?: string[], opts: Event
             // See BIGEMOJI_REGEX_MAX_LENGTH's own comment - skip the regex entirely past this
             // length rather than ever calling exec() on it.
             const match =
-                contentBodyTrimmed.length < BIGEMOJI_REGEX_MAX_LENGTH ? BIGEMOJI_REGEX.exec(contentBodyTrimmed) : null;
+                contentBodyTrimmed.length < BIGEMOJI_REGEX_MAX_LENGTH ? getBigEmojiRegex().exec(contentBodyTrimmed) : null;
             emojiBody =
                 match?.[0]?.length === contentBodyTrimmed.length &&
                 // Prevent user pills expanding for users with only emoji in

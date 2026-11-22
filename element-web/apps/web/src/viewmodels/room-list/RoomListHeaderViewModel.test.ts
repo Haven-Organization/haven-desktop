@@ -25,6 +25,8 @@ import {
     showSpaceSettings,
 } from "../../utils/space";
 import { createRoom, hasCreateRoomRights } from "./utils";
+import { shouldShowComponent } from "../../customisations/helpers/UIComponents";
+import { UIComponent } from "../../settings/UIFeature";
 import { ReleaseAnnouncementStore } from "../../stores/ReleaseAnnouncementStore";
 
 vi.mock("../../PosthogTrackers", () => ({
@@ -41,6 +43,10 @@ vi.mock("../../utils/space", () => ({
     showSpaceInvite: vi.fn(),
     showSpacePreferences: vi.fn(),
     showSpaceSettings: vi.fn(),
+}));
+
+vi.mock("../../customisations/helpers/UIComponents", () => ({
+    shouldShowComponent: vi.fn().mockReturnValue(true),
 }));
 
 vi.mock("./utils", () => ({
@@ -62,6 +68,7 @@ describe("RoomListHeaderViewModel", () => {
         mockSpace = mkSpace(matrixClient, "!space:server");
 
         vi.mocked(hasCreateRoomRights).mockReturnValue(true);
+        vi.mocked(shouldShowComponent).mockReturnValue(true);
         vi.mocked(shouldShowSpaceSettings).mockReturnValue(true);
 
         vi.spyOn(ReleaseAnnouncementStore.instance, "getReleaseAnnouncement").mockReturnValue(null);
@@ -90,8 +97,18 @@ describe("RoomListHeaderViewModel", () => {
             const snapshot = vm.getSnapshot();
             expect(snapshot.title).toBe("Home");
             expect(snapshot.displaySpaceMenu).toBe(false);
+            expect(snapshot.canStartChat).toBe(true);
             expect(snapshot.canCreateRoom).toBe(true);
             expect(snapshot.canCreateVideoRoom).toBe(true);
+        });
+
+        it("should not allow starting a chat when DM creation is hidden", () => {
+            vi.mocked(shouldShowComponent).mockReturnValue(false);
+
+            vm = new RoomListHeaderViewModel({ matrixClient, spaceStore: sdkContext.spaceStore });
+
+            expect(vm.getSnapshot().canStartChat).toBe(false);
+            expect(shouldShowComponent).toHaveBeenCalledWith(UIComponent.CreateDM);
         });
 
         it("should compute snapshot for active space", () => {

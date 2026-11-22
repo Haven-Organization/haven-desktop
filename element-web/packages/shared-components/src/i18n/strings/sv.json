@@ -43,8 +43,7 @@
         "encryption_enabled": "Kryptering aktiverad",
         "loading": "Laddar ...",
         "options": "Alternativ",
-        "preferences": "Inställningar",
-        "state_encryption_enabled": "Experimentell kryptering aktiverad"
+        "preferences": "Inställningar"
     },
     "composer": {
         "url_preview": {
@@ -94,6 +93,12 @@
     "emoji_picker": {
         "cancel_search_label": "Avbryt sökningen",
         "emoji_picker": "Emojiväljare"
+    },
+    "encryption": {
+        "delete_key_storage": {
+            "description": "Du kommer att förlora din krypterade chatthistorik och behöva återställa din digitala identitet om du tar bort alla dina enheter.",
+            "error": "Det gick inte att radera nyckelförvaringen. Försök igen."
+        }
     },
     "error": {
         "legacy_crypto_unsupported": {
@@ -365,7 +370,6 @@
             "enabled_dm": "Meddelanden här är totalsträckskrypterade. Verifiera %(displayName)s i deras profil — klicka på deras profilbild.",
             "enabled_local": "Meddelanden i den här chatten kommer att vara totalsträckskrypterade.",
             "parameters_changed": "Vissa krypteringsinställningar har ändrats.",
-            "state_enabled": "Meddelanden och statushändelser i det här rummet är totalsträckskrypterade. När personer går med kan du verifiera dem i deras profil, välj bara deras profilbild.",
             "unsupported": "Krypteringen som används av det här rummet stöds inte."
         },
         "mab": {

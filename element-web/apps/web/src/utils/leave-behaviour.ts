@@ -33,7 +33,6 @@ import { bulkSpaceBehaviour } from "./space";
 import { SDKContextClass } from "../contexts/SDKContextClass";
 import { markPendingLeave } from "../../../../../src/apps/social/utils/pendingRoomLeave";
 import { rejectInvite } from "../../../../../src/apps/framework/inviteRejection";
-import SettingsStore from "../settings/SettingsStore";
 import { CallStore } from "../stores/CallStore";
 
 function leaveError(e: unknown): Error {
@@ -58,11 +57,7 @@ export async function leaveRoomBehaviour(
     }
 
     let leavingAllVersions = true;
-    const history = matrixClient.getRoomUpgradeHistory(
-        roomId,
-        true,
-        SettingsStore.getValue("feature_dynamic_room_predecessors"),
-    );
+    const history = matrixClient.getRoomUpgradeHistory(roomId, true);
     if (history && history.length > 0) {
         const currentRoom = history[history.length - 1];
         if (currentRoom.roomId !== roomId) {

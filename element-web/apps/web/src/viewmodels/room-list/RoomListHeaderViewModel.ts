@@ -38,6 +38,8 @@ import type { RoomListSectionsCollapseStateChangedPayload } from "../../dispatch
 import SettingsStore from "../../settings/SettingsStore";
 import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
 import { createRoom, hasCreateRoomRights } from "./utils";
+import { shouldShowComponent } from "../../customisations/helpers/UIComponents";
+import { UIComponent } from "../../settings/UIFeature";
 import { ReleaseAnnouncementStore } from "../../stores/ReleaseAnnouncementStore";
 import { NotificationStateEvents, type NotificationState } from "../../stores/notifications/NotificationState";
 import { NotificationLevel } from "../../stores/notifications/NotificationLevel";
@@ -458,6 +460,7 @@ function computeHeaderSpaceState(
 
     return {
         title,
+        canStartChat: shouldShowComponent(UIComponent.CreateDM),
         canCreateRoom,
         canCreateVideoRoom,
         displaySpaceMenu,

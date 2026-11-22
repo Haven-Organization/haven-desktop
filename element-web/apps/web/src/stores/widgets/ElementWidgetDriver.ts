@@ -65,7 +65,6 @@ import { navigateToPermalinkInApp } from "../../../../../../src/apps/social/util
 import { SDKContextClass } from "../../contexts/SDKContextClass";
 import { ModuleApi } from "../../modules/Api";
 import { toWidgetDescriptor } from "../../modules/WidgetLifecycleApi";
-import SettingsStore from "../../settings/SettingsStore";
 import { mediaFromMxc } from "../../customisations/Media";
 import SdkConfig from "../../SdkConfig.ts";
 
@@ -231,6 +230,7 @@ export class ElementWidgetDriver extends WidgetDriver {
                 EventType.CallSDPStreamMetadataChangedPrefix,
                 EventType.CallReplaces,
                 EventType.CallEncryptionKeysPrefix,
+                "m.rtc.encryption_key",
             ];
             for (const eventType of sendRecvToDevice) {
                 this.allowedCapabilities.add(
@@ -781,7 +781,7 @@ export class ElementWidgetDriver extends WidgetDriver {
         data: IRtcLivekitGetTokenFromWidgetRequestData,
     ): Promise<IRtcLivekitGetTokenFromWidgetResponseData> {
         // Errors are re-thrown so that MatrixErrors reach the widget as matrix_api_error details
-        return { ...(await MatrixClientPeg.safeGet()._unstable_getLivekitToken(data)) };
+        return { ...(await MatrixClientPeg.safeGet().getLivekitToken(data)) };
     }
 
     /**
@@ -881,7 +881,7 @@ export class ElementWidgetDriver extends WidgetDriver {
      */
     public getKnownRooms(): string[] {
         return MatrixClientPeg.safeGet()
-            .getVisibleRooms(SettingsStore.getValue("feature_dynamic_room_predecessors"))
+            .getVisibleRooms()
             .map((r) => r.roomId);
     }
 

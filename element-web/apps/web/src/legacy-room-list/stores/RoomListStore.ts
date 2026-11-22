@@ -9,7 +9,6 @@ Please see LICENSE files in the repository root for full details.
 import { type MatrixClient, type Room, EventType, type EmptyObject } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
-import SettingsStore from "../../settings/SettingsStore";
 import { OrderedDefaultTagIDs, RoomUpdateCause } from "./models";
 import {
     type IListOrderingMap,
@@ -48,8 +47,6 @@ export class RoomListStoreClass extends AsyncStoreWithClient<EmptyObject> implem
     public static TEST_MODE = false;
 
     private initialListsGenerated = false;
-    private msc3946ProcessDynamicPredecessor: boolean;
-    private msc3946SettingWatcherRef: string;
     private algorithm = new Algorithm();
     private prefilterConditions: IFilterCondition[] = [];
     private updateFn = new MarkedExecution(() => {
@@ -63,20 +60,6 @@ export class RoomListStoreClass extends AsyncStoreWithClient<EmptyObject> implem
         super(dis);
         this.setMaxListeners(20); // RoomList + LeftPanel + 8xRoomSubList + spares
         this.algorithm.start();
-
-        this.msc3946ProcessDynamicPredecessor = SettingsStore.getValue("feature_dynamic_room_predecessors");
-        this.msc3946SettingWatcherRef = SettingsStore.watchSetting(
-            "feature_dynamic_room_predecessors",
-            null,
-            (_settingName, _roomId, _level, _newValAtLevel, newVal) => {
-                this.msc3946ProcessDynamicPredecessor = !!newVal;
-                this.regenerateAllLists({ trigger: true });
-            },
-        );
-    }
-
-    public componentWillUnmount(): void {
-        SettingsStore.unwatchSetting(this.msc3946SettingWatcherRef);
     }
 
     private setupWatchers(): void {
@@ -311,11 +294,7 @@ export class RoomListStoreClass extends AsyncStoreWithClient<EmptyObject> implem
         if (oldMembership !== EffectiveMembership.Join && newMembership === EffectiveMembership.Join) {
             // If we're joining an upgraded room, we'll want to make sure we don't proliferate the dead room in the list.
             const room: Room = membershipPayload.room;
-            const roomUpgradeHistory = room.client.getRoomUpgradeHistory(
-                room.roomId,
-                true,
-                this.msc3946ProcessDynamicPredecessor,
-            );
+            const roomUpgradeHistory = room.client.getRoomUpgradeHistory(room.roomId, true);
             const predecessors = roomUpgradeHistory.slice(0, roomUpgradeHistory.indexOf(room));
             for (const predecessor of predecessors) {
                 const isSticky = this.algorithm.stickyRoom === predecessor;
@@ -514,7 +493,7 @@ export class RoomListStoreClass extends AsyncStoreWithClient<EmptyObject> implem
     private getPlausibleRooms(): Room[] {
         if (!this.matrixClient) return [];
 
-        let rooms = this.matrixClient.getVisibleRooms(this.msc3946ProcessDynamicPredecessor);
+        let rooms = this.matrixClient.getVisibleRooms();
         rooms = rooms.filter((r) => isRoomVisible(r));
 
         if (this.prefilterConditions.length > 0) {

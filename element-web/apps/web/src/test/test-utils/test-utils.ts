@@ -99,7 +99,7 @@ export function createTestClient(): MatrixClient {
         getUserId: vi.fn().mockReturnValue("@userId:matrix.org"),
         getSafeUserId: vi.fn().mockReturnValue("@userId:matrix.org"),
         getUserIdLocalpart: vi.fn().mockResolvedValue("userId"),
-        getUser: vi.fn().mockReturnValue({ on: vi.fn(), off: vi.fn() }),
+        getUser: vi.fn().mockReturnValue({ on: vi.fn(), off: vi.fn(), removeListener: vi.fn() }),
         getDevice: vi.fn(),
         getDeviceId: vi.fn().mockReturnValue("ABCDEFGHI"),
         deviceId: "ABCDEFGHI",
@@ -131,7 +131,6 @@ export function createTestClient(): MatrixClient {
             getDeviceVerificationStatus: vi.fn(),
             resetKeyBackup: vi.fn(),
             isEncryptionEnabledInRoom: vi.fn().mockResolvedValue(false),
-            isStateEncryptionEnabledInRoom: vi.fn().mockResolvedValue(false),
             getVerificationRequestsToDeviceInProgress: vi.fn().mockReturnValue([]),
             setDeviceIsolationMode: vi.fn(),
             prepareToEncrypt: vi.fn(),
@@ -320,8 +319,8 @@ export function createTestClient(): MatrixClient {
         _unstable_sendScheduledDelayedEvent: vi.fn(),
         _unstable_sendStickyEvent: vi.fn(),
         _unstable_sendStickyDelayedEvent: vi.fn(),
-        _unstable_getRTCTransports: vi.fn(),
-        _unstable_getLivekitToken: vi.fn(),
+        getRTCTransports: vi.fn(),
+        getLivekitToken: vi.fn(),
         _unstable_delegateDelayedLeave: vi.fn(),
         cachedRtcTransports: {
             wait: vi.fn().mockResolvedValue([]),
@@ -372,6 +371,7 @@ export function createTestClient(): MatrixClient {
         setRoomTag: vi.fn().mockResolvedValue({}),
         getExtendedProfileProperty: vi.fn(),
         setExtendedProfileProperty: vi.fn().mockResolvedValue(undefined),
+        deleteExtendedProfileProperty: vi.fn().mockResolvedValue(undefined),
         doesServerSupportExtendedProfiles: vi.fn(),
     } as unknown as MatrixClient;
 
@@ -395,7 +395,7 @@ export function createStubMatrixRTC(): MatrixRTCSessionManager {
     mockGetRoomSession.mockImplementation((roomId) => {
         const session = new EventEmitter() as MatrixRTCSession;
         session.memberships = [];
-        session.getConsensusCallIntent = () => "video";
+        session.getConsensusIntent = () => "m.video";
         return session;
     });
     return {

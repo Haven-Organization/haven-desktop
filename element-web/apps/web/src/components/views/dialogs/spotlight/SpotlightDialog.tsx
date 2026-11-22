@@ -48,6 +48,8 @@ import {
     RovingTabIndexProvider,
 } from "../../../../accessibility/RovingTabIndex";
 import { mediaFromMxc } from "../../../../customisations/Media";
+import { shouldShowComponent } from "../../../../customisations/helpers/UIComponents";
+import { UIComponent } from "../../../../settings/UIFeature";
 import { Action } from "../../../../dispatcher/actions";
 import defaultDispatcher from "../../../../dispatcher/dispatcher";
 import { type ViewRoomPayload } from "../../../../dispatcher/payloads/ViewRoomPayload";
@@ -91,7 +93,6 @@ import { RoomResultContextMenus } from "./RoomResultContextMenus";
 import { RoomContextDetails } from "../../rooms/RoomContextDetails";
 import { TooltipOption } from "./TooltipOption";
 import RoomAvatar from "../../avatars/RoomAvatar";
-import { useFeatureEnabled } from "../../../../hooks/useSettings";
 import { filterBoolean } from "../../../../utils/arrays";
 import { transformSearchTerm } from "../../../../utils/SearchInput";
 import { Filter } from "./Filter";
@@ -309,7 +310,6 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
         const memberScores = buildMemberScores(cli);
         return compareMembers(activityScores, memberScores);
     }, [cli]);
-    const msc3946ProcessDynamicPredecessor = useFeatureEnabled("feature_dynamic_room_predecessors");
 
     const ownInviteLink = makeUserPermalink(cli.getUserId()!);
     const [inviteLinkCopied, setInviteLinkCopied] = useState<boolean>(false);
@@ -357,7 +357,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
     useDebouncedCallback(filter === Filter.People, searchProfileInfo, searchParams);
 
     const possibleResults = useMemo<Result[]>(() => {
-        const visibleRooms = findVisibleRooms(cli, msc3946ProcessDynamicPredecessor);
+        const visibleRooms = findVisibleRooms(cli);
         const roomResults = visibleRooms.map(toRoomResult);
         const userResults: IMemberResult[] = [];
 
@@ -407,7 +407,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
             ...userResults,
             ...publicRooms.map(toPublicRoomResult),
         ].filter((result) => filter === null || result.filter.includes(filter));
-    }, [cli, userDirectorySearchResults, profile, publicRooms, filter, msc3946ProcessDynamicPredecessor]);
+    }, [cli, userDirectorySearchResults, profile, publicRooms, filter]);
 
     const results = useMemo<Record<Section, Result[]>>(() => {
         const results: Record<Section, Result[]> = {
@@ -1022,7 +1022,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
         }
 
         let groupChatSection: JSX.Element | undefined;
-        if (filter === Filter.People) {
+        if (filter === Filter.People && shouldShowComponent(UIComponent.CreateDM)) {
             groupChatSection = (
                 <div
                     className="mx_SpotlightDialog_section mx_SpotlightDialog_otherSearches"

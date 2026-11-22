@@ -39,6 +39,10 @@ export interface RoomListHeaderViewSnapshot {
      */
     displaySpaceMenu: boolean;
     /**
+     * Whether the user can start a chat
+     */
+    canStartChat: boolean;
+    /**
      * Whether the user can create rooms
      */
     canCreateRoom: boolean;
@@ -191,13 +195,16 @@ export function RoomListHeaderView({ vm, renderSpaceIcon }: Readonly<RoomListHea
         displaySpaceMenu,
         collapseSections,
         areSectionsEnabled,
+        canStartChat,
         canCreateRoom,
         canCreateVideoRoom,
         showSpaceSwitcher,
         activeSpaceId,
         bannerHttpUrl,
     } = useViewModel(vm);
-    const canOnlyStartChat = !areSectionsEnabled && !canCreateRoom && !canCreateVideoRoom;
+    // Without any other option, the compose menu is replaced by a single start chat button
+    const canOnlyStartChat = !areSectionsEnabled && !canCreateRoom && !canCreateVideoRoom && canStartChat;
+    const canCreate = canStartChat || canCreateRoom || canCreateVideoRoom || areSectionsEnabled;
 
     return (
         <Flex
@@ -255,18 +262,19 @@ export function RoomListHeaderView({ vm, renderSpaceIcon }: Readonly<RoomListHea
                             )}
                         </IconButton>
                     )}
-                    {canOnlyStartChat ? (
-                        <IconButton
-                            size="28px"
-                            style={{ padding: "4px" }} // Work around miscalculated padding on 28px button: https://github.com/element-hq/compound/issues/409
-                            onClick={(e) => vm.createChatRoom(e.nativeEvent)}
-                            tooltip={_t("action|start_chat")}
-                        >
-                            <ChatIcon color="var(--cpd-color-icon-secondary)" aria-hidden />
-                        </IconButton>
-                    ) : (
-                        <ComposeMenuView vm={vm} />
-                    )}
+                    {canCreate &&
+                        (canOnlyStartChat ? (
+                            <IconButton
+                                size="28px"
+                                style={{ padding: "4px" }} // Work around miscalculated padding on 28px button: https://github.com/element-hq/compound/issues/409
+                                onClick={(e) => vm.createChatRoom(e.nativeEvent)}
+                                tooltip={_t("action|start_chat")}
+                            >
+                                <ChatIcon color="var(--cpd-color-icon-secondary)" aria-hidden />
+                            </IconButton>
+                        ) : (
+                            <ComposeMenuView vm={vm} />
+                        ))}
                 </Flex>
             </Flex>
         </Flex>

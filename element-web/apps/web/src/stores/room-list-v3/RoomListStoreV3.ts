@@ -115,8 +115,6 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
     /** The room that was open the last time the filters were applied to every room. */
     private lastFilteredRoomId?: string;
 
-    private readonly msc3946ProcessDynamicPredecessor: boolean;
-
     /**
      * Whether a batched LISTS_UPDATE_EVENT emission is pending.
      * Used by {@link scheduleEmit} to coalesce rapid-fire updates into a single emit per frame.
@@ -133,37 +131,50 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
 
     private readonly unreadFilter = new UnreadFilter(() => this.currentRoomId);
 
+    /** References to the settings watchers, released on {@link destroy}. */
+    private readonly settingWatcherRefs: string[];
+
     public constructor(dispatcher: MatrixDispatcher) {
         super(dispatcher);
 
-        this.msc3946ProcessDynamicPredecessor = SettingsStore.getValue("feature_dynamic_room_predecessors");
-        SDKContextClass.instance.spaceStore.on(UPDATE_SELECTED_SPACE, () => {
-            this.onActiveSpaceChanged();
-        });
-        SDKContextClass.instance.spaceStore.on(UPDATE_HOME_BEHAVIOUR, () => this.onActiveSpaceChanged());
-        SettingsStore.watchSetting("RoomList.OrderedCustomSections", null, () => this.onSectionsChange());
+        SDKContextClass.instance.spaceStore.on(UPDATE_SELECTED_SPACE, this.onSpaceStoreUpdate);
+        SDKContextClass.instance.spaceStore.on(UPDATE_HOME_BEHAVIOUR, this.onSpaceStoreUpdate);
 
-        // Both settings change which sections exist: disabling sections altogether also forces
-        // "RoomList.showPeopleSection" off, see its RequiresSettingsController.
-        SettingsStore.watchSetting("RoomList.showSections", null, () => this.onSectionsChange());
-        SettingsStore.watchSetting("RoomList.showPeopleSection", null, () => this.onSectionsChange());
-        // Haven: unreadFilter reads this setting on every match, so flipping it has to re-apply the filters
-        // to every room (updateRoomSkipList alone would skip that unless the open room changed).
-        SettingsStore.watchSetting("Haven.showAllUnreadRoomsInUnreadsFilter", null, () => {
-            if (!this.roomSkipList) return;
-            this.roomSkipList.useNewFilters(this.getSkipListFilters());
-            this.scheduleEmit();
-        });
-        SettingsStore.watchSetting("Spaces.showPeopleInSpace", null, (_settingName, roomId) => {
-            if (roomId === SDKContextClass.instance.spaceStore.activeSpace) this.onActiveSpaceChanged();
-        });
+        this.settingWatcherRefs = [
+            SettingsStore.watchSetting("RoomList.OrderedCustomSections", null, () => this.onSectionsChange()),
+            // Both settings change which sections exist: disabling sections altogether also forces
+            // "RoomList.showPeopleSection" off, see its RequiresSettingsController.
+            SettingsStore.watchSetting("RoomList.showSections", null, () => this.onSectionsChange()),
+            SettingsStore.watchSetting("RoomList.showPeopleSection", null, () => this.onSectionsChange()),
+            // Haven: unreadFilter reads this setting on every match, so flipping it has to re-apply the filters
+            // to every room (updateRoomSkipList alone would skip that unless the open room changed).
+            SettingsStore.watchSetting("Haven.showAllUnreadRoomsInUnreadsFilter", null, () => {
+                if (!this.roomSkipList) return;
+                this.roomSkipList.useNewFilters(this.getSkipListFilters());
+                this.scheduleEmit();
+            }),
+            SettingsStore.watchSetting("Spaces.showPeopleInSpace", null, (_settingName, roomId) => {
+                if (roomId === SDKContextClass.instance.spaceStore.activeSpace) this.onActiveSpaceChanged();
+            }),
+        ];
     }
+
+    public destroy(): void {
+        super.destroy();
+        SDKContextClass.instance.spaceStore.off(UPDATE_SELECTED_SPACE, this.onSpaceStoreUpdate);
+        SDKContextClass.instance.spaceStore.off(UPDATE_HOME_BEHAVIOUR, this.onSpaceStoreUpdate);
+        this.settingWatcherRefs.forEach((ref) => SettingsStore.unwatchSetting(ref));
+    }
+
+    private onSpaceStoreUpdate = (): void => {
+        this.onActiveSpaceChanged();
+    };
 
     /**
      * Get a list of unsorted, unfiltered rooms.
      */
     public getRooms(): Room[] {
-        let rooms = this.matrixClient?.getVisibleRooms(this.msc3946ProcessDynamicPredecessor) ?? [];
+        let rooms = this.matrixClient?.getVisibleRooms() ?? [];
         rooms = rooms.filter((r) => isRoomVisible(r));
         return rooms;
     }
@@ -377,11 +388,7 @@ export class RoomListStoreV3Class extends AsyncStoreWithClient<EmptyObject> {
                 // the dead room in the list.
                 if (oldMembership !== EffectiveMembership.Join && newMembership === EffectiveMembership.Join) {
                     const room: Room = payload.room;
-                    const roomUpgradeHistory = room.client.getRoomUpgradeHistory(
-                        room.roomId,
-                        true,
-                        this.msc3946ProcessDynamicPredecessor,
-                    );
+                    const roomUpgradeHistory = room.client.getRoomUpgradeHistory(room.roomId, true);
                     const predecessors = roomUpgradeHistory.slice(0, roomUpgradeHistory.indexOf(room));
                     for (const predecessor of predecessors) {
                         this.roomSkipList.removeRoom(predecessor);

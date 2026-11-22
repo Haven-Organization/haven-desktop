@@ -22,6 +22,7 @@ import { SettingsSection } from "../settings/shared/SettingsSection";
 import { SettingsSubsection } from "../settings/shared/SettingsSubsection";
 import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../../src/apps/social/utils/room-classifier";
 import { BannerSetting } from "../../../../../../../src/apps/social/components/BannerSetting";
+import { stripFileMetadataIfEnabled } from "../../../utils/media/stripFileMetadataIfEnabled";
 
 interface IProps {
     matrixClient: MatrixClient;
@@ -73,7 +74,9 @@ const SpaceSettingsGeneralTab: React.FC<IProps> = ({ matrixClient: cli, space })
             if (newAvatar) {
                 promises.push(
                     (async (): Promise<void> => {
-                        const { content_uri: url } = await cli.uploadContent(newAvatar);
+                        const { content_uri: url } = await cli.uploadContent(
+                            await stripFileMetadataIfEnabled(newAvatar),
+                        );
                         await cli.sendStateEvent(space.roomId, EventType.RoomAvatar, { url }, "");
                     })(),
                 );

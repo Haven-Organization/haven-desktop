@@ -19,6 +19,7 @@ import DMRoomMap from "../../../utils/DMRoomMap";
 import { LocalRoom } from "../../../models/LocalRoom";
 import { ROOM_BANNER_EVENT_TYPE, socialRoomKind } from "../../../../../../../src/apps/social/utils/room-classifier";
 import { BannerSetting } from "../../../../../../../src/apps/social/components/BannerSetting";
+import { stripFileMetadataIfEnabled } from "../../../utils/media/stripFileMetadataIfEnabled";
 
 interface IProps {
     roomId: string;
@@ -185,7 +186,9 @@ export default class RoomProfileSettings extends React.Component<IProps, IState>
         }
 
         if (this.state.avatarFile) {
-            const { content_uri: uri } = await client.uploadContent(this.state.avatarFile);
+            const { content_uri: uri } = await client.uploadContent(
+                await stripFileMetadataIfEnabled(this.state.avatarFile),
+            );
             await client.sendStateEvent(this.props.roomId, EventType.RoomAvatar, { url: uri }, "");
             newState.originalAvatarUrl = uri;
             newState.avatarFile = null;

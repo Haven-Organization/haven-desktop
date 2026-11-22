@@ -724,9 +724,7 @@ exports[`RoomView > for a local room > in state NEW > should match the snapshot 
                   tabindex="0"
                   translate="no"
                 >
-                  <div>
-                    <br />
-                  </div>
+                  <div />
                 </div>
               </div>
             </div>
@@ -1172,9 +1170,7 @@ exports[`RoomView > for a local room > in state NEW > that is encrypted > should
                   tabindex="0"
                   translate="no"
                 >
-                  <div>
-                    <br />
-                  </div>
+                  <div />
                 </div>
               </div>
             </div>
@@ -1884,9 +1880,7 @@ exports[`RoomView > should hide the header when hideHeader=true 1`] = `
                     tabindex="0"
                     translate="no"
                   >
-                    <div>
-                      <br />
-                    </div>
+                    <div />
                   </div>
                 </div>
               </div>
@@ -2454,9 +2448,7 @@ exports[`RoomView > should hide the pinned message banner when hidePinnedMessage
                     tabindex="0"
                     translate="no"
                   >
-                    <div>
-                      <br />
-                    </div>
+                    <div />
                   </div>
                 </div>
               </div>
@@ -3024,9 +3016,7 @@ exports[`RoomView > should hide the right panel when hideRightPanel=true 1`] = `
                     tabindex="0"
                     translate="no"
                   >
-                    <div>
-                      <br />
-                    </div>
+                    <div />
                   </div>
                 </div>
               </div>
@@ -3915,9 +3905,7 @@ exports[`RoomView > should not display the timeline when the room encryption is 
                     tabindex="0"
                     translate="no"
                   >
-                    <div>
-                      <br />
-                    </div>
+                    <div />
                   </div>
                 </div>
               </div>
@@ -4567,9 +4555,7 @@ exports[`RoomView > video rooms > should render joined video room view 1`] = `
                         tabindex="0"
                         translate="no"
                       >
-                        <div>
-                          <br />
-                        </div>
+                        <div />
                       </div>
                     </div>
                   </div>
