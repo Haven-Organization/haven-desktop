@@ -250,7 +250,7 @@ jobs:
                       suffix: "-aarch64"
         runs-on: ${{ matrix.runner }}
         container:
-            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
             options: --privileged
         steps:
             # Full history: build.sh runs compute-haven-version.sh inside the build.
