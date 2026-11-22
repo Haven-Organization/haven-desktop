@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  SignPath artifact configuration "windows-app": the zipped app folder (dist/win-unpacked) uploaded
-  by .github/workflows/windows.yml. Signs only Haven.exe, the program built from this repository.
+  SignPath artifact configuration "windows-app": the zipped app folder (dist/win-unpacked, or dist/win-arm64-unpacked) uploaded
+  by .github/workflows/release.yml. Signs only Haven.exe, the program built from this repository.
   The Electron and native module DLLs in the folder are third-party binaries and are left as they
   are. SignPath keeps its own copy of this file; paste any change into the project's artifact
   configuration there as well.

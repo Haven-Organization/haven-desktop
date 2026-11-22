@@ -41,13 +41,35 @@ export const UPDATE_INFO_SECTION = ".upd_info";
 // runtime, well before the squashfs payload - no need to read the rest of a ~170 MB file.
 const HEADER_SCAN_BYTES = 8 * 1024 * 1024;
 
+// electron-builder leaves the architecture out of an x64 AppImage's name and adds it for the others,
+// e.g. Haven-0.12.0.AppImage and Haven-0.12.0-arm64.AppImage.
+const OTHER_ARCH_APPIMAGE = /^(.+?)-v?\d[^/]*?-(arm64|armv7l|ia32)\.AppImage$/;
+const APPIMAGE = /^(.+?)-v?\d[^/]*\.AppImage$/;
+
+/**
+ * The name of an AppImage's `.zsync` control file. For x64 it's the AppImage's name plus `.zsync`;
+ * for other architectures it drops the `.AppImage`, e.g. Haven-0.12.0-arm64.zsync. Every x64
+ * AppImage already released looks for `Haven-*.AppImage.zsync`, and an arm64
+ * `Haven-0.12.0-arm64.AppImage.zsync` would match that too, so an x64 install could be updated to
+ * the arm64 build.
+ */
+export function zsyncFileName(appImageFileName: string): string {
+    const name = path.basename(appImageFileName);
+    return OTHER_ARCH_APPIMAGE.test(name) ? name.replace(/\.AppImage$/, ".zsync") : `${name}.zsync`;
+}
+
 /**
  * Update information for an AppImage published to GitHub Releases, in the AppImage spec's
  * `gh-releases-zsync` form. The filename part is a wildcard pattern for the `.zsync` asset name,
  * with the version replaced by `*` so it matches every release, not just this one.
  */
 export function githubZsyncUpdateInformation(owner: string, repo: string, appImageFileName: string): string {
-    const match = /^(.+?)-v?\d[^/]*\.AppImage$/.exec(path.basename(appImageFileName));
+    const name = path.basename(appImageFileName);
+    const otherArch = OTHER_ARCH_APPIMAGE.exec(name);
+    if (otherArch) {
+        return `gh-releases-zsync|${owner}|${repo}|latest|${otherArch[1]}-*-${otherArch[2]}.zsync`;
+    }
+    const match = APPIMAGE.exec(name);
     if (!match) {
         throw new Error(`Can't derive a version-independent update pattern from "${appImageFileName}"`);
     }
@@ -121,7 +143,7 @@ export async function embedUpdateInformation(appImagePath: string, updateInforma
 }
 
 /**
- * Generates `<appImage>.zsync` with `zsyncmake`. The URL inside is the AppImage's bare file name,
+ * Generates the AppImage's `.zsync` (see zsyncFileName) with `zsyncmake`. The URL inside is the AppImage's bare file name,
  * i.e. relative to wherever the .zsync itself is downloaded from - which, on GitHub Releases, is
  * the same release as the AppImage.
  *
@@ -129,7 +151,7 @@ export async function embedUpdateInformation(appImagePath: string, updateInforma
  * whole build: the AppImage is still fine, it just can't be delta-updated until a .zsync exists.
  */
 export async function generateZsync(appImagePath: string): Promise<string | undefined> {
-    const output = `${appImagePath}.zsync`;
+    const output = path.join(path.dirname(appImagePath), zsyncFileName(appImagePath));
     try {
         await execFileAsync("zsyncmake", ["-u", path.basename(appImagePath), "-o", output, appImagePath], {
             cwd: path.dirname(appImagePath),

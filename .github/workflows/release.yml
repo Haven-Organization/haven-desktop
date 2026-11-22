@@ -1,0 +1,508 @@
+name: Release build
+
+# Builds every public release file on GitHub's own runners, from this repository's source:
+#
+#   - the web app tarball (haven-vX.Y.Z.tar.gz)
+#   - Linux x64 and arm64: AppImage (with its .zsync for delta updates), .deb and .pacman
+#   - Flatpak bundles for x86_64 and aarch64
+#   - Windows x64 and arm64 installers, code signed by SignPath once it's set up
+#
+# Pushing a haven-v* tag only builds the files: a web-only version bump is a tag with no release.
+# A draft GitHub release is made only when this is run by hand from the Actions tab with "Make a
+# draft release" ticked, for a haven-vX.Y.Z tag matching HAVEN_VERSION. Someone still writes the
+# release notes and publishes it.
+#
+# Windows signing: SignPath (https://signpath.org, free for open source projects) only signs files
+# a GitHub Actions run built and uploaded itself; it fetches them from the run's artifacts and
+# checks where they came from, so a locally built exe can't be signed this way. Signing happens
+# only once SignPath is set up (see docs/code-signing.md). Until then, or for a run without the
+# SignPath settings, the same steps produce unsigned installers. The app is signed in two rounds,
+# because the installer contains the app:
+#   1. Build the app folder (dist/win-*unpacked) and have SignPath sign Haven.exe in it.
+#   2. Build the installer from that signed folder, then have SignPath sign the installer itself.
+# The uninstaller electron-builder writes into the installer stays unsigned: it's made while the
+# installer is built, and only ever runs from the installed folder, which Windows doesn't check.
+
+on:
+    workflow_dispatch:
+        inputs:
+            ref:
+                description: "Branch, tag or commit to build (defaults to the one this runs from)"
+                required: false
+                type: string
+            draft-release:
+                description: "Make a draft release (only for a haven-vX.Y.Z tag matching HAVEN_VERSION)"
+                required: false
+                type: boolean
+                default: false
+    push:
+        tags: ["haven-v*"]
+
+permissions:
+    contents: read
+    # SignPath reads the run's details and artifacts to check where the files it signs came from.
+    actions: read
+
+env:
+    COREPACK_ENABLE_STRICT: "0"
+    PNPM_CONFIG_PM_ON_FAIL: ignore
+    npm_config_pm_on_fail: ignore
+    # Ruffle version built into every release; keep it the same as flatpak/software.haven.HavenDesktop.yml.
+    HAVEN_RUFFLE: "0.7.1"
+
+jobs:
+    webapp:
+        name: Build the web app
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.version.outputs.version }}
+            full-version: ${{ steps.version.outputs.full-version }}
+        steps:
+            # Full history: compute-haven-version.sh describes the last upstream merge by its tags.
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+                  fetch-depth: 0
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: element-web/apps/desktop/.node-version
+
+            - name: Enable corepack
+              run: corepack enable
+
+            - name: Install dependencies
+              run: ./scripts/setup.sh
+
+            # VERSION must be plain X.Y.Z for Windows packaging. The full string is what Help & About
+            # shows (see haven_full_version in electron-builder.ts).
+            - name: Work out the version
+              id: version
+              run: |
+                  version="$(tr -d '[:space:]' < HAVEN_VERSION)"
+                  if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "HAVEN_VERSION '$version' isn't a plain X.Y.Z version" >&2
+                      exit 1
+                  fi
+                  full_version="$(./scripts/compute-haven-version.sh)"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+                  echo "full-version=$full_version" >> "$GITHUB_OUTPUT"
+                  echo "Building $version ($full_version)"
+
+            # Builds webapp/ and packs it as dist/<full version>.tar.gz, with config.sample.json.
+            - name: Build the web app
+              working-directory: element-web/apps/web
+              env:
+                  DIST_VERSION: ${{ steps.version.outputs.full-version }}
+                  HAVEN_INCLUDE_OLD_ROOM_LIST: "1"
+                  CI: "true"
+              run: pnpm dist
+
+            - name: Name the web tarball
+              env:
+                  FULL_VERSION: ${{ steps.version.outputs.full-version }}
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: |
+                  mkdir -p release
+                  mv "element-web/apps/web/dist/$FULL_VERSION.tar.gz" "release/haven-v$VERSION.tar.gz"
+                  if tar -tzf "release/haven-v$VERSION.tar.gz" | grep -q hot-update; then
+                      echo "The web tarball has dev server files in it" >&2
+                      exit 1
+                  fi
+                  ls -l release
+
+            # The desktop app ships the sample config, which defaults to matrix.org.
+            - name: Pack webapp.asar
+              run: |
+                  rm -f element-web/apps/web/webapp/config.json
+                  cp element-web/apps/web/config.sample.json element-web/apps/web/webapp/config.json
+                  cd element-web/apps/desktop
+                  pnpm exec asar pack ../web/webapp webapp.asar
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: webapp-asar
+                  path: element-web/apps/desktop/webapp.asar
+                  if-no-files-found: error
+                  retention-days: 1
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: haven-web-${{ steps.version.outputs.version }}
+                  path: release/
+                  if-no-files-found: error
+                  retention-days: 30
+
+    linux:
+        name: Build the Linux packages (${{ matrix.arch }})
+        needs: webapp
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    # Ubuntu 22.04 has glibc 2.35, the oldest the .deb allows (libc6 >= 2.35), so
+                    # anything compiled here still runs there.
+                    - arch: x64
+                      runner: ubuntu-22.04
+                      elf: x86-64
+                    - arch: arm64
+                      runner: ubuntu-22.04-arm
+                      elf: aarch64
+        runs-on: ${{ matrix.runner }}
+        env:
+            VERSION: ${{ needs.webapp.outputs.version }}
+            HAVEN_FULL_VERSION: ${{ needs.webapp.outputs.full-version }}
+            NX_SKIP_NX_CACHE: "true"
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: element-web/apps/desktop/.node-version
+
+            - name: Enable corepack
+              run: corepack enable
+
+            # zsyncmake makes the AppImage's .zsync; the others are for the .pacman package.
+            - name: Install packaging tools
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y zsync zstd libarchive-tools
+
+            - uses: actions/download-artifact@v4
+              with:
+                  name: webapp-asar
+                  path: element-web/apps/desktop
+
+            - name: Install dependencies
+              working-directory: element-web/apps/desktop
+              run: pnpm install --frozen-lockfile --filter element-desktop
+
+            # The command line targets are added to electron-builder.ts's own (which include tar.gz).
+            - name: Build the packages
+              working-directory: element-web/apps/desktop
+              run: pnpm run build --publish never --${{ matrix.arch }} --linux deb AppImage pacman
+
+            # Search's prebuilt module must be for this architecture, link SQLCipher statically, and
+            # need no newer glibc than the .deb allows.
+            - name: Check the native modules
+              working-directory: element-web/apps/desktop
+              env:
+                  ELF_ARCH: ${{ matrix.elf }}
+                  MAX_GLIBC: "2.35"
+              run: |
+                  shopt -s globstar nullglob
+                  modules=(dist/linux-*unpacked/**/*.node)
+                  if [ ${#modules[@]} -eq 0 ]; then
+                      echo "No native modules in the packaged app" >&2
+                      exit 1
+                  fi
+                  printf '%s\n' "${modules[@]}" | grep -q seshat || { echo "Search (seshat) is missing" >&2; exit 1; }
+                  file "${modules[@]}"
+                  if file "${modules[@]}" | grep -v "$ELF_ARCH"; then
+                      echo "A native module is for the wrong architecture" >&2
+                      exit 1
+                  fi
+                  if readelf -d "${modules[@]}" | grep NEEDED | grep -E "libsqlcipher|libcrypto"; then
+                      echo "Search links SQLCipher or OpenSSL dynamically" >&2
+                      exit 1
+                  fi
+                  for module in "${modules[@]}"; do
+                      ./scripts/glibc-check.sh "$module"
+                  done
+
+            - name: Collect the packages
+              working-directory: element-web/apps/desktop/dist
+              run: |
+                  shopt -s nullglob
+                  mkdir -p ../release
+                  files=(*.AppImage *.zsync *.deb *.pacman)
+                  for pattern in AppImage zsync deb pacman; do
+                      printf '%s\n' "${files[@]}" | grep -q "\.$pattern$" || { echo "No .$pattern was built" >&2; exit 1; }
+                  done
+                  mv "${files[@]}" ../release/
+                  ls -l ../release
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: haven-linux-${{ matrix.arch }}-${{ needs.webapp.outputs.version }}
+                  path: element-web/apps/desktop/release/
+                  if-no-files-found: error
+                  retention-days: 30
+
+    flatpak:
+        name: Build the Flatpak (${{ matrix.arch }})
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - arch: x86_64
+                      runner: ubuntu-24.04
+                      suffix: ""
+                    - arch: aarch64
+                      runner: ubuntu-24.04-arm
+                      suffix: "-aarch64"
+        runs-on: ${{ matrix.runner }}
+        container:
+            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+            options: --privileged
+        steps:
+            # Full history: build.sh runs compute-haven-version.sh inside the build.
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+                  fetch-depth: 0
+
+            - name: Work out the bundle name
+              id: bundle
+              env:
+                  SUFFIX: ${{ matrix.suffix }}
+              run: |
+                  git config --global --add safe.directory '*'
+                  version="$(tr -d '[:space:]' < HAVEN_VERSION)"
+                  echo "name=haven-desktop-$version$SUFFIX.flatpak" >> "$GITHUB_OUTPUT"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+
+            - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+              with:
+                  manifest-path: flatpak/software.haven.HavenDesktop.yml
+                  arch: ${{ matrix.arch }}
+                  bundle: ${{ steps.bundle.outputs.name }}
+                  artifact-name: haven-flatpak-${{ matrix.arch }}-${{ steps.bundle.outputs.version }}
+                  cache: false
+
+    windows:
+        name: Build and sign the Windows installer (${{ matrix.arch }})
+        needs: webapp
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - arch: x64
+                      runner: windows-2025
+                      suffix: ""
+                    - arch: arm64
+                      runner: windows-11-arm
+                      suffix: "-arm64"
+        runs-on: ${{ matrix.runner }}
+        # SignPath waits for a person to approve each release signing request.
+        timeout-minutes: 300
+        defaults:
+            run:
+                shell: bash
+        env:
+            VERSION: ${{ needs.webapp.outputs.version }}
+            HAVEN_FULL_VERSION: ${{ needs.webapp.outputs.full-version }}
+            NX_SKIP_NX_CACHE: "true"
+            # Only whether SignPath is set up, not the token itself, so no build step can see the token.
+            SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        steps:
+            # nx needs LF line endings (https://github.com/nrwl/nx/issues/35828).
+            - name: Configure git line endings
+              run: |
+                  git config --global core.autocrlf false
+                  git config --global core.eol lf
+
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.ref || github.ref }}
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: element-web/apps/desktop/.node-version
+
+            - name: Enable corepack
+              run: corepack enable
+
+            - uses: actions/download-artifact@v4
+              with:
+                  name: webapp-asar
+                  path: element-web/apps/desktop
+
+            - name: Install dependencies
+              working-directory: element-web/apps/desktop
+              run: pnpm install --frozen-lockfile --filter element-desktop
+
+            # Round 1: the app folder only, no installer yet. electron-builder names it
+            # win-unpacked for x64 and win-arm64-unpacked for arm64.
+            - name: Build the Windows app
+              id: app
+              working-directory: element-web/apps/desktop
+              run: |
+                  pnpm run build --publish never --${{ matrix.arch }} --win dir
+                  shopt -s nullglob
+                  dirs=(dist/win-*unpacked)
+                  if [ ${#dirs[@]} -ne 1 ] || [ ! -f "${dirs[0]}/Haven.exe" ]; then
+                      echo "Expected one app folder with Haven.exe, found: ${dirs[*]}" >&2
+                      exit 1
+                  fi
+                  echo "dir=${dirs[0]}" >> "$GITHUB_OUTPUT"
+
+            - name: Upload the app for signing
+              id: unsigned-app
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: windows-${{ matrix.arch }}-app-unsigned
+                  path: element-web/apps/desktop/${{ steps.app.outputs.dir }}/
+                  include-hidden-files: true
+                  if-no-files-found: error
+                  retention-days: 1
+
+            - name: Sign the app (SignPath)
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
+              with:
+                  api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+                  organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+                  project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+                  signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+                  artifact-configuration-slug: windows-app
+                  github-artifact-id: ${{ steps.unsigned-app.outputs.artifact-id }}
+                  wait-for-completion-timeout-in-seconds: 7200
+                  output-artifact-directory: ${{ runner.temp }}/signed-app
+
+            - name: Swap in the signed app
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              working-directory: element-web/apps/desktop
+              env:
+                  APP_DIR: ${{ steps.app.outputs.dir }}
+              run: |
+                  rm -rf "$APP_DIR"
+                  mv "$RUNNER_TEMP/signed-app" "$APP_DIR"
+                  test -f "$APP_DIR/Haven.exe"
+
+            # Round 2: the installer, packed from the (signed) app folder rather than built again.
+            # The arm64 one gets -arm64 in its name, so the two don't clash on the release page.
+            - name: Build the installer
+              working-directory: element-web/apps/desktop
+              env:
+                  APP_DIR: ${{ steps.app.outputs.dir }}
+                  SUFFIX: ${{ matrix.suffix }}
+              run: |
+                  pnpm exec electron-builder --publish never --${{ matrix.arch }} --win nsis \
+                      --prepackaged "$APP_DIR" \
+                      "-c.nsis.artifactName=\${productName} Setup \${version}$SUFFIX.\${ext}"
+
+            - name: Find the installer
+              id: installer
+              working-directory: element-web/apps/desktop
+              env:
+                  SUFFIX: ${{ matrix.suffix }}
+              run: |
+                  installer="dist/Haven Setup $VERSION$SUFFIX.exe"
+                  test -f "$installer"
+                  echo "path=element-web/apps/desktop/$installer" >> "$GITHUB_OUTPUT"
+
+            - name: Upload the installer for signing
+              id: unsigned-installer
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: windows-${{ matrix.arch }}-installer-unsigned
+                  path: ${{ steps.installer.outputs.path }}
+                  if-no-files-found: error
+                  retention-days: 1
+
+            - name: Sign the installer (SignPath)
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
+              with:
+                  api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+                  organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+                  project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+                  signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+                  artifact-configuration-slug: windows-installer
+                  github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+                  wait-for-completion-timeout-in-seconds: 7200
+                  output-artifact-directory: ${{ runner.temp }}/signed-installer
+
+            - name: Swap in the signed installer
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              env:
+                  INSTALLER: ${{ steps.installer.outputs.path }}
+              run: cp "$RUNNER_TEMP/signed-installer/$(basename "$INSTALLER")" "$INSTALLER"
+
+            # Fails a signed run unless both files carry a valid, timestamped signature, so an
+            # unsigned exe can't slip out of a run that was meant to sign it.
+            - name: Check the signatures
+              if: env.SIGNPATH_CONFIGURED == 'true'
+              shell: pwsh
+              env:
+                  APP_EXE: element-web/apps/desktop/${{ steps.app.outputs.dir }}/Haven.exe
+                  INSTALLER: ${{ steps.installer.outputs.path }}
+              run: |
+                  $failed = $false
+                  foreach ($file in @($env:APP_EXE, $env:INSTALLER)) {
+                      $sig = Get-AuthenticodeSignature -FilePath $file
+                      $signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { "none" }
+                      Write-Host "$file : $($sig.Status), signed by $signer"
+                      if ($sig.Status -ne "Valid" -or -not $sig.TimeStamperCertificate) { $failed = $true }
+                  }
+                  if ($failed) { throw "A Windows file isn't validly signed and timestamped" }
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: haven-windows-${{ matrix.arch }}-${{ needs.webapp.outputs.version }}${{ env.SIGNPATH_CONFIGURED != 'true' && '-unsigned' || '' }}
+                  path: ${{ steps.installer.outputs.path }}
+                  if-no-files-found: error
+                  retention-days: 30
+
+    draft-release:
+        name: Make the draft release
+        needs: [webapp, linux, flatpak, windows]
+        if: github.event_name == 'workflow_dispatch' && inputs.draft-release
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        env:
+            VERSION: ${{ needs.webapp.outputs.version }}
+            REF: ${{ inputs.ref || github.ref_name }}
+            GH_TOKEN: ${{ github.token }}
+            GH_REPO: ${{ github.repository }}
+        steps:
+            - name: Check this is a release tag
+              run: |
+                  if [ "$REF" != "haven-v$VERSION" ]; then
+                      echo "A draft release needs the haven-v$VERSION tag as the ref, not '$REF'" >&2
+                      exit 1
+                  fi
+                  gh api "repos/$GH_REPO/git/ref/tags/$REF" > /dev/null
+
+            # Every haven-* artifact: the web tarball and the Linux, Flatpak and Windows files.
+            - uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+                  pattern: haven-*
+                  merge-multiple: true
+
+            - name: Check every file is there
+              working-directory: artifacts
+              run: |
+                  ls -l
+                  expected=(
+                      "haven-v$VERSION.tar.gz"
+                      "Haven-$VERSION.AppImage"
+                      "Haven-$VERSION.AppImage.zsync"
+                      "Haven-$VERSION-arm64.AppImage"
+                      "Haven-$VERSION-arm64.zsync"
+                      "haven-desktop_${VERSION}_amd64.deb"
+                      "haven-desktop_${VERSION}_arm64.deb"
+                      "haven-desktop-$VERSION.pacman"
+                      "haven-desktop-$VERSION.flatpak"
+                      "haven-desktop-$VERSION-aarch64.flatpak"
+                      "Haven Setup $VERSION.exe"
+                      "Haven Setup $VERSION-arm64.exe"
+                  )
+                  for file in "${expected[@]}"; do
+                      test -f "$file" || { echo "Missing $file" >&2; exit 1; }
+                  done
+                  ls haven-desktop-"$VERSION"-*.pacman
+
+            - name: Make the draft release
+              working-directory: artifacts
+              run: |
+                  gh release create "$REF" --draft --verify-tag --title "Haven $VERSION" \
+                      --notes "Release notes to come." ./*

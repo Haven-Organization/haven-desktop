@@ -8,7 +8,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io), certific
 [SignPath Foundation](https://signpath.org).
 
 Only files built from this repository's source by its GitHub Actions workflow
-([`.github/workflows/windows.yml`](../.github/workflows/windows.yml)) are signed: the Haven app
+([`.github/workflows/release.yml`](../.github/workflows/release.yml)) are signed: the Haven app
 (`Haven.exe`) and its installer. Third-party binaries bundled with the app, such as Electron's own
 libraries, are not signed with this certificate.
 
@@ -42,14 +42,16 @@ SignPath's own copy of these settings is what's used; this is how they're laid o
     - Secret `SIGNPATH_API_TOKEN`: the API token.
     - Variables `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG`.
 
-Without those settings the workflow still runs and builds an unsigned installer.
+Without those settings the workflow still runs and builds unsigned installers.
 
 ## Building a signed installer
 
-The workflow runs for every pushed `haven-v*` tag, or by hand from the Actions tab ("Windows
-build", with an optional branch, tag or commit). With SignPath set up, a release run waits for an
-approver twice in SignPath: once for the app, then for the installer. The signed
-`Haven Setup X.Y.Z.exe` is the run's `haven-windows-X.Y.Z` artifact; attach it to the release.
+The workflow runs for every pushed `haven-v*` tag, or by hand from the Actions tab ("Release
+build", with an optional branch, tag or commit). It builds an x64 and an arm64 installer. With
+SignPath set up, each waits for an approver twice in SignPath: once for the app, then for the
+installer. The signed `Haven Setup X.Y.Z.exe` and `Haven Setup X.Y.Z-arm64.exe` are the run's
+`haven-windows-x64-X.Y.Z` and `haven-windows-arm64-X.Y.Z` artifacts; a draft release made by the
+same workflow attaches them itself (see [building.md](building.md#release-builds-on-github-actions)).
 
 The uninstaller inside the installer isn't signed. electron-builder creates it while building the
 installer, and it only ever runs from the installed folder, which Windows doesn't check.
