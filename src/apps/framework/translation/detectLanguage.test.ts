@@ -1,7 +1,11 @@
 import { francAll } from "franc";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { detectLanguage, textForDetection } from "./detectLanguage";
+import { detectLanguage, loadDetector, textForDetection } from "./detectLanguage";
+
+beforeAll(async () => {
+    await loadDetector();
+});
 
 const english = new Set(["en"]);
 const detect = (text: string, readable: ReadonlySet<string> = english): ReturnType<typeof detectLanguage> =>
@@ -25,6 +29,26 @@ describe("detectLanguage", () => {
         ["Καλημέρα, τι κάνεις;", "el"],
     ])("detects %s as %s, confidently", (text, language) => {
         expect(detect(text)).toEqual({ language, confident: true });
+    });
+
+    it("isn't confident about a few words franc could take for anything, such as names", () => {
+        expect(detect("momiji inubashiri cute")?.confident ?? false).toBe(false);
+    });
+
+    it.each([
+        "Billions must appimage",
+        "flatpak builds broke again lmao",
+        "momiji inubashiri cute wolf girl",
+        "average linux user experience moment",
+    ])("takes casual English with slang or names (%s) for English", (text) => {
+        expect(detect(text)?.language).toBe("en");
+    });
+
+    it("leaves out a leading bot command", () => {
+        expect(detect("!img momiji inubashiri cute")?.confident ?? false).toBe(false);
+        expect(textForDetection("!img cat").trim()).toBe("cat");
+        expect(textForDetection("/shrug hello").trim()).toBe("hello");
+        expect(textForDetection("!").trim()).toBe("!");
     });
 
     it("takes two Chinese characters as Chinese, confidently", () => {
@@ -62,9 +86,11 @@ describe("detectLanguage", () => {
     });
 
     it("needs franc for text in a shared script, unless its letters settle it", () => {
-        expect(detectLanguage("Ich habe heute keine Zeit, vielleicht morgen.", english, undefined)).toBeUndefined();
-        expect(detectLanguage("Це гарна ідея, давай обговоримо завтра.", english, undefined)?.language).toBe("uk");
-        expect(detectLanguage("今日はとても暑いですね。", english, undefined)?.language).toBe("ja");
+        // A detector with no answer, standing in for franc not being loaded yet.
+        const none = (() => []) as unknown as typeof francAll;
+        expect(detectLanguage("Ich habe heute keine Zeit, vielleicht morgen.", english, none)).toBeUndefined();
+        expect(detectLanguage("Це гарна ідея, давай обговоримо завтра.", english, none)?.language).toBe("uk");
+        expect(detectLanguage("今日はとても暑いですね。", english, none)?.language).toBe("ja");
     });
 
     it("skips Macedonian, which isn't detected, rather than calling it Bulgarian or Serbian", () => {

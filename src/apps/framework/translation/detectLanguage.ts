@@ -25,10 +25,13 @@ type FrancAllFunction = typeof FrancAll;
 
 let francAll: FrancAllFunction | undefined;
 let francLoading: Promise<FrancAllFunction> | undefined;
+/** Common English words (see englishWords.ts), loaded with franc. */
+let englishWords: ReadonlySet<string> | undefined;
 
-/** Loads the detector for shared scripts. */
+/** Loads the detector for shared scripts, and the English word list that goes with it. */
 export function loadDetector(): Promise<FrancAllFunction> {
-    francLoading ??= import("franc").then((franc) => {
+    francLoading ??= Promise.all([import("franc"), import("./englishWords")]).then(([franc, words]) => {
+        englishWords = new Set([...words.default.split(" "), ...ENGLISH_SLANG]);
         francAll = franc.francAll;
         return franc.francAll;
     });
@@ -199,6 +202,28 @@ const ENGLISH_WORDS = new Set(
 /** The share of a text's words that have to be common English ones for it to be English. */
 const ENGLISH_WORD_SHARE = 0.35;
 
+/** Chat words the English word list doesn't have. */
+const ENGLISH_SLANG = (
+    "afk btw brb fr gonna gotta idk imho imo irl kinda lmao lmfao lol ngl nvm ok okay omg pls plz rn " +
+    "smh tbh thx ty wanna wtf yeah yep yup linux"
+).split(" ");
+
+/**
+ * The share of a text's words that have to be in the English word list (see englishWords.ts) for
+ * it to be English. Well over half: a few short words are shared with other languages ("on",
+ * "idea", "come"), but casual English made of slang, names or product words still has most of its
+ * words in the list ("flatpak builds broke again lmao"), which franc can't tell on its own.
+ */
+const ENGLISH_DICTIONARY_SHARE = 0.6;
+
+function mostlyEnglishWords(text: string): boolean {
+    if (!englishWords) return false;
+    const words = text.toLowerCase().match(/\p{L}[\p{L}']*/gu) ?? [];
+    if (words.length < 2) return false;
+    const known = words.filter((word) => englishWords!.has(word) || englishWords!.has(word.replace(/'s$/, "")));
+    return known.length / words.length >= ENGLISH_DICTIONARY_SHARE;
+}
+
 function looksEnglish(text: string): boolean {
     const words = text.toLowerCase().match(/[a-z']+/g) ?? [];
     if (words.length < 3) return false;
@@ -220,6 +245,11 @@ const TRADITIONAL =
 
 /** Minimum letters in a shared script before franc's answer counts as confident. */
 const CONFIDENT_SHARED_SCRIPT_LETTERS = 20;
+/**
+ * Minimum words for franc's answer to count as confident. Fewer are often names or slang, which
+ * franc places in whatever language they happen to look like ("momiji inubashiri cute" as Italian).
+ */
+const CONFIDENT_SHARED_SCRIPT_WORDS = 4;
 /** Minimum letters for a detection from distinctive letters to count as confident. */
 const CONFIDENT_DISTINCTIVE_LETTERS = 8;
 /** Fewer letters than this in a shared script are too few to guess from at all. */
@@ -237,9 +267,10 @@ const CONFIDENT_SINGLE_SCRIPT_LETTERS = 4;
  */
 const CONFIDENT_FRANC_MARGIN = 0.04;
 
-/** The message's words, without links, code, user and room IDs, or :shortcodes:. */
+/** The message's words, without a leading bot command, links, code, user and room IDs, or :shortcodes:. */
 export function textForDetection(text: string): string {
     return text
+        .replace(/^\s*[!/.][\p{L}\p{N}_-]+(?=\s|$)/u, " ")
         .replace(/```[\s\S]*?```/g, " ")
         .replace(/`[^`\n]*`/g, " ")
         .replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, " ")
@@ -308,7 +339,7 @@ export function detectLanguage(
         }
     }
 
-    if (best.shared === "latin" && looksEnglish(text)) {
+    if (best.shared === "latin" && (looksEnglish(text) || mostlyEnglishWords(text))) {
         return { language: "en", confident: best.letters >= CONFIDENT_DISTINCTIVE_LETTERS };
     }
 
@@ -326,6 +357,9 @@ export function detectLanguage(
     const margin = top[1] - (runnerUp?.[1] ?? 0);
     return {
         language,
-        confident: best.letters >= CONFIDENT_SHARED_SCRIPT_LETTERS && margin >= CONFIDENT_FRANC_MARGIN,
+        confident:
+            best.letters >= CONFIDENT_SHARED_SCRIPT_LETTERS &&
+            count(text, /\p{L}+/gu) >= CONFIDENT_SHARED_SCRIPT_WORDS &&
+            margin >= CONFIDENT_FRANC_MARGIN,
     };
 }
