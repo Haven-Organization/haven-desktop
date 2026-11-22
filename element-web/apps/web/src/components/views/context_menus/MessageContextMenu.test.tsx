@@ -227,6 +227,38 @@ describe("MessageContextMenu", () => {
         });
     });
 
+    // Haven: "Translate with <site>" - see src/apps/framework/translation/.
+    describe("translate", () => {
+        const GERMAN = "Ich habe heute keine Zeit, vielleicht morgen.";
+
+        it("offers to translate a message in another language with the chosen site", async () => {
+            const open = vi.spyOn(window, "open").mockReturnValue(null);
+            createMenuWithContent(createMessageEventContent(GERMAN));
+
+            const item = document.querySelector<HTMLElement>('li[aria-label="Translate with LibreTranslate"]');
+            expect(item).toBeTruthy();
+            await userEvent.click(item!);
+            expect(open).toHaveBeenCalledWith(
+                expect.stringContaining("https://libretranslate.com/?source=de&target=en&q="),
+                "_blank",
+                "noopener,noreferrer",
+            );
+        });
+
+        it("doesn't offer it for a message in a language the user reads", () => {
+            createMenuWithContent(createMessageEventContent("I'll be there in a minute, just finishing up."));
+            expect(document.querySelector('li[aria-label^="Translate with"]')).toBeFalsy();
+        });
+
+        it("doesn't offer it when translation is off", () => {
+            const getValue = SettingsStore.getValue.bind(SettingsStore);
+            vi.spyOn(SettingsStore, "getValue").mockImplementation(((name: string, ...rest: unknown[]) =>
+                name === "Haven.translationService" ? "off" : (getValue as any)(name, ...rest)) as never);
+            createMenuWithContent(createMessageEventContent(GERMAN));
+            expect(document.querySelector('li[aria-label^="Translate with"]')).toBeFalsy();
+        });
+    });
+
     describe("message forwarding", () => {
         it("allows forwarding a room message", () => {
             const eventContent = createMessageEventContent("hello");
