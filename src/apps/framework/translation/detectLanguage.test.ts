@@ -40,6 +40,9 @@ describe("detectLanguage", () => {
         "flatpak builds broke again lmao",
         "momiji inubashiri cute wolf girl",
         "average linux user experience moment",
+        "i also guessed taj mahal",
+        "i love sushi and ramen",
+        "im at the eiffel tower lol",
     ])("takes casual English with slang or names (%s) for English", (text) => {
         expect(detect(text)?.language).toBe("en");
     });

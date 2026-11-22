@@ -202,19 +202,26 @@ const ENGLISH_WORDS = new Set(
 /** The share of a text's words that have to be common English ones for it to be English. */
 const ENGLISH_WORD_SHARE = 0.35;
 
-/** Chat words the English word list doesn't have. */
+/**
+ * Words the English word list doesn't have: "i" (which it only has as "I"), contractions typed
+ * without their apostrophe, and chat words.
+ */
 const ENGLISH_SLANG = (
+    "i im ive ill id dont cant wont didnt doesnt isnt wasnt arent werent couldnt shouldnt wouldnt " +
+    "thats whats theres youre theyre lets " +
     "afk btw brb fr gonna gotta idk imho imo irl kinda lmao lmfao lol ngl nvm ok okay omg pls plz rn " +
     "smh tbh thx ty wanna wtf yeah yep yup linux"
 ).split(" ");
 
 /**
  * The share of a text's words that have to be in the English word list (see englishWords.ts) for
- * it to be English. Well over half: a few short words are shared with other languages ("on",
- * "idea", "come"), but casual English made of slang, names or product words still has most of its
- * words in the list ("flatpak builds broke again lmao"), which franc can't tell on its own.
+ * it to be English. Casual English made of slang, names or product words still has at least half
+ * its words in the list ("flatpak builds broke again lmao", "i also guessed taj mahal"), which
+ * franc can't tell on its own. A few short words are shared with other languages ("on", "idea",
+ * "come"), so a very short foreign message can pass for English; it then only loses the link
+ * under it, and its options menu still offers to translate it.
  */
-const ENGLISH_DICTIONARY_SHARE = 0.6;
+const ENGLISH_DICTIONARY_SHARE = 0.5;
 
 function mostlyEnglishWords(text: string): boolean {
     if (!englishWords) return false;
