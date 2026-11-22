@@ -149,6 +149,17 @@ interface Configuration extends BaseConfiguration {
 }
 
 /**
+ * Haven: embeds AppImage update information (so AppImageUpdate/AM/AppManager can delta-update it)
+ * and generates the .zsync file that has to be published next to it - see
+ * scripts/appimage-update-info.ts. Run from afterAllArtifactBuild below. Only for Haven's own build:
+ * another VARIANT_PATH (e.g. an Element-branded build) must never advertise Haven's releases as its
+ * update source.
+ */
+const appImageUpdateInfo = process.env.VARIANT_PATH
+    ? undefined
+    : createAppImageUpdateInfoHook("Haven-Organization", "haven-desktop");
+
+/**
  * @type {import('electron-builder').Configuration}
  * @see https://www.electron.build/configuration/configuration
  */
@@ -312,13 +323,6 @@ const config: Omit<Writable<Configuration>, "electronFuses" | "publish"> & {
     nativeRebuilder: "sequential",
     nodeGypRebuild: false,
     npmRebuild: true,
-    // Haven: embeds AppImage update information (so AppImageUpdate/AM/AppManager can delta-update it)
-    // and generates the .zsync file that has to be published next to it - see
-    // scripts/appimage-update-info.ts. Only for Haven's own build: another VARIANT_PATH (e.g. an
-    // Element-branded build) must never advertise Haven's releases as its update source.
-    afterAllArtifactBuild: process.env.VARIANT_PATH
-        ? undefined
-        : createAppImageUpdateInfoHook("Haven-Organization", "haven-desktop"),
     beforeBuild: async (context: BeforeBuildContext) => {
         // Assert that the webapp.asar file exists
         try {
@@ -351,7 +355,13 @@ const config: Omit<Writable<Configuration>, "electronFuses" | "publish"> & {
     },
     afterAllArtifactBuild: async (buildResult: BuildResult): Promise<string[]> => {
         await assertArtifactsPresent(buildResult);
-        return writeMacReleasesJson(buildResult, config.extraMetadata.version ?? pkg.version, process.env.ED_BASE_URL);
+        const macReleases = await writeMacReleasesJson(
+            buildResult,
+            config.extraMetadata.version ?? pkg.version,
+            process.env.ED_BASE_URL,
+        );
+        // Haven: and the AppImages' update information and .zsync files (see appImageUpdateInfo).
+        return [...macReleases, ...((await appImageUpdateInfo?.(buildResult)) ?? [])];
     },
 };
 

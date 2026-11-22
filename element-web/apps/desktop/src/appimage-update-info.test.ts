@@ -74,7 +74,11 @@ function buildElf(is64: boolean, options: { withUpdInfo?: boolean } = {}): { fil
 }
 
 /** ELF runtime followed by an arbitrary payload, like the squashfs that follows a real runtime. */
-async function writeFakeAppImage(dir: string, name: string, is64 = true): Promise<{ file: string; offset: number; original: Buffer }> {
+async function writeFakeAppImage(
+    dir: string,
+    name: string,
+    is64 = true,
+): Promise<{ file: string; offset: number; original: Buffer }> {
     const { file: elf, sectionOffset } = buildElf(is64);
     const payload = Buffer.from("SQUASHFS-PAYLOAD".repeat(4096), "latin1");
     const original = Buffer.concat([elf, payload]);
@@ -144,20 +148,23 @@ describe("embedUpdateInformation", () => {
         await rm(dir, { recursive: true, force: true });
     });
 
-    it.each([true, false])("writes NUL-padded update info into the section and touches nothing else (64-bit: %s)", async (is64) => {
-        const { file, offset, original } = await writeFakeAppImage(dir, "Haven-1.0.0.AppImage", is64);
-        const info = "gh-releases-zsync|o|r|latest|Haven-*.AppImage.zsync";
+    it.each([true, false])(
+        "writes NUL-padded update info into the section and touches nothing else (64-bit: %s)",
+        async (is64) => {
+            const { file, offset, original } = await writeFakeAppImage(dir, "Haven-1.0.0.AppImage", is64);
+            const info = "gh-releases-zsync|o|r|latest|Haven-*.AppImage.zsync";
 
-        await embedUpdateInformation(file, info);
+            await embedUpdateInformation(file, info);
 
-        const after = await readFile(file);
-        expect(after.length).toBe(original.length);
-        expect(after.toString("latin1", offset, offset + info.length)).toBe(info);
-        expect(after.subarray(offset + info.length, offset + SECTION_SIZE).every((byte) => byte === 0)).toBe(true);
-        // Everything outside the section - the rest of the runtime and the whole payload - is unchanged.
-        expect(after.subarray(0, offset).equals(original.subarray(0, offset))).toBe(true);
-        expect(after.subarray(offset + SECTION_SIZE).equals(original.subarray(offset + SECTION_SIZE))).toBe(true);
-    });
+            const after = await readFile(file);
+            expect(after.length).toBe(original.length);
+            expect(after.toString("latin1", offset, offset + info.length)).toBe(info);
+            expect(after.subarray(offset + info.length, offset + SECTION_SIZE).every((byte) => byte === 0)).toBe(true);
+            // Everything outside the section - the rest of the runtime and the whole payload - is unchanged.
+            expect(after.subarray(0, offset).equals(original.subarray(0, offset))).toBe(true);
+            expect(after.subarray(offset + SECTION_SIZE).equals(original.subarray(offset + SECTION_SIZE))).toBe(true);
+        },
+    );
 
     it("overwrites earlier update info completely rather than leaving a tail of it behind", async () => {
         const { file, offset } = await writeFakeAppImage(dir, "Haven-1.0.0.AppImage");
@@ -207,7 +214,8 @@ describe("createAppImageUpdateInfoHook", () => {
         await rm(dir, { recursive: true, force: true });
     });
 
-    const resultFor = (artifactPaths: string[]): BuildResult => ({ outDir: dir, artifactPaths }) as unknown as BuildResult;
+    const resultFor = (artifactPaths: string[]): BuildResult =>
+        ({ outDir: dir, artifactPaths }) as unknown as BuildResult;
 
     /** A stand-in zsyncmake that records its arguments and creates the requested output file. */
     async function installFakeZsyncmake(): Promise<string> {
@@ -304,8 +312,24 @@ describe("electron-builder.ts (upstream-owned - guards against a merge dropping 
         expect(config.toolsets.appimage).not.toBe("0.0.0");
     });
 
-    it("runs the update-info hook for Haven's own build", async () => {
-        expect(typeof (await loadConfig()).afterAllArtifactBuild).toBe("function");
+    it("runs the update-info hook for Haven's own build, alongside upstream's own checks", async () => {
+        // electron-builder.ts's afterAllArtifactBuild belongs to upstream too: a merge once kept
+        // upstream's and silently dropped Haven's, so no .zsync was made. Check the hook really runs.
+        const hook = vi.fn().mockResolvedValue(["/out/Haven-1.0.0.AppImage.zsync"]);
+        vi.doMock("../scripts/appimage-update-info.js", async (importOriginal) => ({
+            ...(await importOriginal<object>()),
+            createAppImageUpdateInfoHook: () => hook,
+        }));
+        const outDir = await mkdtemp(path.join(os.tmpdir(), "haven-builder-"));
+        try {
+            const result = { outDir, artifactPaths: [], platformToTargets: new Map() } as unknown as BuildResult;
+            const extra = await (await loadConfig()).afterAllArtifactBuild(result);
+            expect(hook).toHaveBeenCalledWith(result);
+            expect(extra).toContain("/out/Haven-1.0.0.AppImage.zsync");
+        } finally {
+            vi.doUnmock("../scripts/appimage-update-info.js");
+            await rm(outDir, { recursive: true, force: true });
+        }
     });
 
     it("still builds an AppImage target at all", async () => {
