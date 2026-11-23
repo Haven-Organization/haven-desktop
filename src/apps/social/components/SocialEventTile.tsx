@@ -3107,9 +3107,13 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                         ? { aspectRatio: `${quotedMedia.info.w} / ${quotedMedia.info.h}` }
                         : undefined;
                 // Haven: MSC4144 per-message profile on the quoted original - same as the repost
-                // card's own handling above (no avatar shown here either way, matching this card's
-                // existing text-only header).
+                // card's own handling above, avatar included.
                 const quotedPerMessageProfile = getPerMessageProfileFromContent(replyCrossPostOfContent);
+                const quotedPerMessageAvatarUrl = resolvePerMessageAvatarUrl(quotedPerMessageProfile);
+                const quotedAvatarUrl =
+                    quotedPerMessageAvatarUrl !== undefined
+                        ? quotedPerMessageAvatarUrl
+                        : replyCrossPostSenderProfile?.avatarUrl;
                 const handleQuotedCardClick = (e: React.MouseEvent): void => {
                     if (!onViewThread) return;
                     // See handleRepostCardClick's own comment above for why this can't require
@@ -3139,8 +3143,18 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             autoVerify={isFocused}
                         />
                         <div className="social_EventTile_repostCard_header">
+                            {quotedAvatarUrl && (
+                                <img
+                                    className="social_EventTile_repostCard_avatar"
+                                    src={client.mxcUrlToHttp(quotedAvatarUrl, 24, 24, "crop") ?? ""}
+                                    alt=""
+                                />
+                            )}
                             <span className="social_EventTile_repostCard_sender">
-                                {quotedPerMessageProfile?.displayname || replyCrossPostOf.displayname || replyCrossPostOf.sender}
+                                {quotedPerMessageProfile?.displayname ||
+                                    replyCrossPostSenderProfile?.displayName ||
+                                    replyCrossPostOf.displayname ||
+                                    replyCrossPostOf.sender}
                             </span>
                             <ExternalHandleIcon externalHandle={replyCrossPostSenderProfile?.externalHandle} />
                         </div>
