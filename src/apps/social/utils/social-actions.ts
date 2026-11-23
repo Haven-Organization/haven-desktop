@@ -5,7 +5,19 @@
  * No new client instances are created here.
  */
 
-import { type MatrixClient, type Room, EventType, JoinRule, KnownMembership, Method, ReceiptType } from "matrix-js-sdk/src/matrix";
+import {
+    type ISendEventResponse,
+    type MatrixClient,
+    type MatrixEvent,
+    type Room,
+    EventStatus,
+    EventType,
+    JoinRule,
+    KnownMembership,
+    MatrixError,
+    Method,
+    ReceiptType,
+} from "matrix-js-sdk/src/matrix";
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import SettingsStore from "../../../../element-web/apps/web/src/settings/SettingsStore";
@@ -409,6 +421,53 @@ function currentPostEventType(): string {
 }
 
 /**
+ * Haven: whether you can post in a room - you've joined it and its power levels let you send the
+ * event type a post goes out as. Following someone joins their profile room, which usually only
+ * its owner can post in, so being a member isn't enough.
+ */
+export function canPostIn(room: Room, userId: string): boolean {
+    return (
+        room.getMyMembership() === KnownMembership.Join &&
+        room.currentState.maySendEvent(currentPostEventType(), userId)
+    );
+}
+
+/**
+ * Haven: sends a post, reply or repost. When it fails, the unsent copy the SDK keeps in the
+ * room's timeline is dropped, since the error shows in Social and the text is still there to try
+ * again; otherwise it sits in the room until someone finds and cancels it. The error still
+ * reaches the caller.
+ */
+async function sendPostEvent(
+    client: MatrixClient,
+    roomId: string,
+    content: Record<string, unknown>,
+): Promise<ISendEventResponse> {
+    const txnId = client.makeTxnId();
+    try {
+        return await client.sendEvent(roomId, currentPostEventType() as any, content, txnId);
+    } catch (err) {
+        discardUnsentEvent(client, roomId, txnId, err);
+        throw err;
+    }
+}
+
+function discardUnsentEvent(client: MatrixClient, roomId: string, txnId: string, err: unknown): void {
+    let unsent: MatrixEvent | undefined = err instanceof MatrixError ? err.event : undefined;
+    if (!unsent) {
+        try {
+            unsent = client
+                .getRoom(roomId)
+                ?.getPendingEvents()
+                .find((e) => e.getTxnId() === txnId);
+        } catch {
+            // getPendingEvents throws when the client doesn't keep pending events apart.
+        }
+    }
+    if (unsent?.status === EventStatus.NOT_SENT) client.cancelPendingEvent(unsent);
+}
+
+/**
  * Sends a social post — see currentPostEventType() for which event type.
  */
 export async function sendPost(
@@ -426,7 +485,7 @@ export async function sendPost(
           ? { body, msgtype, format: "org.matrix.custom.html", formatted_body: formattedBody }
           : { body, msgtype, format: "plain" };
     attachMentions(content, client.getUserId());
-    await client.sendEvent(roomId, currentPostEventType() as any, content);
+    await sendPostEvent(client, roomId, content);
 }
 
 /**
@@ -485,7 +544,7 @@ export async function sendComment(
             event_id: parentEventId,
         },
     };
-    await client.sendEvent(roomId, currentPostEventType() as any, content);
+    await sendPostEvent(client, roomId, content);
     void sendPostReadReceipt(client, roomId, parentEventId);
 
     // Best-effort cross-post into the replier's own profile feed, per MSC4501's "Cross-posting a
@@ -596,7 +655,7 @@ export async function sendRepost(
         ...(reposted.displayname ? { displayname: reposted.displayname } : {}),
         content: reposted.content,
     };
-    await client.sendEvent(targetRoomId, currentPostEventType() as any, content);
+    await sendPostEvent(client, targetRoomId, content);
     void sendPostReadReceipt(client, reposted.room_id, reposted.event_id);
 
     // Haven: skip the attempt outright when we already know it can't succeed - a repost/quote-post
@@ -650,7 +709,7 @@ export async function crossPostReplyToProfile(
     formattedBody?: string,
 ): Promise<void> {
     const via = roomViaFor(client, repliedTo.room_id);
-    await client.sendEvent(profileRoomId, currentPostEventType() as any, {
+    await sendPostEvent(client, profileRoomId, {
         body,
         msgtype: "m.text",
         ...(formattedBody

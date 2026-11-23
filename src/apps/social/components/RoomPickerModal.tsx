@@ -15,7 +15,6 @@
 import React, { type JSX, useCallback, useMemo, useState } from "react";
 import classnames from "classnames";
 import { type MatrixClient, type Room } from "matrix-js-sdk/src/matrix";
-import { KnownMembership } from "matrix-js-sdk/src/types";
 import { CloseIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 import { AutoHideScrollbar } from "@element-hq/web-shared-components";
 
@@ -38,6 +37,7 @@ import {
     useRovingTabIndex,
 } from "../../../../element-web/apps/web/src/accessibility/RovingTabIndex";
 import { isSocialRoom } from "../utils/room-classifier";
+import { canPostIn } from "../utils/social-actions";
 import { setPendingRoomPick } from "../utils/pendingRoomPick";
 import socialIcon from "../assets/social-icon.png";
 
@@ -82,7 +82,9 @@ export function RoomPickerModal({ client: cli, onFinished }: Props): JSX.Element
             sortRoomsByRecency(
                 cli
                     .getVisibleRooms()
-                    .filter((room) => room.getMyMembership() === KnownMembership.Join && !room.isSpaceRoom()),
+                    // Haven: only rooms you can post in - following someone joins their profile
+                    // room, which usually only they can post in.
+                    .filter((room) => !room.isSpaceRoom() && canPostIn(room, cli.getSafeUserId())),
                 cli.getSafeUserId(),
             ),
         [cli],

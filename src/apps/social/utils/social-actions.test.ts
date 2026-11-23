@@ -4,10 +4,10 @@
 // even just importing getProfileRoomLink crashes without this (see permalinkRouting.test.ts's own
 // identical directive/comment for the same underlying reason).
 import { describe, it, expect, vi } from "vitest";
-import { type MatrixClient, KnownMembership } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient, EventStatus, KnownMembership, MatrixError, MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { mkStubRoom, createTestClient } from "test-utils";
 
-import { getProfileRoomLink, sendRepost, type RepostContent } from "./social-actions";
+import { canPostIn, getProfileRoomLink, sendPost, sendRepost, type RepostContent } from "./social-actions";
 import { MSC4501_PROFILE_ROOM_KEY, MSC4501_PROFILE_ROOM_ID_KEY_LEGACY } from "./room-classifier";
 
 function fakeClient(profile: Record<string, unknown>): MatrixClient {
@@ -91,6 +91,7 @@ describe("sendRepost", () => {
             "!myProfile:example.org",
             expect.any(String),
             expect.objectContaining({ body: "check this out" }),
+            expect.any(String),
         );
     });
 
@@ -120,5 +121,70 @@ describe("sendRepost", () => {
         await expect(
             sendRepost(client, "!myProfile:example.org", "check this out", repost(originalRoom.roomId)),
         ).resolves.toEqual({ reactionSent: false });
+    });
+});
+
+// Haven: following someone joins their profile room, which usually only they can post in, so
+// Social's "Post to" choices go by permission, not membership.
+describe("canPostIn", () => {
+    it("is true when joined and allowed to send a post", () => {
+        const room = mkStubRoom("!profile:example.org", "Profile", createTestClient());
+        expect(canPostIn(room, "@me:example.org")).toBe(true);
+        expect(room.currentState.maySendEvent).toHaveBeenCalledWith("m.room.message", "@me:example.org");
+    });
+
+    it("is false in a room you've joined but can't post in", () => {
+        const room = mkStubRoom("!profile:example.org", "Profile", createTestClient());
+        vi.mocked(room.currentState.maySendEvent).mockReturnValue(false);
+        expect(canPostIn(room, "@me:example.org")).toBe(false);
+    });
+
+    it("is false in a room you haven't joined", () => {
+        const room = mkStubRoom("!profile:example.org", "Profile", createTestClient());
+        room.getMyMembership = vi.fn().mockReturnValue(KnownMembership.Invite);
+        expect(canPostIn(room, "@me:example.org")).toBe(false);
+    });
+});
+
+// Haven: a refused post shows its error in Social, so the unsent copy shouldn't also be left in
+// the room's timeline to cancel by hand.
+describe("sendPost when the server refuses it", () => {
+    function unsentEvent(): MatrixEvent {
+        const event = new MatrixEvent({ type: "m.room.message", content: { body: "hi" } });
+        event.setStatus(EventStatus.NOT_SENT);
+        return event;
+    }
+
+    it("drops the unsent copy and still throws", async () => {
+        const client = createTestClient();
+        const unsent = unsentEvent();
+        const error = new MatrixError({ errcode: "M_FORBIDDEN" }, 403);
+        error.event = unsent;
+        client.sendEvent = vi.fn().mockRejectedValue(error);
+
+        await expect(sendPost(client, "!profile:example.org", "hi")).rejects.toBe(error);
+        expect(client.cancelPendingEvent).toHaveBeenCalledWith(unsent);
+    });
+
+    it("finds the unsent copy by its transaction id when the error doesn't carry it", async () => {
+        const client = createTestClient();
+        const room = mkStubRoom("!profile:example.org", "Profile", client);
+        const unsent = unsentEvent();
+        client.getRoom = vi.fn().mockReturnValue(room);
+        client.sendEvent = vi.fn().mockImplementation((_roomId, _type, _content, txnId: string) => {
+            unsent.setTxnId(txnId);
+            return Promise.reject(new TypeError("Failed to fetch"));
+        });
+        room.getPendingEvents = vi.fn().mockReturnValue([unsent]);
+
+        await expect(sendPost(client, "!profile:example.org", "hi")).rejects.toThrow("Failed to fetch");
+        expect(client.cancelPendingEvent).toHaveBeenCalledWith(unsent);
+    });
+
+    it("leaves a sent post alone", async () => {
+        const client = createTestClient();
+        client.sendEvent = vi.fn().mockResolvedValue({ event_id: "$sent" });
+        await sendPost(client, "!profile:example.org", "hi");
+        expect(client.cancelPendingEvent).not.toHaveBeenCalled();
     });
 });

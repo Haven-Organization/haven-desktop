@@ -111,6 +111,7 @@ import {
     undoLike,
     sendComment,
     sendPost,
+    canPostIn,
     getProfileRoomLink,
     resolveProfileRoom,
     withTimeout,
@@ -1731,7 +1732,7 @@ function FeedPane({
     const postableRooms = useMemo(
         () =>
             rooms
-                .filter((r) => r.getMyMembership() === KnownMembership.Join && (isProfileRoom(r) || isGroupRoom(r)))
+                .filter((r) => (isProfileRoom(r) || isGroupRoom(r)) && canPostIn(r, myUserId))
                 .sort((a, b) => {
                     const aOwn = getProfileOwnerUserId(a) === myUserId;
                     const bOwn = getProfileOwnerUserId(b) === myUserId;
@@ -1768,6 +1769,9 @@ function FeedPane({
     // to grab something and coming back doesn't lose a half-written post.
     const [postBody, setPostBody] = useComposerDraft(FEED_COMPOSER_DRAFT_KEY);
     const [postBusy, setPostBusy] = useState(false);
+    // Haven: a post the server refused (or a network failure) shows here, the same as
+    // PostComposerDialog does, instead of failing without a word.
+    const [postError, setPostError] = useState<string | null>(null);
     const {
         attachment: feedPendingAttachment,
         setFile: setFeedPendingFile,
@@ -1883,6 +1887,7 @@ function FeedPane({
             // - block sending until the real link resolves rather than risk it.
             if (!explicitRoomId && profileRoomId === undefined) return;
             setPostBusy(true);
+            setPostError(null);
             try {
                 // A slash command is a text-only utility - doesn't make sense combined with a
                 // media post, so an attachment always skips it, same as SocialRoomView's own
@@ -1914,6 +1919,9 @@ function FeedPane({
                     setPostBody("");
                 }
                 // errored/declined - leave the typed text in place to fix or reconsider.
+            } catch (err: unknown) {
+                // The typed text and attachment stay, so it can be sent again.
+                setPostError(err instanceof Error ? err.message : "Failed to post");
             } finally {
                 setPostBusy(false);
             }
@@ -2111,6 +2119,7 @@ function FeedPane({
                             onRemove={clearFeedAttachment}
                         />
                     )}
+                    {postError && <p className="social_Error">{postError}</p>}
                     <div className="social_ComposeBox_recorderSlot" ref={setRecorderSlot} />
                     <div className="social_ComposeBox_footer">
                         <div className="social_ComposeBox_roomPicker">
