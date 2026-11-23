@@ -23,10 +23,29 @@ describe("translationLink", () => {
         expect(translationLink(service("google"), "hola", "zh-Hant").url).toBe(
             "https://translate.google.com/?sl=auto&tl=zh-TW&text=hola&op=translate",
         );
-        expect(translationLink(service("deepl"), "a/b", "en").url).toBe(
-            "https://www.deepl.com/translator#auto/en-us/a%2Fb",
-        );
         expect(translationLink(service("bing"), "hola", "tl").url).toContain("to=fil&");
+    });
+
+    // DeepL's page stays empty when its link says "auto", or a source code it doesn't take
+    // ("zh-hans"), and cuts the text at a "/" unless it's escaped.
+    it("gives DeepL the language translated from, in its own codes", () => {
+        expect(translationLink(service("deepl"), "えっ…いいんですか？", "en", "ja").url).toBe(
+            "https://www.deepl.com/translator#ja/en-us/" + encodeURIComponent("えっ…いいんですか？"),
+        );
+        expect(translationLink(service("deepl"), "断罪", "en", "zh-Hant").url).toContain("#zh/en-us/");
+        expect(translationLink(service("deepl"), "olá", "en", "pt-BR").url).toContain("#pt/en-us/");
+    });
+
+    it("gives DeepL a language other than the target when the message's isn't known", () => {
+        expect(translationLink(service("deepl"), "hola", "fr").url).toContain("#en/fr/");
+        expect(translationLink(service("deepl"), "hola", "en").url).toContain("#de/en-us/");
+    });
+
+    it("escapes slashes for DeepL", () => {
+        expect(translationLink(service("deepl"), "1/2 C:\\temp", "en", "de").url).toBe(
+            "https://www.deepl.com/translator#de/en-us/" + encodeURIComponent("1\\/2 C:\\\\temp"),
+        );
+        expect(translationLink(service("google"), "1/2", "en", "de").url).toContain("text=1%2F2&");
     });
 
     it("cuts text longer than the site takes, at a word break", () => {

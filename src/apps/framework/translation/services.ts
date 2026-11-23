@@ -14,12 +14,23 @@ export interface TranslationService {
     name: string;
     /**
      * The link to open. "{text}" is replaced with the message's text, "{target}" with the language
-     * to translate into and "{source}" with the message's language ("auto" when it isn't known),
+     * to translate into and "{source}" with the message's language ("auto" when it isn't known, unless
+     * `unknownSource` says otherwise),
      * all URL-encoded.
      */
     url: string;
     /** The site's own language codes, where they differ from Haven's (see languages.ts). */
     languageCodes?: Record<string, string>;
+    /** The site's codes for the language translated from, where they differ from `languageCodes`. */
+    sourceCodes?: Record<string, string>;
+    /**
+     * For a site that can't detect the language from its link (it opens empty with "auto"): the
+     * language to send when the message's isn't known. The site corrects it once it has the text.
+     * It mustn't be the language translated into, so `otherwise` is sent when it is.
+     */
+    unknownSource?: { language: string; otherwise: string };
+    /** Whether "/" and "\" in the text are sent as "\/" and "\\", which DeepL's links need. */
+    escapeSlashes?: boolean;
     /** The most text the site takes at once, in characters. Longer messages are cut short. */
     maxTextLength?: number;
 }
@@ -46,9 +57,13 @@ export const BUILT_IN_SERVICES: readonly TranslationService[] = [
     {
         id: "deepl",
         name: "DeepL",
-        // DeepL's source and target codes differ ("en" and "en-us"), so it detects the language itself.
-        url: "https://www.deepl.com/translator#auto/{target}/{text}",
+        // DeepL opens empty unless its link names the language translated from, and its codes for
+        // that differ from the ones for the language translated into ("en" and "en-us").
+        url: "https://www.deepl.com/translator#{source}/{target}/{text}",
         languageCodes: { "en": "en-us", "pt": "pt-pt", "pt-BR": "pt-br", "zh-Hans": "zh-hans", "zh-Hant": "zh-hant" },
+        sourceCodes: { "pt-BR": "pt", "zh-Hans": "zh", "zh-Hant": "zh" },
+        unknownSource: { language: "en", otherwise: "de" },
+        escapeSlashes: true,
         maxTextLength: 1500,
     },
     {
@@ -82,10 +97,15 @@ export interface TranslationLink {
 
 function fill(service: TranslationService, text: string, target: string, source: string | undefined): string {
     const code = (language: string): string => encodeURIComponent(service.languageCodes?.[language] ?? language);
+    const sourceCode = (language: string): string =>
+        encodeURIComponent(service.sourceCodes?.[language] ?? language.toLowerCase());
+    const unknown = service.unknownSource;
+    const from = source ?? (unknown && (target === unknown.language ? unknown.otherwise : unknown.language));
+    const escaped = service.escapeSlashes ? text.replace(/[\\/]/g, "\\$&") : text;
     return service.url
         .replace(/\{target\}/g, code(target))
-        .replace(/\{source\}/g, source ? code(source) : "auto")
-        .replace(/\{text\}/g, encodeURIComponent(text));
+        .replace(/\{source\}/g, from ? (service.sourceCodes ? sourceCode(from) : code(from)) : "auto")
+        .replace(/\{text\}/g, encodeURIComponent(escaped));
 }
 
 /**
