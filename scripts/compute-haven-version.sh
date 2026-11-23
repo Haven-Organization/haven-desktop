@@ -57,7 +57,9 @@ else
     # no-media-devices-release) that `--tags` alone would compete on equal footing with the real
     # vX.Y.Z release tags - and can win, since "nearest tag by commit count" has no concept of
     # which tag is more meaningful to report, only which one is closer.
-    upstream_tip=$(git -C "$ROOT_DIR" log --merges -1 --format='%P' HEAD 2>/dev/null | awk '{print $2}')
+    # `|| true`: with no git history at all (a copy without .git), pipefail would otherwise end the
+    # whole script here, before the package.json fallback below.
+    upstream_tip=$(git -C "$ROOT_DIR" log --merges -1 --format='%P' HEAD 2>/dev/null | awk '{print $2}' || true)
     if [ -n "$upstream_tip" ]; then
         element_version=$(git -C "$ROOT_DIR" describe --tags --match "v[0-9]*" "$upstream_tip" 2>/dev/null || echo unknown)
     else
