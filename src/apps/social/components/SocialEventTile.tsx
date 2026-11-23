@@ -106,6 +106,7 @@ import {
 } from "./PostRelationHeaderLine";
 import SocialMessageContextMenu from "./SocialMessageContextMenu";
 import { MessageTranslation } from "../../framework/translation/MessageTranslation";
+import { mentionsAsNames } from "../../framework/translation/mentionNames";
 import { EditPostDialog } from "./EditPostDialog";
 import { canEditPost } from "../utils/postEdit";
 import { LikeButton } from "./LikeButton";
@@ -2195,9 +2196,10 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // fallback), for "Translate with ..." - see MessageTranslation.tsx.
     const displayedBody = typeof displayContent?.body === "string" ? displayContent.body : "";
     const translatableText = showsPostBody
-        ? inReplyToId && displayedBody.startsWith("> ")
-            ? stripReplyFallback(displayedBody)
-            : displayedBody
+        ? mentionsAsNames(
+              inReplyToId && displayedBody.startsWith("> ") ? stripReplyFallback(displayedBody) : displayedBody,
+              room,
+          )
         : "";
     const fileMime =
         content.info?.mimetype ??

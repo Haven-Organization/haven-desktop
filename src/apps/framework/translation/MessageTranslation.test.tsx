@@ -55,6 +55,16 @@ describe("MessageTranslation", () => {
         },
     );
 
+    it("translates only the lines in another language when the rest is English", async () => {
+        mockSettings({});
+        render(<MessageTranslation text={"今日はとても暑いですね。\n\nIt's really hot today, isn't it?"} />);
+
+        const link = await screen.findByRole("link", { name: "Translate with LibreTranslate" });
+        const url = new URL(link.getAttribute("href")!);
+        expect(url.searchParams.get("q")).toBe("今日はとても暑いですね。");
+        expect(url.searchParams.get("source")).toBe("ja");
+    });
+
     it("shows nothing when translation is off", () => {
         mockSettings({ "Haven.translationService": "off" });
         const { container } = render(<MessageTranslation text={GERMAN} />);

@@ -1,7 +1,7 @@
 import { francAll } from "franc";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { detectLanguage, loadDetector, textForDetection } from "./detectLanguage";
+import { detectForeignText, detectLanguage, loadDetector, textForDetection } from "./detectLanguage";
 
 beforeAll(async () => {
     await loadDetector();
@@ -43,6 +43,8 @@ describe("detectLanguage", () => {
         "i also guessed taj mahal",
         "i love sushi and ramen",
         "im at the eiffel tower lol",
+        "posterchan AI's summary.\n\n>streamer Jar",
+        "the streamer dropped the jar",
     ])("takes casual English with slang or names (%s) for English", (text) => {
         expect(detect(text)?.language).toBe("en");
     });
@@ -109,5 +111,42 @@ describe("textForDetection", () => {
         expect(text).not.toMatch(/example|code|alice|smile|block/);
         expect(text).toMatch(/Hola/);
         expect(text).toMatch(/amigo/);
+    });
+});
+
+// Haven: a message mostly in a language the user reads, with a line or two in another one.
+describe("detectForeignText", () => {
+    const MIXED =
+        "久しぶりですね！👋✨ 我が名はめぐみん！紅魔族随一の魔法の使い手にして、爆裂魔法を操りし者！💥🔥\n\n" +
+        "Long time no see! 😆💕 It's been a whole day and I've been *so* bored with no one to show my Explosion " +
+        "to. 🧙‍♀️ What have you been up to? Want to come watch today's Explosion? 💥🌋";
+    const foreign = (text: string): ReturnType<typeof detectForeignText> => detectForeignText(text, english, francAll);
+
+    it("is the whole message when it's in another language", () => {
+        const text = "Ich habe heute keine Zeit, vielleicht morgen.";
+        expect(foreign(text)).toEqual({ language: "de", text, partial: false });
+    });
+
+    it("is only the lines in another language when the rest is English", () => {
+        expect(foreign(MIXED)).toEqual({
+            language: "ja",
+            text: "久しぶりですね！👋✨ 我が名はめぐみん！紅魔族随一の魔法の使い手にして、爆裂魔法を操りし者！💥🔥",
+            partial: true,
+        });
+    });
+
+    it("is nothing for English, line by line too", () => {
+        expect(foreign("See you tomorrow.\nI don't have time today, sorry.")).toBeUndefined();
+        expect(foreign("posterchan AI's summary.\n\n>streamer Jar")).toBeUndefined();
+        expect(
+            foreign(
+                "He....is....laugh\n\npost\n\n🔁 reposted JonnyFever's post\n" +
+                    "> Hahahaha. I am laugh whenever I think about it",
+            ),
+        ).toBeUndefined();
+    });
+
+    it("is nothing when the other lines are in a language the user also reads", () => {
+        expect(detectForeignText(MIXED, new Set(["en", "ja"]), francAll)).toBeUndefined();
     });
 });

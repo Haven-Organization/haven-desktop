@@ -370,3 +370,61 @@ export function detectLanguage(
             margin >= CONFIDENT_FRANC_MARGIN,
     };
 }
+
+/** The writing system most of `text`'s letters are in, such as "latin", "han+kana" or "ko". */
+function mainScript(text: string): string | undefined {
+    const scripts: Array<[string, number]> = [
+        ["han+kana", count(text, HAN) + count(text, KANA)],
+        ...SINGLE_LANGUAGE_SCRIPTS.map(([pattern, language]): [string, number] => [language, count(text, pattern)]),
+        ...SHARED_SCRIPTS.map(([pattern, shared]): [string, number] => [shared, count(text, pattern)]),
+    ];
+    let best: [string, number] | undefined;
+    for (const entry of scripts) {
+        if (entry[1] > (best?.[1] ?? 0)) best = entry;
+    }
+    return best?.[0];
+}
+
+/** The part of a message to translate, and the language it's in. */
+export interface ForeignText {
+    language: string;
+    /** The whole message, or only its lines in `language` when the rest is in a language the user reads. */
+    text: string;
+    /** Whether `text` is only some of the message's lines. */
+    partial: boolean;
+}
+
+/**
+ * What to translate in a message, when it's confidently in a language the user doesn't read: the
+ * whole message, or, when the message as a whole is in one they do read, the lines in the most
+ * common other language ("久しぶりですね！" above a paragraph of English). Only lines in another
+ * writing system count: a short line in the message's own one is too easy to misplace ("reposted
+ * JonnyFever's post" passes for Norwegian), and is part of the message the user can read anyway.
+ *
+ * `readable` is the languages the user reads, as for detectLanguage.
+ */
+export function detectForeignText(
+    message: string,
+    readable: ReadonlySet<string>,
+    detector: FrancAllFunction | undefined = francAll,
+): ForeignText | undefined {
+    const whole = detectLanguage(message, readable, detector);
+    if (whole?.confident && !readable.has(whole.language)) {
+        return { language: whole.language, text: message, partial: false };
+    }
+    if (!whole?.confident) return undefined;
+
+    const messageScript = mainScript(textForDetection(message));
+    const linesByLanguage = new Map<string, string[]>();
+    for (const line of message.split("\n")) {
+        if (mainScript(textForDetection(line)) === messageScript) continue;
+        const detected = detectLanguage(line, readable, detector);
+        if (!detected?.confident || readable.has(detected.language)) continue;
+        linesByLanguage.set(detected.language, [...(linesByLanguage.get(detected.language) ?? []), line.trim()]);
+    }
+    let best: [string, string[]] | undefined;
+    for (const entry of linesByLanguage) {
+        if (!best || entry[1].length > best[1].length) best = entry;
+    }
+    return best && { language: best[0], text: best[1].join("\n"), partial: true };
+}
