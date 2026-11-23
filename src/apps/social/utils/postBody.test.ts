@@ -42,10 +42,23 @@ describe("resolvePostBody", () => {
         expect(resolved.formatted_body).toBe("");
     });
 
-    it("only overrides the field that's actually present", () => {
-        const resolved = resolvePostBody({ body: "stock", formatted_body: "<b>stock</b>", [BODY]: "" });
-        expect(resolved.body).toBe("");
-        expect(resolved.formatted_body).toBe("<b>stock</b>");
+    it("drops the stock HTML when only social.body is present", () => {
+        const resolved = resolvePostBody({
+            body: "🔁 X boosted Y's post:\nhello",
+            format: "org.matrix.custom.html",
+            formatted_body: "<p>🔁 X boosted Y's post:</p><p>hello</p>",
+            [BODY]: "hello",
+        });
+        expect(resolved.body).toBe("hello");
+        expect(resolved.formatted_body).toBeUndefined();
+        expect(resolved.format).toBeUndefined();
+    });
+
+    it("keeps the stock plain body when only social.formatted_body is present", () => {
+        const resolved = resolvePostBody({ body: "stock", [FORMATTED]: "<b>new</b>" });
+        expect(resolved.body).toBe("stock");
+        expect(resolved.formatted_body).toBe("<b>new</b>");
+        expect(resolved.format).toBe("org.matrix.custom.html");
     });
 
     it("returns the same object when neither override is present", () => {

@@ -31,20 +31,27 @@ function filledOut(value: unknown): value is string {
  *  stock field) - unchanged (same reference) otherwise, so callers relying on referential equality
  *  (e.g. useMemo/useEffect deps elsewhere) don't see spurious changes. Forces format to
  *  org.matrix.custom.html when substituting in a formatted_body override, since a plain-text stock
- *  body's content wouldn't otherwise have this set, and the HTML-rendering pipeline gates on it. */
+ *  body's content wouldn't otherwise have this set, and the HTML-rendering pipeline gates on it.
+ *  A social.body with no social.formatted_body drops the stock formatted_body and format, so the
+ *  plain override is what shows. */
 export function resolvePostBody<T extends Record<string, any> | undefined>(content: T): T {
     if (!content) return content;
     const bodyOverride = content[MSC4501_BODY_KEY];
     const formattedBodyOverride = content[MSC4501_FORMATTED_BODY_KEY];
     if (!isSet(bodyOverride) && !isSet(formattedBodyOverride)) return content;
 
-    return {
-        ...content,
-        ...(isSet(bodyOverride) ? { body: bodyOverride } : {}),
-        ...(isSet(formattedBodyOverride)
-            ? { formatted_body: formattedBodyOverride, format: "org.matrix.custom.html" }
-            : {}),
-    };
+    const resolved: Record<string, any> = { ...content };
+    if (isSet(bodyOverride)) resolved.body = bodyOverride;
+    if (isSet(formattedBodyOverride)) {
+        resolved.formatted_body = formattedBodyOverride;
+        resolved.format = "org.matrix.custom.html";
+    } else {
+        // social.body alone replaces the text, HTML included: the stock formatted_body is the
+        // ordinary-timeline version, with a bridge's header line ("🔁 X boosted Y's post:").
+        delete resolved.formatted_body;
+        delete resolved.format;
+    }
+    return resolved as T;
 }
 
 /** Just the effective body string (MSC4501_BODY_KEY if present, even empty, else stock body) -
