@@ -86,6 +86,10 @@ describe("getMenuTranslationService", () => {
     it("doesn't offer one for English, empty text, or when translation is off", () => {
         mockSettings({});
         expect(getMenuTranslationService("I'll be there in a minute, just finishing up.")).toBeUndefined();
+        expect(getMenuTranslationService("lmao")).toBeUndefined();
+        expect(getMenuTranslationService("ok lol")).toBeUndefined();
+        expect(getMenuTranslationService("https://www.youtube.com/shorts/9W3F_65Qy")).toBeUndefined();
+        expect(getMenuTranslationService("👍🎉")).toBeUndefined();
         expect(getMenuTranslationService("  ")).toBeUndefined();
         mockSettings({ "Haven.translationService": "off" });
         expect(getMenuTranslationService(GERMAN)).toBeUndefined();

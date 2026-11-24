@@ -210,8 +210,17 @@ const ENGLISH_SLANG = (
     "i im ive ill id dont cant wont didnt doesnt isnt wasnt arent werent couldnt shouldnt wouldnt " +
     "thats whats theres youre theyre lets " +
     "afk btw brb fr gonna gotta idk imho imo irl kinda lmao lmfao lol ngl nvm ok okay omg pls plz rn " +
-    "smh tbh thx ty wanna wtf yeah yep yup linux"
+    "smh tbh thx ty wanna wtf yeah yep yup linux " +
+    // Left out of SCOWL's lists.
+    "shit shitty bullshit fuck fucks fucked fucking fuckin motherfucker"
 ).split(" ");
+
+/** Laughter spelled out in English: "haha", "hahaaaa", "ahaha", "hehe", "heh". */
+const LAUGHTER = /^a?(?:h+a+)+h*$|^(?:h+e+)+h*$/;
+
+function isEnglishWord(word: string): boolean {
+    return englishWords!.has(word) || englishWords!.has(word.replace(/'s$/, "")) || LAUGHTER.test(word);
+}
 
 /**
  * The share of a text's words that have to be in the English word list (see englishWords.ts) for
@@ -223,12 +232,25 @@ const ENGLISH_SLANG = (
  */
 const ENGLISH_DICTIONARY_SHARE = 0.5;
 
-function mostlyEnglishWords(text: string): boolean {
-    if (!englishWords) return false;
+/** The share of `text`'s words in the English word list, or 0 before the list is loaded. */
+function englishShare(text: string): number {
+    if (!englishWords) return 0;
     const words = text.toLowerCase().match(/\p{L}[\p{L}']*/gu) ?? [];
-    if (words.length < 2) return false;
-    const known = words.filter((word) => englishWords!.has(word) || englishWords!.has(word.replace(/'s$/, "")));
-    return known.length / words.length >= ENGLISH_DICTIONARY_SHARE;
+    return words.length === 0 ? 0 : words.filter(isEnglishWord).length / words.length;
+}
+
+function mostlyEnglishWords(text: string): boolean {
+    return (text.match(/\p{L}[\p{L}']*/gu)?.length ?? 0) >= 2 && englishShare(text) >= ENGLISH_DICTIONARY_SHARE;
+}
+
+/**
+ * True when every word of `text` is in the English word list - for text too short to detect
+ * ("lmao", "ok"), which is then not worth offering to translate. False before the list is loaded.
+ */
+export function onlyEnglishWords(text: string): boolean {
+    if (!englishWords) return false;
+    const words = textForDetection(text).toLowerCase().match(/\p{L}[\p{L}']*/gu) ?? [];
+    return words.length > 0 && words.every(isEnglishWord);
 }
 
 function looksEnglish(text: string): boolean {
@@ -266,6 +288,13 @@ const MIN_SHARED_SCRIPT_LETTERS = 8;
  * be the language: franc often ranks a neighbor of the right language first on short text.
  */
 const READABLE_MARGIN = 0.1;
+/**
+ * A language the user reads that franc scores at least this close to its best match makes the
+ * best match not confident: short casual text in the user's own language, with slang, names or
+ * typos, often scores just under some other language ("nigga q anyfur is joing now" as Tagalog,
+ * with English close behind).
+ */
+const UNSURE_READABLE_MARGIN = 0.2;
 /** Minimum letters in a single-language script (2 for Chinese and Japanese) to count as confident. */
 const CONFIDENT_SINGLE_SCRIPT_LETTERS = 4;
 /**
@@ -362,12 +391,17 @@ export function detectLanguage(
     const language = FRANC_TO_LANGUAGE[top[0]];
     if (!language) return undefined;
     const margin = top[1] - (runnerUp?.[1] ?? 0);
+    const readableCloseBehind = scores.some(
+        ([code, score]) =>
+            score >= top[1] - UNSURE_READABLE_MARGIN && readable.has(FRANC_TO_LANGUAGE[code] ?? ""),
+    );
     return {
         language,
         confident:
             best.letters >= CONFIDENT_SHARED_SCRIPT_LETTERS &&
             count(text, /\p{L}+/gu) >= CONFIDENT_SHARED_SCRIPT_WORDS &&
-            margin >= CONFIDENT_FRANC_MARGIN,
+            margin >= CONFIDENT_FRANC_MARGIN &&
+            !readableCloseBehind,
     };
 }
 

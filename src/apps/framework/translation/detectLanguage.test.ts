@@ -45,9 +45,17 @@ describe("detectLanguage", () => {
         "im at the eiffel tower lol",
         "posterchan AI's summary.\n\n>streamer Jar",
         "the streamer dropped the jar",
+        "Oh shit look at what derek ross did\nDerek Ross\n\nHahaaaa!",
     ])("takes casual English with slang or names (%s) for English", (text) => {
         expect(detect(text)?.language).toBe("en");
     });
+
+    it.each(["nigga q anyfur is joing now"])(
+        "isn't confident about short casual English that franc scores just under another language (%s)",
+        (text) => {
+            expect(detect(text)?.confident ?? false).toBe(false);
+        },
+    );
 
     it("leaves out a leading bot command", () => {
         expect(detect("!img momiji inubashiri cute")?.confident ?? false).toBe(false);

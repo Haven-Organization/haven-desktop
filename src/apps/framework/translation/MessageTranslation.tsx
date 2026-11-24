@@ -11,7 +11,14 @@ import { EventType, type MatrixEvent, MsgType } from "matrix-js-sdk/src/matrix";
 import { getParentEventId, stripPlainReply } from "../../../../element-web/apps/web/src/utils/Reply";
 import { MatrixClientPeg } from "../../../../element-web/apps/web/src/MatrixClientPeg";
 
-import { detectForeignText, detectLanguage, getLoadedDetector, loadDetector } from "./detectLanguage";
+import {
+    detectForeignText,
+    detectLanguage,
+    getLoadedDetector,
+    loadDetector,
+    onlyEnglishWords,
+    textForDetection,
+} from "./detectLanguage";
 import { getReadableLanguages, getTargetLanguage, languageName } from "./languages";
 import { mentionsAsNames } from "./mentionNames";
 import { translationLink, type TranslationService } from "./services";
@@ -81,18 +88,22 @@ export function MessageTranslation({ text }: Props): JSX.Element | null {
 
 /**
  * Whether the message's options menu should offer translating `text`: when translation is on and
- * the text isn't clearly in a language the user reads. Without the shared-script detector loaded
- * yet, Latin and similar text is offered too.
+ * the text isn't clearly in a language the user reads. Text too short to detect is offered too
+ * ("Danke"), unless all its words are English ones ("lmao"). Without the shared-script detector
+ * loaded yet, Latin and similar text is offered too.
  */
 export function getMenuTranslationService(text: string): TranslationService | undefined {
     const service = getTranslationService();
-    if (!service || !text.trim()) return undefined;
+    // No words once links, user IDs and code are left out (a bare link, emoji): nothing to translate.
+    if (!service || !/\p{L}/u.test(textForDetection(text))) return undefined;
     void loadDetector(); // So the language is known by the time "Translate with ..." is clicked.
     const readable = getReadableLanguages();
     const detected = detectLanguage(text, readable);
     if (detected?.confident && !isForeign(detected, getTargetLanguage()) && !detectForeignText(text, readable)) {
         return undefined;
     }
+    // Too short to tell, but made of English words ("lmao", "ok"): nothing to translate.
+    if (!detected && onlyEnglishWords(text)) return undefined;
     return service;
 }
 
