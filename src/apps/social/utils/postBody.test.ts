@@ -8,7 +8,13 @@
 
 import { describe, it, expect } from "vitest";
 
-import { hasPostBodyOverride, hasPostBodyOverrideField, resolvePostBody, resolvePostBodyString } from "./postBody";
+import {
+    hasEmptyPostBodyOverrides,
+    hasPostBodyOverride,
+    hasPostBodyOverrideField,
+    resolvePostBody,
+    resolvePostBodyString,
+} from "./postBody";
 
 const BODY = "org.matrix.msc4501.social.body";
 const FORMATTED = "org.matrix.msc4501.social.formatted_body";
@@ -91,5 +97,15 @@ describe("hasPostBodyOverride / hasPostBodyOverrideField", () => {
     it("neither when no override field exists", () => {
         expect(hasPostBodyOverrideField({ body: "stock" })).toBe(false);
         expect(hasPostBodyOverride({ body: "stock" })).toBe(false);
+    });
+});
+
+describe("hasEmptyPostBodyOverrides", () => {
+    it("is only both override fields present and empty", () => {
+        expect(hasEmptyPostBodyOverrides({ body: "🔁 X reposted Y's post", [BODY]: "", [FORMATTED]: "" })).toBe(true);
+        expect(hasEmptyPostBodyOverrides({ [BODY]: "" })).toBe(false);
+        expect(hasEmptyPostBodyOverrides({ [BODY]: "", [FORMATTED]: "<p>hi</p>" })).toBe(false);
+        expect(hasEmptyPostBodyOverrides({ body: "" })).toBe(false);
+        expect(hasEmptyPostBodyOverrides(undefined)).toBe(false);
     });
 });

@@ -84,7 +84,13 @@ import {
     showsMiddleRepostMedia,
     withoutWrapperOnlyFields,
 } from "../utils/nestedRepost";
-import { resolvePostBody, resolvePostBodyString, hasPostBodyOverride, hasPostBodyOverrideField } from "../utils/postBody";
+import {
+    resolvePostBody,
+    resolvePostBodyString,
+    hasEmptyPostBodyOverrides,
+    hasPostBodyOverride,
+    hasPostBodyOverrideField,
+} from "../utils/postBody";
 import { type RepostContent, sendRepost, sendPostReadReceipt } from "../utils/social-actions";
 import { tryRouteSocialPermalink } from "../utils/permalinkRouting";
 import { onPostReactionsLoaded } from "../utils/postReactions";
@@ -1883,9 +1889,12 @@ export const SocialEventTile = React.memo(function SocialEventTile({
     // permalink is meant to live in stock body regardless of whether a rich social.body caption
     // also exists (see rawBody's own comment above).
     const repostPermalink = repostOf && !repostOf.content_inline ? parsePermalink(rawBody.trim()) : null;
+    // Haven: both override fields present and empty also make it a plain repost, whatever the stock
+    // body says - the sender is saying this repost has no text of its own (matches Haven Android).
     const isBoost = !!(
         repostOf &&
         (repostOf.content_inline ||
+            hasEmptyPostBodyOverrides(content) ||
             (repostPermalink &&
                 repostPermalink.eventId === repostOf.event_id &&
                 repostPermalink.roomIdOrAlias === repostOf.room_id))

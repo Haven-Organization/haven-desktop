@@ -77,3 +77,10 @@ export function hasPostBodyOverride(content: Record<string, any> | undefined): b
 export function hasPostBodyOverrideField(content: Record<string, any> | undefined): boolean {
     return isSet(content?.[MSC4501_BODY_KEY]) || isSet(content?.[MSC4501_FORMATTED_BODY_KEY]);
 }
+
+/** True when `content` carries both MSC4501 body override fields and both are empty - a sender
+ *  saying this post has no text of its own in Social. On a repost, that makes it a plain repost
+ *  whatever its stock body says (see isBoost in SocialEventTile.tsx). */
+export function hasEmptyPostBodyOverrides(content: Record<string, any> | undefined): boolean {
+    return content?.[MSC4501_BODY_KEY] === "" && content?.[MSC4501_FORMATTED_BODY_KEY] === "";
+}
