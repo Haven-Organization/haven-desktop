@@ -15,6 +15,10 @@ import { type SDKContextClass } from "../contexts/SDKContextClass";
 import { type PermalinkParts } from "../utils/permalinks/PermalinkConstructor";
 // haven apps-framework patch
 import { fetchUserProfile } from "../../../../../src/apps/social/utils/liveUserProfile";
+import {
+    FORMATTED_DISPLAYNAME_UNSTABLE_KEY,
+    getRawFormattedDisplayName,
+} from "../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
 
 const createMemberFromProfile = (userId: string, profile: IMatrixProfile): RoomMember => {
     const member = new RoomMember("", userId);
@@ -22,7 +26,12 @@ const createMemberFromProfile = (userId: string, profile: IMatrixProfile): RoomM
     member.rawDisplayName = member.name;
     member.events.member = {
         getContent: () => {
-            return { avatar_url: profile.avatar_url };
+            // Haven: plus the profile's MSC4589 formatted display name, for the pill to show.
+            return {
+                avatar_url: profile.avatar_url,
+                displayname: profile.displayname,
+                [FORMATTED_DISPLAYNAME_UNSTABLE_KEY]: getRawFormattedDisplayName(profile as Record<string, unknown>),
+            };
         },
         getDirectionalContent: function () {
             return this.getContent();
@@ -142,7 +151,8 @@ export const usePermalinkMember = (
                     createMemberFromProfile(userId, {
                         displayname: liveProfile.displayName,
                         avatar_url: liveProfile.avatarUrl,
-                    }),
+                        [FORMATTED_DISPLAYNAME_UNSTABLE_KEY]: liveProfile.formattedDisplayName,
+                    } as IMatrixProfile),
                 );
             }
         };

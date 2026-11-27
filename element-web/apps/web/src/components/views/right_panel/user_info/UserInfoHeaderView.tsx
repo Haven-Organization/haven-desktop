@@ -6,7 +6,7 @@ Please see LICENSE files in the repository root for full details.
 */
 
 import React, { type JSX } from "react";
-import { type User, type RoomMember } from "matrix-js-sdk/src/matrix";
+import { type User, RoomMember } from "matrix-js-sdk/src/matrix";
 import { Heading, Tooltip, Text } from "@vector-im/compound-web";
 import { Flex, StatusTextView } from "@element-hq/web-shared-components";
 
@@ -21,6 +21,10 @@ import { SocialProfileButton } from "../../../../../../../../src/apps/social/com
 import { ExternalHandleBadge } from "../../../../../../../../src/apps/social/components/ExternalHandleBadge";
 import { useUserBanner } from "../../../../../../../../src/apps/social/utils/useUserBanner";
 import { useLiveUserProfile } from "../../../../../../../../src/apps/social/utils/liveUserProfile";
+import {
+    getMemberFormattedDisplayNameHtml,
+    renderFormattedDisplayName,
+} from "../../../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
 import { useMatrixClientContext } from "../../../../contexts/MatrixClientContext";
 import { useUserStatus } from "../../../../hooks/useUserStatus";
 
@@ -49,6 +53,14 @@ export const UserInfoHeaderView: React.FC<UserInfoHeaderViewProps> = ({
     // right under the MXID below - see ExternalHandleBadge.tsx.
     const liveProfile = useLiveUserProfile(client, member.userId);
     const userStatus = useUserStatus(member.userId);
+    // Haven: MSC4589 formatted display name - the room member's (see the helper's own doc), or for
+    // a user shown outside any room, their global profile's.
+    const displayNameHtml =
+        member instanceof RoomMember
+            ? getMemberFormattedDisplayNameHtml(member, liveProfile)
+            : liveProfile?.displayName === displayName
+              ? renderFormattedDisplayName(liveProfile?.formattedDisplayName, displayName)
+              : undefined;
 
     let presenceLabel: JSX.Element | undefined;
 
@@ -93,7 +105,11 @@ export const UserInfoHeaderView: React.FC<UserInfoHeaderViewProps> = ({
                 <Flex direction="column" align="center" className="mx_UserInfo_profile">
                     <Heading size="sm" weight="semibold" as="h1" dir="auto">
                         <Flex className="mx_UserInfo_profile_name" direction="row-reverse" align="center">
-                            {displayName}
+                            {displayNameHtml ? (
+                                <span aria-label={displayName} dangerouslySetInnerHTML={{ __html: displayNameHtml }} />
+                            ) : (
+                                displayName
+                            )}
                         </Flex>
                     </Heading>
                     {userStatus && <StatusTextView status={userStatus} />}

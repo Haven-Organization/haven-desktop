@@ -50,6 +50,8 @@ import { topicToHtml } from "../../../HtmlUtils.tsx";
 import { useRoomSummaryCardViewModel } from "../../viewmodels/right_panel/RoomSummaryCardViewModel";
 import { useRoomTopicViewModel } from "../../viewmodels/right_panel/RoomSummaryCardTopicViewModel";
 import { useRoomName } from "../../../hooks/useRoomName.ts";
+// Haven: MSC4501 + MSC4589
+import { useProfileRoomNameHtml } from "../../../../../../../src/apps/social/utils/profileRoomName";
 import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../../src/apps/social/utils/room-classifier";
 
 const RoomBanner: React.FC<Pick<IProps, "room">> = ({ room }): JSX.Element | null => {
@@ -154,6 +156,8 @@ const RoomSummaryCardView: React.FC<IProps> = ({
     const vm = useRoomSummaryCardViewModel(room, permalinkCreator, onSearchCancel);
     // XXX: this name should be part of the view model
     const name = useRoomName(room);
+    // Haven: MSC4501 + MSC4589 - see profileRoomNameHtml's own doc.
+    const nameHtml = useProfileRoomNameHtml(room);
 
     // The search field is controlled and onSearchChange is debounced in RoomView,
     // so we need to set the value of the input right away
@@ -175,7 +179,7 @@ const RoomSummaryCardView: React.FC<IProps> = ({
                 className="mx_RoomSummaryCard_roomName text-primary"
                 title={name}
             >
-                {name}
+                {nameHtml ? <span aria-label={name} dangerouslySetInnerHTML={{ __html: nameHtml }} /> : name}
             </Heading>
             {vm.userStatus && <StatusTextView status={vm.userStatus} />}
             <Text

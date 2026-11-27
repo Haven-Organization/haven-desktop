@@ -19,6 +19,8 @@ import RoomAvatar from "../avatars/RoomAvatar";
 import MemberAvatar from "../avatars/MemberAvatar";
 import { _t } from "../../../languageHandler";
 import { PillType } from "./PillType";
+// Haven: MSC4589 formatted display names
+import { getMemberFormattedDisplayNameHtml } from "../../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
 
 const linkIcon = <LinkIcon className="mx_Pill_LinkIcon mx_BaseAvatar" />;
 
@@ -145,10 +147,20 @@ export const Pill: React.FC<PillProps> = ({
             return null;
     }
 
+    // Haven: MSC4589 formatted display name on a user pill showing the user's own plain name.
+    const pillHtml =
+        type === PillType.UserMention && !customPillText && member && pillText === member.rawDisplayName
+            ? getMemberFormattedDisplayNameHtml(member)
+            : undefined;
+
     const pillContent = (
         <>
             {avatar}
-            <span className="mx_Pill_text">{pillText}</span>
+            {pillHtml ? (
+                <span className="mx_Pill_text" aria-label={pillText} dangerouslySetInnerHTML={{ __html: pillHtml }} />
+            ) : (
+                <span className="mx_Pill_text">{pillText}</span>
+            )}
             {userStatus && <span className="mx_Pill_userStatus">{userStatus.emoji}</span>}
         </>
     );

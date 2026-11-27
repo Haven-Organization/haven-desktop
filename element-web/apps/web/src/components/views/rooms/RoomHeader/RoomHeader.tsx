@@ -26,6 +26,8 @@ import { CallType } from "matrix-js-sdk/src/webrtc/call";
 import { HistoryIcon, UserProfileSolidIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { useRoomName } from "../../../../hooks/useRoomName.ts";
+// Haven: MSC4501 + MSC4589
+import { useProfileRoomNameHtml } from "../../../../../../../../src/apps/social/utils/profileRoomName";
 import { useTopic } from "../../../../hooks/room/useTopic.ts";
 import { topicToHtml } from "../../../../HtmlUtils";
 import { RightPanelPhases } from "../../../../stores/right-panel/RightPanelStorePhases.ts";
@@ -441,6 +443,9 @@ export default function RoomHeader({
     const roomBannerHttpUrl = useRoomBanner(sdkContext.client!, room);
     const bannerHttpUrl = showRoomBanner ? roomBannerHttpUrl : null;
     const roomName = useRoomName(room);
+    // Haven: MSC4501 + MSC4589 - a profile room's owner's formatted display name, when linked up
+    // and matching (see profileRoomNameHtml's own doc).
+    const roomNameHtml = useProfileRoomNameHtml(room);
     const topic = useTopic(room instanceof LocalRoom ? undefined : room);
     const topicText = topic?.text;
     const joinRule = useRoomState(room, (state) => state.getJoinRule());
@@ -500,7 +505,15 @@ export default function RoomHeader({
                             aria-level={1}
                             className="mx_RoomHeader_heading"
                         >
-                            <span className="mx_RoomHeader_truncated mx_lineClamp">{roomName}</span>
+                            {roomNameHtml ? (
+                                <span
+                                    className="mx_RoomHeader_truncated mx_lineClamp"
+                                    aria-label={roomName}
+                                    dangerouslySetInnerHTML={{ __html: roomNameHtml }}
+                                />
+                            ) : (
+                                <span className="mx_RoomHeader_truncated mx_lineClamp">{roomName}</span>
+                            )}
 
                             {isDirectMessage && dmUserStatus && (
                                 <StatusTextView status={dmUserStatus} className="mx_RoomHeader_userStatus" />
