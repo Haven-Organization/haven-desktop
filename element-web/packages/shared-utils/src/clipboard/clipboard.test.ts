@@ -42,6 +42,23 @@ describe("copyPlainTextToClipboard", () => {
         }
     });
 
+    // Haven
+    it("should copy once the window gets focus back when it was refused for lack of focus", async () => {
+        const writeText = vi
+            .fn()
+            .mockRejectedValueOnce(new DOMException("Document is not focused.", "NotAllowedError"))
+            .mockResolvedValueOnce(undefined);
+        vi.stubGlobal("navigator", { clipboard: { writeText } });
+        vi.spyOn(document, "hasFocus").mockReturnValue(false);
+
+        const copied = copyPlainTextToClipboard("foo");
+        await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+        window.dispatchEvent(new Event("focus"));
+
+        await expect(copied).resolves.toBe(true);
+        expect(writeText).toHaveBeenCalledTimes(2);
+    });
+
     it("should return false when copying fails", async () => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         const writeText = vi.fn().mockRejectedValue(new Error("denied"));

@@ -17,7 +17,15 @@ Please see LICENSE files in the repository root for full details.
 export async function copyPlainTextToClipboard(text: string): Promise<boolean> {
     try {
         if (navigator?.clipboard?.writeText) {
-            await navigator.clipboard.writeText(text);
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (e) {
+                // Haven: Chromium refuses the write while the page doesn't have focus, which a window
+                // manager that focuses whatever is under the mouse takes away as soon as the mouse
+                // leaves the window, even right after a click inside it. Copy once it's back.
+                if (document.hasFocus() || !(await focusReturns())) throw e;
+                await navigator.clipboard.writeText(text);
+            }
             return true;
         } else {
             const textArea = document.createElement("textarea");
@@ -44,4 +52,21 @@ export async function copyPlainTextToClipboard(text: string): Promise<boolean> {
         console.error("copyPlainTextToClipboard failed", e);
     }
     return false;
+}
+
+/** How long a copy refused for lack of focus waits for the window to get it back. */
+const FOCUS_WAIT_MS = 60_000;
+
+/** Resolves true when the window gets focus back, or false after FOCUS_WAIT_MS. */
+function focusReturns(): Promise<boolean> {
+    return new Promise((resolve) => {
+        const done = (focused: boolean): void => {
+            window.removeEventListener("focus", onFocus);
+            clearTimeout(timer);
+            resolve(focused);
+        };
+        const onFocus = (): void => done(true);
+        const timer = setTimeout(() => done(false), FOCUS_WAIT_MS);
+        window.addEventListener("focus", onFocus);
+    });
 }
