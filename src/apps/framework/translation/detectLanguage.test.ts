@@ -46,6 +46,8 @@ describe("detectLanguage", () => {
         "posterchan AI's summary.\n\n>streamer Jar",
         "the streamer dropped the jar",
         "Oh shit look at what derek ross did\nDerek Ross\n\nHahaaaa!",
+        "Quotation marks get turned into the quadratic formula, and ¡ and ¿ become kaomoji",
+        "@sickburnbro @q Fr*nch pizza 😒",
     ])("takes casual English with slang or names (%s) for English", (text) => {
         expect(detect(text)?.language).toBe("en");
     });
@@ -119,6 +121,10 @@ describe("textForDetection", () => {
         expect(text).not.toMatch(/example|code|alice|smile|block/);
         expect(text).toMatch(/Hola/);
         expect(text).toMatch(/amigo/);
+    });
+
+    it("leaves out fediverse-style @mentions", () => {
+        expect(textForDetection("@bob @alice@example.social hola amigo").trim()).toBe("hola amigo");
     });
 });
 

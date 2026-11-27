@@ -303,7 +303,10 @@ const CONFIDENT_SINGLE_SCRIPT_LETTERS = 4;
  */
 const CONFIDENT_FRANC_MARGIN = 0.04;
 
-/** The message's words, without a leading bot command, links, code, user and room IDs, or :shortcodes:. */
+/**
+ * The message's words, without a leading bot command, links, code, user and room IDs, @mentions or
+ * :shortcodes:.
+ */
 export function textForDetection(text: string): string {
     return text
         .replace(/^\s*[!/.][\p{L}\p{N}_-]+(?=\s|$)/u, " ")
@@ -313,6 +316,8 @@ export function textForDetection(text: string): string {
         .replace(/\bwww\.\S+/gi, " ")
         .replace(/\S+@\S+\.\S+/g, " ")
         .replace(/[@#!+][^\s:]+:[\w.-]+(?::\d+)?/g, " ")
+        // Fediverse-style mentions, @name or @name@server, which bridged posts keep in their text.
+        .replace(/(^|\s)@[\w.-]+(?:@[\w.-]+)?/g, "$1 ")
         .replace(/:[\w+-]+:/g, " ");
 }
 
@@ -369,14 +374,16 @@ export function detectLanguage(
     }
     if (!best.shared || best.letters < MIN_SHARED_SCRIPT_LETTERS) return undefined;
 
+    // English first: English text can still mention a letter or mark from another language ("¡ and
+    // ¿ become kaomoji").
+    if (best.shared === "latin" && (looksEnglish(text) || mostlyEnglishWords(text))) {
+        return { language: "en", confident: best.letters >= CONFIDENT_DISTINCTIVE_LETTERS };
+    }
+
     for (const [pattern, language] of DISTINCTIVE_LETTERS) {
         if (pattern.test(text)) {
             return language ? { language, confident: best.letters >= CONFIDENT_DISTINCTIVE_LETTERS } : undefined;
         }
-    }
-
-    if (best.shared === "latin" && (looksEnglish(text) || mostlyEnglishWords(text))) {
-        return { language: "en", confident: best.letters >= CONFIDENT_DISTINCTIVE_LETTERS };
     }
 
     if (!detector) return undefined;
