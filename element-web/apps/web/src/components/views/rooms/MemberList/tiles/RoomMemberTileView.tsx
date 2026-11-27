@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { type JSX, useEffect } from "react";
+import React, { type JSX, useEffect, useMemo } from "react";
 import { useCreateAutoDisposedViewModel, DisambiguatedProfileView } from "@element-hq/web-shared-components";
 
 import { type RoomMember } from "../../../../../models/rooms/RoomMember";
@@ -19,6 +19,7 @@ import { InvitedIconView } from "./common/InvitedIconView";
 import { type MemberWithSeparator } from "../../../../viewmodels/memberlist/MemberListViewModel";
 import { DisambiguatedProfileViewModel } from "../../../../../viewmodels/room/timeline/event-tile/DisambiguatedProfileViewModel";
 import { useUserStatus } from "../../../../../hooks/useUserStatus";
+import { getUserFormattedDisplayNameHtml } from "../../../../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
 
 interface IProps {
     /**
@@ -48,19 +49,24 @@ export function RoomMemberTileView(props: IProps): JSX.Element {
         />
     );
     const name = vm.name;
+    // Haven: MSC4589 formatted display names (only for joined members - see the helper's own doc).
+    const memberInfo = useMemo(
+        () => ({ ...member, formattedDisplayNameHtml: getUserFormattedDisplayNameHtml(member.roomId, member.userId) }),
+        [member],
+    );
     const userStatus = useUserStatus(member.userId);
     const disambiguatedProfileVM = useCreateAutoDisposedViewModel(
         () =>
             new DisambiguatedProfileViewModel({
                 fallbackName: name,
-                member,
+                member: memberInfo,
                 withTooltip: true,
                 userStatus,
             }),
     );
     useEffect(() => {
-        disambiguatedProfileVM.setMember(name, member);
-    }, [disambiguatedProfileVM, member, name]);
+        disambiguatedProfileVM.setMember(name, memberInfo);
+    }, [disambiguatedProfileVM, memberInfo, name]);
     useEffect(() => {
         disambiguatedProfileVM.setUserStatus(userStatus);
     }, [disambiguatedProfileVM, userStatus]);

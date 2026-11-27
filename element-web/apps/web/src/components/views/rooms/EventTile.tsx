@@ -114,6 +114,7 @@ import { useSettingValue } from "../../../hooks/useSettings";
 import { resolveRoomMemberProfile, roomMemberToMemberInfo } from "../../../hooks/room/useRoomMemberProfile";
 import { EventTileE2eViewModel } from "../../../viewmodels/room/timeline/event-tile/EventTileE2eViewModel";
 import { getPerMessageProfile } from "../../../utils/PerMessageProfile";
+import { getFormattedDisplayNameHtml } from "../../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
 import { type MemberInfo } from "../../../viewmodels/room/timeline/event-tile/DisambiguatedProfileViewModel";
 import { shouldHighlightEventTile } from "../../../viewmodels/room/timeline/event-tile/EventTileHighlightState";
 import { shouldHideEventTile } from "../../../viewmodels/room/timeline/event-tile/EventTileVisibilityState";
@@ -779,14 +780,24 @@ export class UnwrappedEventTile extends React.Component<EventTileProps, IState> 
                       timelineRenderingType: this.context.timelineRenderingType,
                   }),
         );
-        const perMessageDisplayName = getPerMessageProfile(this.props.mxEvent)?.displayname;
+        const perMessageProfile = getPerMessageProfile(this.props.mxEvent);
+        const perMessageDisplayName = perMessageProfile?.displayname;
         if (memberInfo && perMessageDisplayName) {
             // Haven: force the real MXID to show next to the persona name, regardless of the real
             // sender's own disambiguate status (which only reflects whether some OTHER real member
             // happens to share their real name - irrelevant here). Without this, a persona whose
             // name doesn't collide with anyone shows with no indication at all that it isn't the
             // real sender, which is exactly the impersonation risk per-message profiles create.
-            return { ...memberInfo, rawDisplayName: perMessageDisplayName, disambiguate: true };
+            return {
+                ...memberInfo,
+                rawDisplayName: perMessageDisplayName,
+                disambiguate: true,
+                // Haven: MSC4589 - the per-message profile's own formatted name, never the member's.
+                formattedDisplayNameHtml: getFormattedDisplayNameHtml(
+                    perMessageProfile as unknown as Record<string, unknown>,
+                    perMessageDisplayName,
+                ),
+            };
         }
         return memberInfo;
     };

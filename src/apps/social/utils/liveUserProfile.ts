@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { type MatrixClient, User } from "matrix-js-sdk/src/matrix";
 
+import { getRawFormattedDisplayName } from "../../framework/formattedDisplayName/formattedDisplayName";
 import { MSC4501_PROFILE_ROOM_ID_KEY_LEGACY, MSC4501_PROFILE_ROOM_KEY } from "./room-classifier";
 
 /**
@@ -41,6 +42,8 @@ export interface LinkedProfileRoom {
 export interface LiveUserProfile {
     avatarUrl?: string;
     displayName?: string;
+    /** Their raw MSC4589 formatted display name, if any - see framework/formattedDisplayName/. */
+    formattedDisplayName?: unknown;
     externalHandle?: ExternalHandle;
     /** Their linked MSC4501 profile room, if any - see extractProfileRoom. */
     profileRoom?: LinkedProfileRoom;
@@ -99,6 +102,7 @@ export function fetchUserProfile(client: MatrixClient, userId: string): Promise<
             (info) => ({
                 avatarUrl: info.avatar_url,
                 displayName: info.displayname,
+                formattedDisplayName: getRawFormattedDisplayName(info as Record<string, unknown>),
                 externalHandle: extractExternalHandle(info as Record<string, unknown>),
                 profileRoom: extractProfileRoom(info as Record<string, unknown>),
             }),

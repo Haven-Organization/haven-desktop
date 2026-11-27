@@ -36,6 +36,11 @@ export interface MemberInfo {
      * Whether the user is set to have disambiguation name.
      */
     disambiguate: boolean;
+    /**
+     * Haven: the display name as sanitized HTML (MSC4589), if the member has a formatted name
+     * matching rawDisplayName - see src/apps/framework/formattedDisplayName/.
+     */
+    formattedDisplayNameHtml?: string;
 }
 
 /**
@@ -88,6 +93,8 @@ export class DisambiguatedProfileViewModel
 
         // Compute display name
         const displayName = member?.rawDisplayName || fallbackName;
+        // Haven: only alongside the name it was checked against.
+        const displayNameHtml = member?.rawDisplayName ? member.formattedDisplayNameHtml : undefined;
         const mxid = member?.userId;
 
         // Compute color class if coloring is enabled
@@ -117,6 +124,7 @@ export class DisambiguatedProfileViewModel
 
         return {
             displayName,
+            displayNameHtml,
             colorClass,
             displayIdentifier,
             title,

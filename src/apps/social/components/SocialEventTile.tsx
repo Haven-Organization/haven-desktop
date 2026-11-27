@@ -113,6 +113,11 @@ import {
 import SocialMessageContextMenu from "./SocialMessageContextMenu";
 import { MessageTranslation } from "../../framework/translation/MessageTranslation";
 import { mentionsAsNames } from "../../framework/translation/mentionNames";
+import {
+    getFormattedDisplayNameHtml,
+    getMemberFormattedDisplayNameHtml,
+    renderFormattedDisplayName,
+} from "../../framework/formattedDisplayName/formattedDisplayName";
 import { EditPostDialog } from "./EditPostDialog";
 import { canEditPost } from "../utils/postEdit";
 import { LikeButton } from "./LikeButton";
@@ -1973,6 +1978,15 @@ export const SocialEventTile = React.memo(function SocialEventTile({
         liveSenderProfile?.displayName ||
         event.getSender() ||
         undefined;
+    // Haven: MSC4589 formatted display name, from wherever senderDisplayName came from. The global
+    // profile's only counts for a member still in the room, as with the member event's own.
+    const senderDisplayNameHtml = perMessageProfile?.displayname
+        ? getFormattedDisplayNameHtml(perMessageProfile as unknown as Record<string, unknown>, senderDisplayName)
+        : senderHasRealName
+          ? getMemberFormattedDisplayNameHtml(sender, liveSenderProfile)
+          : sender?.membership === KnownMembership.Join
+            ? renderFormattedDisplayName(liveSenderProfile?.formattedDisplayName, senderDisplayName)
+            : undefined;
 
     // Renders content.formatted_body (sanitized HTML incl. user/room pills) the same way
     // Element's own message tiles do, falling back to the plain body when unformatted.
@@ -2622,7 +2636,14 @@ export const SocialEventTile = React.memo(function SocialEventTile({
                             onClick={handleSenderClick}
                             title={event.getSender() ?? undefined}
                         >
-                            {senderDisplayName}
+                            {senderDisplayNameHtml ? (
+                                <span
+                                    aria-label={senderDisplayName}
+                                    dangerouslySetInnerHTML={{ __html: senderDisplayNameHtml }}
+                                />
+                            ) : (
+                                senderDisplayName
+                            )}
                             {/* Inside the name's own button so it follows the last word when a long
                                 name wraps, instead of sitting beside the whole wrapped block */}
                             <ExternalHandleIcon

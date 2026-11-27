@@ -22,6 +22,11 @@ export interface DisambiguatedProfileViewSnapshot {
      */
     displayName: string;
     /**
+     * Haven: the display name as sanitized inline HTML (MSC4589 formatted display names), shown
+     * in place of `displayName` when set. Its text is always exactly `displayName`.
+     */
+    displayNameHtml?: string;
+    /**
      * The CSS class for coloring the display name (e.g., "mx_Username_color1").
      * Undefined if coloring is not enabled.
      */
@@ -91,7 +96,8 @@ interface DisambiguatedProfileViewProps {
  */
 export function DisambiguatedProfileView({ vm, className }: Readonly<DisambiguatedProfileViewProps>): JSX.Element {
     const eventPresentationAttributes = useEventPresentationAttributes();
-    const { displayName, colorClass, displayIdentifier, title, emphasizeDisplayName, userStatus } = useViewModel(vm);
+    const { displayName, displayNameHtml, colorClass, displayIdentifier, title, emphasizeDisplayName, userStatus } =
+        useViewModel(vm);
 
     const userStatusEmoji = userStatus && userStatus.emoji;
 
@@ -120,9 +126,19 @@ export function DisambiguatedProfileView({ vm, className }: Readonly<Disambiguat
             tabIndex={vm.onClick ? 0 : undefined}
             {...eventPresentationAttributes}
         >
-            <span className={displayNameClasses} dir="auto">
-                {displayName}
-            </span>
+            {displayNameHtml ? (
+                // Haven: already sanitized by the app (see displayNameHtml's own doc).
+                <span
+                    className={displayNameClasses}
+                    dir="auto"
+                    aria-label={displayName}
+                    dangerouslySetInnerHTML={{ __html: displayNameHtml }}
+                />
+            ) : (
+                <span className={displayNameClasses} dir="auto">
+                    {displayName}
+                </span>
+            )}
             {userStatus && (
                 <Tooltip description={userStatus.text} maxWidth="30ch" maxLines={1}>
                     <Text

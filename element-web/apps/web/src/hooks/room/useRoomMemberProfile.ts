@@ -13,6 +13,7 @@ import { TimelineRenderingType } from "../../contexts/RoomContext";
 import { useSettingValue } from "../useSettings";
 import { useScopedRoomContext } from "../../contexts/ScopedRoomContext.tsx";
 import { type MemberInfo } from "../../viewmodels/room/timeline/event-tile/DisambiguatedProfileViewModel";
+import { getMemberFormattedDisplayNameHtml } from "../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
 
 /** Inputs for resolving the room member that should be rendered. */
 export interface RoomMemberProfileResolutionProps {
@@ -63,6 +64,8 @@ export function roomMemberToMemberInfo(member: RoomMember | undefined | null): M
         roomId: member.roomId,
         rawDisplayName: member.rawDisplayName,
         disambiguate: member.disambiguate,
+        // Haven: MSC4589 formatted display names.
+        formattedDisplayNameHtml: getMemberFormattedDisplayNameHtml(member),
     };
 }
 

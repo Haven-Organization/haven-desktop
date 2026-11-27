@@ -244,6 +244,8 @@ export interface Settings {
     "feature_ask_to_join": IFeature;
     "feature_notifications": IFeature;
     "feature_msc4501_native_post_type": IFeature;
+    // Haven: MSC4589 formatted display names - see src/apps/framework/formattedDisplayName/.
+    "feature_msc4589_formatted_displaynames": IFeature;
     "feature_user_status": IFeature;
     "feature_login_with_qr": IFeature;
     "feature_msc4095_url_preview_bundle": IFeature;
@@ -537,6 +539,16 @@ export const SETTINGS: Settings = {
         isFeature: true,
         labsGroup: LabGroup.Social,
         displayName: _td("labs|msc4501_native_post_type"),
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        supportedLevelsAreOrdered: true,
+        default: false,
+    },
+    // Haven: MSC4589 formatted display names - see src/apps/framework/formattedDisplayName/.
+    "feature_msc4589_formatted_displaynames": {
+        isFeature: true,
+        labsGroup: LabGroup.Profile,
+        displayName: _td("labs|msc4589_formatted_displaynames"),
+        description: _td("labs|msc4589_formatted_displaynames_description"),
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
         supportedLevelsAreOrdered: true,
         default: false,

@@ -923,3 +923,13 @@
         display: none;
     }
 }
+
+// Haven: MSC4589 formatted display names - see src/apps/framework/formattedDisplayName/. Custom
+// emoji in a name sit at the height of the name's own text, whatever size the image is.
+.haven_FormattedDisplayName_emoji {
+    height: 1.2em;
+    width: auto;
+    max-width: 3em;
+    vertical-align: -0.25em;
+    object-fit: contain;
+}

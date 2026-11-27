@@ -1647,6 +1647,8 @@
         "mjolnir": "New ways to ignore people",
         "msc3531_hide_messages_pending_moderation": "Let moderators hide messages pending moderation.",
         "msc4501_native_post_type": "Send Social posts using the native org.matrix.msc4501.social.post event type instead of m.room.message",
+        "msc4589_formatted_displaynames": "Formatted display names",
+        "msc4589_formatted_displaynames_description": "Show display names with bold, italics and custom emoji when people have set them (MSC4589).",
         "new_timeline": "Improved timeline scrolling and navigation",
         "notification_settings": "New Notification Settings",
         "notification_settings_beta_caption": "Introducing a simpler way to change your notification settings. Customize your %(brand)s, just the way you like.",
