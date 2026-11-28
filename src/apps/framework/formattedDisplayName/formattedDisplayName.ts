@@ -1,12 +1,16 @@
 /*
- * Haven - MSC4589 formatted display names: an optional "m.formatted_displayname" object
- * ({ format, formatted_body }) next to `displayname`, in profiles, m.room.member events and
- * MSC4144 per-message profiles, holding the name as a strictly inline subset of message HTML
- * (bold, italics, underline, strikethrough and custom emoji). Display only, behind a lab.
+ * Haven - formatted names: MSC4589 formatted display names and its sibling MSC4591 formatted room
+ * names. Each is an optional { format, formatted_body } object next to the plain name, holding the
+ * name as a strictly inline subset of message HTML (bold, italics, underline, strikethrough and
+ * custom emoji). Display only, behind one lab for both.
  *
- * The formatted name is only used when its text (with each emoji replaced by its alt text) is
- * exactly the plain `displayname`, so it can never read as a different name than the one used for
- * mentions, disambiguation and everything else.
+ * - MSC4589: "m.formatted_displayname" next to `displayname`, in profiles, m.room.member events and
+ *   MSC4144 per-message profiles.
+ * - MSC4591: "m.formatted_name" next to `name` in m.room.name (see formattedRoomName.ts).
+ *
+ * A formatted name is only used when its text (with each emoji replaced by its alt text) is the
+ * plain name, after normalizing whitespace in both, so it can never read as a different name than
+ * the one used for mentions, search, disambiguation and everything else.
  */
 
 import sanitizeHtml from "sanitize-html";
@@ -19,7 +23,8 @@ import { MatrixClientPeg } from "../../../../element-web/apps/web/src/MatrixClie
 
 export const FORMATTED_DISPLAYNAME_STABLE_KEY = "m.formatted_displayname";
 export const FORMATTED_DISPLAYNAME_UNSTABLE_KEY = "org.matrix.msc4589.formatted_displayname";
-export const FORMATTED_DISPLAYNAMES_LAB = "feature_msc4589_formatted_displaynames";
+/** The one lab for both formatted display names and formatted room names. Its ID predates MSC4591. */
+export const FORMATTED_NAMES_LAB = "feature_msc4589_formatted_displaynames";
 
 const HTML_FORMAT = "org.matrix.custom.html";
 const MAX_BYTES = 1024;
@@ -34,7 +39,7 @@ const FORMAT_TAGS = new Set(FORMAT_TAGS_LIST);
 const MXC_URI = /^mxc:\/\/[A-Za-z0-9.\-:[\]]{1,255}\/[A-Za-z0-9_-]{1,255}$/;
 
 /**
- * The second, independent pass over the HTML built below (see formattedDisplayNameHtml): what it
+ * The second, independent pass over the HTML built below (see formattedNameHtml): what it
  * builds already only holds these, so this only ever changes anything if that code has a bug.
  */
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
@@ -63,14 +68,19 @@ function safeHttpUrl(url: string | null): string | null {
     }
 }
 
+/** Both MSCs' whitespace normalization: runs collapsed to a single space, ends trimmed. */
+export function normalizeNameWhitespace(name: string): string {
+    return name.replace(/\s+/g, " ").trim();
+}
+
 /** The raw formatted name object from an event's content or a profile, under either key. */
 export function getRawFormattedDisplayName(content: Record<string, unknown> | undefined): unknown {
     return content?.[FORMATTED_DISPLAYNAME_UNSTABLE_KEY] ?? content?.[FORMATTED_DISPLAYNAME_STABLE_KEY];
 }
 
 /**
- * The formatted name `raw` as safe HTML to render in place of `displayname`, or undefined when it
- * isn't valid or its text isn't exactly `displayname`.
+ * The formatted name `raw` as safe HTML to render in place of the plain name `plain` (a display name
+ * or a room name), or undefined when it isn't valid or its text isn't `plain`, whitespace aside.
  *
  * Injection: the input is only ever parsed into an inert document (DOMParser runs no scripts and
  * loads nothing), and never rendered or cleaned in place. The output is built afresh from new
@@ -79,12 +89,12 @@ export function getRawFormattedDisplayName(content: Record<string, unknown> | un
  * mxc:// URI and checked to be http(s). Everything else becomes text nodes, which serialize
  * escaped. The result then goes through sanitize-html with the same allowlist as a second pass.
  */
-export function formattedDisplayNameHtml(
+export function formattedNameHtml(
     raw: unknown,
-    displayname: string | undefined,
+    plain: string | undefined,
     toHttp: (mxc: string) => string | null,
 ): string | undefined {
-    if (!displayname || !raw || typeof raw !== "object") return undefined;
+    if (!plain || !raw || typeof raw !== "object") return undefined;
     const { format, formatted_body: body } = raw as { format?: unknown; formatted_body?: unknown };
     if (format !== HTML_FORMAT || typeof body !== "string" || !body) return undefined;
     if (new TextEncoder().encode(body).length > MAX_BYTES) return undefined;
@@ -142,13 +152,24 @@ export function formattedDisplayNameHtml(
     };
     copy(source, out, 0);
 
-    if (tooDeep || images > MAX_IMAGES || text !== displayname) return undefined;
+    if (tooDeep || images > MAX_IMAGES) return undefined;
+    if (normalizeNameWhitespace(text) !== normalizeNameWhitespace(plain)) return undefined;
     return sanitizeHtml(out.innerHTML, SANITIZE_OPTIONS);
 }
 
-/** Whether formatted display names are turned on (the lab). */
-export function formattedDisplayNamesEnabled(): boolean {
-    return SettingsStore.getValue(FORMATTED_DISPLAYNAMES_LAB);
+/** Whether formatted names (display names and room names) are turned on (the lab). */
+export function formattedNamesEnabled(): boolean {
+    return SettingsStore.getValue(FORMATTED_NAMES_LAB);
+}
+
+/**
+ * A formatted name already read out of its event or profile, as safe HTML in place of the plain
+ * name `plain`, when the lab is on. Emoji keep animating, as custom emoji in messages do (see
+ * Linkify.ts's img transform).
+ */
+export function renderFormattedName(raw: unknown, plain: string | undefined): string | undefined {
+    if (!raw || !formattedNamesEnabled()) return undefined;
+    return formattedNameHtml(raw, plain, (mxc) => mediaFromMxc(mxc).srcHttp);
 }
 
 /**
@@ -165,8 +186,7 @@ export function getFormattedDisplayNameHtml(
 
 /** {@link getFormattedDisplayNameHtml} for a formatted name already read out (see getRawFormattedDisplayName). */
 export function renderFormattedDisplayName(raw: unknown, displayname: string | undefined): string | undefined {
-    if (!raw || !formattedDisplayNamesEnabled()) return undefined;
-    return formattedDisplayNameHtml(raw, displayname, (mxc) => mediaFromMxc(mxc).srcHttp);
+    return renderFormattedName(raw, displayname);
 }
 
 /** A user's global profile, as far as formatted names go (see liveUserProfile.ts's LiveUserProfile). */
@@ -201,7 +221,7 @@ export function getMemberFormattedDisplayNameHtml(
         profile?.displayName === displayname ? profile.formattedDisplayName : undefined,
     ].filter(Boolean);
     // Most members have none: checked before the setting, which costs more.
-    if (!candidates.length || !formattedDisplayNamesEnabled()) return undefined;
+    if (!candidates.length || !formattedNamesEnabled()) return undefined;
     if (member.roomId && (current ?? member).membership !== KnownMembership.Join) return undefined;
     for (const raw of candidates) {
         const html = renderFormattedDisplayName(raw, displayname);

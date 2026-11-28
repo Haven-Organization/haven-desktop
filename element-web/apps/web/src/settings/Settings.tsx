@@ -543,12 +543,13 @@ export const SETTINGS: Settings = {
         supportedLevelsAreOrdered: true,
         default: false,
     },
-    // Haven: MSC4589 formatted display names - see src/apps/framework/formattedDisplayName/.
+    // Haven: MSC4589 formatted display names and MSC4591 formatted room names, one lab for both
+    // sibling MSCs (its ID predates MSC4591) - see src/apps/framework/formattedDisplayName/.
     "feature_msc4589_formatted_displaynames": {
         isFeature: true,
-        labsGroup: LabGroup.Profile,
-        displayName: _td("labs|msc4589_formatted_displaynames"),
-        description: _td("labs|msc4589_formatted_displaynames_description"),
+        labsGroup: LabGroup.Ui,
+        displayName: _td("labs|formatted_names"),
+        description: _td("labs|formatted_names_description"),
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
         supportedLevelsAreOrdered: true,
         default: false,

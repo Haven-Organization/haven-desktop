@@ -51,7 +51,7 @@ import { useRoomSummaryCardViewModel } from "../../viewmodels/right_panel/RoomSu
 import { useRoomTopicViewModel } from "../../viewmodels/right_panel/RoomSummaryCardTopicViewModel";
 import { useRoomName } from "../../../hooks/useRoomName.ts";
 // Haven: MSC4501 + MSC4589
-import { useProfileRoomNameHtml } from "../../../../../../../src/apps/social/utils/profileRoomName";
+import { useRoomFormattedNameHtml } from "../../../../../../../src/apps/framework/formattedDisplayName/formattedRoomName";
 import { ROOM_BANNER_EVENT_TYPE } from "../../../../../../../src/apps/social/utils/room-classifier";
 
 const RoomBanner: React.FC<Pick<IProps, "room">> = ({ room }): JSX.Element | null => {
@@ -156,8 +156,8 @@ const RoomSummaryCardView: React.FC<IProps> = ({
     const vm = useRoomSummaryCardViewModel(room, permalinkCreator, onSearchCancel);
     // XXX: this name should be part of the view model
     const name = useRoomName(room);
-    // Haven: MSC4501 + MSC4589 - see profileRoomNameHtml's own doc.
-    const nameHtml = useProfileRoomNameHtml(room);
+    // Haven: MSC4591 - the room's formatted name in place of its plain one.
+    const nameHtml = useRoomFormattedNameHtml(room, name);
 
     // The search field is controlled and onSearchChange is debounced in RoomView,
     // so we need to set the value of the input right away

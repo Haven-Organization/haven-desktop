@@ -59,7 +59,7 @@ import { ProfileImageEditButton } from "../components/ProfileImageEditButton";
 import { ExternalHandleBadge } from "../components/ExternalHandleBadge";
 import { SocialScrollToTopButton } from "../components/SocialScrollToTopButton";
 import { useLiveUserProfile } from "../utils/liveUserProfile";
-import { profileRoomNameHtml } from "../utils/profileRoomName";
+import { useRoomFormattedNameHtml } from "../../framework/formattedDisplayName/formattedRoomName";
 import {
     SlashCommandAutocomplete,
     type SlashCommandAutocompleteHandle,
@@ -607,9 +607,8 @@ export function SocialRoomView({
     // haven apps-framework patch: MSC4503 external handle for a profile room's own user - see
     // ExternalHandleBadge.tsx. Never set for a group room (profileUserId is undefined there).
     const profileLiveUserProfile = useLiveUserProfile(client, profileUserId);
-    // Haven: MSC4501 + MSC4589 - the owner's formatted display name in place of the room name, when
-    // the two are properly linked and the names match (see profileRoomNameHtml's own doc).
-    const roomNameHtml = profileRoomNameHtml(room, profileUserId, profileLiveUserProfile);
+    // Haven: MSC4591 - the room's formatted name in place of its plain one.
+    const roomNameHtml = useRoomFormattedNameHtml(room, room.name);
     // Live-updating (not a one-off snapshot) — same hooks stock RoomHeader uses for its own
     // member face pile, so this behaves identically as people join/leave while it's on screen.
     const members = useRoomMembers(room, 2500);

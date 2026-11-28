@@ -13,11 +13,11 @@ import {
     type Section,
     type UserStatus,
 } from "@element-hq/web-shared-components";
-import { ClientEvent, KnownMembership, RoomEvent } from "matrix-js-sdk/src/matrix";
+import { ClientEvent, EventType, KnownMembership, RoomEvent, RoomStateEvent } from "matrix-js-sdk/src/matrix";
 import { CallType } from "matrix-js-sdk/src/webrtc/call";
 import { logger } from "matrix-js-sdk/src/logger";
 
-import type { Room, MatrixClient, RoomMember, ClientEventHandlerMap } from "matrix-js-sdk/src/matrix";
+import type { Room, MatrixClient, MatrixEvent, RoomMember, ClientEventHandlerMap } from "matrix-js-sdk/src/matrix";
 import type { RoomNotificationState } from "../../stores/notifications/RoomNotificationState";
 import { RoomNotificationStateStore } from "../../stores/notifications/RoomNotificationStateStore";
 import { NotificationStateEvents } from "../../stores/notifications/NotificationState";
@@ -48,6 +48,9 @@ import RoomListStoreV3 from "../../stores/room-list-v3/RoomListStoreV3";
 import { CHATS_TAG, getCustomSectionData, isDefaultSectionTag } from "../../stores/room-list-v3/section";
 import { _t } from "../../languageHandler";
 import { fetchUserStatus } from "../../utils/userStatus";
+// Haven: MSC4591 formatted room names
+import { FORMATTED_NAMES_LAB } from "../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
+import { getRoomFormattedNameHtml } from "../../../../../../src/apps/framework/formattedDisplayName/formattedRoomName";
 
 /**
  * View section type without `isSelected` field
@@ -146,6 +149,10 @@ export class RoomListItemViewModel
         // Subscribe to room-specific events
         this.disposables.trackListener(props.room, RoomEvent.Name, this.onRoomChanged);
         this.disposables.trackListener(props.room, RoomEvent.Tags, this.onRoomChanged);
+        // Haven: MSC4591 - a formatted room name can change without the plain name changing.
+        this.disposables.trackListener(props.room, RoomStateEvent.Events, this.onRoomStateEvent);
+        const formattedNamesRef = SettingsStore.watchSetting(FORMATTED_NAMES_LAB, null, () => this.updateItem());
+        this.disposables.track(() => SettingsStore.unwatchSetting(formattedNamesRef));
 
         // Rebuild the available sections when their order changes or when one is created/renamed/removed
         const orderSectionsRef = SettingsStore.watchSetting("RoomList.OrderedCustomSections", null, () =>
@@ -249,6 +256,10 @@ export class RoomListItemViewModel
         if (currentCallType !== newCallType) {
             this.updateItem();
         }
+    };
+
+    private onRoomStateEvent = (...args: unknown[]): void => {
+        if ((args[0] as MatrixEvent).getType() === EventType.RoomName) this.updateItem();
     };
 
     private onRoomChanged = (): void => {
@@ -427,6 +438,7 @@ export class RoomListItemViewModel
             id: room.roomId,
             room,
             name: room.name,
+            nameHtml: getRoomFormattedNameHtml(room),
             isBold: notifState.hasAnyNotificationOrActivity,
             messagePreview,
             notification: {

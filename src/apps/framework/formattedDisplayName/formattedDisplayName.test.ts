@@ -6,15 +6,15 @@ vi.mock("../../../../element-web/apps/web/src/customisations/Media", () => ({ me
 vi.mock("../../../../element-web/apps/web/src/settings/SettingsStore", () => ({ default: { getValue: vi.fn() } }));
 vi.mock("../../../../element-web/apps/web/src/MatrixClientPeg", () => ({ MatrixClientPeg: { get: vi.fn() } }));
 
-import { formattedDisplayNameHtml, getRawFormattedDisplayName } from "./formattedDisplayName";
+import { formattedNameHtml, getRawFormattedDisplayName } from "./formattedDisplayName";
 
 const toHttp = (mxc: string): string => mxc.replace("mxc://", "https://media.example/");
 const html = (formatted_body: string): unknown => ({ format: "org.matrix.custom.html", formatted_body });
 const EMOJI = '<img data-mx-emoticon src="mxc://example.org/abc" alt=":blobcat:" title=":blobcat:">';
 
-describe("formattedDisplayNameHtml", () => {
+describe("formattedNameHtml", () => {
     it("renders bold, italics and custom emoji matching the plain name", () => {
-        const out = formattedDisplayNameHtml(html(`<b>Cat</b> ${EMOJI} <i>Person</i>`), "Cat :blobcat: Person", toHttp);
+        const out = formattedNameHtml(html(`<b>Cat</b> ${EMOJI} <i>Person</i>`), "Cat :blobcat: Person", toHttp);
         expect(out).toContain("<b>Cat</b>");
         expect(out).toContain("<i>Person</i>");
         expect(out).toContain('src="https://media.example/example.org/abc"');
@@ -22,12 +22,26 @@ describe("formattedDisplayNameHtml", () => {
     });
 
     it("ignores a formatted name whose text isn't the plain name", () => {
-        expect(formattedDisplayNameHtml(html("<b>Admin</b>"), "Alice", toHttp)).toBeUndefined();
-        expect(formattedDisplayNameHtml(html(EMOJI), "Cat", toHttp)).toBeUndefined();
+        expect(formattedNameHtml(html("<b>Admin</b>"), "Alice", toHttp)).toBeUndefined();
+        expect(formattedNameHtml(html(EMOJI), "Cat", toHttp)).toBeUndefined();
+    });
+
+    it("compares with whitespace normalized on both sides", () => {
+        expect(formattedNameHtml(html(`<b>Cat</b>  ${EMOJI} `), "Cat :blobcat:", toHttp)).toBeDefined();
+        expect(formattedNameHtml(html(`Cat ${EMOJI}`), " Cat\t:blobcat:  ", toHttp)).toBeDefined();
+        // Still no match when the words differ, not just the spacing.
+        expect(formattedNameHtml(html(`Cat${EMOJI}`), "Cat :blobcat:", toHttp)).toBeUndefined();
+    });
+
+    it("lets an emoji with an empty alt stay out of the plain name", () => {
+        const empty = '<img data-mx-emoticon src="mxc://example.org/abc" alt="" title=":blobcat:">';
+        const out = formattedNameHtml(html(`Cat ${empty} Person`), "Cat Person", toHttp);
+        expect(out).toContain('title=":blobcat:"');
+        expect(formattedNameHtml(html(`${empty} Cat Person`), "Cat Person", toHttp)).toBeDefined();
     });
 
     it("strips tags and attributes that aren't permitted", () => {
-        const out = formattedDisplayNameHtml(
+        const out = formattedNameHtml(
             html('<a href="https://evil.example"><b onclick="x()">Al</b></a><span data-mx-color="#f00">ice</span>'),
             "Alice",
             toHttp,
@@ -36,42 +50,36 @@ describe("formattedDisplayNameHtml", () => {
     });
 
     it("drops script content into the text check rather than running it", () => {
-        expect(formattedDisplayNameHtml(html("<script>alert(1)</script>Bob"), "Bob", toHttp)).toBeUndefined();
-        expect(formattedDisplayNameHtml(html("<img src=x onerror=alert(1) alt=Bob>"), "Bob", toHttp)).toBe("Bob");
+        expect(formattedNameHtml(html("<script>alert(1)</script>Bob"), "Bob", toHttp)).toBeUndefined();
+        expect(formattedNameHtml(html("<img src=x onerror=alert(1) alt=Bob>"), "Bob", toHttp)).toBe("Bob");
     });
 
     it("shows images that aren't mxc custom emoji as their alt text", () => {
         expect(
-            formattedDisplayNameHtml(
-                html('<img data-mx-emoticon src="https://x.example/a.png" alt=":a:">'),
-                ":a:",
-                toHttp,
-            ),
+            formattedNameHtml(html('<img data-mx-emoticon src="https://x.example/a.png" alt=":a:">'), ":a:", toHttp),
         ).toBe(":a:");
     });
 
     it("enforces the size, image and depth limits", () => {
-        expect(formattedDisplayNameHtml(html("a".repeat(1025)), "a".repeat(1025), toHttp)).toBeUndefined();
-        expect(formattedDisplayNameHtml(html(EMOJI.repeat(11)), ":blobcat:".repeat(11), toHttp)).toBeUndefined();
-        expect(formattedDisplayNameHtml(html(EMOJI.repeat(10)), ":blobcat:".repeat(10), toHttp)).toBeDefined();
+        expect(formattedNameHtml(html("a".repeat(1025)), "a".repeat(1025), toHttp)).toBeUndefined();
+        expect(formattedNameHtml(html(EMOJI.repeat(11)), ":blobcat:".repeat(11), toHttp)).toBeUndefined();
+        expect(formattedNameHtml(html(EMOJI.repeat(10)), ":blobcat:".repeat(10), toHttp)).toBeDefined();
         const deep = "<b>".repeat(11) + "x" + "</b>".repeat(11);
-        expect(formattedDisplayNameHtml(html(deep), "x", toHttp)).toBeUndefined();
+        expect(formattedNameHtml(html(deep), "x", toHttp)).toBeUndefined();
     });
 
     it("ignores other formats and malformed values", () => {
-        expect(
-            formattedDisplayNameHtml({ format: "text/markdown", formatted_body: "**A**" }, "A", toHttp),
-        ).toBeUndefined();
-        expect(formattedDisplayNameHtml("<b>A</b>", "A", toHttp)).toBeUndefined();
-        expect(formattedDisplayNameHtml(html("<b>A</b>"), undefined, toHttp)).toBeUndefined();
+        expect(formattedNameHtml({ format: "text/markdown", formatted_body: "**A**" }, "A", toHttp)).toBeUndefined();
+        expect(formattedNameHtml("<b>A</b>", "A", toHttp)).toBeUndefined();
+        expect(formattedNameHtml(html("<b>A</b>"), undefined, toHttp)).toBeUndefined();
     });
 
     it("escapes text that looks like HTML", () => {
-        expect(formattedDisplayNameHtml(html("&lt;b&gt;x"), "<b>x", toHttp)).toBe("&lt;b&gt;x");
+        expect(formattedNameHtml(html("&lt;b&gt;x"), "<b>x", toHttp)).toBe("&lt;b&gt;x");
     });
 });
 
-describe("formattedDisplayNameHtml against injection", () => {
+describe("formattedNameHtml against injection", () => {
     const tree = (node: Node): unknown =>
         node instanceof Element
             ? [
@@ -123,13 +131,13 @@ describe("formattedDisplayNameHtml against injection", () => {
         ['<b is="x-evil">x</b>', "x"],
     ];
     it.each(ATTACKS)("renders %s inertly", (body, displayname) => {
-        const out = formattedDisplayNameHtml(html(body), displayname, toHttp);
+        const out = formattedNameHtml(html(body), displayname, toHttp);
         expectInert(out);
         if (out !== undefined) expect(out).not.toMatch(/<(?!\/?(b|strong|i|em|u|s|del|img)[\s>/])/i);
     });
 
     it("doesn't use an emoji whose http URL isn't http(s)", () => {
-        const out = formattedDisplayNameHtml(
+        const out = formattedNameHtml(
             html('<img data-mx-emoticon src="mxc://a/b" alt="x">'),
             "x",
             () => "javascript:alert(1)",

@@ -69,6 +69,11 @@ export interface RoomListItemViewSnapshot {
     room: Room;
     /** The name of the room */
     name: string;
+    /**
+     * Haven: the room's formatted name (MSC4591) as safe, already sanitized HTML, shown in place of
+     * `name` when set. `name` stays the tooltip and accessible name.
+     */
+    nameHtml?: string;
     /** Whether the room name should be bolded (has unread/activity) */
     isBold: boolean;
     /** Optional message preview text */

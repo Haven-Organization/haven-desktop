@@ -27,7 +27,7 @@ import { HistoryIcon, UserProfileSolidIcon } from "@vector-im/compound-design-to
 
 import { useRoomName } from "../../../../hooks/useRoomName.ts";
 // Haven: MSC4501 + MSC4589
-import { useProfileRoomNameHtml } from "../../../../../../../../src/apps/social/utils/profileRoomName";
+import { useRoomFormattedNameHtml } from "../../../../../../../../src/apps/framework/formattedDisplayName/formattedRoomName";
 import { useTopic } from "../../../../hooks/room/useTopic.ts";
 import { topicToHtml } from "../../../../HtmlUtils";
 import { RightPanelPhases } from "../../../../stores/right-panel/RightPanelStorePhases.ts";
@@ -443,9 +443,8 @@ export default function RoomHeader({
     const roomBannerHttpUrl = useRoomBanner(sdkContext.client!, room);
     const bannerHttpUrl = showRoomBanner ? roomBannerHttpUrl : null;
     const roomName = useRoomName(room);
-    // Haven: MSC4501 + MSC4589 - a profile room's owner's formatted display name, when linked up
-    // and matching (see profileRoomNameHtml's own doc).
-    const roomNameHtml = useProfileRoomNameHtml(room);
+    // Haven: MSC4591 - the room's formatted name in place of its plain one.
+    const roomNameHtml = useRoomFormattedNameHtml(room, roomName);
     const topic = useTopic(room instanceof LocalRoom ? undefined : room);
     const topicText = topic?.text;
     const joinRule = useRoomState(room, (state) => state.getJoinRule());

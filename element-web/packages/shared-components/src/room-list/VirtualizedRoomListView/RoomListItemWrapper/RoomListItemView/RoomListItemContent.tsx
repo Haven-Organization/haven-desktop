@@ -63,7 +63,11 @@ export const RoomListItemContent = memo(function RoomListItemContent({
                 {/* We truncate the room name when too long. Title here is to show the full name on hover */}
                 <div className={styles.ellipsis}>
                     <div className={styles.roomName} title={item.name} data-testid="room-name">
-                        {item.name}
+                        {item.nameHtml ? (
+                            <span aria-label={item.name} dangerouslySetInnerHTML={{ __html: item.nameHtml }} />
+                        ) : (
+                            item.name
+                        )}
                         {item.userStatus && (
                             <Tooltip description={item.userStatus.text} maxWidth="30ch" maxLines={1}>
                                 <Text as="span" className={styles.userStatusEmoji}>
