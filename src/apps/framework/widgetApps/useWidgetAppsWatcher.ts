@@ -5,7 +5,10 @@
  * app goes too, without asking. When someone else removes it, the app stays, and its page says
  * what happened and offers to put it back (see WidgetAppView.tsx).
  *
- * Checks every widget app once when mounted, which catches removals made while this client was
+ * Also keeps each stored entry in step with its widget when the room changes it (a bridge's new
+ * icon or name), so the spaces bar shows the current look without opening the app first.
+ *
+ * Checks every widget app once when mounted, which catches changes made while this client was
  * closed, then watches for new ones. Mounted once, by SpacePanelAppButtons: SpacePanel stays
  * mounted for the whole session, even while the spaces bar is hidden.
  */
@@ -14,7 +17,14 @@ import { useEffect } from "react";
 import { type MatrixClient, type MatrixEvent, RoomStateEvent, KnownMembership } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
-import { getWidgetAppEntries, getWidgetStateEvent, LEGACY_WIDGET_TYPE, removeWidgetApps } from "./widgetApps";
+import {
+    getWidgetAppEntries,
+    getWidgetStateEvent,
+    LEGACY_WIDGET_TYPE,
+    refreshWidgetAppEntry,
+    removeWidgetApps,
+    WIDGET_STATE_TYPES,
+} from "./widgetApps";
 
 /** Whether this state event is the user removing a widget. */
 export function isOwnRemoval(ev: MatrixEvent | null, me: string): boolean {
@@ -41,14 +51,36 @@ export function useWidgetAppsWatcher(client: MatrixClient): void {
             removeWidgetApps(client, widgets).catch((e) => logger.warn("Couldn't remove a removed widget's app", e));
         };
 
+        // One at a time: each rewrites the whole account data list, so parallel ones could undo each other.
+        let refreshing: Promise<void> = Promise.resolve();
+        const refresh = (roomId: string, widgetId?: string): void => {
+            refreshing = refreshing.then(async () => {
+                const room = client.getRoom(roomId);
+                if (room?.getMyMembership() !== KnownMembership.Join) return;
+                for (const entry of getWidgetAppEntries(client)) {
+                    if (entry.room_id !== roomId || (widgetId !== undefined && entry.widget_id !== widgetId)) continue;
+                    await refreshWidgetAppEntry(client, room, entry).catch((e) =>
+                        logger.warn("Couldn't update a widget app", e),
+                    );
+                }
+            });
+        };
+
         remove(findOwnRemovals(client));
+        for (const roomId of new Set(getWidgetAppEntries(client).map((e) => e.room_id))) refresh(roomId);
 
         const onStateEvent = (ev: MatrixEvent): void => {
             const me = client.getUserId();
-            if (!me || !isOwnRemoval(ev, me)) return;
             const roomId = ev.getRoomId();
+            if (!me || !roomId) return;
+            // A widget changed (not removed): refreshWidgetAppEntry skips entries already in step.
+            if (WIDGET_STATE_TYPES.includes(ev.getType()) && ev.getContent()?.url) {
+                refresh(roomId, ev.getStateKey());
+                return;
+            }
+            if (!isOwnRemoval(ev, me)) return;
             const widgetId = ev.getStateKey();
-            if (!roomId || widgetId === undefined) return;
+            if (widgetId === undefined) return;
             if (getWidgetAppEntries(client).some((e) => e.room_id === roomId && e.widget_id === widgetId)) {
                 remove([{ roomId, widgetId }]);
             }

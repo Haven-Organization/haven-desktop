@@ -16,6 +16,7 @@ import {
     goToRoomLabel,
     LEGACY_WIDGET_TYPE,
     recreateWidget,
+    refreshWidgetAppEntry,
     removeWidgetApp,
     updateWidgetAppEntry,
     WIDGET_APPS_EVENT_TYPE,
@@ -246,6 +247,45 @@ describe("widget apps", () => {
         it("doesn't when it moved to another site", () => {
             const current = { ...entry, content: { ...CONTENT, url: "https://elsewhere.example.com/" } };
             expect(widgetAppConsentCarriesOver(entry, current)).toBe(false);
+        });
+    });
+
+    describe("following the room's changes to the widget", () => {
+        const newIcon = { ...CONTENT, avatar_url: "mxc://example.org/new" };
+
+        it("picks up the bridge's new icon and carries the user's yes over", async () => {
+            await addWidgetApp(client, fake.room, WIDGET_ID);
+            setState(fake, stateEvent(LEGACY_WIDGET_TYPE, newIcon, BRIDGE, "$newer"));
+            await refreshWidgetAppEntry(client, fake.room, getWidgetAppEntries(client)[0]);
+            expect(getWidgetAppEntries(client)[0].content).toEqual(newIcon);
+            expect(allowed.$newer).toBe(true);
+        });
+
+        it("keeps the approved version when someone else rewrote it", async () => {
+            await addWidgetApp(client, fake.room, WIDGET_ID);
+            setState(fake, stateEvent(LEGACY_WIDGET_TYPE, newIcon, "@other:example.org", "$other"));
+            await refreshWidgetAppEntry(client, fake.room, getWidgetAppEntries(client)[0]);
+            expect(getWidgetAppEntries(client)[0].content).toEqual(CONTENT);
+            expect(getWidgetAppEntries(client)[0].sender).toBe(BRIDGE);
+            expect(allowed.$other).toBeUndefined();
+        });
+
+        it("takes someone else's version once the user has allowed it", async () => {
+            await addWidgetApp(client, fake.room, WIDGET_ID);
+            setState(fake, stateEvent(LEGACY_WIDGET_TYPE, newIcon, "@other:example.org", "$other"));
+            allowed = { ...allowed, $other: true };
+            await refreshWidgetAppEntry(client, fake.room, getWidgetAppEntries(client)[0]);
+            expect(getWidgetAppEntries(client)[0].sender).toBe("@other:example.org");
+        });
+
+        it("takes the user's own changes", async () => {
+            await addWidgetApp(client, fake.room, WIDGET_ID);
+            setState(
+                fake,
+                stateEvent(LEGACY_WIDGET_TYPE, { ...newIcon, url: "https://elsewhere.example.com/" }, ME, "$mine"),
+            );
+            await refreshWidgetAppEntry(client, fake.room, getWidgetAppEntries(client)[0]);
+            expect(getWidgetAppEntries(client)[0].sender).toBe(ME);
         });
     });
 

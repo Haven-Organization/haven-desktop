@@ -43,18 +43,14 @@ import { WidgetPopoutStore } from "../widgetPopout/WidgetPopoutStore";
 import { showPopoutRefusedDialog } from "../widgetPopout/WidgetPoppedOut";
 import {
     canRecreateWidget,
-    entryForCurrentWidget,
-    entryMatches,
-    getWidgetStateEvent,
     noteWidgetAppOpen,
     recreateWidget,
+    refreshWidgetAppEntry,
     removeWidgetApp,
-    updateWidgetAppEntry,
     useWidgetAppEntries,
     widgetAppId,
     type WidgetAppEntry,
 } from "./widgetApps";
-import { allowWidgetEvent, isWidgetEventAllowed, widgetAppConsentCarriesOver } from "./widgetConsent";
 import { widgetAppName } from "./widgetAppRegistry";
 import { AppPageOptionsMenu } from "../components/AppPageOptionsMenu";
 
@@ -94,29 +90,11 @@ function useWidgetAppStatus(client: MatrixClient, roomId: string, widgetId: stri
     return status;
 }
 
-/**
- * Keeps the stored entry in step with the widget while the room has it, so "Add it back" restores
- * its latest version. A bridge rewriting its widget makes a new state event, which Element would
- * ask about loading again; when the same account set it from the same site, the user's earlier yes
- * still applies (widgetConsent.ts).
- */
+/** Keeps the stored entry in step with the widget while the room has it (refreshWidgetAppEntry). */
 function useRefreshEntry(client: MatrixClient, status: WidgetAppStatus, entry: WidgetAppEntry | undefined): void {
     useEffect(() => {
         if (status.kind !== "available" || !entry) return;
-        const current = entryForCurrentWidget(status.room, entry.widget_id);
-        if (!current) return;
-        const eventId = getWidgetStateEvent(status.room, entry.widget_id)?.getId();
-        void (async (): Promise<void> => {
-            if (
-                eventId &&
-                current.sender !== client.getUserId() &&
-                !isWidgetEventAllowed(entry.room_id, eventId) &&
-                widgetAppConsentCarriesOver(entry, current)
-            ) {
-                await allowWidgetEvent(entry.room_id, eventId);
-            }
-            if (!entryMatches(entry, current)) await updateWidgetAppEntry(client, current);
-        })().catch((e) => logger.warn("Couldn't update a widget app", e));
+        refreshWidgetAppEntry(client, status.room, entry).catch((e) => logger.warn("Couldn't update a widget app", e));
     }, [client, status, entry]);
 }
 

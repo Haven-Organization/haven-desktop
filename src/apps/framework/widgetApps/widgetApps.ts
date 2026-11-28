@@ -22,7 +22,7 @@ import { useEffect, useState } from "react";
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
 import { setAppPinned } from "../pinnedApps";
-import { allowWidgetEvent } from "./widgetConsent";
+import { allowWidgetEvent, isWidgetEventAllowed, widgetAppConsentCarriesOver } from "./widgetConsent";
 
 export const WIDGET_APPS_EVENT_TYPE = "software.haven.widget_apps";
 
@@ -30,7 +30,7 @@ export const WIDGET_APPS_EVENT_TYPE = "software.haven.widget_apps";
 export const LEGACY_WIDGET_TYPE = "im.vector.modular.widgets";
 /** The newer type some bridges also write. Element doesn't read it, but "Add it back" restores it. */
 export const WIDGET_TYPE = "m.widget";
-const WIDGET_STATE_TYPES = [LEGACY_WIDGET_TYPE, WIDGET_TYPE];
+export const WIDGET_STATE_TYPES = [LEGACY_WIDGET_TYPE, WIDGET_TYPE];
 
 const WAIT_TIME_MS = 20000;
 
@@ -190,6 +190,27 @@ export async function updateWidgetAppEntry(client: MatrixClient, entry: WidgetAp
         entries.map((e) => (sameWidget(e, entry.room_id, entry.widget_id) ? entry : e)),
         (now) => now.some((e) => sameWidget(e, entry.room_id, entry.widget_id) && entryMatches(e, entry)),
     );
+}
+
+/**
+ * Brings a stored entry in step with the widget as the room has it now (new icon, name, URL...),
+ * so the apps list shows its current look and "Add it back" restores its latest version.
+ *
+ * A bridge rewriting its widget makes a new state event, which Element would ask about loading
+ * again. When the same account set it from the same site, the user's earlier yes still applies
+ * (widgetConsent.ts). Otherwise the entry keeps its last approved version until the user allows
+ * the new one, so a different account's rewrite never inherits the user's yes through it.
+ */
+export async function refreshWidgetAppEntry(client: MatrixClient, room: Room, entry: WidgetAppEntry): Promise<void> {
+    const current = entryForCurrentWidget(room, entry.widget_id);
+    if (!current || entryMatches(entry, current)) return;
+    const eventId = getWidgetStateEvent(room, entry.widget_id)?.getId();
+    if (!eventId) return;
+    if (current.sender !== client.getUserId() && !isWidgetEventAllowed(entry.room_id, eventId)) {
+        if (!widgetAppConsentCarriesOver(entry, current)) return;
+        await allowWidgetEvent(entry.room_id, eventId);
+    }
+    await updateWidgetAppEntry(client, current);
 }
 
 /** The widget app whose page is open, if any (set by WidgetAppView). */
