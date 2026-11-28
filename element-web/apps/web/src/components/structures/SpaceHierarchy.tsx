@@ -85,6 +85,12 @@ import { getDisplayAliasForAliasSet } from "../../Rooms";
 import { filterBoolean } from "../../utils/arrays.ts";
 import { type RoomViewStore } from "../../stores/RoomViewStore.tsx";
 import RoomContext from "../../contexts/RoomContext.ts";
+// Haven: MSC4591 formatted room names
+import {
+    getRawFormattedRoomName,
+    getRoomFormattedNameHtml,
+} from "../../../../../../src/apps/framework/formattedDisplayName/formattedRoomName";
+import { renderFormattedName } from "../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
 
 interface IProps {
     space: Room;
@@ -147,6 +153,14 @@ const Tile = React.forwardRef<HTMLLIElement, ITileProps>(function Tile(
         room.canonical_alias ||
         room.aliases?.[0] ||
         (room.room_type === RoomType.Space ? _t("common|unnamed_space") : _t("common|unnamed_room"));
+
+    // Haven: MSC4591 - the formatted room name, from the room itself once joined, else from the
+    // hierarchy's own entry for it, which servers may include.
+    const nameHtml = joinedRoom
+        ? getRoomFormattedNameHtml(joinedRoom, name)
+        : room.name === name
+          ? renderFormattedName(getRawFormattedRoomName(room as unknown as Record<string, unknown>), name)
+          : undefined;
 
     const [showChildren, toggleShowChildren, setShowChildren] = useStateToggle(!forceCollapsed);
     // Haven: collapse a subspace the moment it starts being dragged, and leave it collapsed
@@ -330,7 +344,11 @@ const Tile = React.forwardRef<HTMLLIElement, ITileProps>(function Tile(
             <div className="mx_SpaceHierarchy_roomTile_item">
                 <div className="mx_SpaceHierarchy_roomTile_avatar">{avatar}</div>
                 <div className="mx_SpaceHierarchy_roomTile_name">
-                    <span id={checkboxLabelId}>{name}</span>
+                    {nameHtml ? (
+                        <span id={checkboxLabelId} aria-label={name} dangerouslySetInnerHTML={{ __html: nameHtml }} />
+                    ) : (
+                        <span id={checkboxLabelId}>{name}</span>
+                    )}
                     {joinedSection}
                     {suggestedSection}
                 </div>
