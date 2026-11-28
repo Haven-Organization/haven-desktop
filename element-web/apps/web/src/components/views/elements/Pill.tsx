@@ -20,7 +20,11 @@ import MemberAvatar from "../avatars/MemberAvatar";
 import { _t } from "../../../languageHandler";
 import { PillType } from "./PillType";
 // Haven: MSC4589 formatted display names
-import { getMemberFormattedDisplayNameHtml } from "../../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
+import {
+    formattedNamesEnabled,
+    getMemberFormattedDisplayNameHtml,
+} from "../../../../../../../src/apps/framework/formattedDisplayName/formattedDisplayName";
+import { useLiveUserProfile } from "../../../../../../../src/apps/social/utils/liveUserProfile";
 
 const linkIcon = <LinkIcon className="mx_Pill_LinkIcon mx_BaseAvatar" />;
 
@@ -92,6 +96,12 @@ export const Pill: React.FC<PillProps> = ({
     const text = customPillText ?? linkText;
     // Only user pills show a status
     const userStatus = useUserStatus(type === PillType.UserMention && resourceId !== null ? resourceId : undefined);
+    // Haven: the user's global profile, for a formatted display name their member event lacks.
+    const profileUserId =
+        type === PillType.UserMention && !customPillText && member && formattedNamesEnabled()
+            ? member.userId
+            : undefined;
+    const liveProfile = useLiveUserProfile(cli, profileUserId);
 
     if (!type || !text) {
         return null;
@@ -150,7 +160,7 @@ export const Pill: React.FC<PillProps> = ({
     // Haven: MSC4589 formatted display name on a user pill showing the user's own plain name.
     const pillHtml =
         type === PillType.UserMention && !customPillText && member && pillText === member.rawDisplayName
-            ? getMemberFormattedDisplayNameHtml(member)
+            ? getMemberFormattedDisplayNameHtml(member, liveProfile)
             : undefined;
 
     const pillContent = (
