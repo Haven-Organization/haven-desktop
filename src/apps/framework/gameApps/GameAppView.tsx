@@ -10,12 +10,9 @@
 
 import React, { type JSX, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ClientEvent, type MatrixClient, type MatrixEvent, RoomEvent, SyncState } from "matrix-js-sdk/src/matrix";
-import { logger } from "matrix-js-sdk/src/logger";
 import { PopOutIcon } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import AccessibleButton from "../../../../element-web/apps/web/src/components/views/elements/AccessibleButton";
-import Modal from "../../../../element-web/apps/web/src/Modal";
-import ErrorDialog from "../../../../element-web/apps/web/src/components/views/dialogs/ErrorDialog";
 import { useMatrixClientContext } from "../../../../element-web/apps/web/src/contexts/MatrixClientContext";
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
@@ -25,7 +22,8 @@ import {
     type WebxdcGameControl,
 } from "../../../../element-web/apps/web/src/components/views/messages/WebxdcGame";
 import { AppPageOptionsMenu } from "../components/AppPageOptionsMenu";
-import { gameAppId, noteGameAppOpen, removeGameApp, useGameAppEntries, type GameAppEntry } from "./gameApps";
+import { gameAppId, noteGameAppOpen, useGameAppEntries, type GameAppEntry } from "./gameApps";
+import { confirmRemoveFromApps } from "../removeFromApps";
 import { fetchGameEvent, isGameEvent, isInRoom } from "./gameEvent";
 import { GameControllerIcon } from "./GameControllerIcon";
 import { popOutGameApp } from "./popOutGameApp";
@@ -176,14 +174,8 @@ export function GameAppView({ roomId, eventId }: Props): JSX.Element | null {
     }, [entry]);
 
     const onRemove = useCallback(() => {
-        removeGameApp(client, roomId, eventId).catch((e) => {
-            logger.error("Couldn't remove a game app", e);
-            Modal.createDialog(ErrorDialog, {
-                title: "Couldn't remove the game from Apps",
-                description: "Check your connection and try again.",
-            });
-        });
-    }, [client, roomId, eventId]);
+        void confirmRemoveFromApps(client, gameAppId(roomId, eventId), entry?.name ?? "this game");
+    }, [client, roomId, eventId, entry?.name]);
 
     if (!entry) return null;
 
@@ -228,7 +220,7 @@ export function GameAppView({ roomId, eventId }: Props): JSX.Element | null {
             </div>
             <div className="haven_WidgetAppView_body haven_GameAppView_body">
                 {status.kind === "ready" ? (
-                    <WebxdcGame mxEvent={status.event} appMode controlRef={game} />
+                    <WebxdcGame mxEvent={status.event} appMode controlRef={game} appId={gameAppId(roomId, eventId)} />
                 ) : status.kind === "loading" ? null : (
                     <Unavailable status={status} entry={entry} onRemove={onRemove} />
                 )}

@@ -21,6 +21,7 @@ import { setPendingViewUserId } from "../utils/pendingViewUser";
 import { SOCIAL_HOME_ACTION } from "../homeAction";
 import socialIcon from "../assets/social-icon.png";
 import { isAppEnabled } from "../../framework/config";
+import { useAppPreferences } from "../../framework/appPreferences";
 
 interface Props {
     userId: string;
@@ -29,6 +30,7 @@ interface Props {
 export function SocialProfileButton({ userId }: Props): JSX.Element | null {
     const client = useMatrixClientContext();
     const [profileRoomId, setProfileRoomId] = useState<string | null>(null);
+    const appPrefs = useAppPreferences(client);
 
     useEffect(() => {
         let cancelled = false;
@@ -47,6 +49,8 @@ export function SocialProfileButton({ userId }: Props): JSX.Element | null {
     // there, so this needs its own isAppEnabled check rather than relying on some other Social
     // component further down the line to catch it.
     if (!isAppEnabled("social")) return null;
+    // Nor when the user turned Social off, or all apps (Settings > Apps).
+    if (appPrefs.disabled || appPrefs.hidden.includes("social")) return null;
 
     if (!profileRoomId || !PROFILE_ROOM_ID_PATTERN.test(profileRoomId)) return null;
 

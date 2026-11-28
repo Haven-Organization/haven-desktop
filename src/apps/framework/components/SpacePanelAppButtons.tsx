@@ -10,12 +10,14 @@
  * element-web's "always selected" avatar-placeholder styling.
  */
 
-import React, { type JSX, useCallback } from "react";
+import React, { type JSX, useCallback, useEffect } from "react";
 import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { useContextMenu, toRightOf } from "../../../../element-web/apps/web/src/components/structures/ContextMenu";
 import { getLaunchableApps } from "../registry";
+import { useAppPreferences } from "../appPreferences";
+import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
 import { usePinnedAppIds } from "../pinnedApps";
 import { useWidgetAppEntries } from "../widgetApps/widgetApps";
 import { useGameAppEntries } from "../gameApps/gameApps";
@@ -88,8 +90,16 @@ export function SpacePanelAppButtons({ client, isPanelCollapsed }: Props): JSX.E
     // Re-render when the user's widget apps change: they're part of getLaunchableApps.
     useWidgetAppEntries(client);
     useGameAppEntries(client); // and their game apps
+    // And when the user hides apps or turns them off (Settings > Apps).
+    const appPrefs = useAppPreferences(client);
     // Here because SpacePanel stays mounted all session, even while the spaces bar is hidden.
     useWidgetAppsWatcher(client);
+
+    // An app the user hides or turns off while it's open (here or on another device) closes.
+    const activeAppHidden = !!activeAppId && (appPrefs.disabled || appPrefs.hidden.includes(activeAppId));
+    useEffect(() => {
+        if (activeAppHidden) defaultDispatcher.dispatch({ action: Action.ViewHomePage });
+    }, [activeAppHidden]);
 
     const enabledApps = getLaunchableApps();
     const pinnedApps = enabledApps.filter((app) => pinnedIds.includes(app.id));
@@ -112,6 +122,10 @@ export function SpacePanelAppButtons({ client, isPanelCollapsed }: Props): JSX.E
                     isActive={app.id === activeAppId}
                 />
             ))}
+            {/* The divider between the apps and the spaces below, gone along with the Apps button
+                when there's nothing to launch (see AppsButton's own identical check). Rendered
+                here, not in SpacePanel, so it follows changes to the user's apps. */}
+            {enabledApps.length > 0 && <li className="haven_SpacePanel_divider" role="none" aria-hidden="true" />}
         </>
     );
 }

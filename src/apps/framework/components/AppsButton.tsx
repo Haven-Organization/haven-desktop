@@ -18,6 +18,7 @@ import { useContextMenu, toRightOf } from "../../../../element-web/apps/web/src/
 import { AppsGridIcon } from "../icons/AppsGridIcon";
 import { AppsPickerModal } from "./AppsPickerModal";
 import { getLaunchableApps } from "../registry";
+import { useAppPreferences } from "../appPreferences";
 import { useWidgetAppEntries } from "../widgetApps/widgetApps";
 import { useGameAppEntries } from "../gameApps/gameApps";
 
@@ -34,6 +35,7 @@ export function AppsButton({ client, variant, isPanelCollapsed }: Props): JSX.El
     const [menuDisplayed, handle, openMenu, closeMenu] = useContextMenu<HTMLButtonElement>();
     useWidgetAppEntries(client); // re-render when the user's widget apps change
     useGameAppEntries(client); // and their game apps
+    useAppPreferences(client); // and when the user hides apps or turns them off
     if (getLaunchableApps().length === 0) return null;
 
     const popup = menuDisplayed && handle.current && (

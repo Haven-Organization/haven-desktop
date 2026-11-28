@@ -55,7 +55,7 @@ import EmojiStickersUserSettingsTab from "../settings/tabs/user/EmojiStickersUse
 // haven apps-framework patch
 import AppsUserSettingsTab from "../settings/tabs/user/AppsUserSettingsTab";
 import { AppsGridIcon } from "../../../../../../../src/apps/framework/icons/AppsGridIcon";
-import { getEnabledApps } from "../../../../../../../src/apps/framework/registry";
+import { anyAppsAllowedByHost } from "../../../../../../../src/apps/framework/registry";
 import {
     type NavigationGuard,
     type NavigationGuardRef,
@@ -276,11 +276,12 @@ export default function UserSettingsDialog(props: IProps): JSX.Element {
             );
         }
 
-        // haven apps-framework patch: hidden entirely (not just its own "Settings" buttons - see
-        // AppsUserSettingsTab.tsx) when every app is disabled via the "haven.apps" config block,
-        // rather than showing an empty list nobody can do anything with. Always sits directly
+        // haven apps-framework patch: hidden entirely when the "haven.apps" config block allows no
+        // apps of any kind (built-in, widgets or games), rather than showing an empty list nobody
+        // can do anything with. Still shown when the user turned apps off themselves, since this
+        // tab is where they turn them back on. Always sits directly
         // above Help & About, regardless of whether Labs/Mjolnir above are shown.
-        if (getEnabledApps().length > 0) {
+        if (anyAppsAllowedByHost()) {
             tabs.push(
                 new Tab(
                     UserTab.Apps,

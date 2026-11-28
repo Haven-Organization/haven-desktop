@@ -83,7 +83,6 @@ import { useMatrixClientContext } from "../../../contexts/MatrixClientContext.ts
 import { SpacePanelAppButtons } from "../../../../../../../src/apps/framework/components/SpacePanelAppButtons";
 import { AppsButton } from "../../../../../../../src/apps/framework/components/AppsButton";
 import { useActiveAppId } from "../../../../../../../src/apps/framework/hooks/useActiveAppId";
-import { getLaunchableApps } from "../../../../../../../src/apps/framework/registry";
 import { KeyboardShortcut } from "../settings/KeyboardShortcut";
 import { ModuleApi } from "../../../modules/Api.ts";
 import { useModuleSpacePanelItems } from "../../../modules/ExtrasApi.ts";
@@ -427,15 +426,10 @@ const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
                 aria-label={_t("common|spaces")}
                 onClickCapture={handleMetaSpaceClickCapture}
             >
-                {/* haven apps-framework patch: Apps launcher button, then pinned/open app buttons,
-                    above Home - both the button and its divider disappear together when there's
-                    nothing to launch (see AppsButton's own identical check), rather than leaving a
-                    divider with nothing above it to separate from the spaces below. */}
+                {/* haven apps-framework patch: Apps launcher button, then pinned/open app buttons and
+                    their divider, above Home - all gone together when there's nothing to launch. */}
                 <AppsButton client={client} variant="spacebar" isPanelCollapsed={isPanelCollapsed} />
                 <SpacePanelAppButtons client={client} isPanelCollapsed={isPanelCollapsed} />
-                {getLaunchableApps().length > 0 && (
-                    <li className="haven_SpacePanel_divider" role="none" aria-hidden="true" />
-                )}
                 {deselectedMetaSpacesSection}
                 {invites.map((s) => (
                     <SpaceItem

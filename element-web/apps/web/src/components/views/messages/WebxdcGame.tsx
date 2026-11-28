@@ -47,6 +47,8 @@ import {
 } from "../../../utils/webxdc";
 import { WebxdcSession, type WebxdcSessionProblem } from "../../../utils/WebxdcSession";
 import { FlashPlayerError, isFlashFile, readFlashArchive } from "../../../utils/flash";
+// Haven: the device cache of game apps' files
+import { getCachedGameFile } from "../../../../../../../src/apps/framework/gameApps/gameFileCache";
 import { WEBXDC_IFRAME_ALLOW, webxdcFrameSandbox, WebxdcPopoutStore } from "../../../utils/WebxdcPopoutStore";
 import { WebxdcCartridge } from "./WebxdcCartridge";
 import { PopInIcon, SaveGameIcon } from "./WebxdcIcons";
@@ -174,9 +176,11 @@ interface Props {
      */
     appMode?: boolean;
     controlRef?: Ref<WebxdcGameControl>;
+    /** Haven: the game app this is shown as, whose file is kept in the device cache (gameFileCache.ts). */
+    appId?: string;
 }
 
-export function WebxdcGame({ mxEvent, mediaEventHelper, className, appMode, controlRef }: Props): JSX.Element {
+export function WebxdcGame({ mxEvent, mediaEventHelper, className, appMode, controlRef, appId }: Props): JSX.Element {
     const [mediaVisible] = useMediaVisible(mxEvent);
     const ownHelper = useMemo(
         () => (mediaEventHelper ? undefined : new MediaEventHelper(mxEvent)),
@@ -221,7 +225,9 @@ export function WebxdcGame({ mxEvent, mediaEventHelper, className, appMode, cont
             // A failed download stays failed in the helper, so a retry downloads afresh.
             const source = downloadFailed.current ? new MediaEventHelper(mxEvent) : helper;
             try {
-                blob = await source.sourceBlob.value;
+                blob = appId
+                    ? await getCachedGameFile(mxEvent, appId, () => source.sourceBlob.value)
+                    : await source.sourceBlob.value;
             } catch (e) {
                 downloadFailed.current = true;
                 logger.warn("webxdc: could not download the game", e);

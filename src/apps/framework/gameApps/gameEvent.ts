@@ -8,7 +8,8 @@ import { logger } from "matrix-js-sdk/src/logger";
 import { MediaEventHelper } from "../../../../element-web/apps/web/src/utils/MediaEventHelper";
 import { readWebxdcArchive, type WebxdcArchive } from "../../../../element-web/apps/web/src/utils/webxdc";
 import { isFlashFile, isGameFile, readFlashArchive } from "../../../../element-web/apps/web/src/utils/flash";
-import { type GameAppEntry } from "./gameApps";
+import { gameAppId, type GameAppEntry } from "./gameApps";
+import { getCachedGameFile } from "./gameFileCache";
 
 export function isInRoom(client: MatrixClient, roomId: string): boolean {
     return client.getRoom(roomId)?.getMyMembership() === KnownMembership.Join;
@@ -55,7 +56,11 @@ export function isGameEvent(event: MatrixEvent): boolean {
 export async function readGameArchive(event: MatrixEvent, entry: GameAppEntry): Promise<WebxdcArchive | undefined> {
     const helper = new MediaEventHelper(event);
     try {
-        const blob = await helper.sourceBlob.value;
+        const blob = await getCachedGameFile(
+            event,
+            gameAppId(entry.room_id, entry.event_id),
+            () => helper.sourceBlob.value,
+        );
         return isFlashFile(event.getContent())
             ? await readFlashArchive(blob, entry.name)
             : await readWebxdcArchive(blob);

@@ -13,10 +13,12 @@
 
 import { ClientEvent, type MatrixClient, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { useEffect, useState } from "react";
+import { logger } from "matrix-js-sdk/src/logger";
 
 import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/dispatcher";
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
 import { setAppPinned } from "../pinnedApps";
+import { forgetGameApps } from "./gameFileCache";
 
 export const GAME_APPS_EVENT_TYPE = "software.haven.game_apps";
 
@@ -158,6 +160,8 @@ export async function removeGameApp(client: MatrixClient, roomId: string, eventI
         );
     }
     await setAppPinned(client, gameAppId(roomId, eventId), false);
+    // Its file goes from the device cache too, unless another of the user's games uses it.
+    await forgetGameApps([gameAppId(roomId, eventId)]).catch((e) => logger.warn("Couldn't uncache a game", e));
 }
 
 /** Live list of the user's game apps, kept in sync with account data across devices. */

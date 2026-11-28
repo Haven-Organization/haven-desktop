@@ -46,12 +46,12 @@ import {
     noteWidgetAppOpen,
     recreateWidget,
     refreshWidgetAppEntry,
-    removeWidgetApp,
     useWidgetAppEntries,
     widgetAppId,
     type WidgetAppEntry,
 } from "./widgetApps";
 import { widgetAppName } from "./widgetAppRegistry";
+import { confirmRemoveFromApps } from "../removeFromApps";
 import { AppPageOptionsMenu } from "../components/AppPageOptionsMenu";
 
 import { getWidgetAppStatus, type WidgetAppStatus } from "./widgetAppStatus";
@@ -253,19 +253,12 @@ export function WidgetAppView({ roomId, widgetId }: Props): JSX.Element | null {
         if (!entry) defaultDispatcher.dispatch({ action: Action.ViewHomePage });
     }, [entry]);
 
-    const onRemove = useCallback(() => {
-        removeWidgetApp(client, roomId, widgetId).catch((e) => {
-            logger.error("Couldn't remove a widget app", e);
-            Modal.createDialog(ErrorDialog, {
-                title: "Couldn't remove the widget from Apps",
-                description: "Check your connection and try again.",
-            });
-        });
-    }, [client, roomId, widgetId]);
-
     if (!entry) return null;
 
     const widgetName = status.kind === "available" ? WidgetUtils.getWidgetName(status.app) : widgetAppName(entry);
+    const onRemove = (): void => {
+        void confirmRemoveFromApps(client, widgetAppId(roomId, widgetId), widgetName);
+    };
     const roomName = status.room?.name ?? entry.room_name ?? "its room";
 
     return (

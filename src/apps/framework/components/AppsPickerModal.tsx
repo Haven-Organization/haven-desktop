@@ -19,6 +19,7 @@ import ContextMenu, {
     toRightOf,
 } from "../../../../element-web/apps/web/src/components/structures/ContextMenu";
 import { getLaunchableApps } from "../registry";
+import { useAppPreferences } from "../appPreferences";
 import { usePinnedAppIds } from "../pinnedApps";
 import { useWidgetAppEntries } from "../widgetApps/widgetApps";
 import { useGameAppEntries } from "../gameApps/gameApps";
@@ -79,6 +80,7 @@ export function AppsPickerModal({ client, onFinished, ...props }: Props): JSX.El
     const pinnedIds = usePinnedAppIds(client);
     useWidgetAppEntries(client); // re-render when the user's widget apps change
     useGameAppEntries(client); // and their game apps
+    useAppPreferences(client); // and when the user hides apps or turns them off
 
     return (
         <ContextMenu

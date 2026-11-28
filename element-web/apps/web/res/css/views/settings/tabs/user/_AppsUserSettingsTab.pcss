@@ -48,3 +48,34 @@
     text-overflow: ellipsis;
     min-width: 0;
 }
+
+.mx_AppsUserSettingsTab_appList {
+    margin-top: var(--cpd-space-4x);
+}
+
+/* Apps turned off: every row greyed out, its controls disabled. */
+.mx_AppsUserSettingsTab_appList_disabled .mx_AppsUserSettingsTab_appRow {
+    opacity: 0.5;
+}
+
+.mx_AppsUserSettingsTab_appText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.mx_AppsUserSettingsTab_appOrigin {
+    font: var(--cpd-font-body-sm-regular);
+    color: var(--cpd-color-text-secondary);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.mx_AppsUserSettingsTab_cacheRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--cpd-space-3x);
+}

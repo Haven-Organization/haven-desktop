@@ -19,10 +19,11 @@ import defaultDispatcher from "../../../../element-web/apps/web/src/dispatcher/d
 import { Action } from "../../../../element-web/apps/web/src/dispatcher/actions";
 import { type ViewRoomPayload } from "../../../../element-web/apps/web/src/dispatcher/payloads/ViewRoomPayload";
 import { setAppPinned } from "../pinnedApps";
-import { findWidgetAppEntryByAppId, goToRoomLabel, removeWidgetApp } from "../widgetApps/widgetApps";
+import { findWidgetAppEntryByAppId, goToRoomLabel } from "../widgetApps/widgetApps";
 import { type HavenApp } from "../types";
 import { canPopOutApp, popOutApp } from "../appPopout/popOutApp";
-import { findGameAppEntryByAppId, removeGameApp } from "../gameApps/gameApps";
+import { findGameAppEntryByAppId } from "../gameApps/gameApps";
+import { confirmRemoveFromApps } from "../removeFromApps";
 import { isInRoom } from "../gameApps/gameEvent";
 
 interface Props extends IContextMenuProps {
@@ -92,7 +93,7 @@ export function AppContextMenu({ app, client, pinned, hideHeader, onFinished, ..
                         isDestructive
                         onClick={() => {
                             onFinished();
-                            void removeWidgetApp(client, widgetEntry.room_id, widgetEntry.widget_id);
+                            void confirmRemoveFromApps(client, app.id, app.name);
                         }}
                     />
                 </IconizedContextMenuOptionList>
@@ -120,7 +121,7 @@ export function AppContextMenu({ app, client, pinned, hideHeader, onFinished, ..
                         isDestructive
                         onClick={() => {
                             onFinished();
-                            void removeGameApp(client, gameEntry.room_id, gameEntry.event_id);
+                            void confirmRemoveFromApps(client, app.id, app.name);
                         }}
                     />
                 </IconizedContextMenuOptionList>
