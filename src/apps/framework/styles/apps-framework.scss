@@ -886,8 +886,11 @@
             border-radius: 0;
         }
 
+        // Edge to edge here, so the name needs the same space on its left as the buttons have
+        // on their right.
         .mx_WebxdcGame_bar {
             border-radius: 0;
+            padding-inline-start: var(--cpd-space-3x);
         }
     }
 }
